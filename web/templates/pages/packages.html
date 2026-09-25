@@ -1,0 +1,77 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Passes & Billing - STMS{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="font-display text-2xl font-bold text-white">Membership Packages & Passes</h1>
+            <p class="text-xs text-slate-400 mt-1">Pre-configured passes with automated floor credit check-in deduction.</p>
+        </div>
+        <button onclick="document.getElementById('assign-pass-modal').classList.remove('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+            💳 Assign Pass to Student
+        </button>
+    </div>
+
+    <!-- Package Templates Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {{range .Templates}}
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-bold text-emerald-400 tracking-wider">Pass Template</span>
+                <span class="font-display font-extrabold text-2xl text-white">${{printf "%.2f" .Price}}</span>
+            </div>
+            <h3 class="font-display font-bold text-lg text-white">{{.Title}}</h3>
+
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">Total Credits:</span>
+                    {{if .SessionCount}}
+                    <span class="text-white font-bold">{{.SessionCount}} Sessions</span>
+                    {{else}}
+                    <span class="text-teal-300 font-bold">Unlimited Membership ♾️</span>
+                    {{end}}
+                </div>
+                <div class="flex justify-between border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">Validity Period:</span>
+                    <span class="text-white font-bold">{{.ValidityDays}} Days</span>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<!-- Modal: Assign Pass to Student -->
+<div id="assign-pass-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
+    <div class="glass-panel p-6 rounded-2xl max-w-md w-full space-y-4 border border-slate-700">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="font-display font-bold text-lg text-white">Assign Package Pass</h3>
+            <button onclick="document.getElementById('assign-pass-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+        </div>
+        <form action="/packages/assign" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Select Student</label>
+                <select name="student_id" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                    {{range .Students}}
+                    <option value="{{.ID}}">{{.FullName}} ({{.CurrentBelt}})</option>
+                    {{end}}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Select Pass Template</label>
+                <select name="template_id" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                    {{range .Templates}}
+                    <option value="{{.ID}}">{{.Title}} - ${{printf "%.2f" .Price}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="document.getElementById('assign-pass-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950">Confirm Purchase & Assign</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

@@ -1,0 +1,254 @@
+{{template "layout.html" .}}
+
+{{define "title"}}{{.Student.FullName}} - Student Profile & Ability Matrix{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Back & Header -->
+    <div class="flex items-center justify-between">
+        <a href="/students" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-semibold">
+            &larr; Back to Student Directory
+        </a>
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-200 border border-slate-700">
+                Belt: {{.Student.CurrentBelt}}
+            </span>
+            {{if eq .Readiness.Status "READY"}}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                🟢 READY FOR PROMOTION
+            </span>
+            {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-950 text-amber-300 border border-amber-800">
+                🟡 PRE-TEST ELIGIBLE
+            </span>
+            {{else}}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-950 text-rose-300 border border-rose-800">
+                🔴 DEVELOPING
+            </span>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Student Top Profile Summary -->
+    <div class="glass-panel p-6 rounded-2xl border border-slate-800">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-slate-950 font-display font-extrabold text-2xl">
+                    {{.Student.FullName}}
+                </div>
+                <div>
+                    <h1 class="font-display font-bold text-2xl text-white">{{.Student.FullName}}</h1>
+                    <p class="text-xs text-slate-400 mt-1">Age: {{.Student.Age}} &bull; Phone: {{.Student.Phone}} &bull; Last Promotion: {{.Student.DaysInCurrentRank}} days ago</p>
+                </div>
+            </div>
+
+            <!-- Emergency Safety Card -->
+            <div class="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-1">
+                <span class="text-xs uppercase font-bold text-rose-400 tracking-wider">Emergency Contact & Medical</span>
+                <div class="text-xs text-slate-200 font-semibold">
+                    {{.Student.EmergencyName}} ({{.Student.EmergencyRelation}}) &bull; <span class="font-mono text-emerald-400">{{.Student.EmergencyPhone}}</span>
+                </div>
+                {{if .Student.MedicalNotes}}
+                <div class="text-xs text-amber-300 bg-amber-950/60 p-1.5 rounded border border-amber-800/60 mt-1">
+                    🩺 {{.Student.MedicalNotes}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout: Left Radar Chart & Eval Form | Right Promotion Insights & Passes -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left: Athletic Ability Radar Chart -->
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                    <h2 class="font-display font-bold text-lg text-white">6-Factor Athletic Ability Radar Chart</h2>
+                    <p class="text-xs text-slate-400">Flexibility, Stamina, Power, Technique, Sparring IQ, Discipline</p>
+                </div>
+                {{if .LatestEvaluation}}
+                <div class="text-right">
+                    <span class="text-xs text-slate-400">Overall Score</span>
+                    <div class="font-display font-bold text-xl text-emerald-400">{{printf "%.1f" .LatestEvaluation.AverageScore}} / 10</div>
+                </div>
+                {{end}}
+            </div>
+
+            {{if .LatestEvaluation}}
+            <!-- SVG Radar Visualization -->
+            <div class="relative w-72 h-72 mx-auto my-4">
+                <svg viewBox="0 0 200 200" class="w-full h-full">
+                    <!-- Concentric Grid Polygons (Score 2, 4, 6, 8, 10) -->
+                    <polygon points="100,20 169.3,60 169.3,140 100,180 30.7,140 30.7,60" fill="none" stroke="#1e293b" stroke-width="1"/>
+                    <polygon points="100,36 155.4,68 155.4,132 100,164 44.6,132 44.6,68" fill="none" stroke="#334155" stroke-width="1"/>
+                    <polygon points="100,52 141.6,76 141.6,124 100,148 58.4,124 58.4,76" fill="none" stroke="#334155" stroke-dasharray="2,2"/>
+                    <polygon points="100,68 127.7,84 127.7,116 100,132 72.3,116 72.3,84" fill="none" stroke="#334155" stroke-dasharray="2,2"/>
+
+                    <!-- Axes Lines -->
+                    <line x1="100" y1="100" x2="100" y2="20" stroke="#334155" stroke-width="1"/>
+                    <line x1="100" y1="100" x2="169.3" y2="60" stroke="#334155" stroke-width="1"/>
+                    <line x1="100" y1="100" x2="169.3" y2="140" stroke="#334155" stroke-width="1"/>
+                    <line x1="100" y1="100" x2="100" y2="180" stroke="#334155" stroke-width="1"/>
+                    <line x1="100" y1="100" x2="30.7" y2="140" stroke="#334155" stroke-width="1"/>
+                    <line x1="100" y1="100" x2="30.7" y2="60" stroke="#334155" stroke-width="1"/>
+
+                    <!-- Evaluated Polygon Fill -->
+                    <polygon points="{{.SVGRadarPolygon}}" fill="rgba(16, 185, 129, 0.45)" stroke="#10b981" stroke-width="2.5"/>
+                </svg>
+
+                <!-- Axis Labels -->
+                <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-300 bg-slate-900 px-1 rounded">Flexibility ({{.LatestEvaluation.Flexibility}})</span>
+                <span class="absolute top-12 right-0 text-[10px] font-bold text-slate-300 bg-slate-900 px-1 rounded">Stamina ({{.LatestEvaluation.Stamina}})</span>
+                <span class="absolute bottom-12 right-0 text-[10px] font-bold text-slate-300 bg-slate-900 px-1 rounded">Power ({{.LatestEvaluation.Power}})</span>
+                <span class="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-300 bg-slate-900 px-1 rounded">Technique ({{.LatestEvaluation.Technique}})</span>
+                <span class="absolute bottom-12 left-0 text-[10px] font-bold text-slate-300 bg-slate-900 px-1 rounded">Sparring IQ ({{.LatestEvaluation.SparringIQ}})</span>
+                <span class="absolute top-12 left-0 text-[10px] font-bold text-slate-300 bg-slate-900 px-1 rounded">Discipline ({{.LatestEvaluation.Discipline}})</span>
+            </div>
+
+            <!-- Coach Remarks -->
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs">
+                <span class="font-bold text-emerald-400">Coach Remarks (by {{.LatestEvaluation.CoachName}}):</span>
+                <p class="text-slate-300 mt-1 italic">"{{.LatestEvaluation.CoachRemarks}}"</p>
+            </div>
+            {{else}}
+            <div class="text-center py-12 text-slate-500">
+                No coach evaluation submitted yet. Complete the evaluation form below to render ability radar.
+            </div>
+            {{end}}
+
+            <!-- Coach Evaluation Submission Form -->
+            <div class="pt-4 border-t border-slate-800">
+                <h3 class="font-display font-bold text-sm text-white mb-3">Submit New Coach Evaluation</h3>
+                <form action="/students/{{.Student.ID}}/evaluations" method="POST" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Evaluating Coach</label>
+                        <select name="coach_id" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                            {{range .Coaches}}
+                            <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400">Flexibility</label>
+                            <input type="number" min="1" max="10" name="flexibility" value="8" required class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400">Stamina</label>
+                            <input type="number" min="1" max="10" name="stamina" value="8" required class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400">Power</label>
+                            <input type="number" min="1" max="10" name="power" value="7" required class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400">Technique</label>
+                            <input type="number" min="1" max="10" name="technique" value="8" required class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400">Sparring IQ</label>
+                            <input type="number" min="1" max="10" name="sparring_iq" value="8" required class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400">Discipline</label>
+                            <input type="number" min="1" max="10" name="discipline" value="9" required class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Remarks</label>
+                        <textarea name="coach_remarks" rows="2" placeholder="Notes on stance, sparring timing, poomsae precision..." class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white"></textarea>
+                    </div>
+                    <button type="submit" class="w-full py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950">
+                        Save Evaluation & Update Radar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right: Promotion Readiness Rules Engine Breakdown -->
+        <div class="space-y-6">
+            <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+                <h2 class="font-display font-bold text-lg text-white border-b border-slate-800 pb-3">Promotion Readiness Evaluation Breakdown</h2>
+
+                <div class="space-y-3 text-xs">
+                    <!-- Rule 1: Attendance Count -->
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-white">1. Attendance Count</div>
+                            <div class="text-slate-400">Logged {{.Readiness.TotalSessions}} of {{.Readiness.RequiredSessions}} required sessions</div>
+                        </div>
+                        {{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}
+                        <span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-800">PASSED</span>
+                        {{else}}
+                        <span class="px-2.5 py-1 rounded bg-rose-950 text-rose-400 font-bold border border-rose-800">NEED MORE HOURS</span>
+                        {{end}}
+                    </div>
+
+                    <!-- Rule 2: Time in Rank -->
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-white">2. Time in Rank</div>
+                            <div class="text-slate-400">Tenure: {{.Readiness.DaysInRank}} of {{.Readiness.RequiredDaysInRank}} required calendar days</div>
+                        </div>
+                        {{if ge .Readiness.DaysInRank .Readiness.RequiredDaysInRank}}
+                        <span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-800">PASSED</span>
+                        {{else}}
+                        <span class="px-2.5 py-1 rounded bg-rose-950 text-rose-400 font-bold border border-rose-800">TENURE SHORT</span>
+                        {{end}}
+                    </div>
+
+                    <!-- Rule 3: Coach Evaluation Benchmark -->
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-white">3. Ability Benchmark</div>
+                            <div class="text-slate-400">Min attribute score: {{.Readiness.LatestMinScore}}/10 (Req: 6)</div>
+                        </div>
+                        {{if and .Readiness.HasEvaluation (ge .Readiness.LatestMinScore 6)}}
+                        <span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-800">PASSED</span>
+                        {{else if .Readiness.HasEvaluation}}
+                        <span class="px-2.5 py-1 rounded bg-amber-950 text-amber-400 font-bold border border-amber-800">BELOW BENCHMARK</span>
+                        {{else}}
+                        <span class="px-2.5 py-1 rounded bg-amber-950 text-amber-400 font-bold border border-amber-800">PENDING EVAL</span>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- Reasons / Recommendations -->
+                {{if .Readiness.Reasons}}
+                <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-xs uppercase font-bold text-slate-400">Evaluation Notes:</span>
+                    <ul class="list-disc list-inside text-xs text-slate-300 space-y-0.5">
+                        {{range .Readiness.Reasons}}
+                        <li>{{.}}</li>
+                        {{end}}
+                    </ul>
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Active Purchased Packages -->
+            <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+                <h2 class="font-display font-bold text-lg text-white border-b border-slate-800 pb-3">Active Student Passes & Packages</h2>
+                <div class="space-y-3">
+                    {{range .Packages}}
+                    <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <h4 class="font-bold text-white text-sm">{{.TemplateTitle}}</h4>
+                            <div class="text-xs text-slate-400">Purchased: {{formatDate .PurchaseDate}} &bull; Expires: {{formatDate .ExpiryDate}}</div>
+                        </div>
+                        <div class="text-right">
+                            {{if .RemainingSessions}}
+                            <span class="font-display font-extrabold text-lg text-emerald-400">{{.RemainingSessions}}</span>
+                            <span class="text-xs text-slate-400"> / {{.TotalSessions}} sessions</span>
+                            {{else}}
+                            <span class="text-xs font-bold text-teal-300">Unlimited ♾️</span>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

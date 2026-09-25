@@ -1,0 +1,99 @@
+{{define "layout.html"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100 dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Series Taekwondo Management System{{end}}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN for instant presentation -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HTMX 1.9.10 -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#10b981',
+                            600: '#059669',
+                            900: '#064e3b',
+                            950: '#022c22',
+                        },
+                        dojang: {
+                            bg: '#0b0f19',
+                            card: '#131b2e',
+                            border: '#1f293d',
+                            accent: '#38bdf8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
+        h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; }
+        .glass-panel {
+            background: rgba(19, 27, 46, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .radar-grid { stroke: rgba(255, 255, 255, 0.12); stroke-dasharray: 2, 2; }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased text-slate-100">
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-slate-800/80 px-6 py-3.5">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center font-display font-extrabold text-slate-950 text-xl shadow-lg shadow-emerald-500/20">
+                    ST
+                </div>
+                <div>
+                    <a href="/" class="font-display font-bold text-xl tracking-tight text-white flex items-center gap-2">
+                        SERIES <span class="text-xs uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">TKD Management</span>
+                    </a>
+                    <p class="text-xs text-slate-400 font-medium">Internal Club & Dojang Floor Operations Platform</p>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="flex items-center space-x-1 sm:space-x-2">
+                <a href="/" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Dashboard</a>
+                <a href="/students" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Students & Ability</a>
+                <a href="/sessions" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Floor Sessions</a>
+                <a href="/coaches" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Coach & Payroll</a>
+                <a href="/packages" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Passes & Billing</a>
+            </nav>
+
+            <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
+                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span> Floor Online
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+        {{block "content" .}}{{end}}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 bg-slate-950/80 py-4 px-6 text-center text-xs text-slate-500">
+        Series Taekwondo Management System (STMS) &bull; Go + HTMX Reactive Architecture
+    </footer>
+</body>
+</html>
+{{end}}

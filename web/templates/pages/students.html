@@ -1,0 +1,117 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Students & Athletic Ability - STMS{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Page Header & Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-display text-2xl font-bold text-white">Student Directory & Ability Radar</h1>
+            <p class="text-xs text-slate-400 mt-1">Manage athletic evaluations, emergency medical notes, and promotion readiness status.</p>
+        </div>
+        <button onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+            ➕ Register New Student
+        </button>
+    </div>
+
+    <!-- Search Bar & Filters -->
+    <div class="glass-panel p-4 rounded-xl flex items-center gap-4">
+        <input type="search"
+               name="query"
+               value="{{.Search}}"
+               placeholder="Search by student name, phone, or belt rank..."
+               hx-get="/students"
+               hx-trigger="keyup changed delay:250ms, search"
+               hx-target="#student-rows"
+               class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-slate-500" />
+    </div>
+
+    <!-- Student Roster Table -->
+    <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-slate-900/90 text-slate-400 border-b border-slate-800">
+                    <tr>
+                        <th class="py-3.5 px-4">Student Name</th>
+                        <th class="py-3.5 px-4">Belt Rank</th>
+                        <th class="py-3.5 px-4">Pass Status</th>
+                        <th class="py-3.5 px-4">Safety & Medical</th>
+                        <th class="py-3.5 px-4 text-center">6-Axis Radar</th>
+                        <th class="py-3.5 px-4 text-center">Promotion Readiness</th>
+                        <th class="py-3.5 px-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="student-rows" class="divide-y divide-slate-800/60">
+                    {{template "student_table_rows.html" .}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Student Registration -->
+<div id="new-student-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
+    <div class="glass-panel p-6 rounded-2xl max-w-lg w-full space-y-4 border border-slate-700">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="font-display font-bold text-lg text-white">Register New Student</h3>
+            <button onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+        </div>
+        <form action="/students" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Full Name</label>
+                <input type="text" name="full_name" required placeholder="e.g. Brandon Lee" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Date of Birth</label>
+                    <input type="date" name="dob" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Gender</label>
+                    <select name="gender" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Contact Phone</label>
+                    <input type="text" name="phone" required placeholder="+1 (555) 000-0000" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Current Belt Rank</label>
+                    <select name="current_belt" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                        <option value="White">White Belt</option>
+                        <option value="Yellow Tag">Yellow Tag</option>
+                        <option value="Yellow">Yellow Belt</option>
+                        <option value="Green Tag">Green Tag</option>
+                        <option value="Green">Green Belt</option>
+                        <option value="Blue Tag">Blue Tag</option>
+                        <option value="Blue">Blue Belt</option>
+                        <option value="Red Tag">Red Tag</option>
+                        <option value="Red">Red Belt</option>
+                        <option value="Black Tag">Black Tag</option>
+                        <option value="1st Dan Black">1st Dan Black</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-3">
+                <span class="text-xs uppercase font-bold text-emerald-400">Emergency & Medical Clearance</span>
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="text" name="emergency_name" placeholder="Contact Name" required class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+                    <input type="text" name="emergency_phone" placeholder="Phone" required class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+                    <input type="text" name="emergency_relation" placeholder="Relation" required class="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+                </div>
+                <textarea name="medical_notes" rows="2" placeholder="Medical clearance flags, allergies, injury logs..." class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950">Save Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

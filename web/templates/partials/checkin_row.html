@@ -1,0 +1,33 @@
+{{define "checkin_row.html"}}
+<tr class="hover:bg-slate-800/40 transition">
+    <td class="py-3 px-3 font-semibold text-white">
+        <div class="flex items-center gap-1.5">
+            <a href="/students/{{.Attendance.StudentID}}" target="_blank" class="hover:underline text-emerald-400">
+                {{.Attendance.StudentName}}
+            </a>
+            {{if eq .Readiness.Status "READY"}}
+            <span class="text-xs">🟢</span>
+            {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
+            <span class="text-xs">🟡</span>
+            {{else}}
+            <span class="text-xs">🔴</span>
+            {{end}}
+        </div>
+    </td>
+    <td class="py-3 px-3">
+        <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">
+            {{.Attendance.StudentBelt}}
+        </span>
+    </td>
+    <td class="py-3 px-3 text-xs text-slate-300 font-medium">
+        {{if .Attendance.PackageTitle}}
+            <span class="text-emerald-300">{{.Attendance.PackageTitle}}</span>
+        {{else}}
+            <span class="text-amber-400 italic">Manual Override Pass</span>
+        {{end}}
+    </td>
+    <td class="py-3 px-3 text-right text-xs text-slate-400 font-mono">
+        {{formatDate .Attendance.CheckedInAt}}
+    </td>
+</tr>
+{{end}}
