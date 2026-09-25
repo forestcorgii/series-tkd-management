@@ -29,6 +29,11 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessions, _ := a.store.GetAllSessions()
+	var allAttendances []*models.Attendance
+	for _, sess := range sessions {
+		atts, _ := a.store.GetSessionAttendances(sess.ID)
+		allAttendances = append(allAttendances, atts...)
+	}
 
 	now := time.Now()
 	start := now.AddDate(0, -1, 0)
@@ -36,7 +41,7 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 
 	items := make([]CoachListItem, 0, len(coaches))
 	for _, c := range coaches {
-		summary := a.payrollSvc.CalculateCoachPayroll(c, sessions, nil, start, end)
+		summary := a.payrollSvc.CalculateCoachPayroll(c, sessions, allAttendances, start, end)
 		items = append(items, CoachListItem{
 			Coach:   c,
 			Payroll: summary,

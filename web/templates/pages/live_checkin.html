@@ -5,18 +5,18 @@
 {{define "content"}}
 <div class="space-y-6">
     <!-- Session Status Header -->
-    <div class="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div>
             <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
                     LIVE FLOOR SESSION
                 </span>
-                <span class="text-xs text-slate-400 font-semibold">{{.Session.StartTime}} - {{.Session.EndTime}}</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">{{.Session.StartTime}} - {{.Session.EndTime}}</span>
             </div>
-            <h1 class="font-display font-extrabold text-2xl text-white mt-1">{{.Session.TrainingType}} Class</h1>
-            <p class="text-xs text-slate-400">Lead Instructor: <span class="text-slate-200 font-semibold">{{.Session.CoachName}}</span></p>
+            <h1 class="font-display font-extrabold text-2xl text-slate-900 dark:text-white mt-1">{{.Session.TrainingType}} Class</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span></p>
         </div>
-        <a href="/sessions" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white transition">
+        <a href="/sessions" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white border border-slate-200 dark:border-transparent transition shadow-sm">
             &larr; Exit Check-In
         </a>
     </div>
@@ -24,8 +24,8 @@
     <!-- Two Column Floor Tablet Layout: Left Search & Check-in | Right Live Roster -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Left: Quick Search / QR Code Reader & Admit Action -->
-        <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-            <h2 class="font-display font-bold text-lg text-white">Floor Check-In Search</h2>
+        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
+            <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Floor Check-In Search</h2>
             <div class="relative">
                 <input type="search"
                        name="query"
@@ -34,25 +34,25 @@
                        hx-trigger="keyup changed delay:250ms, search"
                        hx-target="#search-results"
                        autofocus
-                       class="w-full bg-slate-900 border-2 border-emerald-500/50 rounded-xl px-4 py-3.5 text-base text-white focus:outline-none focus:border-emerald-400 placeholder-slate-500 shadow-lg shadow-emerald-500/10" />
+                       class="w-full bg-white dark:bg-slate-900 border-2 border-emerald-500/50 rounded-xl px-4 py-3.5 text-base text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 placeholder-slate-400 dark:placeholder-slate-500 shadow-md shadow-emerald-500/5" />
             </div>
 
             <!-- HTMX Search Results Container -->
             <div id="search-results" class="space-y-3 pt-2">
-                <p class="text-xs text-slate-500 text-center py-4">Type student name or scan QR code to perform instant credit check-in...</p>
+                <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-4">Type student name or scan QR code to perform instant credit check-in...</p>
             </div>
         </div>
 
         <!-- Right: Verified Floor Roster (Appends dynamically via HTMX!) -->
-        <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h2 class="font-display font-bold text-lg text-white">Verified Floor Roster</h2>
-                <span class="text-xs text-emerald-400 font-semibold">Real-Time Sync 🟢</span>
+        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Verified Floor Roster</h2>
+                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">Real-Time Sync 🟢</span>
             </div>
 
             <div class="overflow-hidden">
-                <table class="w-full text-left text-sm text-slate-300">
-                    <thead class="text-xs uppercase bg-slate-900/90 text-slate-400 border-b border-slate-800">
+                <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                    <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                         <tr>
                             <th class="py-2.5 px-3">Student</th>
                             <th class="py-2.5 px-3">Belt Rank</th>
@@ -60,7 +60,7 @@
                             <th class="py-2.5 px-3 text-right">Checked In</th>
                         </tr>
                     </thead>
-                    <tbody id="attendance-roster" class="divide-y divide-slate-800/60">
+                    <tbody id="attendance-roster" class="divide-y divide-slate-200 dark:divide-slate-800/60">
                         {{range .Attendances}}
                         {{template "checkin_row.html" (dict "Attendance" . "Readiness" (index $.ReadinessMap .StudentID.String))}}
                         {{end}}

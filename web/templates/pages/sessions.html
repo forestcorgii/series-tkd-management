@@ -4,10 +4,10 @@
 
 {{define "content"}}
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h1 class="font-display text-2xl font-bold text-white">Training Sessions & Floor Roster Log</h1>
-            <p class="text-xs text-slate-400 mt-1">Schedule dojang sessions and launch live floor check-in screens.</p>
+            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Training Sessions &amp; Floor Roster Log</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Schedule dojang sessions and launch live floor check-in screens.</p>
         </div>
         <button onclick="document.getElementById('new-session-modal').classList.remove('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
             ➕ Schedule New Session
@@ -15,18 +15,18 @@
     </div>
 
     <!-- Sessions List -->
-    <div class="glass-panel rounded-2xl border border-slate-800 p-6 space-y-4">
-        <h2 class="font-display font-bold text-lg text-white">Dojang Floor Log</h2>
+    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+        <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Dojang Floor Log</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {{range .Sessions}}
-            <div class="p-5 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div class="p-5 bg-slate-50 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
                 <div class="space-y-1">
-                    <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
                         {{.TrainingType}}
                     </span>
-                    <h3 class="font-display font-bold text-lg text-white">{{.StartTime}} - {{.EndTime}}</h3>
-                    <p class="text-xs text-slate-400">Date: {{formatDate .SessionDate}} &bull; Lead Coach: <span class="text-slate-200 font-semibold">{{.CoachName}}</span></p>
-                    {{if .Notes}}<p class="text-xs text-slate-500 italic mt-1">"{{.Notes}}"</p>{{end}}
+                    <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">{{.StartTime}} - {{.EndTime}}</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Date: {{formatDate .SessionDate}} &bull; Lead Coach: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.CoachName}}</span></p>
+                    {{if .Notes}}<p class="text-xs text-slate-400 dark:text-slate-500 italic mt-1">"{{.Notes}}"</p>{{end}}
                 </div>
                 <a href="/sessions/{{.ID}}/live" class="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-md transition flex items-center gap-1">
                     ⚡ Live Tablet Check-In &rarr;
@@ -38,38 +38,38 @@
 </div>
 
 <!-- Modal: New Session -->
-<div id="new-session-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
-    <div class="glass-panel p-6 rounded-2xl max-w-md w-full space-y-4 border border-slate-700">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 class="font-display font-bold text-lg text-white">Schedule Training Session</h3>
-            <button onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+<div id="new-session-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
+    <div class="glass-panel p-6 rounded-2xl max-w-md w-full space-y-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Schedule Training Session</h3>
+            <button onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl leading-none">&times;</button>
         </div>
         <form action="/sessions" method="POST" class="space-y-4">
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Session Date</label>
-                <input type="date" name="session_date" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                <label class="block text-xs font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">Session Date</label>
+                <input type="date" name="session_date" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Start Time</label>
-                    <input type="text" name="start_time" placeholder="17:00" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                    <label class="block text-xs font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">Start Time</label>
+                    <input type="text" name="start_time" placeholder="17:00" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">End Time</label>
-                    <input type="text" name="end_time" placeholder="18:30" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                    <label class="block text-xs font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">End Time</label>
+                    <input type="text" name="end_time" placeholder="18:30" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Lead Coach</label>
-                <select name="coach_id" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                <label class="block text-xs font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">Lead Coach</label>
+                <select name="coach_id" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
                     {{range .Coaches}}
                     <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
                     {{end}}
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Training Category</label>
-                <select name="training_type" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500">
+                <label class="block text-xs font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">Training Category</label>
+                <select name="training_type" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
                     <option value="Sparring">Sparring (Kyorugi)</option>
                     <option value="Poomsae">Forms (Poomsae)</option>
                     <option value="Conditioning">Conditioning / Impact</option>
@@ -77,12 +77,12 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Session Remarks / Agenda</label>
-                <textarea name="notes" rows="2" placeholder="Focus areas, equipment required..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-emerald-500"></textarea>
+                <label class="block text-xs font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">Session Remarks / Agenda</label>
+                <textarea name="notes" rows="2" placeholder="Focus areas, equipment required..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500"></textarea>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300">Cancel</button>
-                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950">Schedule & Launch Check-In</button>
+                <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950">Schedule &amp; Launch Check-In</button>
             </div>
         </form>
     </div>

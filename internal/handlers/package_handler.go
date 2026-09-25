@@ -9,18 +9,38 @@ import (
 	"series-tkd-management/internal/models"
 )
 
+type StudentPackageViewItem struct {
+	Package     *models.StudentPackage
+	StudentName string
+	StudentBelt models.BeltRank
+}
+
 type PackagesPageData struct {
-	Templates []*models.PackageTemplate
-	Students  []*models.Student
+	Templates       []*models.PackageTemplate
+	Students        []*models.Student
+	StudentPackages []StudentPackageViewItem
 }
 
 func (a *AppHandler) HandlePackages(w http.ResponseWriter, r *http.Request) {
 	templates, _ := a.store.GetPackageTemplates()
 	students, _ := a.store.GetAllStudents()
 
+	var studentPackages []StudentPackageViewItem
+	for _, st := range students {
+		pkgs, _ := a.store.GetStudentPackages(st.ID)
+		for _, p := range pkgs {
+			studentPackages = append(studentPackages, StudentPackageViewItem{
+				Package:     p,
+				StudentName: st.FullName,
+				StudentBelt: st.CurrentBelt,
+			})
+		}
+	}
+
 	data := PackagesPageData{
-		Templates: templates,
-		Students:  students,
+		Templates:       templates,
+		Students:        students,
+		StudentPackages: studentPackages,
 	}
 
 	a.RenderPage(w, "packages.html", data)

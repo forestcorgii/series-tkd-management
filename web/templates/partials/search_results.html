@@ -1,39 +1,39 @@
 {{define "search_results.html"}}
 {{if .}}
     {{range .}}
-    <div class="p-4 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between gap-4">
+    <div class="p-4 bg-slate-50 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shadow-sm">
         <div>
             <div class="flex items-center gap-2">
-                <a href="/students/{{.Student.ID}}" target="_blank" class="font-bold text-white text-base hover:underline hover:text-emerald-400">
+                <a href="/students/{{.Student.ID}}" target="_blank" class="font-bold text-slate-900 dark:text-white text-base hover:underline hover:text-emerald-600 dark:hover:text-emerald-400">
                     {{.Student.FullName}}
                 </a>
-                <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">
+                <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
                     {{.Student.CurrentBelt}}
                 </span>
                 {{if eq .Readiness.Status "READY"}}
-                <span class="text-xs font-bold text-emerald-400">🟢 READY</span>
+                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">🟢 READY</span>
                 {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
-                <span class="text-xs font-bold text-amber-400">🟡 PRE-TEST</span>
+                <span class="text-xs font-bold text-amber-600 dark:text-amber-400">🟡 PRE-TEST</span>
                 {{else}}
-                <span class="text-xs font-bold text-rose-400">🔴 DEVELOPING</span>
+                <span class="text-xs font-bold text-rose-600 dark:text-rose-400">🔴 DEVELOPING</span>
                 {{end}}
             </div>
 
-            <div class="text-xs text-slate-400 mt-1">
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {{if .ActivePackage}}
-                    Pass: <span class="text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
+                    Pass: <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
                     {{if .ActivePackage.RemainingSessions}}
                         ({{.ActivePackage.RemainingSessions}} credits left)
                     {{else}}
                         (Unlimited Pass ♾️)
                     {{end}}
                 {{else}}
-                    <span class="text-rose-400 font-bold">⚠️ NO VALID PASS CREDITS</span>
+                    <span class="text-rose-600 dark:text-rose-400 font-bold">⚠️ NO VALID PASS CREDITS</span>
                 {{end}}
             </div>
 
             {{if .WarningMessage}}
-            <div class="text-[11px] text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60 mt-1">
+            <div class="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 mt-1">
                 ⚠️ {{.WarningMessage}}
             </div>
             {{end}}
@@ -41,7 +41,7 @@
 
         <div>
             {{if .IsAlreadyChecked}}
-            <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+            <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                 ✓ Already In Roster
             </span>
             {{else if .ActivePackage}}
@@ -55,14 +55,14 @@
             <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}?override=true"
                     hx-target="#attendance-roster"
                     hx-swap="afterbegin"
-                    class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md transition">
-                Override & Admit
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md transition">
+                Override &amp; Admit
             </button>
             {{end}}
         </div>
     </div>
     {{end}}
 {{else}}
-<div class="text-xs text-slate-500 text-center py-4">No matching student found. Register a new student or adjust search query.</div>
+<div class="text-xs text-slate-400 dark:text-slate-500 text-center py-4">No matching student found. Register a new student or adjust search query.</div>
 {{end}}
 {{end}}

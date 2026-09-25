@@ -55,6 +55,9 @@ func (a *AppHandler) parseTemplates() (*template.Template, error) {
 		"add": func(a, b int) int {
 			return a + b
 		},
+		"mul": func(a float64, b float64) float64 {
+			return a * b
+		},
 		"dict": func(values ...interface{}) (map[string]interface{}, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("invalid dict call")

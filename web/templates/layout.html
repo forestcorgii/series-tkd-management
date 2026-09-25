@@ -1,15 +1,28 @@
 {{define "layout.html"}}
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100 dark">
+<html lang="en" class="h-full dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}Series Taekwondo Management System{{end}}</title>
-    <!-- Google Fonts -->
+    <!-- Prevent Theme Flash -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('stms-theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
+        })();
+    </script>
+    <!-- Google Fonts: Montserrat (Body) & Outfit (Display / Good Timing equivalent) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS CDN for instant presentation -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- HTMX 1.9.10 -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -19,22 +32,20 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        display: ['Outfit', 'sans-serif'],
+                        sans: ['Montserrat', 'sans-serif'],
+                        display: ['Outfit', '"Good Timing"', 'sans-serif'],
                     },
                     colors: {
                         brand: {
-                            50: '#f0fdf4',
-                            500: '#10b981',
-                            600: '#059669',
-                            900: '#064e3b',
-                            950: '#022c22',
-                        },
-                        dojang: {
-                            bg: '#0b0f19',
-                            card: '#131b2e',
-                            border: '#1f293d',
-                            accent: '#38bdf8',
+                            black: '#000000',
+                            red: '#990303',
+                            'red-hover': '#7D0202',
+                            cream: '#FFFDF4',
+                            'cream-dark': '#F4F1E4',
+                            border: '#E5E3D8',
+                            muted: '#666666',
+                            success: '#1B7F43',
+                            warning: '#C98A0C',
                         }
                     }
                 }
@@ -42,47 +53,86 @@
         }
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
-        h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; }
+        body { font-family: 'Montserrat', sans-serif; }
+        h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; letter-spacing: 0.02em; }
+        
         .glass-panel {
-            background: rgba(19, 27, 46, 0.75);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        .radar-grid { stroke: rgba(255, 255, 255, 0.12); stroke-dasharray: 2, 2; }
+        html.dark .glass-panel {
+            background: #111111;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+        }
+        html:not(.dark) .glass-panel, html.light .glass-panel {
+            background: #FFFFFF;
+            border: 1px solid #E5E3D8;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+        }
+
+        .radar-grid { stroke-dasharray: 2, 2; }
+        html.dark .radar-grid { stroke: rgba(255, 255, 255, 0.15); }
+        html:not(.dark) .radar-grid { stroke: rgba(0, 0, 0, 0.12); }
     </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased text-slate-100">
+<body class="h-full flex flex-col font-sans antialiased bg-[#FFFDF4] text-[#000000] dark:bg-[#000000] dark:text-[#FFFDF4] transition-colors duration-200">
     <!-- Top Navigation Header -->
-    <header class="sticky top-0 z-50 glass-panel border-b border-slate-800/80 px-6 py-3.5">
-        <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <header class="sticky top-0 z-50 glass-panel border-b border-[#E5E3D8] dark:border-neutral-800 px-4 sm:px-6 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div class="flex items-center space-x-3">
-                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center font-display font-extrabold text-slate-950 text-xl shadow-lg shadow-emerald-500/20">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#990303] to-[#7D0202] flex items-center justify-center font-display font-black text-white text-xl shadow-lg shadow-[#990303]/30 flex-shrink-0">
                     ST
                 </div>
                 <div>
-                    <a href="/" class="font-display font-bold text-xl tracking-tight text-white flex items-center gap-2">
-                        SERIES <span class="text-xs uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">TKD Management</span>
+                    <a href="/" class="font-display font-extrabold text-lg sm:text-xl tracking-wide text-[#000000] dark:text-[#FFFDF4] uppercase flex items-center gap-2">
+                        SERIES <span class="text-[10px] sm:text-xs uppercase px-2 py-0.5 rounded-full bg-[#990303]/10 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400 font-bold tracking-wider">TKD Operations</span>
                     </a>
-                    <p class="text-xs text-slate-400 font-medium">Internal Club & Dojang Floor Operations Platform</p>
+                    <p class="text-[11px] sm:text-xs text-[#666666] dark:text-[#8C8A82] font-medium hidden sm:block">Dojang Floor Management &amp; Athletic Matrix Platform</p>
                 </div>
             </div>
 
             <!-- Navigation Links -->
-            <nav class="flex items-center space-x-1 sm:space-x-2">
-                <a href="/" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Dashboard</a>
-                <a href="/students" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Students & Ability</a>
-                <a href="/sessions" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Floor Sessions</a>
-                <a href="/coaches" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Coach & Payroll</a>
-                <a href="/packages" class="px-3.5 py-2 rounded-lg text-sm font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60">Passes & Billing</a>
+            <nav class="hidden md:flex items-center space-x-1 sm:space-x-2 font-medium text-sm">
+                <a href="/" class="px-3 py-1.5 rounded-lg transition text-[#666666] hover:text-[#000000] hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
+                <a href="/students" class="px-3 py-1.5 rounded-lg transition text-[#666666] hover:text-[#000000] hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students &amp; Ability</a>
+                <a href="/sessions" class="px-3 py-1.5 rounded-lg transition text-[#666666] hover:text-[#000000] hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Floor Sessions</a>
+                <a href="/coaches" class="px-3 py-1.5 rounded-lg transition text-[#666666] hover:text-[#000000] hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Coach &amp; Payroll</a>
+                <a href="/packages" class="px-3 py-1.5 rounded-lg transition text-[#666666] hover:text-[#000000] hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Passes &amp; Billing</a>
             </nav>
 
-            <div class="flex items-center space-x-3">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
-                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span> Floor Online
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle-btn"
+                        onclick="toggleTheme()"
+                        aria-label="Toggle light and dark mode"
+                        title="Toggle light and dark mode"
+                        class="p-2 rounded-xl border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-sm transition flex items-center gap-1.5 text-xs font-semibold">
+                    <!-- Sun Icon (shown in dark mode) -->
+                    <svg id="theme-icon-sun" class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41" />
+                    </svg>
+                    <!-- Moon Icon (shown in light mode) -->
+                    <svg id="theme-icon-moon" class="w-4 h-4 text-neutral-800 dark:text-neutral-200 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                    <span id="theme-mode-text" class="hidden sm:inline">Light</span>
+                </button>
+
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#1B7F43]/15 text-[#1B7F43] border border-[#1B7F43]/30 dark:bg-[#1B7F43]/20 dark:text-emerald-400 shadow-sm">
+                    <span class="h-2 w-2 rounded-full bg-[#1B7F43] dark:bg-emerald-400 animate-pulse"></span> Floor Online
                 </span>
             </div>
         </div>
+
+        <!-- Mobile Navigation Row -->
+        <nav class="flex md:hidden items-center justify-between pt-2.5 mt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800 overflow-x-auto gap-1 text-xs font-semibold">
+            <a href="/" class="px-2 py-1 rounded text-[#666666] dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Dashboard</a>
+            <a href="/students" class="px-2 py-1 rounded text-[#666666] dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
+            <a href="/sessions" class="px-2 py-1 rounded text-[#666666] dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Sessions</a>
+            <a href="/coaches" class="px-2 py-1 rounded text-[#666666] dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Coaches</a>
+            <a href="/packages" class="px-2 py-1 rounded text-[#666666] dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Passes</a>
+        </nav>
     </header>
 
     <!-- Main Content Area -->
@@ -91,9 +141,44 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-900 bg-slate-950/80 py-4 px-6 text-center text-xs text-slate-500">
+    <footer class="border-t border-[#E5E3D8] bg-[#FFFFFF]/70 text-[#666666] dark:border-neutral-900 dark:bg-[#000000]/80 dark:text-[#8C8A82] py-4 px-6 text-center text-xs">
         Series Taekwondo Management System (STMS) &bull; Go + HTMX Reactive Architecture
     </footer>
+
+    <script>
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+                localStorage.setItem('stms-theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+                localStorage.setItem('stms-theme', 'dark');
+            }
+            syncThemeUI();
+        }
+
+        function syncThemeUI() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const sun = document.getElementById('theme-icon-sun');
+            const moon = document.getElementById('theme-icon-moon');
+            const text = document.getElementById('theme-mode-text');
+            if (sun && moon) {
+                if (isDark) {
+                    sun.classList.remove('hidden');
+                    moon.classList.add('hidden');
+                    if (text) text.textContent = 'Light';
+                } else {
+                    sun.classList.add('hidden');
+                    moon.classList.remove('hidden');
+                    if (text) text.textContent = 'Dark';
+                }
+            }
+        }
+        window.addEventListener('DOMContentLoaded', syncThemeUI);
+    </script>
 </body>
 </html>
 {{end}}

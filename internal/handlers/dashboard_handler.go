@@ -26,13 +26,18 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 	students, _ := a.store.GetAllStudents()
 	coaches, _ := a.store.GetAllCoaches()
 	sessions, _ := a.store.GetAllSessions()
+	var allAttendances []*models.Attendance
+	for _, sess := range sessions {
+		atts, _ := a.store.GetSessionAttendances(sess.ID)
+		allAttendances = append(allAttendances, atts...)
+	}
 
 	firstAidAlerts := 0
 	now := time.Now()
 	start := now.AddDate(0, -1, 0)
 
 	for _, c := range coaches {
-		summary := a.payrollSvc.CalculateCoachPayroll(c, sessions, nil, start, now)
+		summary := a.payrollSvc.CalculateCoachPayroll(c, sessions, allAttendances, start, now)
 		if summary.FirstAidWarningFlag {
 			firstAidAlerts++
 		}
