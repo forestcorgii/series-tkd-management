@@ -7,15 +7,10 @@
   - Keep a [`.go-version`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/.go-version) and [`mise.toml`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/mise.toml) (`[tools] go = "1.22.0"`) at the project root.
   - This informs `mise` / `nixpacks` directly without triggering deprecation warnings or conflicting with standard `go mod tidy` operations.
 
-### Context: Nixpacks "no Go files in /app" Build Failure
+### Context: Railway Railpack / Nixpacks "no Go files in /app" Build Failure
 
-- **Problem**: Nixpacks defaults the Go build phase command to `go build -ldflags="-w -s" -o out`, executing in the repository root (`/app`). In standard Go project layouts where the entrypoint is located under `cmd/server/main.go`, Nixpacks fails with `no Go files in /app`.
+- **Problem**: Railway now uses **Railpack** (BuildKit-based successor to Nixpacks). Railpack executes `go build -ldflags=-w -s -o out` directly inside `/app` (the root directory) and ignores `nixpacks.toml`. If Go source files only reside in subpackages like `cmd/server/main.go`, BuildKit fails with `no Go files in /app`.
 - **Enforced Solution**:
-  - Add a [`nixpacks.toml`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/nixpacks.toml) file at the repository root targeting `./cmd/server`:
-    ```toml
-    [phases.build]
-    cmds = ["go build -ldflags=\"-w -s\" -o out ./cmd/server"]
-
-    [start]
-    cmd = "./out"
-    ```
+  - Keep [`main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/main.go) at the repository root as the primary entry point.
+  - This allows Railpack, Nixpacks, Dockerfiles, and standard Go build tools to build cleanly from root (`/app`) with zero configuration (`go build -ldflags="-w -s" -o out`).
+  - Maintain [`nixpacks.toml`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/nixpacks.toml) and [`mise.toml`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/mise.toml) for backward compatibility across Nixpacks and mise environments.

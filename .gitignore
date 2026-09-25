@@ -1,3 +1,5 @@
 /.vscode
 /cmd
 /server.exe
+out
+out.exe
