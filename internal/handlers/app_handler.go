@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -12,11 +13,12 @@ import (
 )
 
 type AppHandler struct {
-	store        repository.RepositoryStore
-	promotionSvc *services.PromotionService
-	payrollSvc   *services.PayrollService
-	packageSvc   *services.PackageService
-	templates    *template.Template
+	store            repository.RepositoryStore
+	promotionSvc     *services.PromotionService
+	payrollSvc       *services.PayrollService
+	packageSvc       *services.PackageService
+	pageTemplates    map[string]*template.Template
+	partialTemplates *template.Template
 }
 
 func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
@@ -31,16 +33,14 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 		packageSvc:   pkgSvc,
 	}
 
-	tmpl, err := app.parseTemplates()
-	if err != nil {
+	if err := app.parseTemplates(); err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %w", err)
 	}
-	app.templates = tmpl
 
 	return app, nil
 }
 
-func (a *AppHandler) parseTemplates() (*template.Template, error) {
+func (a *AppHandler) parseTemplates() error {
 	funcMap := template.FuncMap{
 		"formatDate": func(t interface{}) string {
 			switch v := t.(type) {
@@ -86,36 +86,73 @@ func (a *AppHandler) parseTemplates() (*template.Template, error) {
 		}
 	}
 
-	tmpl := template.New("").Funcs(funcMap)
-	// Glob layout, pages, partials
-	parsed, err := tmpl.ParseGlob(filepath.Join(baseDir, "*.html"))
+	// 1. Base template containing layout.html and partials
+	baseTmpl := template.New("").Funcs(funcMap)
+	var err error
+	baseTmpl, err = baseTmpl.ParseGlob(filepath.Join(baseDir, "*.html"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse layout templates in %s: %w", baseDir, err)
-	}
-	parsed, err = parsed.ParseGlob(filepath.Join(baseDir, "pages", "*.html"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse page templates: %w", err)
-	}
-	parsed, err = parsed.ParseGlob(filepath.Join(baseDir, "partials", "*.html"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse partial templates: %w", err)
+		return fmt.Errorf("failed to parse layout templates in %s: %w", baseDir, err)
 	}
 
-	return parsed, nil
+	// Parse partials into base template so partials are available to all pages
+	partialsPattern := filepath.Join(baseDir, "partials", "*.html")
+	partialFiles, err := filepath.Glob(partialsPattern)
+	if err != nil {
+		return fmt.Errorf("failed to glob partials: %w", err)
+	}
+	if len(partialFiles) > 0 {
+		baseTmpl, err = baseTmpl.ParseGlob(partialsPattern)
+		if err != nil {
+			return fmt.Errorf("failed to parse partial templates: %w", err)
+		}
+	}
+	a.partialTemplates = baseTmpl
+
+	// 2. Parse each page file with its own isolated clone of baseTmpl
+	pagesPattern := filepath.Join(baseDir, "pages", "*.html")
+	pageFiles, err := filepath.Glob(pagesPattern)
+	if err != nil {
+		return fmt.Errorf("failed to glob pages: %w", err)
+	}
+
+	a.pageTemplates = make(map[string]*template.Template, len(pageFiles))
+	for _, pageFile := range pageFiles {
+		clone, err := baseTmpl.Clone()
+		if err != nil {
+			return fmt.Errorf("failed to clone base template for %s: %w", pageFile, err)
+		}
+		pageTmpl, err := clone.ParseFiles(pageFile)
+		if err != nil {
+			return fmt.Errorf("failed to parse page template %s: %w", pageFile, err)
+		}
+		a.pageTemplates[filepath.Base(pageFile)] = pageTmpl
+	}
+
+	return nil
 }
 
 func (a *AppHandler) RenderPage(w http.ResponseWriter, pageName string, data interface{}) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := a.templates.ExecuteTemplate(w, pageName, data)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
+	tmpl, ok := a.pageTemplates[pageName]
+	if !ok {
+		http.Error(w, fmt.Sprintf("Template %s not found", pageName), http.StatusInternalServerError)
+		return
 	}
+
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, pageName, data); err != nil {
+		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	buf.WriteTo(w)
 }
 
 func (a *AppHandler) RenderPartial(w http.ResponseWriter, partialName string, data interface{}) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := a.templates.ExecuteTemplate(w, partialName, data)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := a.partialTemplates.ExecuteTemplate(&buf, partialName, data); err != nil {
 		http.Error(w, fmt.Sprintf("Partial template error: %v", err), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	buf.WriteTo(w)
 }

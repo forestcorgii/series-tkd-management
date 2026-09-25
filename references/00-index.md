@@ -1,0 +1,4 @@
+# Reference Documentation Index
+
+## Map of Contents
+- [Go HTML Template Parsing & Layout Isolation](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/templates.md)
