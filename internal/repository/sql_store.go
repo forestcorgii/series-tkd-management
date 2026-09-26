@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -115,6 +116,7 @@ func (s *SQLStore) runMigrations() error {
 		CREATE TABLE IF NOT EXISTS package_templates (
 			id TEXT PRIMARY KEY,
 			title TEXT NOT NULL,
+			description TEXT,
 			session_count INTEGER,
 			validity_days INTEGER NOT NULL,
 			price REAL NOT NULL,
@@ -127,6 +129,8 @@ func (s *SQLStore) runMigrations() error {
 			template_id TEXT NOT NULL REFERENCES package_templates(id),
 			total_sessions INTEGER,
 			remaining_sessions INTEGER,
+			custom_price REAL,
+			notes TEXT,
 			purchase_date TEXT NOT NULL,
 			expiry_date TEXT NOT NULL,
 			payment_status TEXT NOT NULL DEFAULT 'paid',
@@ -235,6 +239,7 @@ func (s *SQLStore) runMigrations() error {
 		CREATE TABLE IF NOT EXISTS package_templates (
 			id UUID PRIMARY KEY,
 			title VARCHAR(100) NOT NULL,
+			description TEXT,
 			session_count INT,
 			validity_days INT NOT NULL,
 			price NUMERIC(10, 2) NOT NULL,
@@ -247,6 +252,8 @@ func (s *SQLStore) runMigrations() error {
 			template_id UUID NOT NULL REFERENCES package_templates(id),
 			total_sessions INT,
 			remaining_sessions INT,
+			custom_price NUMERIC(10, 2),
+			notes TEXT,
 			purchase_date DATE NOT NULL DEFAULT CURRENT_DATE,
 			expiry_date DATE NOT NULL,
 			payment_status VARCHAR(20) NOT NULL DEFAULT 'paid',
@@ -326,11 +333,17 @@ func (s *SQLStore) runMigrations() error {
 		return err
 	}
 
-	// Safely guarantee has_safety_flag column exists on students
+	// Safely guarantee column migrations
 	if s.driver == "sqlite" {
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN has_safety_flag INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN description TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN custom_price REAL`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN notes TEXT DEFAULT ''`)
 	} else {
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS has_safety_flag BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS custom_price NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`)
 	}
 
 	return nil
@@ -637,8 +650,8 @@ func (s *SQLStore) CreateCoach(c *models.Coach) error {
 
 // Packages
 func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
-	query := `SELECT id, title, session_count, validity_days, price, is_active
-		FROM package_templates ORDER BY price ASC`
+	query := `SELECT id, title, COALESCE(description, ''), session_count, validity_days, price, is_active
+		FROM package_templates ORDER BY is_active DESC, price ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -647,14 +660,15 @@ func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 
 	var templates []*models.PackageTemplate
 	for rows.Next() {
-		var idStr string
+		var idStr, desc string
 		var count sql.NullInt64
 		pt := &models.PackageTemplate{}
-		err := rows.Scan(&idStr, &pt.Title, &count, &pt.ValidityDays, &pt.Price, &pt.IsActive)
+		err := rows.Scan(&idStr, &pt.Title, &desc, &count, &pt.ValidityDays, &pt.Price, &pt.IsActive)
 		if err != nil {
 			return nil, err
 		}
 		pt.ID = uuid.Must(uuid.Parse(idStr))
+		pt.Description = desc
 		if count.Valid {
 			c := int(count.Int64)
 			pt.SessionCount = &c
@@ -664,9 +678,68 @@ func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 	return templates, nil
 }
 
+func (s *SQLStore) GetPackageTemplateByID(id uuid.UUID) (*models.PackageTemplate, error) {
+	query := `SELECT id, title, COALESCE(description, ''), session_count, validity_days, price, is_active
+		FROM package_templates WHERE id = $1`
+	var idStr, desc string
+	var count sql.NullInt64
+	pt := &models.PackageTemplate{}
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &pt.Title, &desc, &count, &pt.ValidityDays, &pt.Price, &pt.IsActive)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	pt.ID = uuid.Must(uuid.Parse(idStr))
+	pt.Description = desc
+	if count.Valid {
+		c := int(count.Int64)
+		pt.SessionCount = &c
+	}
+	return pt, nil
+}
+
+func (s *SQLStore) CreatePackageTemplate(tpl *models.PackageTemplate) error {
+	if tpl.ID == uuid.Nil {
+		tpl.ID = uuid.New()
+	}
+	query := `INSERT INTO package_templates (id, title, description, session_count, validity_days, price, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := s.db.Exec(query, tpl.ID.String(), tpl.Title, tpl.Description, tpl.SessionCount, tpl.ValidityDays, tpl.Price, tpl.IsActive)
+	return err
+}
+
+func (s *SQLStore) UpdatePackageTemplate(tpl *models.PackageTemplate) error {
+	query := `UPDATE package_templates SET title = $1, description = $2, session_count = $3, validity_days = $4, price = $5, is_active = $6
+		WHERE id = $7`
+	res, err := s.db.Exec(query, tpl.Title, tpl.Description, tpl.SessionCount, tpl.ValidityDays, tpl.Price, tpl.IsActive, tpl.ID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *SQLStore) TogglePackageTemplateStatus(id uuid.UUID, isActive bool) error {
+	query := `UPDATE package_templates SET is_active = $1 WHERE id = $2`
+	res, err := s.db.Exec(query, isActive, id.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPackage, error) {
 	query := `SELECT sp.id, sp.student_id, sp.template_id, pt.title, sp.total_sessions,
-		sp.remaining_sessions, sp.purchase_date, sp.expiry_date, sp.payment_status, sp.created_at
+		sp.remaining_sessions, sp.custom_price, COALESCE(sp.notes, ''), sp.purchase_date, sp.expiry_date, sp.payment_status, sp.created_at
 		FROM student_packages sp
 		LEFT JOIN package_templates pt ON sp.template_id = pt.id
 		WHERE sp.student_id = $1
@@ -679,12 +752,13 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 
 	var pkgs []*models.StudentPackage
 	for rows.Next() {
-		var idStr, stIDStr, tmplIDStr, titleStr, purchStr, expStr, createdStr string
+		var idStr, stIDStr, tmplIDStr, titleStr, purchStr, expStr, createdStr, notesStr string
 		var total, rem sql.NullInt64
+		var customPrice sql.NullFloat64
 		sp := &models.StudentPackage{}
 		err := rows.Scan(
 			&idStr, &stIDStr, &tmplIDStr, &titleStr, &total,
-			&rem, &purchStr, &expStr, &sp.PaymentStatus, &createdStr,
+			&rem, &customPrice, &notesStr, &purchStr, &expStr, &sp.PaymentStatus, &createdStr,
 		)
 		if err != nil {
 			return nil, err
@@ -693,6 +767,11 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 		sp.StudentID = uuid.Must(uuid.Parse(stIDStr))
 		sp.TemplateID = uuid.Must(uuid.Parse(tmplIDStr))
 		sp.TemplateTitle = titleStr
+		sp.Notes = notesStr
+		if customPrice.Valid {
+			cp := customPrice.Float64
+			sp.CustomPrice = &cp
+		}
 		if total.Valid {
 			t := int(total.Int64)
 			sp.TotalSessions = &t
@@ -717,11 +796,11 @@ func (s *SQLStore) AssignPackage(pkg *models.StudentPackage) error {
 		pkg.CreatedAt = time.Now()
 	}
 	query := `INSERT INTO student_packages (id, student_id, template_id, total_sessions,
-		remaining_sessions, purchase_date, expiry_date, payment_status, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+		remaining_sessions, custom_price, notes, purchase_date, expiry_date, payment_status, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 	_, err := s.db.Exec(query,
 		pkg.ID.String(), pkg.StudentID.String(), pkg.TemplateID.String(),
-		pkg.TotalSessions, pkg.RemainingSessions, formatDateForDB(pkg.PurchaseDate),
+		pkg.TotalSessions, pkg.RemainingSessions, pkg.CustomPrice, pkg.Notes, formatDateForDB(pkg.PurchaseDate),
 		formatDateForDB(pkg.ExpiryDate), pkg.PaymentStatus, formatTimeForDB(pkg.CreatedAt),
 	)
 	return err
@@ -1123,10 +1202,10 @@ func (s *SQLStore) SeedDefaultData() error {
 	c12 := 12
 	c24 := 24
 
-	_, _ = s.db.Exec(`INSERT INTO package_templates (id, title, session_count, validity_days, price, is_active) VALUES
-		($1, '12-Session Sparring & Technical Pass', $2, 90, 180.00, 1),
-		($3, '24-Session Promotion Prep Pass', $4, 180, 320.00, 1),
-		($5, 'Monthly Unlimited Athlete Membership', NULL, 30, 220.00, 1)`,
+	_, _ = s.db.Exec(`INSERT INTO package_templates (id, title, description, session_count, validity_days, price, is_active) VALUES
+		($1, '12-Session Sparring & Technical Pass', 'Structured sparring drills, footwork, and tactical timing combinations.', $2, 90, 180.00, 1),
+		($3, '24-Session Promotion Prep Pass', 'Comprehensive syllabus coverage, Kup forms, and board breaking preparation.', $4, 180, 320.00, 1),
+		($5, 'Monthly Unlimited Athlete Membership', 'Full floor access to all regular classes, poomsae sessions, and open sparring mats.', NULL, 30, 220.00, 1)`,
 		t1ID.String(), c12, t2ID.String(), c24, t3ID.String(),
 	)
 

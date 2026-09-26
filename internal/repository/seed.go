@@ -77,6 +77,7 @@ func (m *MemoryStore) seedData() {
 	t1 := &models.PackageTemplate{
 		ID:           t1ID,
 		Title:        "12-Session Sparring & Technical Pass",
+		Description:  "Structured sparring drills, footwork, and tactical timing combinations.",
 		SessionCount: &c12,
 		ValidityDays: 90,
 		Price:        180.00,
@@ -86,6 +87,7 @@ func (m *MemoryStore) seedData() {
 	t2 := &models.PackageTemplate{
 		ID:           t2ID,
 		Title:        "24-Session Promotion Prep Pass",
+		Description:  "Comprehensive syllabus coverage, Kup forms, and board breaking preparation.",
 		SessionCount: &c24,
 		ValidityDays: 180,
 		Price:        320.00,
@@ -95,6 +97,7 @@ func (m *MemoryStore) seedData() {
 	t3 := &models.PackageTemplate{
 		ID:           t3ID,
 		Title:        "Monthly Unlimited Athlete Membership",
+		Description:  "Full floor access to all regular classes, poomsae sessions, and open sparring mats.",
 		SessionCount: nil, // Unlimited
 		ValidityDays: 30,
 		Price:        220.00,

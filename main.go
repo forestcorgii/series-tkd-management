@@ -97,9 +97,12 @@ func main() {
 	mux.HandleFunc("GET /coaches", app.RequireRole(models.RoleCoach, models.RoleAdmin)(app.HandleCoaches))
 	mux.HandleFunc("POST /coaches", app.RequireRole(models.RoleAdmin)(app.HandleCreateCoach))
 
-	// Packages & Billing Passes (Requires Auth)
+	// Packages & Billing Passes (Requires Auth, Admin to modify)
 	mux.HandleFunc("GET /packages", app.RequireAuth(app.HandlePackages))
 	mux.HandleFunc("POST /packages/assign", app.RequireRole(models.RoleAdmin)(app.HandleAssignPackage))
+	mux.HandleFunc("POST /packages/templates", app.RequireRole(models.RoleAdmin)(app.HandleCreatePackageTemplate))
+	mux.HandleFunc("POST /packages/templates/{id}", app.RequireRole(models.RoleAdmin)(app.HandleUpdatePackageTemplate))
+	mux.HandleFunc("POST /packages/templates/{id}/toggle", app.RequireRole(models.RoleAdmin)(app.HandleTogglePackageTemplateStatus))
 
 	// Training Sessions & Live Floor Tablet Check-In (Requires Coach or Admin)
 	mux.HandleFunc("GET /sessions", app.RequireAuth(app.HandleSessions))

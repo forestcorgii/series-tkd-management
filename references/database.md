@@ -16,3 +16,11 @@
 * **Enforced Solution**:
   * Always use boolean literals `FALSE` or `TRUE` in `COALESCE` for boolean columns: `COALESCE(has_safety_flag, FALSE)`.
   * Both modern SQLite (`modernc.org/sqlite`) and PostgreSQL strictly support the `FALSE` keyword.
+
+### Context: Customizable Membership Plans Schema Evolution
+
+* **Problem**: Adding plan descriptions and checkout overrides (custom prices, notes, and session overrides) requires schema updates without breaking pre-existing development SQLite databases or PostgreSQL deployments.
+* **Enforced Solution**:
+  * Added `description TEXT DEFAULT ''` to `package_templates`, and `custom_price REAL / NUMERIC(10, 2)` & `notes TEXT DEFAULT ''` to `student_packages`.
+  * In `SQLStore.runMigrations()`, execute runtime column evolution using `ALTER TABLE ... ADD COLUMN ...` with safe SQLite and PostgreSQL variants (`ADD COLUMN IF NOT EXISTS` for PostgreSQL).
+  * Use `COALESCE(description, '')` and `COALESCE(notes, '')` in SELECT statements to guarantee non-nil string scans.

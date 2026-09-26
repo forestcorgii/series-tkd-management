@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS package_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(100) NOT NULL,
+    description TEXT,
     session_count INT, -- NULL signifies unlimited
     validity_days INT NOT NULL,
     price NUMERIC(10, 2) NOT NULL,
@@ -47,6 +48,8 @@ CREATE TABLE IF NOT EXISTS student_packages (
     template_id UUID NOT NULL REFERENCES package_templates(id),
     total_sessions INT,
     remaining_sessions INT,
+    custom_price NUMERIC(10, 2),
+    notes TEXT,
     purchase_date DATE NOT NULL DEFAULT CURRENT_DATE,
     expiry_date DATE NOT NULL,
     payment_status VARCHAR(20) NOT NULL DEFAULT 'paid', -- 'paid', 'unpaid', 'refunded'

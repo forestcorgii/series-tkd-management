@@ -8,14 +8,19 @@ import (
 )
 
 var (
-	ErrPackageExpired  = errors.New("student package has expired")
-	ErrNoSessionsLeft  = errors.New("no remaining sessions left in package")
-	ErrPackageInactive = errors.New("package is not active")
+	ErrPackageExpired      = errors.New("student package has expired")
+	ErrNoSessionsLeft      = errors.New("no remaining sessions left in package")
+	ErrPackageInactive     = errors.New("package is not active")
+	ErrInvalidTitle        = errors.New("package template title is required")
+	ErrInvalidValidity     = errors.New("validity days must be greater than zero")
+	ErrInvalidPrice        = errors.New("price cannot be negative")
+	ErrInvalidSessionCount = errors.New("session count must be greater than zero when not unlimited")
 )
 
 type PackageTemplate struct {
 	ID           uuid.UUID `json:"id"`
 	Title        string    `json:"title"`
+	Description  string    `json:"description,omitempty"`
 	SessionCount *int      `json:"session_count"` // nil means unlimited
 	ValidityDays int       `json:"validity_days"`
 	Price        float64   `json:"price"`
@@ -26,6 +31,22 @@ func (pt *PackageTemplate) IsUnlimited() bool {
 	return pt.SessionCount == nil
 }
 
+func (pt *PackageTemplate) Validate() error {
+	if pt.Title == "" {
+		return ErrInvalidTitle
+	}
+	if pt.ValidityDays <= 0 {
+		return ErrInvalidValidity
+	}
+	if pt.Price < 0 {
+		return ErrInvalidPrice
+	}
+	if pt.SessionCount != nil && *pt.SessionCount <= 0 {
+		return ErrInvalidSessionCount
+	}
+	return nil
+}
+
 type StudentPackage struct {
 	ID                uuid.UUID `json:"id"`
 	StudentID         uuid.UUID `json:"student_id"`
@@ -33,6 +54,8 @@ type StudentPackage struct {
 	TemplateTitle     string    `json:"template_title,omitempty"`
 	TotalSessions     *int      `json:"total_sessions"`     // nil = unlimited
 	RemainingSessions *int      `json:"remaining_sessions"` // nil = unlimited
+	CustomPrice       *float64  `json:"custom_price,omitempty"`
+	Notes             string    `json:"notes,omitempty"`
 	PurchaseDate      time.Time `json:"purchase_date"`
 	ExpiryDate        time.Time `json:"expiry_date"`
 	PaymentStatus     string    `json:"payment_status"` // paid, unpaid, refunded

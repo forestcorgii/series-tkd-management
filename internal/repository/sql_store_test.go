@@ -272,3 +272,118 @@ func TestSQLStore_AuthAndSafetyPersistence(t *testing.T) {
 		t.Errorf("expected Yellow Tag, got %s", promotedSt.CurrentBelt)
 	}
 }
+
+func TestSQLStore_CustomizablePackageTemplates(t *testing.T) {
+	dbFile := "test_pkg_templates.db"
+	_ = os.Remove(dbFile)
+	defer os.Remove(dbFile)
+
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+
+	sessions := 10
+	tpl := &models.PackageTemplate{
+		ID:           uuid.New(),
+		Title:        "Custom 10-Class Sparring Pass",
+		Description:  "Intensive technical sparring clinic",
+		SessionCount: &sessions,
+		ValidityDays: 60,
+		Price:        149.99,
+		IsActive:     true,
+	}
+
+	// 1. Create Template
+	if err := store.CreatePackageTemplate(tpl); err != nil {
+		t.Fatalf("CreatePackageTemplate failed: %v", err)
+	}
+
+	// 2. Get by ID
+	fetched, err := store.GetPackageTemplateByID(tpl.ID)
+	if err != nil {
+		t.Fatalf("GetPackageTemplateByID failed: %v", err)
+	}
+	if fetched.Title != tpl.Title || fetched.Description != tpl.Description || fetched.Price != tpl.Price {
+		t.Fatalf("fetched template mismatch: got %+v, want %+v", fetched, tpl)
+	}
+
+	// 3. Update Template
+	newSessions := 12
+	fetched.Title = "Updated 12-Class Sparring Pass"
+	fetched.Description = "Updated sparring clinic description"
+	fetched.SessionCount = &newSessions
+	fetched.Price = 169.99
+	fetched.ValidityDays = 75
+	if err := store.UpdatePackageTemplate(fetched); err != nil {
+		t.Fatalf("UpdatePackageTemplate failed: %v", err)
+	}
+
+	updated, err := store.GetPackageTemplateByID(tpl.ID)
+	if err != nil {
+		t.Fatalf("GetPackageTemplateByID after update failed: %v", err)
+	}
+	if updated.Title != "Updated 12-Class Sparring Pass" || *updated.SessionCount != 12 || updated.Price != 169.99 {
+		t.Fatalf("update verification failed: %+v", updated)
+	}
+
+	// 4. Toggle Status
+	if err := store.TogglePackageTemplateStatus(tpl.ID, false); err != nil {
+		t.Fatalf("TogglePackageTemplateStatus to false failed: %v", err)
+	}
+	toggled, _ := store.GetPackageTemplateByID(tpl.ID)
+	if toggled.IsActive {
+		t.Fatal("expected template to be inactive")
+	}
+
+	// 5. Assign with Custom Overrides to a student
+	students, _ := store.GetAllStudents()
+	if len(students) == 0 {
+		t.Fatal("expected seeded students")
+	}
+	st := students[0]
+
+	customPrice := 120.00
+	customSessions := 14
+	sp := &models.StudentPackage{
+		ID:                uuid.New(),
+		StudentID:         st.ID,
+		TemplateID:        tpl.ID,
+		TotalSessions:     &customSessions,
+		RemainingSessions: &customSessions,
+		CustomPrice:       &customPrice,
+		Notes:             "Promotional 2 bonus classes added by Master Kim",
+		PurchaseDate:      time.Now(),
+		ExpiryDate:        time.Now().AddDate(0, 0, 90),
+		PaymentStatus:     "paid",
+	}
+
+	if err := store.AssignPackage(sp); err != nil {
+		t.Fatalf("AssignPackage with custom overrides failed: %v", err)
+	}
+
+	stPkgs, err := store.GetStudentPackages(st.ID)
+	if err != nil {
+		t.Fatalf("GetStudentPackages failed: %v", err)
+	}
+
+	var found *models.StudentPackage
+	for _, p := range stPkgs {
+		if p.ID == sp.ID {
+			found = p
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("newly assigned package not found in student packages")
+	}
+	if found.CustomPrice == nil || *found.CustomPrice != 120.00 {
+		t.Fatalf("expected custom price 120.00, got %v", found.CustomPrice)
+	}
+	if found.Notes != "Promotional 2 bonus classes added by Master Kim" {
+		t.Fatalf("expected custom notes, got %s", found.Notes)
+	}
+	if *found.TotalSessions != 14 || *found.RemainingSessions != 14 {
+		t.Fatalf("expected 14 custom sessions, got total %d rem %d", *found.TotalSessions, *found.RemainingSessions)
+	}
+}

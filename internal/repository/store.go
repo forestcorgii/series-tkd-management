@@ -31,6 +31,10 @@ type RepositoryStore interface {
 
 	// Packages
 	GetPackageTemplates() ([]*models.PackageTemplate, error)
+	GetPackageTemplateByID(id uuid.UUID) (*models.PackageTemplate, error)
+	CreatePackageTemplate(tpl *models.PackageTemplate) error
+	UpdatePackageTemplate(tpl *models.PackageTemplate) error
+	TogglePackageTemplateStatus(id uuid.UUID, isActive bool) error
 	GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPackage, error)
 	AssignPackage(pkg *models.StudentPackage) error
 	UpdateStudentPackage(pkg *models.StudentPackage) error
@@ -208,6 +212,51 @@ func (m *MemoryStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 		result = append(result, pt)
 	}
 	return result, nil
+}
+
+func (m *MemoryStore) GetPackageTemplateByID(id uuid.UUID) (*models.PackageTemplate, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	tpl, ok := m.packageTemplates[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return tpl, nil
+}
+
+func (m *MemoryStore) CreatePackageTemplate(tpl *models.PackageTemplate) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if tpl.ID == uuid.Nil {
+		tpl.ID = uuid.New()
+	}
+	m.packageTemplates[tpl.ID] = tpl
+	return nil
+}
+
+func (m *MemoryStore) UpdatePackageTemplate(tpl *models.PackageTemplate) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.packageTemplates[tpl.ID]; !ok {
+		return ErrNotFound
+	}
+	m.packageTemplates[tpl.ID] = tpl
+	return nil
+}
+
+func (m *MemoryStore) TogglePackageTemplateStatus(id uuid.UUID, isActive bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	tpl, ok := m.packageTemplates[id]
+	if !ok {
+		return ErrNotFound
+	}
+	tpl.IsActive = isActive
+	return nil
 }
 
 func (m *MemoryStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPackage, error) {
