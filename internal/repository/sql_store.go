@@ -1223,19 +1223,19 @@ func (s *SQLStore) SeedDefaultData() error {
 	})
 	_ = s.CreateStudent(&models.Student{
 		ID: s2ID, FullName: "Chloe Ramirez", DOB: now.AddDate(-16, 0, 0), Gender: "Female", Phone: "+1 (555) 345-6789",
-		CurrentBelt: models.BeltYellow, LastPromotionDate: now.AddDate(0, 0, -75), EmergencyName: "Carlos Ramirez",
+		CurrentBelt: models.BeltHighYellow, LastPromotionDate: now.AddDate(0, 0, -75), EmergencyName: "Carlos Ramirez",
 		EmergencyPhone: "+1 (555) 345-6780", EmergencyRelation: "Father", MedicalNotes: "No known allergies or medical restrictions",
 		IsActive: true, CreatedAt: now.AddDate(0, -5, 0),
 	})
 	_ = s.CreateStudent(&models.Student{
 		ID: s3ID, FullName: "Marcus Brody", DOB: now.AddDate(-12, 0, 0), Gender: "Male", Phone: "+1 (555) 456-7890",
-		CurrentBelt: models.BeltGreenTag, LastPromotionDate: now.AddDate(0, 0, -15), EmergencyName: "Elena Brody",
+		CurrentBelt: models.BeltLowBlue, LastPromotionDate: now.AddDate(0, 0, -15), EmergencyName: "Elena Brody",
 		EmergencyPhone: "+1 (555) 456-7891", EmergencyRelation: "Mother", MedicalNotes: "Previous wrist sprain, clear for non-contact forms",
 		IsActive: true, CreatedAt: now.AddDate(0, -2, 0),
 	})
 	_ = s.CreateStudent(&models.Student{
 		ID: s4ID, FullName: "Sophia Chen", DOB: now.AddDate(-18, 0, 0), Gender: "Female", Phone: "+1 (555) 567-8901",
-		CurrentBelt: models.BeltRed, LastPromotionDate: now.AddDate(0, 0, -160), EmergencyName: "David Chen",
+		CurrentBelt: models.BeltHighRed, LastPromotionDate: now.AddDate(0, 0, -160), EmergencyName: "David Chen",
 		EmergencyPhone: "+1 (555) 567-8902", EmergencyRelation: "Father", MedicalNotes: "Full medical clearance",
 		IsActive: true, CreatedAt: now.AddDate(-2, 0, 0),
 	})
@@ -1310,7 +1310,7 @@ func (s *SQLStore) SeedDefaultData() error {
 	_ = s.CreateEvaluation(&models.StudentEvaluation{
 		ID: uuid.New(), StudentID: s1ID, CoachID: c1ID, EvaluationDate: now.AddDate(0, 0, -5),
 		Flexibility: 8, Stamina: 9, Power: 7, Technique: 8, SparringIQ: 8, Discipline: 9,
-		CoachRemarks: "Exceptional discipline and kick height. Clear candidate for Yellow Tag promotion testing.",
+		CoachRemarks: "Exceptional discipline and kick height. Clear candidate for Low Yellow promotion testing.",
 		CreatedAt:    now.AddDate(0, 0, -5),
 	})
 

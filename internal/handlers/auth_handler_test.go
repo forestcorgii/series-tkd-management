@@ -324,8 +324,8 @@ func TestAuthHandler_RESTAPI_Lifecycle(t *testing.T) {
 			t.Fatalf("expected 200 from /api/admin/promote, got %d: %s", rec.Code, rec.Body.String())
 		}
 		promotedStudent, _ := store.GetStudentByID(*alex.StudentID)
-		if promotedStudent.CurrentBelt != models.BeltYellowTag {
-			t.Errorf("expected Alex Vance to be promoted to Yellow Tag, got %s", promotedStudent.CurrentBelt)
+		if promotedStudent.CurrentBelt != models.BeltLowYellow {
+			t.Errorf("expected Alex Vance to be promoted to Low Yellow, got %s", promotedStudent.CurrentBelt)
 		}
 	}
 }

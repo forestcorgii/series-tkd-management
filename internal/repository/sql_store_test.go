@@ -261,15 +261,15 @@ func TestSQLStore_AuthAndSafetyPersistence(t *testing.T) {
 	if student.StudentID != nil {
 		stID = *student.StudentID
 	}
-	if err := store.PromoteStudent(stID, models.BeltYellowTag); err != nil {
+	if err := store.PromoteStudent(stID, models.BeltLowYellow); err != nil {
 		t.Fatalf("PromoteStudent failed: %v", err)
 	}
 	promotedSt, err := store.GetStudentByID(stID)
 	if err != nil {
 		t.Fatalf("GetStudentByID after promotion failed: %v", err)
 	}
-	if promotedSt.CurrentBelt != models.BeltYellowTag {
-		t.Errorf("expected Yellow Tag, got %s", promotedSt.CurrentBelt)
+	if promotedSt.CurrentBelt != models.BeltLowYellow {
+		t.Errorf("expected Low Yellow, got %s", promotedSt.CurrentBelt)
 	}
 }
 

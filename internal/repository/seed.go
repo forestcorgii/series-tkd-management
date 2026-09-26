@@ -136,7 +136,7 @@ func (m *MemoryStore) seedData() {
 		DOB:               now.AddDate(-16, 0, 0),
 		Gender:            "Female",
 		Phone:             "+1 (555) 345-6789",
-		CurrentBelt:       models.BeltYellow,
+		CurrentBelt:       models.BeltHighYellow,
 		LastPromotionDate: now.AddDate(0, 0, -75), // 75 days in rank (req: 60)
 		EmergencyName:     "Carlos Ramirez",
 		EmergencyPhone:    "+1 (555) 345-6780",
@@ -152,7 +152,7 @@ func (m *MemoryStore) seedData() {
 		DOB:               now.AddDate(-12, 0, 0),
 		Gender:            "Male",
 		Phone:             "+1 (555) 456-7890",
-		CurrentBelt:       models.BeltGreenTag,
+		CurrentBelt:       models.BeltLowBlue,
 		LastPromotionDate: now.AddDate(0, 0, -15), // Only 15 days in rank!
 		EmergencyName:     "Elena Brody",
 		EmergencyPhone:    "+1 (555) 456-7891",
@@ -168,7 +168,7 @@ func (m *MemoryStore) seedData() {
 		DOB:               now.AddDate(-18, 0, 0),
 		Gender:            "Female",
 		Phone:             "+1 (555) 567-8901",
-		CurrentBelt:       models.BeltRed,
+		CurrentBelt:       models.BeltHighRed,
 		LastPromotionDate: now.AddDate(0, 0, -160),
 		EmergencyName:     "David Chen",
 		EmergencyPhone:    "+1 (555) 567-8902",
@@ -363,7 +363,7 @@ func (m *MemoryStore) seedData() {
 		Technique:      8,
 		SparringIQ:     8,
 		Discipline:     9,
-		CoachRemarks:   "Exceptional discipline and kick height. Clear candidate for Yellow Tag promotion testing.",
+		CoachRemarks:   "Exceptional discipline and kick height. Clear candidate for Low Yellow promotion testing.",
 		CreatedAt:      now.AddDate(0, 0, -5),
 	}
 	m.evaluations[eval1.ID] = eval1

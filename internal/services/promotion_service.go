@@ -43,24 +43,41 @@ func getBeltRequirement(belt models.BeltRank) BeltRequirement {
 	switch belt {
 	case models.BeltWhite:
 		return BeltRequirement{RequiredSessions: 16, RequiredDays: 45}
-	case models.BeltYellowTag:
+	case models.BeltLowYellow:
 		return BeltRequirement{RequiredSessions: 20, RequiredDays: 60}
-	case models.BeltYellow:
+	case models.BeltHighYellow:
 		return BeltRequirement{RequiredSessions: 24, RequiredDays: 60}
-	case models.BeltGreenTag:
-		return BeltRequirement{RequiredSessions: 24, RequiredDays: 75}
-	case models.BeltGreen:
-		return BeltRequirement{RequiredSessions: 30, RequiredDays: 90}
-	case models.BeltBlueTag:
-		return BeltRequirement{RequiredSessions: 30, RequiredDays: 90}
-	case models.BeltBlue:
-		return BeltRequirement{RequiredSessions: 36, RequiredDays: 120}
-	case models.BeltRedTag:
-		return BeltRequirement{RequiredSessions: 36, RequiredDays: 120}
-	case models.BeltRed:
-		return BeltRequirement{RequiredSessions: 48, RequiredDays: 150}
-	default:
+	case models.BeltLowBlue:
+		return BeltRequirement{RequiredSessions: 28, RequiredDays: 75}
+	case models.BeltHighBlue:
+		return BeltRequirement{RequiredSessions: 32, RequiredDays: 90}
+	case models.BeltLowRed:
+		return BeltRequirement{RequiredSessions: 36, RequiredDays: 105}
+	case models.BeltHighRed:
 		return BeltRequirement{RequiredSessions: 40, RequiredDays: 120}
+	case models.BeltLowBrown:
+		return BeltRequirement{RequiredSessions: 44, RequiredDays: 135}
+	case models.BeltHighBrown:
+		return BeltRequirement{RequiredSessions: 48, RequiredDays: 150}
+	case models.BeltBlack1stDan:
+		return BeltRequirement{RequiredSessions: 60, RequiredDays: 180}
+	case models.BeltBlack2ndDan:
+		return BeltRequirement{RequiredSessions: 72, RequiredDays: 240}
+	case models.BeltBlack3rdDan:
+		return BeltRequirement{RequiredSessions: 84, RequiredDays: 365}
+	// Legacy fallback support
+	case "Yellow Tag":
+		return BeltRequirement{RequiredSessions: 20, RequiredDays: 60}
+	case "Yellow":
+		return BeltRequirement{RequiredSessions: 24, RequiredDays: 60}
+	case "Green Tag", "Green":
+		return BeltRequirement{RequiredSessions: 28, RequiredDays: 75}
+	case "Blue Tag", "Blue":
+		return BeltRequirement{RequiredSessions: 32, RequiredDays: 90}
+	case "Red Tag", "Red":
+		return BeltRequirement{RequiredSessions: 40, RequiredDays: 120}
+	default:
+		return BeltRequirement{RequiredSessions: 30, RequiredDays: 90}
 	}
 }
 

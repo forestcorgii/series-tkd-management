@@ -37,3 +37,27 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
   - Header: `Training Classes & Floor Attendance Log`
   - Scheduling Modal: `Schedule Training Class`
   - Date Field: `Class Date`
+
+---
+
+## 3. Belt Progression Standards
+
+### Context: PTA Belt Progression Hierarchy
+- **Problem:** Belt ranking previously contained non-standard "Tag" suffixes and omitted brown belts, which conflicted with the official Philippine Taekwondo Association (PTA) curriculum.
+- **Enforced Solution:** Use 12 sequential belt stages from White to 3rd Dan Black Belt.
+
+| Progression Order | Belt Rank Name | Backend Constant | Default Session Req | Default Tenure Days |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | **White** | `BeltWhite` | 16 | 45 |
+| 2 | **Low Yellow** | `BeltLowYellow` | 20 | 60 |
+| 3 | **High Yellow** | `BeltHighYellow` | 24 | 60 |
+| 4 | **Low Blue** | `BeltLowBlue` | 28 | 75 |
+| 5 | **High Blue** | `BeltHighBlue` | 32 | 90 |
+| 6 | **Low Red** | `BeltLowRed` | 36 | 105 |
+| 7 | **High Red** | `BeltHighRed` | 40 | 120 |
+| 8 | **Low Brown** | `BeltLowBrown` | 44 | 135 |
+| 9 | **High Brown** | `BeltHighBrown` | 48 | 150 |
+| 10 | **1st Dan Black** | `BeltBlack1stDan` | 60 | 180 |
+| 11 | **2nd Dan Black** | `BeltBlack2ndDan` | 72 | 240 |
+| 12 | **3rd Dan Black** | `BeltBlack3rdDan` | 84 | 365 |
+

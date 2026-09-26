@@ -9,19 +9,18 @@ import (
 type BeltRank string
 
 const (
-	BeltWhite        BeltRank = "White"
-	BeltYellowTag    BeltRank = "Yellow Tag"
-	BeltYellow       BeltRank = "Yellow"
-	BeltGreenTag     BeltRank = "Green Tag"
-	BeltGreen        BeltRank = "Green"
-	BeltBlueTag      BeltRank = "Blue Tag"
-	BeltBlue         BeltRank = "Blue"
-	BeltRedTag       BeltRank = "Red Tag"
-	BeltRed          BeltRank = "Red"
-	BeltBlackTag     BeltRank = "Black Tag"
-	BeltBlack1stDan  BeltRank = "1st Dan Black"
-	BeltBlack2ndDan  BeltRank = "2nd Dan Black"
-	BeltBlack3rdDan  BeltRank = "3rd Dan Black"
+	BeltWhite       BeltRank = "White"
+	BeltLowYellow   BeltRank = "Low Yellow"
+	BeltHighYellow  BeltRank = "High Yellow"
+	BeltLowBlue     BeltRank = "Low Blue"
+	BeltHighBlue    BeltRank = "High Blue"
+	BeltLowRed      BeltRank = "Low Red"
+	BeltHighRed     BeltRank = "High Red"
+	BeltLowBrown    BeltRank = "Low Brown"
+	BeltHighBrown   BeltRank = "High Brown"
+	BeltBlack1stDan BeltRank = "1st Dan Black"
+	BeltBlack2ndDan BeltRank = "2nd Dan Black"
+	BeltBlack3rdDan BeltRank = "3rd Dan Black"
 )
 
 type Student struct {
@@ -57,29 +56,44 @@ func (s *Student) DaysInCurrentRank() int {
 func (s *Student) NextBelt() BeltRank {
 	switch s.CurrentBelt {
 	case BeltWhite:
-		return BeltYellowTag
-	case BeltYellowTag:
-		return BeltYellow
-	case BeltYellow:
-		return BeltGreenTag
-	case BeltGreenTag:
-		return BeltGreen
-	case BeltGreen:
-		return BeltBlueTag
-	case BeltBlueTag:
-		return BeltBlue
-	case BeltBlue:
-		return BeltRedTag
-	case BeltRedTag:
-		return BeltRed
-	case BeltRed:
-		return BeltBlackTag
-	case BeltBlackTag:
+		return BeltLowYellow
+	case BeltLowYellow:
+		return BeltHighYellow
+	case BeltHighYellow:
+		return BeltLowBlue
+	case BeltLowBlue:
+		return BeltHighBlue
+	case BeltHighBlue:
+		return BeltLowRed
+	case BeltLowRed:
+		return BeltHighRed
+	case BeltHighRed:
+		return BeltLowBrown
+	case BeltLowBrown:
+		return BeltHighBrown
+	case BeltHighBrown:
 		return BeltBlack1stDan
 	case BeltBlack1stDan:
 		return BeltBlack2ndDan
 	case BeltBlack2ndDan:
 		return BeltBlack3rdDan
+	// Legacy fallback cases
+	case "Yellow Tag":
+		return BeltHighYellow
+	case "Yellow":
+		return BeltLowBlue
+	case "Green Tag", "Green":
+		return BeltLowBlue
+	case "Blue Tag":
+		return BeltHighBlue
+	case "Blue":
+		return BeltLowRed
+	case "Red Tag":
+		return BeltHighRed
+	case "Red":
+		return BeltLowBrown
+	case "Black Tag":
+		return BeltBlack1stDan
 	default:
 		return s.CurrentBelt
 	}

@@ -58,12 +58,32 @@ func TestUser_RolePermissions(t *testing.T) {
 
 func TestStudent_NextBeltProgression(t *testing.T) {
 	s := &models.Student{CurrentBelt: models.BeltWhite}
-	if next := s.NextBelt(); next != models.BeltYellowTag {
-		t.Errorf("expected Yellow Tag after White, got %s", next)
+	if next := s.NextBelt(); next != models.BeltLowYellow {
+		t.Errorf("expected Low Yellow after White, got %s", next)
 	}
 
-	s.CurrentBelt = models.BeltBlack1stDan
-	if next := s.NextBelt(); next != models.BeltBlack2ndDan {
-		t.Errorf("expected 2nd Dan after 1st Dan, got %s", next)
+	chain := []struct {
+		current  models.BeltRank
+		expected models.BeltRank
+	}{
+		{models.BeltWhite, models.BeltLowYellow},
+		{models.BeltLowYellow, models.BeltHighYellow},
+		{models.BeltHighYellow, models.BeltLowBlue},
+		{models.BeltLowBlue, models.BeltHighBlue},
+		{models.BeltHighBlue, models.BeltLowRed},
+		{models.BeltLowRed, models.BeltHighRed},
+		{models.BeltHighRed, models.BeltLowBrown},
+		{models.BeltLowBrown, models.BeltHighBrown},
+		{models.BeltHighBrown, models.BeltBlack1stDan},
+		{models.BeltBlack1stDan, models.BeltBlack2ndDan},
+		{models.BeltBlack2ndDan, models.BeltBlack3rdDan},
+		{models.BeltBlack3rdDan, models.BeltBlack3rdDan},
+	}
+
+	for _, step := range chain {
+		s.CurrentBelt = step.current
+		if next := s.NextBelt(); next != step.expected {
+			t.Errorf("expected %s after %s, got %s", step.expected, step.current, next)
+		}
 	}
 }
