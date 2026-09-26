@@ -45,7 +45,7 @@
                         <span>&bull;</span>
                         <span>Tenure: <strong class="text-black dark:text-white">{{.Readiness.DaysInRank}} days</strong> in rank</span>
                         <span>&bull;</span>
-                        <span>Sessions: <strong class="text-black dark:text-white">{{.Readiness.TotalSessions}} classes</strong></span>
+                        <span>Classes: <strong class="text-black dark:text-white">{{.Readiness.TotalSessions}} classes</strong></span>
                     </div>
                 </div>
             </div>
@@ -84,7 +84,7 @@
                         </p>
                     </div>
                     <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300">
-                        Target: {{.Readiness.RequiredSessions}} sessions / {{.Readiness.RequiredDaysInRank}} days
+                        Target: {{.Readiness.RequiredSessions}} classes / {{.Readiness.RequiredDaysInRank}} days
                     </span>
                 </div>
 
@@ -93,7 +93,7 @@
                     <div class="flex justify-between text-xs font-bold">
                         <span class="text-slate-700 dark:text-slate-300 uppercase tracking-wider">Attendance Count</span>
                         <span class="text-slate-900 dark:text-slate-100">
-                            {{.Readiness.TotalSessions}} / {{.Readiness.RequiredSessions}} Sessions ({{.SessionCompletionPct}}%)
+                            {{.Readiness.TotalSessions}} / {{.Readiness.RequiredSessions}} Classes ({{.SessionCompletionPct}}%)
                         </span>
                     </div>
                     <div class="h-3.5 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
@@ -126,7 +126,7 @@
                             {{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
                             {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
                             <span>{{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}✓{{else}}○{{end}}</span>
-                            <span class="font-medium">Minimum Floor Sessions Logged</span>
+                            <span class="font-medium">Minimum Floor Classes Attended</span>
                         </div>
 
                         <div class="p-3 rounded-xl border flex items-center gap-2.5
@@ -158,14 +158,14 @@
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
-                            Prepaid Pass Wallet &amp; Ledger
+                            Prepaid Membership Wallet &amp; Ledger
                         </h2>
                         <p class="text-xs text-slate-600 dark:text-slate-400">
-                            Automatic session deduction upon floor check-in
+                            Automatic credit deduction upon attendance check-in
                         </p>
                     </div>
                     <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                        {{if .ActivePackage}}Active Pass{{else}}No Active Pass{{end}}
+                        {{if .ActivePackage}}Active Membership{{else}}No Active Membership{{end}}
                     </span>
                 </div>
 
@@ -173,7 +173,7 @@
                 <div class="p-4 sm:p-5 rounded-xl bg-gradient-to-br from-neutral-900 to-black text-white border border-neutral-800 shadow-lg relative overflow-hidden mb-4">
                     <div class="flex justify-between items-start">
                         <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-red-400">Current Pass</span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-red-400">Current Membership</span>
                             <h3 class="font-display font-bold text-lg sm:text-xl text-white">{{.ActivePackage.TemplateTitle}}</h3>
                             <p class="text-xs text-slate-400 mt-1">Valid until {{formatDate .ActivePackage.ExpiryDate}}</p>
                         </div>
@@ -181,26 +181,26 @@
                             <span class="text-3xl font-display font-black text-white">
                                 {{if .ActivePackage.RemainingSessions}}{{.ActivePackage.RemainingSessions}}{{else}}&infin;{{end}}
                             </span>
-                            <span class="block text-[10px] uppercase font-bold text-slate-400">Sessions Left</span>
+                            <span class="block text-[10px] uppercase font-bold text-slate-400">Classes Left</span>
                         </div>
                     </div>
                 </div>
                 {{else}}
                 <div class="p-6 text-center rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800 mb-4">
-                    <p class="text-sm font-semibold text-slate-600 dark:text-slate-400">No active pass found. Please see front desk for renewal.</p>
+                    <p class="text-sm font-semibold text-slate-600 dark:text-slate-400">No active membership found. Please see front desk for renewal.</p>
                 </div>
                 {{end}}
 
                 <!-- Past Check-Ins Audit Log -->
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                    Recent Mat Check-Ins (Audit Log)
+                    Recent Attendance Log
                 </h3>
                 <div class="max-h-48 overflow-y-auto divide-y divide-[#E5E3D8] dark:divide-neutral-800 text-xs">
                     {{range .RecentAttendances}}
                     <div class="py-2.5 flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                            <span class="font-semibold text-slate-800 dark:text-slate-200">Floor Session Admitted</span>
+                            <span class="font-semibold text-slate-800 dark:text-slate-200">Class Attended</span>
                             {{if .PackageTitle}}
                             <span class="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">{{.PackageTitle}}</span>
                             {{end}}
@@ -293,7 +293,7 @@
             <!-- Today's Floor Schedule & Self Check-In -->
             <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
                 <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-3">
-                    Scheduled Mat Blocks
+                    Today's Scheduled Classes
                 </h2>
                 <div class="space-y-3">
                     {{range .UpcomingSessions}}
@@ -310,13 +310,13 @@
                         <button hx-post="/api/coach/check-in"
                                 hx-vals='{"session_id": "{{.ID}}", "student_id": "{{$.Student.ID}}"}'
                                 hx-target="#checkin-feedback-{{.ID}}"
-                                class="px-3 py-1.5 rounded-lg bg-[#990303] hover:bg-[#7D0202] text-white text-xs font-bold uppercase tracking-wider transition shadow-sm">
-                            Mat Check-In
+                                class="px-3 py-1.5 rounded-lg bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white text-xs font-bold uppercase tracking-wider transition shadow-sm">
+                            Class Check-In
                         </button>
                     </div>
                     <div id="checkin-feedback-{{.ID}}"></div>
                     {{else}}
-                    <p class="text-xs text-slate-500 text-center py-4">No scheduled training sessions today.</p>
+                    <p class="text-xs text-slate-500 text-center py-4">No scheduled classes today.</p>
                     {{end}}
                 </div>
             </div>

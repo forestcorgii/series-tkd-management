@@ -1,6 +1,6 @@
 {{template "layout.html" .}}
 
-{{define "title"}}Live Floor Check-In - {{.Session.TrainingType}}{{end}}
+{{define "title"}}Live Attendance - {{.Session.TrainingType}}{{end}}
 
 {{define "content"}}
 <div class="space-y-6">
@@ -9,7 +9,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
-                    LIVE FLOOR SESSION
+                    LIVE CLASS
                 </span>
                 <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Session.StartTime}} - {{.Session.EndTime}}</span>
             </div>
@@ -17,7 +17,7 @@
             <p class="text-xs text-slate-600 dark:text-slate-400">Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span></p>
         </div>
         <a href="/sessions" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white border border-slate-200 dark:border-transparent transition shadow-sm">
-            &larr; Exit Check-In
+            &larr; Exit Attendance
         </a>
     </div>
 
@@ -25,7 +25,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Left: Quick Search / QR Code Reader & Admit Action -->
         <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
-            <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Floor Check-In Search</h2>
+            <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Floor Attendance Search</h2>
             <div class="relative">
                 <input type="search"
                        name="query"
@@ -39,7 +39,7 @@
 
             <!-- HTMX Search Results Container -->
             <div id="search-results" class="space-y-3 pt-2">
-                <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">Type student name or scan QR code to perform instant credit check-in...</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">Type student name or scan QR code to perform instant attendance check-in...</p>
             </div>
         </div>
 
@@ -56,7 +56,7 @@
                         <tr>
                             <th class="py-2.5 px-3">Student</th>
                             <th class="py-2.5 px-3">Belt Rank</th>
-                            <th class="py-2.5 px-3">Pass / Deducted</th>
+                            <th class="py-2.5 px-3">Membership / Deducted</th>
                             <th class="py-2.5 px-3 text-right">Checked In</th>
                         </tr>
                     </thead>

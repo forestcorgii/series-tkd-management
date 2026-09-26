@@ -1,25 +1,25 @@
 {{template "layout.html" .}}
 
-{{define "title"}}Passes & Billing - STMS{{end}}
+{{define "title"}}Memberships - STMS{{end}}
 
 {{define "content"}}
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Membership Packages &amp; Passes</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Pre-configured passes with automated floor credit check-in deduction.</p>
+            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Memberships</h1>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Pre-configured memberships with automated attendance credit deduction.</p>
         </div>
-        <button onclick="document.getElementById('assign-pass-modal').classList.remove('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
-            💳 Assign Pass to Student
+        <button onclick="document.getElementById('assign-pass-modal').classList.remove('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider transition flex items-center gap-1.5 shadow-lg shadow-[#990303]/20 dark:shadow-red-600/20">
+            💳 Assign Membership to Student
         </button>
     </div>
 
-    <!-- Package Templates Grid -->
+    <!-- Membership Templates Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         {{range .Templates}}
         <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
             <div class="flex items-center justify-between">
-                <span class="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">Pass Template</span>
+                <span class="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">Membership Template</span>
                 <span class="font-display font-extrabold text-2xl text-slate-900 dark:text-white">${{printf "%.2f" .Price}}</span>
             </div>
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">{{.Title}}</h3>
@@ -28,7 +28,7 @@
                 <div class="flex justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
                     <span class="text-slate-600 dark:text-slate-400 font-medium">Total Credits:</span>
                     {{if .SessionCount}}
-                    <span class="text-slate-900 dark:text-white font-bold">{{.SessionCount}} Sessions</span>
+                    <span class="text-slate-900 dark:text-white font-bold">{{.SessionCount}} Classes</span>
                     {{else}}
                     <span class="text-teal-600 dark:text-teal-300 font-bold">Unlimited Membership ♾️</span>
                     {{end}}
@@ -42,12 +42,12 @@
         {{end}}
     </div>
 
-    <!-- Active Student Passes & Billing Roster -->
+    <!-- Active Student Memberships Roster -->
     <div class="glass-panel rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 p-6 space-y-4 shadow-sm">
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Active Student Passes &amp; Billing Roster</h2>
-                <p class="text-xs text-slate-600 dark:text-slate-400">Assigned passes with credit balances, expirations, and payment statuses.</p>
+                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Active Student Memberships Roster</h2>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Assigned memberships with credit balances, expirations, and payment statuses.</p>
             </div>
         </div>
 
@@ -57,8 +57,8 @@
                     <tr>
                         <th class="py-3 px-4">Student</th>
                         <th class="py-3 px-4">Belt Rank</th>
-                        <th class="py-3 px-4">Pass Title</th>
-                        <th class="py-3 px-4">Remaining Credits</th>
+                        <th class="py-3 px-4">Membership Plan</th>
+                        <th class="py-3 px-4">Remaining Classes</th>
                         <th class="py-3 px-4">Expiry Date</th>
                         <th class="py-3 px-4 text-center">Payment Status</th>
                     </tr>
@@ -82,7 +82,7 @@
                         <td class="py-3.5 px-4 text-xs font-medium">
                             {{if .Package.RemainingSessions}}
                             <span class="font-bold text-emerald-600 dark:text-emerald-400 text-sm">{{.Package.RemainingSessions}}</span>
-                            <span class="text-slate-600 dark:text-slate-400"> / {{.Package.TotalSessions}} remaining</span>
+                            <span class="text-slate-600 dark:text-slate-400"> / {{.Package.TotalSessions}} classes remaining</span>
                             {{else}}
                             <span class="text-teal-600 dark:text-teal-300 font-bold">Unlimited ♾️</span>
                             {{end}}
@@ -104,7 +104,7 @@
                     </tr>
                     {{else}}
                     <tr>
-                        <td colspan="6" class="text-center py-6 text-xs text-slate-600 dark:text-slate-400">No active student packages assigned yet.</td>
+                        <td colspan="6" class="text-center py-6 text-xs text-slate-600 dark:text-slate-400">No active student memberships assigned yet.</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -113,11 +113,11 @@
     </div>
 </div>
 
-<!-- Modal: Assign Pass to Student -->
+<!-- Modal: Assign Membership to Student -->
 <div id="assign-pass-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
     <div class="glass-panel p-6 rounded-2xl max-w-md w-full space-y-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Assign Package Pass</h3>
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Assign Membership</h3>
             <button onclick="document.getElementById('assign-pass-modal').classList.add('hidden')" class="text-slate-500 hover:text-slate-700 dark:hover:text-white text-xl leading-none">&times;</button>
         </div>
         <form action="/packages/assign" method="POST" class="space-y-4">
@@ -130,7 +130,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Select Pass Template</label>
+                <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Select Membership Plan</label>
                 <select name="template_id" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
                     {{range .Templates}}
                     <option value="{{.ID}}">{{.Title}} - ${{printf "%.2f" .Price}}</option>
@@ -139,7 +139,7 @@
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" onclick="document.getElementById('assign-pass-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Cancel</button>
-                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950">Confirm Purchase &amp; Assign</button>
+                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider">Confirm Purchase &amp; Assign</button>
             </div>
         </form>
     </div>

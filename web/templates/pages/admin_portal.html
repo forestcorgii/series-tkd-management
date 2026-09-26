@@ -22,7 +22,7 @@
 
         <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
-                Floor Sessions Logged
+                Classes Conducted
             </span>
             <div class="flex items-baseline justify-between">
                 <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
@@ -74,7 +74,7 @@
             </p>
         </div>
         <div class="flex items-center gap-3">
-            <a href="/students" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
+            <a href="/students" class="px-3.5 py-2 rounded-xl bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
                 ➕ Add Student
             </a>
             <a href="/coaches" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
@@ -108,7 +108,7 @@
                     <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase tracking-wider">
                         <th class="pb-3">Practitioner</th>
                         <th class="pb-3">Current Belt</th>
-                        <th class="pb-3">Floor Sessions</th>
+                        <th class="pb-3">Classes Attended</th>
                         <th class="pb-3">Tenure</th>
                         <th class="pb-3">Readiness Badge</th>
                         <th class="pb-3">Target Rank</th>
@@ -234,10 +234,10 @@
         <!-- Curriculum & Schedule Generator -->
         <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
             <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-1">
-                Curriculum Floor Session Generator
+                Curriculum Class Generator
             </h2>
             <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                Provision new scheduled floor training blocks (Poomsae, Sparring, Conditioning)
+                Provision new scheduled class training blocks (Poomsae, Sparring, Conditioning)
             </p>
 
             <form hx-post="/api/admin/schedule"
@@ -300,7 +300,7 @@
                 </div>
 
                 <button type="submit"
-                        class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
+                        class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] dark:from-[#DC2626] dark:to-[#B91C1C] dark:hover:from-[#B91C1C] text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
                     + Generate Scheduled Floor Slot
                 </button>
                 <div id="schedule-feedback"></div>

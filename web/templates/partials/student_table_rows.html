@@ -17,12 +17,12 @@
         {{if .ActivePackage}}
             <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
             {{if .ActivePackage.RemainingSessions}}
-            <div class="text-[11px] text-slate-600 dark:text-slate-400">{{.ActivePackage.RemainingSessions}} / {{.ActivePackage.TotalSessions}} remaining</div>
+            <div class="text-[11px] text-slate-600 dark:text-slate-400">{{.ActivePackage.RemainingSessions}} / {{.ActivePackage.TotalSessions}} classes remaining</div>
             {{else}}
             <div class="text-[11px] text-teal-600 dark:text-teal-300 font-semibold">Unlimited Membership ♾️</div>
             {{end}}
         {{else}}
-            <span class="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">⚠️ No Active Pass</span>
+            <span class="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">⚠️ No Active Membership</span>
         {{end}}
     </td>
     <td class="py-3.5 px-4 text-xs">

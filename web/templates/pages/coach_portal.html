@@ -40,7 +40,7 @@
 
             <!-- Session Selector -->
             <div class="flex items-center gap-2">
-                <label for="session-select" class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">Session:</label>
+                <label for="session-select" class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">Class:</label>
                 <select id="session-select" onchange="window.location.href='/portal/coach?session_id=' + this.value"
                         class="px-3 py-1.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#990303]">
                     {{range .AllSessions}}
@@ -65,7 +65,7 @@
                             Live Mat Roster ({{if .LiveSession}}{{.LiveSession.TrainingType}} @ {{.LiveSession.StartTime}}{{else}}Floor Standby{{end}})
                         </h2>
                         <p class="text-xs text-slate-600 dark:text-slate-400">
-                            Currently checked-in practitioners with active package deductions
+                            Currently checked-in practitioners with active membership deductions
                         </p>
                     </div>
                     <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
@@ -91,7 +91,7 @@
                             {{end}}
                         </select>
                         <button type="submit"
-                                class="px-4 py-2 rounded-lg bg-[#990303] hover:bg-[#7D0202] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm whitespace-nowrap">
+                                class="px-4 py-2 rounded-lg bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm whitespace-nowrap">
                             + Admit to Mat
                         </button>
                     </form>
@@ -119,13 +119,13 @@
                                     </span>
                                 </td>
                                 <td class="py-2.5 text-slate-600 dark:text-slate-400">
-                                    {{if .PackageTitle}}{{.PackageTitle}}{{else}}Pass Verified{{end}}
+                                    {{if .PackageTitle}}{{.PackageTitle}}{{else}}Membership Verified{{end}}
                                 </td>
                                 <td class="py-2.5 text-slate-500">{{formatDate .CheckedInAt}}</td>
                             </tr>
                             {{else}}
                             <tr>
-                                <td colspan="4" class="py-6 text-center text-slate-500">No students checked into this floor session yet.</td>
+                                <td colspan="4" class="py-6 text-center text-slate-500">No students checked into this class yet.</td>
                             </tr>
                             {{end}}
                         </tbody>
@@ -243,7 +243,7 @@
                     </div>
 
                     <button type="submit"
-                            class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
+                            class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] dark:from-[#DC2626] dark:to-[#B91C1C] dark:hover:from-[#B91C1C] text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
                         Submit Score Evaluation
                     </button>
                     <div id="eval-feedback"></div>

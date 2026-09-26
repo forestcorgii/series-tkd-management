@@ -40,12 +40,12 @@ func TestAppHandler_ParseTemplates(t *testing.T) {
 		},
 		{
 			path:            "/packages",
-			expectedContent: "Membership Packages &amp; Passes",
+			expectedContent: "Memberships",
 			handlerFunc:     app.HandlePackages,
 		},
 		{
 			path:            "/sessions",
-			expectedContent: "Training Sessions &amp; Floor Roster Log",
+			expectedContent: "Training Classes &amp; Floor Attendance Log",
 			handlerFunc:     app.HandleSessions,
 		},
 	}

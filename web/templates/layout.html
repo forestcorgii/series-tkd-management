@@ -40,6 +40,8 @@
                             black: '#000000',
                             red: '#990303',
                             'red-hover': '#7D0202',
+                            'red-dark': '#DC2626',
+                            'red-dark-hover': '#B91C1C',
                             cream: '#FFFDF4',
                             'cream-dark': '#F4F1E4',
                             border: '#E5E3D8',
@@ -94,10 +96,10 @@
             <!-- Navigation Links -->
             <nav class="hidden md:flex items-center space-x-1 sm:space-x-2 font-medium text-sm">
                 <a href="/" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
-                <a href="/students" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students &amp; Ability</a>
-                <a href="/sessions" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Floor Sessions</a>
-                <a href="/coaches" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Coach &amp; Payroll</a>
-                <a href="/packages" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Passes &amp; Billing</a>
+                <a href="/students" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
+                <a href="/sessions" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
+                <a href="/coaches" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Coaches</a>
+                <a href="/packages" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Memberships</a>
             </nav>
 
             <div class="flex items-center space-x-2 sm:space-x-3">
@@ -150,7 +152,7 @@
                 </div>
                 {{else}}
                 <a href="/login"
-                   class="px-3 py-1.5 rounded-xl bg-[#990303] hover:bg-[#7D0202] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm">
+                   class="px-3 py-1.5 rounded-xl bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm">
                     Sign In
                 </a>
                 {{end}}
@@ -161,9 +163,9 @@
         <nav class="flex md:hidden items-center justify-between pt-2.5 mt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800 overflow-x-auto gap-1 text-xs font-semibold">
             <a href="/" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Dashboard</a>
             <a href="/students" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
-            <a href="/sessions" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Sessions</a>
+            <a href="/sessions" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
             <a href="/coaches" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Coaches</a>
-            <a href="/packages" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Passes</a>
+            <a href="/packages" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Memberships</a>
             {{$user := currentUser .}}
             {{if $user}}
             <a href="{{if eq $user.Role "ADMIN"}}/portal/admin{{else if eq $user.Role "COACH"}}/portal/coach{{else}}/portal/student{{end}}" class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">Portal</a>
