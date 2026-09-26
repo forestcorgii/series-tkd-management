@@ -15,6 +15,7 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
 | **Passes & Passes Roster**| **Memberships / Membership Plans**| Package, Pass, Passes & Billing, Package Pass | `package_templates`, `student_packages` tables, `models.Package` |
 | **Session Units** | **Classes / Remaining Classes** | Sessions, Credits, Remaining Sessions | `student_packages.remaining_sessions`, `student_packages.total_sessions` |
 | **Live Roster Screen** | **Live Attendance** | Live Floor Check-In, Floor Standby | `/sessions/{id}/live` view handler |
+| **Currency Display** | **Philippine Peso (₱ / PHP)** | USD, US Dollar ($) | Float64 rates & prices (`RatePerSession`, `Price`, `CustomPrice`) |
 
 ---
 
