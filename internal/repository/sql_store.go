@@ -379,7 +379,7 @@ func formatDateForDB(t time.Time) string {
 func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, 0)
+		COALESCE(has_safety_flag, FALSE)
 		FROM students ORDER BY full_name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -422,7 +422,7 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, 0)
+		COALESCE(has_safety_flag, FALSE)
 		FROM students WHERE id = $1`
 	var idStr, dobStr, promoStr, createdStr string
 	st := &models.Student{}
@@ -463,7 +463,7 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 	likePattern := "%" + strings.ToLower(q) + "%"
 	sqlQuery := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, 0)
+		COALESCE(has_safety_flag, FALSE)
 		FROM students
 		WHERE LOWER(full_name) LIKE $1 OR phone LIKE $1 OR LOWER(current_belt) LIKE $1
 		ORDER BY full_name ASC`
