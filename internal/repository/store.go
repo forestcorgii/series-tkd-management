@@ -47,6 +47,30 @@ type RepositoryStore interface {
 	GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEvaluation, error)
 	GetStudentEvaluations(studentID uuid.UUID) ([]*models.StudentEvaluation, error)
 	CreateEvaluation(eval *models.StudentEvaluation) error
+
+	// Auth & Users
+	GetUserByEmail(email string) (*models.User, error)
+	GetUserByID(id uuid.UUID) (*models.User, error)
+	CreateUser(user *models.User) error
+	UpdateUserLastLogin(id uuid.UUID) error
+	CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error
+	GetUserBySessionToken(token string) (*models.User, error)
+	DeleteSessionToken(token string) error
+
+	// Safety Incidents
+	CreateSafetyIncident(inc *models.SafetyIncident) error
+	GetSafetyIncidents(resolved *bool) ([]*models.SafetyIncident, error)
+	ResolveSafetyIncident(incidentID uuid.UUID, adminEmail string) error
+	SetStudentSafetyFlag(studentID uuid.UUID, hasSafetyFlag bool) error
+
+	// Belt Promotion
+	PromoteStudent(studentID uuid.UUID, newBelt models.BeltRank) error
+}
+
+type SessionTokenRecord struct {
+	Token     string
+	UserID    uuid.UUID
+	ExpiresAt time.Time
 }
 
 type MemoryStore struct {
@@ -58,6 +82,10 @@ type MemoryStore struct {
 	sessions         map[uuid.UUID]*models.TrainingSession
 	attendances      map[uuid.UUID]*models.Attendance
 	evaluations      map[uuid.UUID]*models.StudentEvaluation
+	users            map[uuid.UUID]*models.User
+	usersByEmail     map[string]uuid.UUID
+	sessionTokens    map[string]SessionTokenRecord
+	safetyIncidents  map[uuid.UUID]*models.SafetyIncident
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -69,6 +97,10 @@ func NewMemoryStore() *MemoryStore {
 		sessions:         make(map[uuid.UUID]*models.TrainingSession),
 		attendances:      make(map[uuid.UUID]*models.Attendance),
 		evaluations:      make(map[uuid.UUID]*models.StudentEvaluation),
+		users:            make(map[uuid.UUID]*models.User),
+		usersByEmail:     make(map[string]uuid.UUID),
+		sessionTokens:    make(map[string]SessionTokenRecord),
+		safetyIncidents:  make(map[uuid.UUID]*models.SafetyIncident),
 	}
 	m.seedData()
 	return m
@@ -372,5 +404,201 @@ func (m *MemoryStore) CreateEvaluation(eval *models.StudentEvaluation) error {
 	}
 	eval.CreatedAt = time.Now()
 	m.evaluations[eval.ID] = eval
+	return nil
+}
+
+func (m *MemoryStore) GetUserByEmail(email string) (*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	normEmail := strings.ToLower(strings.TrimSpace(email))
+	id, ok := m.usersByEmail[normEmail]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	u, ok := m.users[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return u, nil
+}
+
+func (m *MemoryStore) GetUserByID(id uuid.UUID) (*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	u, ok := m.users[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return u, nil
+}
+
+func (m *MemoryStore) CreateUser(u *models.User) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if u.ID == uuid.Nil {
+		u.ID = uuid.New()
+	}
+	normEmail := strings.ToLower(strings.TrimSpace(u.Email))
+	u.Email = normEmail
+	now := time.Now()
+	u.CreatedAt = now
+	u.UpdatedAt = now
+	m.users[u.ID] = u
+	m.usersByEmail[normEmail] = u.ID
+	return nil
+}
+
+func (m *MemoryStore) UpdateUserLastLogin(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	u, ok := m.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	now := time.Now()
+	u.LastLoginAt = &now
+	u.UpdatedAt = now
+	return nil
+}
+
+func (m *MemoryStore) CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.sessionTokens[token] = SessionTokenRecord{
+		Token:     token,
+		UserID:    userID,
+		ExpiresAt: expiresAt,
+	}
+	return nil
+}
+
+func (m *MemoryStore) GetUserBySessionToken(token string) (*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	rec, ok := m.sessionTokens[token]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if time.Now().After(rec.ExpiresAt) {
+		return nil, ErrNotFound
+	}
+
+	u, ok := m.users[rec.UserID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return u, nil
+}
+
+func (m *MemoryStore) DeleteSessionToken(token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.sessionTokens, token)
+	return nil
+}
+
+func (m *MemoryStore) CreateSafetyIncident(inc *models.SafetyIncident) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if inc.ID == uuid.Nil {
+		inc.ID = uuid.New()
+	}
+	inc.CreatedAt = time.Now()
+	m.safetyIncidents[inc.ID] = inc
+
+	// Auto-set safety flag on student
+	if st, ok := m.students[inc.StudentID]; ok {
+		st.HasSafetyFlag = true
+		inc.StudentName = st.FullName
+	}
+	if inc.CoachID != nil {
+		if coach, ok := m.coaches[*inc.CoachID]; ok {
+			inc.CoachName = coach.FullName
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) GetSafetyIncidents(resolved *bool) ([]*models.SafetyIncident, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := []*models.SafetyIncident{}
+	for _, inc := range m.safetyIncidents {
+		if resolved != nil && inc.Resolved != *resolved {
+			continue
+		}
+		if st, ok := m.students[inc.StudentID]; ok {
+			inc.StudentName = st.FullName
+		}
+		if inc.CoachID != nil {
+			if coach, ok := m.coaches[*inc.CoachID]; ok {
+				inc.CoachName = coach.FullName
+			}
+		}
+		result = append(result, inc)
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) ResolveSafetyIncident(incidentID uuid.UUID, adminEmail string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	inc, ok := m.safetyIncidents[incidentID]
+	if !ok {
+		return ErrNotFound
+	}
+	inc.Resolved = true
+	inc.ResolvedBy = adminEmail
+	now := time.Now()
+	inc.ResolvedAt = &now
+
+	// Check if this student has any remaining unresolved incidents
+	hasUnresolved := false
+	for _, other := range m.safetyIncidents {
+		if other.StudentID == inc.StudentID && !other.Resolved {
+			hasUnresolved = true
+			break
+		}
+	}
+	if !hasUnresolved {
+		if st, ok := m.students[inc.StudentID]; ok {
+			st.HasSafetyFlag = false
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) SetStudentSafetyFlag(studentID uuid.UUID, hasSafetyFlag bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	st, ok := m.students[studentID]
+	if !ok {
+		return ErrNotFound
+	}
+	st.HasSafetyFlag = hasSafetyFlag
+	return nil
+}
+
+func (m *MemoryStore) PromoteStudent(studentID uuid.UUID, newBelt models.BeltRank) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	st, ok := m.students[studentID]
+	if !ok {
+		return ErrNotFound
+	}
+	st.CurrentBelt = newBelt
+	st.LastPromotionDate = time.Now()
 	return nil
 }

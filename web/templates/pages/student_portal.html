@@ -1,0 +1,326 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Practitioner Portal &bull; {{.Student.FullName}} &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Safety & First Aid Alert Notice (Displayed if flagged) -->
+    {{if .HasActiveSafetyHold}}
+    <div class="p-4 sm:p-5 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 text-rose-700 dark:text-rose-300 shadow-lg flex items-start gap-4 animate-pulse">
+        <div class="p-2.5 rounded-xl bg-rose-500/20 text-rose-500 flex-shrink-0">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <div class="flex-1">
+            <div class="flex items-center gap-2">
+                <span class="font-display font-black uppercase text-sm tracking-wider bg-rose-600 text-white px-2 py-0.5 rounded">Mat Safety Hold Active</span>
+                <span class="text-xs font-semibold text-rose-600 dark:text-rose-400">First Aid Clearance Required</span>
+            </div>
+            <p class="text-xs sm:text-sm mt-1.5 leading-relaxed font-medium">
+                Our floor medical logs indicate an open injury or first aid flag. Before stepping onto the mat for contact drills or sparring, you must receive verbal clearance from the supervising head coach or dojang director.
+            </p>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Top Practitioner Header & Belt Ribbon -->
+    <div class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+                    {{printf "%.1s" .Student.FullName}}
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="font-display font-black text-2xl sm:text-3xl text-black dark:text-[#FFFDF4] uppercase">
+                            {{.Student.FullName}}
+                        </h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#990303]/15 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400">
+                            Student Practitioner
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 flex-wrap font-medium">
+                        <span>Rank: <strong class="text-black dark:text-white">{{.Student.CurrentBelt}}</strong></span>
+                        <span>&bull;</span>
+                        <span>Tenure: <strong class="text-black dark:text-white">{{.Readiness.DaysInRank}} days</strong> in rank</span>
+                        <span>&bull;</span>
+                        <span>Sessions: <strong class="text-black dark:text-white">{{.Readiness.TotalSessions}} classes</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Readiness Status Badge -->
+            <div class="flex items-center gap-3">
+                <div class="text-right hidden sm:block">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Grading Status</span>
+                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {{if eq .Readiness.Status "READY"}}Promotion Ready{{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}Pre-Test Candidate{{else}}Curriculum Developing{{end}}
+                    </span>
+                </div>
+                <div class="px-4 py-2 rounded-xl text-sm font-display font-black uppercase tracking-wider border shadow-sm flex items-center gap-2
+                    {{if eq .Readiness.BadgeColor "emerald"}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30
+                    {{else if eq .Readiness.BadgeColor "amber"}}bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30
+                    {{else}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30{{end}}">
+                    <span class="text-base">{{.Readiness.BadgeIcon}}</span>
+                    <span>{{.Readiness.Status}}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid: Readiness HUD + Athletic Radar -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Readiness Progress HUD (2 cols) -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Promotion Readiness Engine
+                        </h2>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">
+                            Threshold evaluation toward <strong class="text-[#990303] dark:text-red-400">{{.Student.NextBelt}}</strong>
+                        </p>
+                    </div>
+                    <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300">
+                        Target: {{.Readiness.RequiredSessions}} sessions / {{.Readiness.RequiredDaysInRank}} days
+                    </span>
+                </div>
+
+                <!-- Progress Bar 1: Sessions Attended -->
+                <div class="space-y-2 mb-5">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span class="text-slate-700 dark:text-slate-300 uppercase tracking-wider">Attendance Count</span>
+                        <span class="text-slate-900 dark:text-slate-100">
+                            {{.Readiness.TotalSessions}} / {{.Readiness.RequiredSessions}} Sessions ({{.SessionCompletionPct}}%)
+                        </span>
+                    </div>
+                    <div class="h-3.5 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
+                        <div class="h-full bg-gradient-to-r from-[#990303] to-red-500 rounded-full transition-all duration-500"
+                             style="width: {{.SessionCompletionPct}}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar 2: Days in Current Rank -->
+                <div class="space-y-2 mb-6">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span class="text-slate-700 dark:text-slate-300 uppercase tracking-wider">Time in Rank (Tenure)</span>
+                        <span class="text-slate-900 dark:text-slate-100">
+                            {{.Readiness.DaysInRank}} / {{.Readiness.RequiredDaysInRank}} Days ({{.TenureCompletionPct}}%)
+                        </span>
+                    </div>
+                    <div class="h-3.5 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
+                        <div class="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
+                             style="width: {{.TenureCompletionPct}}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Reasons / Criteria Checklist -->
+                <div class="pt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+                        Curriculum Verification Criteria
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                            {{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
+                            {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
+                            <span>{{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium">Minimum Floor Sessions Logged</span>
+                        </div>
+
+                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                            {{if ge .Readiness.DaysInRank .Readiness.RequiredDaysInRank}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
+                            {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
+                            <span>{{if ge .Readiness.DaysInRank .Readiness.RequiredDaysInRank}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium">Time-in-Rank Requirement Met</span>
+                        </div>
+
+                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                            {{if and .Readiness.HasEvaluation (ge .Readiness.LatestMinScore 6)}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
+                            {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
+                            <span>{{if and .Readiness.HasEvaluation (ge .Readiness.LatestMinScore 6)}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium">Athletic Benchmark (No score &lt; 6)</span>
+                        </div>
+
+                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                            {{if .Readiness.HasEvaluation}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
+                            {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
+                            <span>{{if .Readiness.HasEvaluation}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium">Formal Coach Dan Evaluation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Package Balance & Auto-Deduction Wallet -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Prepaid Pass Wallet &amp; Ledger
+                        </h2>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">
+                            Automatic session deduction upon floor check-in
+                        </p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                        {{if .ActivePackage}}Active Pass{{else}}No Active Pass{{end}}
+                    </span>
+                </div>
+
+                {{if .ActivePackage}}
+                <div class="p-4 sm:p-5 rounded-xl bg-gradient-to-br from-neutral-900 to-black text-white border border-neutral-800 shadow-lg relative overflow-hidden mb-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-red-400">Current Pass</span>
+                            <h3 class="font-display font-bold text-lg sm:text-xl text-white">{{.ActivePackage.TemplateTitle}}</h3>
+                            <p class="text-xs text-slate-400 mt-1">Valid until {{formatDate .ActivePackage.ExpiryDate}}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-3xl font-display font-black text-white">
+                                {{if .ActivePackage.RemainingSessions}}{{.ActivePackage.RemainingSessions}}{{else}}&infin;{{end}}
+                            </span>
+                            <span class="block text-[10px] uppercase font-bold text-slate-400">Sessions Left</span>
+                        </div>
+                    </div>
+                </div>
+                {{else}}
+                <div class="p-6 text-center rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800 mb-4">
+                    <p class="text-sm font-semibold text-slate-600 dark:text-slate-400">No active pass found. Please see front desk for renewal.</p>
+                </div>
+                {{end}}
+
+                <!-- Past Check-Ins Audit Log -->
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                    Recent Mat Check-Ins (Audit Log)
+                </h3>
+                <div class="max-h-48 overflow-y-auto divide-y divide-[#E5E3D8] dark:divide-neutral-800 text-xs">
+                    {{range .RecentAttendances}}
+                    <div class="py-2.5 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                            <span class="font-semibold text-slate-800 dark:text-slate-200">Floor Session Admitted</span>
+                            {{if .PackageTitle}}
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">{{.PackageTitle}}</span>
+                            {{end}}
+                        </div>
+                        <span class="text-slate-500 dark:text-slate-400">{{formatDate .CheckedInAt}}</span>
+                    </div>
+                    {{else}}
+                    <p class="text-xs text-slate-500 py-3 text-center">No past attendance logs found.</p>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Col: Athletic Spider Chart & Schedule (1 col) -->
+        <div class="space-y-6">
+            <!-- Athletic Spider Chart Card -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                        Athletic Spider Matrix
+                    </h2>
+                    {{if .LatestEvaluation}}
+                    <span class="text-xs font-bold text-[#990303] dark:text-red-400">
+                        Avg: {{printf "%.1f" .LatestEvaluation.AverageScore}}/10
+                    </span>
+                    {{end}}
+                </div>
+
+                {{if .LatestEvaluation}}
+                <div class="flex justify-center my-2">
+                    <svg viewBox="0 0 200 200" class="w-48 h-48 sm:w-52 sm:h-52">
+                        <!-- Radar Web Grids (10, 8, 6, 4, 2) -->
+                        <polygon points="100,25 165,62.5 165,137.5 100,175 35,137.5 35,62.5" fill="none" class="radar-grid" stroke-width="1" />
+                        <polygon points="100,40 152,70 152,130 100,160 48,130 48,70" fill="none" class="radar-grid" stroke-width="1" />
+                        <polygon points="100,55 139,77.5 139,122.5 100,145 61,122.5 61,77.5" fill="none" class="radar-grid" stroke-width="1" />
+                        <polygon points="100,70 126,85 126,115 100,130 74,115 74,85" fill="none" class="radar-grid" stroke-width="1" />
+                        <!-- Axis Lines -->
+                        <line x1="100" y1="100" x2="100" y2="25" class="radar-grid" stroke-width="1" />
+                        <line x1="100" y1="100" x2="165" y2="62.5" class="radar-grid" stroke-width="1" />
+                        <line x1="100" y1="100" x2="165" y2="137.5" class="radar-grid" stroke-width="1" />
+                        <line x1="100" y1="100" x2="100" y2="175" class="radar-grid" stroke-width="1" />
+                        <line x1="100" y1="100" x2="35" y2="137.5" class="radar-grid" stroke-width="1" />
+                        <line x1="100" y1="100" x2="35" y2="62.5" class="radar-grid" stroke-width="1" />
+                        <!-- Data Polygon -->
+                        <polygon points="{{.SVGRadarPolygon}}" fill="rgba(153, 3, 3, 0.45)" stroke="#990303" stroke-width="2.5" />
+                    </svg>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[11px] font-semibold mt-2">
+                    <div class="flex justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                        <span class="text-slate-600 dark:text-slate-400">Flexibility</span>
+                        <span class="text-black dark:text-white">{{.LatestEvaluation.Flexibility}}/10</span>
+                    </div>
+                    <div class="flex justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                        <span class="text-slate-600 dark:text-slate-400">Stamina</span>
+                        <span class="text-black dark:text-white">{{.LatestEvaluation.Stamina}}/10</span>
+                    </div>
+                    <div class="flex justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                        <span class="text-slate-600 dark:text-slate-400">Power</span>
+                        <span class="text-black dark:text-white">{{.LatestEvaluation.Power}}/10</span>
+                    </div>
+                    <div class="flex justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                        <span class="text-slate-600 dark:text-slate-400">Technique</span>
+                        <span class="text-black dark:text-white">{{.LatestEvaluation.Technique}}/10</span>
+                    </div>
+                    <div class="flex justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                        <span class="text-slate-600 dark:text-slate-400">Sparring IQ</span>
+                        <span class="text-black dark:text-white">{{.LatestEvaluation.SparringIQ}}/10</span>
+                    </div>
+                    <div class="flex justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                        <span class="text-slate-600 dark:text-slate-400">Discipline</span>
+                        <span class="text-black dark:text-white">{{.LatestEvaluation.Discipline}}/10</span>
+                    </div>
+                </div>
+
+                {{if .LatestEvaluation.CoachRemarks}}
+                <div class="mt-3 p-2.5 rounded-lg bg-neutral-100 dark:bg-neutral-900/80 border border-neutral-200 dark:border-neutral-800 text-[11px] text-slate-600 dark:text-slate-400">
+                    <span class="font-bold text-slate-800 dark:text-slate-200 block mb-0.5">Coach Remark:</span>
+                    "{{.LatestEvaluation.CoachRemarks}}"
+                </div>
+                {{end}}
+
+                {{else}}
+                <div class="p-6 text-center text-xs text-slate-500">
+                    No athletic evaluation on record yet. Next floor review will populate the radar.
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Today's Floor Schedule & Self Check-In -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-3">
+                    Scheduled Mat Blocks
+                </h2>
+                <div class="space-y-3">
+                    {{range .UpcomingSessions}}
+                    <div class="p-3 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/80 flex items-center justify-between gap-3">
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-bold text-black dark:text-white">{{.TrainingType}}</span>
+                                <span class="text-[10px] px-1.5 py-0.2 rounded bg-neutral-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">{{.StartTime}} - {{.EndTime}}</span>
+                            </div>
+                            <span class="text-[11px] text-slate-500 block mt-0.5">Lead: {{.CoachName}}</span>
+                        </div>
+
+                        <!-- Mat Check-In Trigger -->
+                        <button hx-post="/api/coach/check-in"
+                                hx-vals='{"session_id": "{{.ID}}", "student_id": "{{$.Student.ID}}"}'
+                                hx-target="#checkin-feedback-{{.ID}}"
+                                class="px-3 py-1.5 rounded-lg bg-[#990303] hover:bg-[#7D0202] text-white text-xs font-bold uppercase tracking-wider transition shadow-sm">
+                            Mat Check-In
+                        </button>
+                    </div>
+                    <div id="checkin-feedback-{{.ID}}"></div>
+                    {{else}}
+                    <p class="text-xs text-slate-500 text-center py-4">No scheduled training sessions today.</p>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

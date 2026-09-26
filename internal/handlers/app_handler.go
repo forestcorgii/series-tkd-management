@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 
+	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
 	"series-tkd-management/internal/services"
 )
@@ -17,6 +19,7 @@ type AppHandler struct {
 	promotionSvc     *services.PromotionService
 	payrollSvc       *services.PayrollService
 	packageSvc       *services.PackageService
+	authSvc          *services.AuthService
 	pageTemplates    map[string]*template.Template
 	partialTemplates *template.Template
 }
@@ -25,12 +28,14 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 	promSvc := services.NewPromotionService()
 	paySvc := services.NewPayrollService()
 	pkgSvc := services.NewPackageService()
+	authSvc := services.NewAuthService(store)
 
 	app := &AppHandler{
 		store:        store,
 		promotionSvc: promSvc,
 		payrollSvc:   paySvc,
 		packageSvc:   pkgSvc,
+		authSvc:      authSvc,
 	}
 
 	if err := app.parseTemplates(); err != nil {
@@ -42,6 +47,32 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 
 func (a *AppHandler) parseTemplates() error {
 	funcMap := template.FuncMap{
+		"currentUser": func(data interface{}) *models.User {
+			if data == nil {
+				return nil
+			}
+			val := reflect.ValueOf(data)
+			if val.Kind() == reflect.Ptr {
+				if val.IsNil() {
+					return nil
+				}
+				val = val.Elem()
+			}
+			if val.Kind() == reflect.Struct {
+				f := val.FieldByName("CurrentUser")
+				if f.IsValid() && !f.IsNil() && f.Type() == reflect.TypeOf((*models.User)(nil)) {
+					return f.Interface().(*models.User)
+				}
+			} else if val.Kind() == reflect.Map {
+				m := val.MapIndex(reflect.ValueOf("CurrentUser"))
+				if m.IsValid() {
+					if u, ok := m.Interface().(*models.User); ok {
+						return u
+					}
+				}
+			}
+			return nil
+		},
 		"formatDate": func(t interface{}) string {
 			switch v := t.(type) {
 			case string:

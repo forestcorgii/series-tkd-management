@@ -1,0 +1,130 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Sign In / Register &bull; Series Taekwondo Management System{{end}}
+
+{{define "content"}}
+<div class="max-w-md mx-auto my-8 sm:my-12">
+    <!-- Brand / Login Header -->
+    <div class="text-center mb-6">
+        <div class="inline-flex h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] items-center justify-center font-display font-black text-white text-3xl shadow-xl shadow-[#990303]/30 mb-4 border border-red-500/30">
+            ST
+        </div>
+        <h1 class="font-display font-extrabold text-2xl sm:text-3xl tracking-wide uppercase text-black dark:text-[#FFFDF4]">
+            SERIES <span class="text-[#990303]">PORTAL ACCESS</span>
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
+            Dojang Management &bull; Student, Coach &amp; Admin
+        </p>
+    </div>
+
+    <!-- Error/Success Alerts -->
+    {{if .Error}}
+    <div class="mb-5 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs sm:text-sm flex items-center gap-3 animate-fade-in shadow-sm">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span class="font-semibold">{{.Error}}</span>
+    </div>
+    {{end}}
+
+    {{if .Success}}
+    <div class="mb-5 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm flex items-center gap-3 animate-fade-in shadow-sm">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span class="font-semibold">{{.Success}}</span>
+    </div>
+    {{end}}
+
+    <!-- Card Container -->
+    <div class="glass-panel rounded-2xl border border-[#E5E3D8] dark:border-neutral-800 shadow-xl overflow-hidden">
+        <!-- Card Header Banner -->
+        <div class="border-b border-[#E5E3D8] dark:border-neutral-800 bg-[#F4F1E4]/60 dark:bg-neutral-900/60 py-3 px-6 text-center">
+            <h2 class="font-display font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Dojang Member &amp; Staff Sign In
+            </h2>
+        </div>
+
+        <div class="p-6 sm:p-8">
+            <!-- SIGN IN FORM -->
+            <form id="form-login" action="/login" method="POST" class="space-y-4">
+                <input type="hidden" name="redirect" value="{{.Redirect}}">
+
+                <div>
+                    <label for="email" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                        Dojang Email Address
+                    </label>
+                    <input type="email" id="email" name="email" required autocomplete="email"
+                           placeholder="practitioner@seriestkd.com"
+                           class="w-full px-4 py-2.5 rounded-xl border border-[#E5E3D8] bg-white text-black dark:border-neutral-800 dark:bg-neutral-950 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#990303] text-sm transition">
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="password" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                            Password
+                        </label>
+                    </div>
+                    <input type="password" id="password" name="password" required autocomplete="current-password"
+                           placeholder="••••••••••••"
+                           class="w-full px-4 py-2.5 rounded-xl border border-[#E5E3D8] bg-white text-black dark:border-neutral-800 dark:bg-neutral-950 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#990303] text-sm transition">
+                </div>
+
+                <button type="submit"
+                        class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] hover:to-[#5E0101] text-white font-display font-bold uppercase tracking-wider text-sm shadow-lg shadow-[#990303]/30 transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+                    <span>Enter Portal</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </button>
+
+                <!-- Admin Provision Notice -->
+                <div class="p-3 rounded-xl bg-[#F4F1E4]/60 dark:bg-neutral-900/60 border border-[#E5E3D8] dark:border-neutral-800 text-center">
+                    <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        🛡️ <strong>Admin-Managed System:</strong> Student and coach credentials are created and managed exclusively by administration.
+                    </p>
+                </div>
+            </form>
+
+            <!-- Quick-Switch Demo Role Switcher -->
+            <div class="mt-8 pt-6 border-t border-[#E5E3D8] dark:border-neutral-800">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 text-center mb-3">
+                    ⚡ Quick Demo Sign-In (1-Click Fill)
+                </p>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button"
+                            onclick="fillDemo('admin@seriestkd.com', 'admin123')"
+                            class="p-2.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900 hover:border-[#990303] dark:hover:border-red-500/50 transition text-center group">
+                        <span class="block text-sm mb-0.5">🥋</span>
+                        <span class="block text-[11px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#990303] dark:group-hover:text-red-400">Admin</span>
+                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">Master</span>
+                    </button>
+
+                    <button type="button"
+                            onclick="fillDemo('jiwoo.park@seriestkd.com', 'coach123')"
+                            class="p-2.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900 hover:border-[#990303] dark:hover:border-red-500/50 transition text-center group">
+                        <span class="block text-sm mb-0.5">🥊</span>
+                        <span class="block text-[11px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#990303] dark:group-hover:text-red-400">Coach</span>
+                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">Ji-Woo</span>
+                    </button>
+
+                    <button type="button"
+                            onclick="fillDemo('alex.vance@seriestkd.com', 'student123')"
+                            class="p-2.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900 hover:border-[#990303] dark:hover:border-red-500/50 transition text-center group">
+                        <span class="block text-sm mb-0.5">🥇</span>
+                        <span class="block text-[11px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#990303] dark:group-hover:text-red-400">Student</span>
+                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">Alex</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function fillDemo(email, pass) {
+        document.getElementById('email').value = email;
+        document.getElementById('password').value = pass;
+    }
+</script>
+{{end}}

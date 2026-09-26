@@ -119,9 +119,41 @@
                     <span id="theme-mode-text" class="hidden sm:inline">Light</span>
                 </button>
 
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#1B7F43]/15 text-[#1B7F43] border border-[#1B7F43]/30 dark:bg-[#1B7F43]/20 dark:text-emerald-400 shadow-sm">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#1B7F43]/15 text-[#1B7F43] border border-[#1B7F43]/30 dark:bg-[#1B7F43]/20 dark:text-emerald-400 shadow-sm hidden sm:inline-flex">
                     <span class="h-2 w-2 rounded-full bg-[#1B7F43] dark:bg-emerald-400 animate-pulse"></span> Floor Online
                 </span>
+
+                <!-- Authenticated User / Role Profile Indicator -->
+                {{$user := currentUser .}}
+                {{if $user}}
+                <div class="flex items-center gap-1.5 sm:gap-2 pl-2 border-l border-[#E5E3D8] dark:border-neutral-800">
+                    <a href="{{if eq $user.Role "ADMIN"}}/portal/admin{{else if eq $user.Role "COACH"}}/portal/coach{{else}}/portal/student{{end}}"
+                       title="Go to {{if eq $user.Role "ADMIN"}}Admin Operations{{else if eq $user.Role "COACH"}}Coach Console{{else}}Practitioner Portal{{end}}"
+                       class="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-neutral-100 hover:bg-[#F4F1E4] dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-[#E5E3D8] dark:border-neutral-800 transition text-xs shadow-sm">
+                        <span class="font-bold text-black dark:text-white truncate max-w-[90px] sm:max-w-[130px]">
+                            {{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}
+                        </span>
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider
+                            {{if eq $user.Role "ADMIN"}}bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30
+                            {{else if eq $user.Role "COACH"}}bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30
+                            {{else}}bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30{{end}}">
+                            {{$user.Role}}
+                        </span>
+                    </a>
+                    <a href="/logout"
+                       title="Sign Out"
+                       class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition text-xs font-semibold">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </a>
+                </div>
+                {{else}}
+                <a href="/login"
+                   class="px-3 py-1.5 rounded-xl bg-[#990303] hover:bg-[#7D0202] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm">
+                    Sign In
+                </a>
+                {{end}}
             </div>
         </div>
 
@@ -132,6 +164,13 @@
             <a href="/sessions" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Sessions</a>
             <a href="/coaches" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Coaches</a>
             <a href="/packages" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Passes</a>
+            {{$user := currentUser .}}
+            {{if $user}}
+            <a href="{{if eq $user.Role "ADMIN"}}/portal/admin{{else if eq $user.Role "COACH"}}/portal/coach{{else}}/portal/student{{end}}" class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">Portal</a>
+            <a href="/logout" class="px-2 py-1 rounded text-rose-600 whitespace-nowrap">Sign Out</a>
+            {{else}}
+            <a href="/login" class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">Sign In</a>
+            {{end}}
         </nav>
     </header>
 

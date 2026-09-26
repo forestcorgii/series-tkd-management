@@ -165,6 +165,15 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	email := strings.TrimSpace(r.FormValue("email"))
+	password := strings.TrimSpace(r.FormValue("password"))
+	if email != "" {
+		if password == "" {
+			password = "student123"
+		}
+		_, _ = a.authSvc.RegisterUser(email, password, models.RoleStudent, &s.ID, nil)
+	}
+
 	http.Redirect(w, r, "/students", http.StatusSeeOther)
 }
 

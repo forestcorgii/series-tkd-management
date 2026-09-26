@@ -36,6 +36,7 @@ type Student struct {
 	EmergencyPhone    string    `json:"emergency_phone"`
 	EmergencyRelation string    `json:"emergency_relation"`
 	MedicalNotes      string    `json:"medical_notes"`
+	HasSafetyFlag     bool      `json:"has_safety_flag"`
 	IsActive          bool      `json:"is_active"`
 	CreatedAt         time.Time `json:"created_at"`
 }
@@ -51,4 +52,35 @@ func (s *Student) Age() int {
 
 func (s *Student) DaysInCurrentRank() int {
 	return int(time.Since(s.LastPromotionDate).Hours() / 24)
+}
+
+func (s *Student) NextBelt() BeltRank {
+	switch s.CurrentBelt {
+	case BeltWhite:
+		return BeltYellowTag
+	case BeltYellowTag:
+		return BeltYellow
+	case BeltYellow:
+		return BeltGreenTag
+	case BeltGreenTag:
+		return BeltGreen
+	case BeltGreen:
+		return BeltBlueTag
+	case BeltBlueTag:
+		return BeltBlue
+	case BeltBlue:
+		return BeltRedTag
+	case BeltRedTag:
+		return BeltRed
+	case BeltRed:
+		return BeltBlackTag
+	case BeltBlackTag:
+		return BeltBlack1stDan
+	case BeltBlack1stDan:
+		return BeltBlack2ndDan
+	case BeltBlack2ndDan:
+		return BeltBlack3rdDan
+	default:
+		return s.CurrentBelt
+	}
 }

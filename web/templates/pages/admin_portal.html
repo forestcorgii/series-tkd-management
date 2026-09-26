@@ -1,0 +1,311 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Master Operations Portal &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Master Telemetry HUD (4 Stat Cards) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Active Students
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{.ActiveStudentsCount}}
+                </span>
+                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                    Roster Active
+                </span>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Floor Sessions Logged
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{.TotalSessionsCount}}
+                </span>
+                <span class="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                    Total Classes
+                </span>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Dan Coaches Active
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{.ActiveCoachesCount}}
+                </span>
+                <span class="text-xs font-bold text-[#990303] dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
+                    Black Belt Staff
+                </span>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Open Safety Incidents
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400{{else}}text-black dark:text-white{{end}}">
+                    {{.OpenIncidentsCount}}
+                </span>
+                <span class="text-xs font-bold {{if gt .OpenIncidentsCount 0}}text-rose-600 bg-rose-500/15{{else}}text-slate-500 bg-neutral-200 dark:bg-neutral-800{{end}} px-2 py-0.5 rounded-full">
+                    {{if gt .OpenIncidentsCount 0}}Action Due{{else}}All Clear{{end}}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Quick Provisioning Bar -->
+    <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h2 class="font-display font-bold text-sm uppercase text-black dark:text-[#FFFDF4]">
+                Administration Provisioning Hub
+            </h2>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                Public registration is disabled. Only Admins can onboard new coaches, practitioners, and issue credentials.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/students" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
+                ➕ Add Student
+            </a>
+            <a href="/coaches" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
+                ➕ Add Coach
+            </a>
+        </div>
+    </div>
+
+    <!-- Section: Promotion Pipeline Oversight & 1-Click Advancements -->
+    <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
+            <div>
+                <h2 class="font-display font-extrabold text-lg sm:text-xl uppercase text-black dark:text-[#FFFDF4]">
+                    Promotion Pipeline &amp; Dan Roster Control
+                </h2>
+                <p class="text-xs text-slate-600 dark:text-slate-400">
+                    Students ranked by readiness. Advancing rank increments belt grade and resets attendance &amp; tenure cycle counters.
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-600 dark:text-slate-400">Total Pipeline:</span>
+                <span class="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-xs font-bold text-black dark:text-white border border-neutral-200 dark:border-neutral-800">
+                    {{len .StudentsWithReadiness}} Practitioners
+                </span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase tracking-wider">
+                        <th class="pb-3">Practitioner</th>
+                        <th class="pb-3">Current Belt</th>
+                        <th class="pb-3">Floor Sessions</th>
+                        <th class="pb-3">Tenure</th>
+                        <th class="pb-3">Readiness Badge</th>
+                        <th class="pb-3">Target Rank</th>
+                        <th class="pb-3 text-right">Advancement Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E5E3D8] dark:divide-neutral-800/60 font-medium">
+                    {{range .StudentsWithReadiness}}
+                    <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition">
+                        <td class="py-3 font-bold text-black dark:text-white">
+                            <div class="flex items-center gap-2">
+                                <span>{{.Student.FullName}}</span>
+                                {{if .Student.HasSafetyFlag}}
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-500/20 text-rose-500 border border-rose-500/30">HOLD</span>
+                                {{end}}
+                            </div>
+                        </td>
+                        <td class="py-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
+                                {{.Student.CurrentBelt}}
+                            </span>
+                        </td>
+                        <td class="py-3 text-slate-800 dark:text-slate-200 font-bold">
+                            {{.Readiness.TotalSessions}} / {{.Readiness.RequiredSessions}}
+                        </td>
+                        <td class="py-3 text-slate-800 dark:text-slate-200">
+                            {{.Readiness.DaysInRank}} / {{.Readiness.RequiredDaysInRank}} days
+                        </td>
+                        <td class="py-3">
+                            <span class="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+                                {{if eq .Readiness.BadgeColor "emerald"}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30
+                                {{else if eq .Readiness.BadgeColor "amber"}}bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30
+                                {{else}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30{{end}}">
+                                {{.Readiness.BadgeIcon}} {{.Readiness.Status}}
+                            </span>
+                        </td>
+                        <td class="py-3 text-[#990303] dark:text-red-400 font-bold">
+                            {{.Student.NextBelt}}
+                        </td>
+                        <td class="py-3 text-right">
+                            <span id="promote-status-{{.Student.ID}}">
+                                <button hx-post="/api/admin/promote"
+                                        hx-vals='{"student_id": "{{.Student.ID}}"}'
+                                        hx-target="#promote-status-{{.Student.ID}}"
+                                        hx-confirm="Promote {{.Student.FullName}} to {{.Student.NextBelt}}? This resets tenure days and attendance counts."
+                                        class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-[11px] uppercase tracking-wider transition shadow-sm">
+                                    Promote Belt
+                                </button>
+                            </span>
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-slate-500">No student records found.</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 2 Columns: Safety Incident Clearance & Curriculum Schedule Generator -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Safety & Incident Clearance Queue -->
+        <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                        Safety Incident &amp; First Aid Clearance
+                    </h2>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">
+                        Administrative queue to review floor injuries and clear safety holds
+                    </p>
+                </div>
+                <span class="px-2 py-0.5 rounded text-xs font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-500{{end}}">
+                    {{.OpenIncidentsCount}} Open
+                </span>
+            </div>
+
+            <div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+                {{range .SafetyIncidents}}
+                <div id="incident-card-{{.ID}}" class="p-3.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 text-xs">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-black dark:text-white">{{.StudentName}}</span>
+                                <span class="text-[10px] px-1.5 py-0.2 rounded font-bold {{if .Resolved}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400{{else}}bg-rose-500/15 text-rose-600 dark:text-rose-400{{end}}">
+                                    {{if .Resolved}}Cleared{{else}}Active Hold{{end}}
+                                </span>
+                            </div>
+                            <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mt-0.5">
+                                Incident: <strong class="text-black dark:text-white">{{.IncidentType}}</strong>
+                            </span>
+                        </div>
+                        <span class="text-[10px] text-slate-500">{{formatDate .CreatedAt}}</span>
+                    </div>
+
+                    <p class="p-2 rounded bg-neutral-100 dark:bg-neutral-800/80 text-[11px] text-slate-700 dark:text-slate-300 mb-2.5 italic">
+                        "{{.Notes}}"
+                    </p>
+
+                    <div class="flex items-center justify-between pt-1">
+                        <span class="text-[10px] text-slate-500">
+                            {{if .Resolved}}Resolved by: {{.ResolvedBy}}{{else}}Logged by: {{.CoachName}}{{end}}
+                        </span>
+
+                        {{if not .Resolved}}
+                        <button hx-post="/api/safety/resolve"
+                                hx-vals='{"incident_id": "{{.ID}}"}'
+                                hx-target="#incident-card-{{.ID}}"
+                                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider transition">
+                            Clear Safety Hold
+                        </button>
+                        {{end}}
+                    </div>
+                </div>
+                {{else}}
+                <p class="text-xs text-slate-500 py-6 text-center">No safety incidents on record.</p>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Curriculum & Schedule Generator -->
+        <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-1">
+                Curriculum Floor Session Generator
+            </h2>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
+                Provision new scheduled floor training blocks (Poomsae, Sparring, Conditioning)
+            </p>
+
+            <form hx-post="/api/admin/schedule"
+                  hx-target="#schedule-feedback"
+                  class="space-y-3 text-xs">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Discipline</label>
+                        <select name="discipline" required
+                                class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-semibold">
+                            <option value="Sparring">Sparring / Kyorugi</option>
+                            <option value="Poomsae">Forms / Poomsae</option>
+                            <option value="Conditioning">Athletic Conditioning</option>
+                            <option value="Promotion Prep">Promotion Prep</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Lead Instructor</label>
+                        <select name="coach_id" required
+                                class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-semibold">
+                            {{range .Coaches}}
+                            <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 dark:text-slate-400">Date</label>
+                        <input type="date" name="session_date" required
+                               class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 dark:text-slate-400">Start Time</label>
+                        <select name="start_time" required
+                                class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium">
+                            <option value="17:00">17:00</option>
+                            <option value="18:30">18:30</option>
+                            <option value="19:45">19:45</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 dark:text-slate-400">End Time</label>
+                        <select name="end_time" required
+                                class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium">
+                            <option value="18:15">18:15</option>
+                            <option value="18:30">18:30 (Extended)</option>
+                            <option value="19:45">19:45</option>
+                            <option value="20:00">20:00 (Extended)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-600 dark:text-slate-400">Training Notes &amp; Curriculum Focus</label>
+                    <textarea name="notes" rows="2" placeholder="e.g. Taegeuk forms precision, counter-attack timing drills..."
+                              class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium"></textarea>
+                </div>
+
+                <button type="submit"
+                        class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
+                    + Generate Scheduled Floor Slot
+                </button>
+                <div id="schedule-feedback"></div>
+            </form>
+        </div>
+    </div>
+</div>
+{{end}}

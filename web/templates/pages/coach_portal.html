@@ -1,0 +1,301 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Coach Floor Console &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Top Coach Header -->
+    <div class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+                    🥊
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="font-display font-black text-2xl sm:text-3xl text-black dark:text-[#FFFDF4] uppercase">
+                            {{if .Coach}}{{.Coach.FullName}}{{else}}Dan Instructor Console{{end}}
+                        </h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/15 text-red-600 dark:text-red-400 border border-red-500/30">
+                            Floor Operations
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 flex-wrap font-medium">
+                        {{if .Coach}}
+                        <span>Rank: <strong class="text-black dark:text-white">{{.Coach.BeltRank}}</strong></span>
+                        <span>&bull;</span>
+                        <span>First Aid:
+                            {{if .Coach.IsFirstAidValid}}
+                            <strong class="text-emerald-600 dark:text-emerald-400">Certified Active</strong>
+                            {{else}}
+                            <strong class="text-rose-600 dark:text-rose-400">Expired / Renewal Due</strong>
+                            {{end}}
+                        </span>
+                        {{else}}
+                        <span>Master Dojang Floor Console</span>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Selector -->
+            <div class="flex items-center gap-2">
+                <label for="session-select" class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">Session:</label>
+                <select id="session-select" onchange="window.location.href='/portal/coach?session_id=' + this.value"
+                        class="px-3 py-1.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#990303]">
+                    {{range .AllSessions}}
+                    <option value="{{.ID}}" {{if eq $.LiveSession.ID .ID}}selected{{end}}>
+                        {{.StartTime}} - {{.EndTime}} ({{.TrainingType}})
+                    </option>
+                    {{end}}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid: Live Roster & Quick Mat Tools -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Col 1 & 2: Active Floor Roster + Promotion Review Queue -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Active Floor Roster & Rapid Check-in -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Live Mat Roster ({{if .LiveSession}}{{.LiveSession.TrainingType}} @ {{.LiveSession.StartTime}}{{else}}Floor Standby{{end}})
+                        </h2>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">
+                            Currently checked-in practitioners with active package deductions
+                        </p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                        {{len .LiveAttendances}} On Mat
+                    </span>
+                </div>
+
+                <!-- Rapid Mat Check-In Bar -->
+                {{if .LiveSession}}
+                <div class="mb-5 p-3 rounded-xl bg-neutral-100 dark:bg-neutral-900/80 border border-[#E5E3D8] dark:border-neutral-800">
+                    <form hx-post="/api/coach/check-in"
+                          hx-target="#attendance-roster"
+                          hx-swap="afterbegin"
+                          class="flex items-center gap-2">
+                        <input type="hidden" name="session_id" value="{{.LiveSession.ID}}">
+                        <select name="student_id" required
+                                class="flex-1 px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#990303]">
+                            <option value="">Select Practitioner to Admit...</option>
+                            {{range .AllStudents}}
+                            <option value="{{.ID}}">
+                                {{.FullName}} ({{.CurrentBelt}}) {{if .HasSafetyFlag}}⚠️ [Safety Hold]{{end}}
+                            </option>
+                            {{end}}
+                        </select>
+                        <button type="submit"
+                                class="px-4 py-2 rounded-lg bg-[#990303] hover:bg-[#7D0202] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm whitespace-nowrap">
+                            + Admit to Mat
+                        </button>
+                    </form>
+                </div>
+                {{end}}
+
+                <!-- Roster Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase">
+                                <th class="pb-2">Practitioner</th>
+                                <th class="pb-2">Belt Grade</th>
+                                <th class="pb-2">Pass Status</th>
+                                <th class="pb-2">Checked In At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-roster" class="divide-y divide-[#E5E3D8] dark:divide-neutral-800/60 font-medium">
+                            {{range .LiveAttendances}}
+                            <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition">
+                                <td class="py-2.5 font-bold text-black dark:text-white">{{.StudentName}}</td>
+                                <td class="py-2.5">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
+                                        {{.StudentBelt}}
+                                    </span>
+                                </td>
+                                <td class="py-2.5 text-slate-600 dark:text-slate-400">
+                                    {{if .PackageTitle}}{{.PackageTitle}}{{else}}Pass Verified{{end}}
+                                </td>
+                                <td class="py-2.5 text-slate-500">{{formatDate .CheckedInAt}}</td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td colspan="4" class="py-6 text-center text-slate-500">No students checked into this floor session yet.</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Promotion Review Priority Queue -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Promotion Review Priority Queue
+                        </h2>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">
+                            Candidates on the floor flagged as READY 🟢 or PRE-TEST ELIGIBLE 🟡 for observation
+                        </p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        {{len .PriorityReviewQueue}} Candidates
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {{range .PriorityReviewQueue}}
+                    <div class="p-3.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/70 flex items-center justify-between">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-black dark:text-white text-sm">{{.Student.FullName}}</span>
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded
+                                    {{if eq .Readiness.BadgeColor "emerald"}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30
+                                    {{else}}bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30{{end}}">
+                                    {{.Readiness.Status}}
+                                </span>
+                            </div>
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                                Current: {{.Student.CurrentBelt}} &bull; Target: {{.Student.NextBelt}}
+                            </span>
+                        </div>
+                        <button type="button"
+                                onclick="document.getElementById('eval_student_id').value = '{{.Student.ID}}'; document.getElementById('eval-container').scrollIntoView({behavior: 'smooth'});"
+                                class="px-2.5 py-1.5 rounded-lg border border-[#990303] text-[#990303] hover:bg-[#990303] hover:text-white dark:border-red-500/50 dark:text-red-400 dark:hover:bg-[#990303] dark:hover:text-white font-bold text-[10px] uppercase transition">
+                            Grade
+                        </button>
+                    </div>
+                    {{else}}
+                    <p class="text-xs text-slate-500 col-span-2 text-center py-4">No candidates currently eligible in queue.</p>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 3: Quick Evaluation Entry & Safety Incident Form -->
+        <div class="space-y-6">
+            <!-- Athletic Radar Score Form -->
+            <div id="eval-container" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-1">
+                    Athletic Radar Quick-Entry
+                </h2>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
+                    Score adjustments feed dynamic promotion insights
+                </p>
+
+                <form hx-post="/api/coach/evaluate"
+                      hx-target="#eval-feedback"
+                      class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Practitioner</label>
+                        <select id="eval_student_id" name="student_id" required
+                                class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-semibold">
+                            <option value="">Select Student...</option>
+                            {{range .AllStudents}}
+                            <option value="{{.ID}}">{{.FullName}} ({{.CurrentBelt}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Flexibility (1-10)</label>
+                            <input type="number" min="1" max="10" name="flexibility" value="7" required
+                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Stamina (1-10)</label>
+                            <input type="number" min="1" max="10" name="stamina" value="8" required
+                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Power (1-10)</label>
+                            <input type="number" min="1" max="10" name="power" value="7" required
+                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Technique (1-10)</label>
+                            <input type="number" min="1" max="10" name="technique" value="8" required
+                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Sparring IQ (1-10)</label>
+                            <input type="number" min="1" max="10" name="sparring_iq" value="7" required
+                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Discipline (1-10)</label>
+                            <input type="number" min="1" max="10" name="discipline" value="9" required
+                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-600 dark:text-slate-400">Coach Feedback &amp; Remarks</label>
+                        <textarea name="coach_remarks" rows="2" placeholder="Clean side kick extension; candidate ready for grading..."
+                                  class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium"></textarea>
+                    </div>
+
+                    <button type="submit"
+                            class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
+                        Submit Score Evaluation
+                    </button>
+                    <div id="eval-feedback"></div>
+                </form>
+            </div>
+
+            <!-- Floor Incident & Safety Flag Logger -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-sm">🚨</span>
+                    <h2 class="font-display font-extrabold text-base uppercase text-rose-600 dark:text-rose-400">
+                        First Aid &amp; Incident Logger
+                    </h2>
+                </div>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
+                    Instantly flags student profile with mat safety hold
+                </p>
+
+                <form hx-post="/api/safety/flag"
+                      hx-target="#safety-feedback"
+                      class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Practitioner</label>
+                        <select name="student_id" required
+                                class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-semibold">
+                            <option value="">Select Student...</option>
+                            {{range .AllStudents}}
+                            <option value="{{.ID}}">{{.FullName}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-600 dark:text-slate-400">Incident Classification</label>
+                        <input type="text" name="incident_type" placeholder="e.g. Ankle Inversion, Contusion, Epistaxis" required
+                               class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-600 dark:text-slate-400">First Aid Treatment &amp; Restrictions</label>
+                        <textarea name="notes" rows="2" placeholder="Applied ice compression; practitioner cleared only for non-contact forms." required
+                                  class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium"></textarea>
+                    </div>
+
+                    <button type="submit"
+                            class="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
+                        🚨 Log Incident &amp; Flag Student
+                    </button>
+                    <div id="safety-feedback"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

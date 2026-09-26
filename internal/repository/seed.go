@@ -364,4 +364,76 @@ func (m *MemoryStore) seedData() {
 		CreatedAt:      now.AddDate(0, 0, -5),
 	}
 	m.evaluations[eval1.ID] = eval1
+
+	// 8. Default Users for Multi-Role Auth
+	uAdmin := &models.User{
+		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		Email:       "admin@seriestkd.com",
+		Role:        models.RoleAdmin,
+		IsActive:    true,
+		DisplayName: "Master Administrator",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	_ = uAdmin.SetPassword("admin123")
+	m.users[uAdmin.ID] = uAdmin
+	m.usersByEmail[uAdmin.Email] = uAdmin.ID
+
+	uCoach := &models.User{
+		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+		Email:       "jiwoo.park@seriestkd.com",
+		Role:        models.RoleCoach,
+		CoachID:     &c2ID,
+		IsActive:    true,
+		DisplayName: "Coach Ji-Woo Park",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	_ = uCoach.SetPassword("coach123")
+	m.users[uCoach.ID] = uCoach
+	m.usersByEmail[uCoach.Email] = uCoach.ID
+
+	uStudent1 := &models.User{
+		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000003"),
+		Email:       "alex.vance@seriestkd.com",
+		Role:        models.RoleStudent,
+		StudentID:   &s1ID,
+		IsActive:    true,
+		DisplayName: "Alex Vance",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	_ = uStudent1.SetPassword("student123")
+	m.users[uStudent1.ID] = uStudent1
+	m.usersByEmail[uStudent1.Email] = uStudent1.ID
+
+	uStudent2 := &models.User{
+		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000004"),
+		Email:       "chloe.ramirez@seriestkd.com",
+		Role:        models.RoleStudent,
+		StudentID:   &s2ID,
+		IsActive:    true,
+		DisplayName: "Chloe Ramirez",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	_ = uStudent2.SetPassword("student123")
+	m.users[uStudent2.ID] = uStudent2
+	m.usersByEmail[uStudent2.Email] = uStudent2.ID
+
+	// 9. Initial Safety Incident on Marcus Brody (s3)
+	s3.HasSafetyFlag = true
+	incID := uuid.MustParse("00000000-0000-0000-0000-000000000009")
+	incident := &models.SafetyIncident{
+		ID:           incID,
+		StudentID:    s3ID,
+		CoachID:      &c2ID,
+		StudentName:  s3.FullName,
+		CoachName:    c2.FullName,
+		IncidentType: "Wrist Strain / Sprain",
+		Notes:        "Slight hyperextension during power break rehearsal. Ice applied. No sparring contact until cleared.",
+		Resolved:     false,
+		CreatedAt:    now.AddDate(0, 0, -2),
+	}
+	m.safetyIncidents[incID] = incident
 }

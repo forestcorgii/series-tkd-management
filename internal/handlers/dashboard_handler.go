@@ -23,6 +23,12 @@ type StudentReadinessSummary struct {
 }
 
 func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.Role == models.RoleStudent {
+		http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
+		return
+	}
+
 	students, _ := a.store.GetAllStudents()
 	coaches, _ := a.store.GetAllCoaches()
 	sessions, _ := a.store.GetAllSessions()

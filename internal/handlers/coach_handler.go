@@ -98,5 +98,13 @@ func (a *AppHandler) HandleCreateCoach(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	password := strings.TrimSpace(r.FormValue("password"))
+	if c.Email != "" {
+		if password == "" {
+			password = "coach123"
+		}
+		_, _ = a.authSvc.RegisterUser(c.Email, password, models.RoleCoach, nil, &c.ID)
+	}
+
 	http.Redirect(w, r, "/coaches", http.StatusSeeOther)
 }
