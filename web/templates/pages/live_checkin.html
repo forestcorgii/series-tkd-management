@@ -11,10 +11,10 @@
                 <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
                     LIVE FLOOR SESSION
                 </span>
-                <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">{{.Session.StartTime}} - {{.Session.EndTime}}</span>
+                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Session.StartTime}} - {{.Session.EndTime}}</span>
             </div>
             <h1 class="font-display font-extrabold text-2xl text-slate-900 dark:text-white mt-1">{{.Session.TrainingType}} Class</h1>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span></p>
+            <p class="text-xs text-slate-600 dark:text-slate-400">Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span></p>
         </div>
         <a href="/sessions" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white border border-slate-200 dark:border-transparent transition shadow-sm">
             &larr; Exit Check-In
@@ -34,12 +34,12 @@
                        hx-trigger="keyup changed delay:250ms, search"
                        hx-target="#search-results"
                        autofocus
-                       class="w-full bg-white dark:bg-slate-900 border-2 border-emerald-500/50 rounded-xl px-4 py-3.5 text-base text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 placeholder-slate-400 dark:placeholder-slate-500 shadow-md shadow-emerald-500/5" />
+                       class="w-full bg-white dark:bg-slate-900 border-2 border-emerald-500/50 rounded-xl px-4 py-3.5 text-base text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 placeholder-slate-500 dark:placeholder-slate-400 shadow-md shadow-emerald-500/5" />
             </div>
 
             <!-- HTMX Search Results Container -->
             <div id="search-results" class="space-y-3 pt-2">
-                <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-4">Type student name or scan QR code to perform instant credit check-in...</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">Type student name or scan QR code to perform instant credit check-in...</p>
             </div>
         </div>
 
@@ -52,7 +52,7 @@
 
             <div class="overflow-hidden">
                 <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                    <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                         <tr>
                             <th class="py-2.5 px-3">Student</th>
                             <th class="py-2.5 px-3">Belt Rank</th>

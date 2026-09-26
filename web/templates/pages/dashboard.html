@@ -27,7 +27,7 @@
         <!-- Active Students -->
         <div class="glass-panel p-5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Students</span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Active Students</span>
                 <span class="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xl">🥋</span>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
@@ -39,7 +39,7 @@
         <!-- Active Floor Sessions -->
         <div class="glass-panel p-5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Floor Sessions</span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Total Floor Sessions</span>
                 <span class="p-2 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-xl">⏱️</span>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
@@ -51,7 +51,7 @@
         <!-- Coaches & Instructors -->
         <div class="glass-panel p-5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Coaches &amp; Staff</span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Coaches &amp; Staff</span>
                 <span class="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xl">🏅</span>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
@@ -63,7 +63,7 @@
         <!-- First Aid Alerts -->
         <div class="glass-panel p-5 rounded-xl border {{if gt .FirstAidAlertsCount 0}}border-amber-400 dark:border-amber-500/40 bg-amber-50/80 dark:bg-amber-950/20{{else}}border-slate-200/80 dark:border-slate-800{{end}}">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">First Aid Safety</span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">First Aid Safety</span>
                 <span class="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xl">🚑</span>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
@@ -85,14 +85,14 @@
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Promotion Readiness Insights Pipeline</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Weighted evaluation engine (Attendance + Time-in-Rank + Ability Score)</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">Weighted evaluation engine (Attendance + Time-in-Rank + Ability Score)</p>
                     </div>
                     <a href="/students" class="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-bold">View All Students &rarr;</a>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                        <thead class="text-xs uppercase bg-slate-100/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                        <thead class="text-xs uppercase bg-slate-100/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                             <tr>
                                 <th class="py-3 px-4">Student</th>
                                 <th class="py-3 px-4">Belt Rank</th>
@@ -115,10 +115,10 @@
                                     </span>
                                 </td>
                                 <td class="py-3.5 px-4 text-xs font-medium">
-                                    {{.Readiness.TotalSessions}} / <span class="text-slate-500 dark:text-slate-400">{{.Readiness.RequiredSessions}} sessions</span>
+                                    {{.Readiness.TotalSessions}} / <span class="text-slate-600 dark:text-slate-400">{{.Readiness.RequiredSessions}} sessions</span>
                                 </td>
                                 <td class="py-3.5 px-4 text-xs font-medium">
-                                    {{.Readiness.DaysInRank}} / <span class="text-slate-500 dark:text-slate-400">{{.Readiness.RequiredDaysInRank}} days</span>
+                                    {{.Readiness.DaysInRank}} / <span class="text-slate-600 dark:text-slate-400">{{.Readiness.RequiredDaysInRank}} days</span>
                                 </td>
                                 <td class="py-3.5 px-4 text-center">
                                     {{if eq .Readiness.Status "READY"}}
@@ -146,14 +146,17 @@
         <!-- Right Col: Active Training Sessions Floor Quick Links -->
         <div class="space-y-4">
             <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white mb-3">Active Floor Sessions</h2>
-                <div class="space-y-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Active Floor Sessions</h2>
+                    <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{len .RecentSessions}} Scheduled</span>
+                </div>
+                <div class="space-y-3 max-h-[30rem] overflow-y-auto pr-1">
                     {{range .RecentSessions}}
                     <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
                         <div>
                             <span class="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wide">{{.TrainingType}}</span>
                             <h3 class="font-bold text-slate-900 dark:text-white text-sm mt-0.5">{{.StartTime}} - {{.EndTime}}</h3>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lead: {{.CoachName}}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Lead: {{.CoachName}}</p>
                         </div>
                         <a href="/sessions/{{.ID}}/live" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-sm">
                             Check-In &rarr;

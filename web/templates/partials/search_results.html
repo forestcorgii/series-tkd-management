@@ -19,7 +19,7 @@
                 {{end}}
             </div>
 
-            <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 {{if .ActivePackage}}
                     Pass: <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
                     {{if .ActivePackage.RemainingSessions}}
@@ -41,7 +41,7 @@
 
         <div>
             {{if .IsAlreadyChecked}}
-            <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+            <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                 ✓ Already In Roster
             </span>
             {{else if .ActivePackage}}
@@ -63,6 +63,6 @@
     </div>
     {{end}}
 {{else}}
-<div class="text-xs text-slate-400 dark:text-slate-500 text-center py-4">No matching student found. Register a new student or adjust search query.</div>
+<div class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No matching student found. Register a new student or adjust search query.</div>
 {{end}}
 {{end}}
