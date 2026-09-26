@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/uuid"
+
 	"series-tkd-management/internal/handlers"
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
@@ -19,6 +21,29 @@ func main() {
 		log.Fatalf("Fatal: Failed to initialize %s database: %v", driver, err)
 	}
 	log.Printf("📦 Database connected using driver: %s", driver)
+
+	// Ensure bootstrap administrator exists (configurable via ADMIN_EMAIL and ADMIN_PASSWORD env vars)
+	adminEmail := os.Getenv("ADMIN_EMAIL")
+	if adminEmail == "" {
+		adminEmail = "admin@seriestkd.com"
+	}
+	adminPass := os.Getenv("ADMIN_PASSWORD")
+	if adminPass == "" {
+		adminPass = "admin123"
+	}
+	if existing, err := store.GetUserByEmail(adminEmail); err != nil || existing == nil {
+		adminUser := &models.User{
+			ID:          uuid.New(),
+			Email:       adminEmail,
+			Role:        models.RoleAdmin,
+			IsActive:    true,
+			DisplayName: "Master Administrator",
+		}
+		if err := adminUser.SetPassword(adminPass); err == nil {
+			_ = store.CreateUser(adminUser)
+			log.Printf("🛡️  Master Admin account provisioned: %s", adminEmail)
+		}
+	}
 
 	// 2. Initialize App Handlers & Templates
 	app, err := handlers.NewAppHandler(store)
