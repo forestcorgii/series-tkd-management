@@ -6,3 +6,5 @@
 - [UI Design Tokens & Contrast Patterns](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/ui-design-tokens.md)
 - [Database & Persistence Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/database.md)
 - [Authentication & Multi-Role RBAC Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/auth-rbac.md)
+- [Testing & Verification Operations](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/testing-operations.md)
+
