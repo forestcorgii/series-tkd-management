@@ -15,7 +15,7 @@
                 <p class="text-slate-300 text-sm mt-1 max-w-2xl">Real-time attendance check-ins, athletic radar evaluations, membership auto-deduction, and promotion readiness insights.</p>
             </div>
             <div class="flex items-center gap-3">
-                <a href="/sessions" class="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition flex items-center gap-2">
+                <a href="/sessions" class="btn btn-primary btn-md flex items-center gap-2">
                     ⚡ Open Attendance
                 </a>
             </div>
@@ -110,7 +110,7 @@
                                     </a>
                                 </td>
                                 <td class="py-3.5 px-4">
-                                    <span class="inline-block px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
+                                    <span class="badge-belt">
                                         {{.Student.CurrentBelt}}
                                     </span>
                                 </td>
@@ -122,15 +122,15 @@
                                 </td>
                                 <td class="py-3.5 px-4 text-center">
                                     {{if eq .Readiness.Status "READY"}}
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800 shadow-sm">
+                                    <span class="badge-ready">
                                         🟢 READY
                                     </span>
                                     {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 shadow-sm">
+                                    <span class="badge-pretest">
                                         🟡 PRE-TEST ELIGIBLE
                                     </span>
                                     {{else}}
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800 shadow-sm">
+                                    <span class="badge-developing">
                                         🔴 DEVELOPING
                                     </span>
                                     {{end}}
@@ -158,7 +158,7 @@
                             <h3 class="font-bold text-slate-900 dark:text-white text-sm mt-0.5">{{.StartTime}} - {{.EndTime}}</h3>
                             <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Lead: {{.CoachName}}</p>
                         </div>
-                        <a href="/sessions/{{.ID}}/live" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider transition shadow-sm">
+                        <a href="/sessions/{{.ID}}/live" class="btn btn-primary btn-sm">
                             Attendance &rarr;
                         </a>
                     </div>

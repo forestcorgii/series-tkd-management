@@ -7,15 +7,15 @@
                 <a href="/students/{{.Student.ID}}" target="_blank" class="font-bold text-slate-900 dark:text-white text-base hover:underline hover:text-emerald-600 dark:hover:text-emerald-400">
                     {{.Student.FullName}}
                 </a>
-                <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
+                <span class="badge-belt">
                     {{.Student.CurrentBelt}}
                 </span>
                 {{if eq .Readiness.Status "READY"}}
-                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">🟢 READY</span>
+                <span class="badge-ready">🟢 READY</span>
                 {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
-                <span class="text-xs font-bold text-amber-600 dark:text-amber-400">🟡 PRE-TEST</span>
+                <span class="badge-pretest">🟡 PRE-TEST</span>
                 {{else}}
-                <span class="text-xs font-bold text-rose-600 dark:text-rose-400">🔴 DEVELOPING</span>
+                <span class="badge-developing">🔴 DEVELOPING</span>
                 {{end}}
             </div>
 
@@ -48,14 +48,14 @@
             <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
                     hx-target="#attendance-roster"
                     hx-swap="afterbegin"
-                    class="px-4 py-2 rounded-xl text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider shadow-md transition">
+                    class="btn btn-primary btn-sm">
                 Admit Student
             </button>
             {{else}}
             <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}?override=true"
                     hx-target="#attendance-roster"
                     hx-swap="afterbegin"
-                    class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md transition">
+                    class="btn btn-warning btn-sm">
                 Override &amp; Admit
             </button>
             {{end}}

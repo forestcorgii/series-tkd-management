@@ -10,7 +10,7 @@
             <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Student Directory &amp; Ability Radar</h1>
             <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Manage athletic evaluations, emergency medical notes, and promotion readiness status.</p>
         </div>
-        <button onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider transition flex items-center gap-1.5 shadow-lg shadow-[#990303]/20 dark:shadow-red-600/20">
+        <button onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
             ➕ Register New Student
         </button>
     </div>
@@ -24,7 +24,7 @@
                hx-get="/students"
                hx-trigger="keyup changed delay:250ms, search"
                hx-target="#student-rows"
-               class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700/80 rounded-lg px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 placeholder-slate-500 dark:placeholder-slate-400 shadow-inner" />
+               class="form-input" />
     </div>
 
     <!-- Student Roster Table -->
@@ -51,25 +51,25 @@
 </div>
 
 <!-- Modal: New Student Registration -->
-<div id="new-student-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
-    <div class="glass-panel p-6 rounded-2xl max-w-lg w-full space-y-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
-        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+<div id="new-student-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+        <div class="modal-header">
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Register New Student</h3>
-            <button onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="text-slate-500 hover:text-slate-700 dark:hover:text-white text-xl leading-none">&times;</button>
+            <button onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="modal-close">&times;</button>
         </div>
         <form action="/students" method="POST" class="space-y-4">
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Full Name</label>
-                <input type="text" name="full_name" required placeholder="e.g. Brandon Lee" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="full_name" required placeholder="e.g. Brandon Lee" class="form-input">
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Date of Birth</label>
-                    <input type="date" name="dob" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" name="dob" required class="form-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Gender</label>
-                    <select name="gender" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Gender</label>
+                    <select name="gender" class="form-select">
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
@@ -78,12 +78,12 @@
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Contact Phone</label>
-                    <input type="text" name="phone" required placeholder="+1 (555) 000-0000" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Contact Phone</label>
+                    <input type="text" name="phone" required placeholder="+1 (555) 000-0000" class="form-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Current Belt Rank</label>
-                    <select name="current_belt" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Current Belt Rank</label>
+                    <select name="current_belt" class="form-select">
                         <option value="White">White Belt</option>
                         <option value="Yellow Tag">Yellow Tag</option>
                         <option value="Yellow">Yellow Belt</option>
@@ -100,27 +100,30 @@
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Portal Login Email</label>
-                    <input type="email" name="email" placeholder="student@seriestkd.com" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Portal Login Email</label>
+                    <input type="email" name="email" placeholder="student@seriestkd.com" class="form-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Portal Password</label>
-                    <input type="password" name="password" placeholder="Default: student123" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Portal Password</label>
+                    <input type="password" name="password" placeholder="Default: student123" class="form-input">
                 </div>
             </div>
             <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <span class="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-400">Emergency &amp; Medical Clearance</span>
                 <div class="grid grid-cols-3 gap-2">
-                    <input type="text" name="emergency_name" placeholder="Contact Name" required class="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded p-2 text-xs text-slate-900 dark:text-white">
-                    <input type="text" name="emergency_phone" placeholder="Phone" required class="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded p-2 text-xs text-slate-900 dark:text-white">
-                    <input type="text" name="emergency_relation" placeholder="Relation" required class="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded p-2 text-xs text-slate-900 dark:text-white">
+                    <input type="text" name="emergency_name" placeholder="Contact Name" required class="form-input">
+                    <input type="text" name="emergency_phone" placeholder="Phone" required class="form-input">
+                    <input type="text" name="emergency_relation" placeholder="Relation" required class="form-input">
                 </div>
-                <textarea name="medical_notes" rows="2" placeholder="Medical clearance flags, allergies, injury logs..." class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded p-2 text-xs text-slate-900 dark:text-white"></textarea>
+                <textarea name="medical_notes" rows="2" placeholder="Medical clearance flags, allergies, injury logs..." class="form-textarea"></textarea>
             </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Cancel</button>
-                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider">Save Student</button>
+            <div class="modal-footer">
+                <button type="button" onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Student</button>
             </div>
+        </form>
+    </div>
+</div>
         </form>
     </div>
 </div>

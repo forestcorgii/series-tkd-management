@@ -16,7 +16,7 @@
             <h1 class="font-display font-extrabold text-2xl text-slate-900 dark:text-white mt-1">{{.Session.TrainingType}} Class</h1>
             <p class="text-xs text-slate-600 dark:text-slate-400">Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span></p>
         </div>
-        <a href="/sessions" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white border border-slate-200 dark:border-transparent transition shadow-sm">
+        <a href="/sessions" class="btn btn-secondary btn-sm">
             &larr; Exit Attendance
         </a>
     </div>
@@ -34,7 +34,7 @@
                        hx-trigger="keyup changed delay:250ms, search"
                        hx-target="#search-results"
                        autofocus
-                       class="w-full bg-white dark:bg-slate-900 border-2 border-emerald-500/50 rounded-xl px-4 py-3.5 text-base text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 placeholder-slate-500 dark:placeholder-slate-400 shadow-md shadow-emerald-500/5" />
+                       class="form-input text-base py-3 px-4 rounded-xl" />
             </div>
 
             <!-- HTMX Search Results Container -->

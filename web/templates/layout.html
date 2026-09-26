@@ -54,7 +54,99 @@
             }
         }
     </script>
-    <style>
+    <style type="text/tailwindcss">
+        @layer components {
+            /* Base Button */
+            .btn {
+                @apply inline-flex items-center justify-center font-display font-bold uppercase tracking-wider transition-all duration-150 select-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none;
+            }
+            
+            /* Button Variants */
+            .btn-primary {
+                @apply btn bg-[#990303] hover:bg-[#7D0202] text-white shadow-md hover:shadow-lg shadow-[#990303]/20 dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] dark:text-white dark:shadow-red-600/20 active:scale-[0.98];
+            }
+            .btn-secondary {
+                @apply btn bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-sans font-semibold normal-case tracking-normal active:scale-[0.98];
+            }
+            .btn-outline {
+                @apply btn border border-[#990303] text-[#990303] hover:bg-[#990303] hover:text-white dark:border-red-500/60 dark:text-red-400 dark:hover:bg-[#DC2626] dark:hover:text-white active:scale-[0.98];
+            }
+            .btn-ghost {
+                @apply btn text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-neutral-800 font-sans font-medium normal-case tracking-normal;
+            }
+            .btn-danger {
+                @apply btn bg-rose-600 hover:bg-rose-700 text-white shadow-sm dark:bg-rose-700 dark:hover:bg-rose-800 active:scale-[0.98];
+            }
+            .btn-success {
+                @apply btn bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm dark:bg-emerald-600 dark:hover:bg-emerald-500 active:scale-[0.98];
+            }
+            .btn-warning {
+                @apply btn bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-sm dark:bg-amber-500 dark:hover:bg-amber-400 active:scale-[0.98];
+            }
+
+            /* Button Sizes */
+            .btn-xs {
+                @apply px-2.5 py-1 text-[10px] rounded-lg gap-1;
+            }
+            .btn-sm {
+                @apply px-3 py-1.5 text-xs rounded-lg gap-1.5;
+            }
+            .btn-md {
+                @apply px-4 py-2 text-xs rounded-xl gap-2;
+            }
+            .btn-lg {
+                @apply px-5 py-2.5 text-sm rounded-xl gap-2;
+            }
+
+            /* Form Controls */
+            .form-input {
+                @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
+            }
+            .form-select {
+                @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
+            }
+            .form-textarea {
+                @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
+            }
+            .form-label {
+                @apply block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-1;
+            }
+
+            /* Badges */
+            .badge {
+                @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide;
+            }
+            .badge-belt {
+                @apply inline-block px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700;
+            }
+            .badge-ready {
+                @apply badge bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800 shadow-sm;
+            }
+            .badge-pretest {
+                @apply badge bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 shadow-sm;
+            }
+            .badge-developing {
+                @apply badge bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800 shadow-sm;
+            }
+
+            /* Modals */
+            .modal-backdrop {
+                @apply fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4;
+            }
+            .modal-dialog {
+                @apply glass-panel p-6 rounded-2xl max-w-lg w-full space-y-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-2xl;
+            }
+            .modal-header {
+                @apply flex items-center justify-between border-b border-[#E5E3D8] dark:border-neutral-800 pb-3;
+            }
+            .modal-close {
+                @apply text-slate-400 hover:text-slate-700 dark:hover:text-white text-xl leading-none p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-neutral-800 transition;
+            }
+            .modal-footer {
+                @apply flex justify-end gap-2 pt-2 border-t border-[#E5E3D8] dark:border-neutral-800;
+            }
+        }
+
         body { font-family: 'Montserrat', sans-serif; }
         h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; letter-spacing: 0.02em; }
         
@@ -151,8 +243,7 @@
                     </a>
                 </div>
                 {{else}}
-                <a href="/login"
-                   class="px-3 py-1.5 rounded-xl bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm">
+                <a href="/login" class="btn btn-primary btn-sm">
                     Sign In
                 </a>
                 {{end}}
@@ -171,7 +262,7 @@
             <a href="{{if eq $user.Role "ADMIN"}}/portal/admin{{else if eq $user.Role "COACH"}}/portal/coach{{else}}/portal/student{{end}}" class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">Portal</a>
             <a href="/logout" class="px-2 py-1 rounded text-rose-600 whitespace-nowrap">Sign Out</a>
             {{else}}
-            <a href="/login" class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">Sign In</a>
+            <a href="/login" class="btn btn-primary btn-xs">Sign In</a>
             {{end}}
         </nav>
     </header>

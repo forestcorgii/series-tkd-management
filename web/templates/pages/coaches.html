@@ -10,7 +10,7 @@
             <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Coach Directory, Safety &amp; Payroll</h1>
             <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Verify Red Cross / BLS First Aid credentials and calculate verified class payroll compensation.</p>
         </div>
-        <button onclick="document.getElementById('new-coach-modal').classList.remove('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider transition flex items-center gap-1.5 shadow-lg shadow-[#990303]/20 dark:shadow-red-600/20">
+        <button onclick="document.getElementById('new-coach-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
             ➕ Add New Coach Profile
         </button>
     </div>
@@ -79,40 +79,40 @@
 </div>
 
 <!-- Modal: New Coach Profile -->
-<div id="new-coach-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center hidden p-4">
-    <div class="glass-panel p-6 rounded-2xl max-w-lg w-full space-y-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
-        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+<div id="new-coach-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+        <div class="modal-header">
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Create Coach Profile</h3>
-            <button onclick="document.getElementById('new-coach-modal').classList.add('hidden')" class="text-slate-500 hover:text-slate-700 dark:hover:text-white text-xl leading-none">&times;</button>
+            <button onclick="document.getElementById('new-coach-modal').classList.add('hidden')" class="modal-close">&times;</button>
         </div>
         <form action="/coaches" method="POST" class="space-y-4">
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Full Name</label>
-                <input type="text" name="full_name" required placeholder="Master / Coach Name" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="full_name" required placeholder="Master / Coach Name" class="form-input">
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Email</label>
-                    <input type="email" name="email" required placeholder="coach@seriestkd.com" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" required placeholder="coach@seriestkd.com" class="form-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Phone</label>
-                    <input type="text" name="phone" required placeholder="+1 (555) 000-0000" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Phone</label>
+                    <input type="text" name="phone" required placeholder="+1 (555) 000-0000" class="form-input">
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Dan Rank</label>
-                    <input type="text" name="belt_rank" required placeholder="e.g. 4th Dan Black Belt" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Dan Rank</label>
+                    <input type="text" name="belt_rank" required placeholder="e.g. 4th Dan Black Belt" class="form-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Rate Per Class ($)</label>
-                    <input type="number" step="0.01" name="rate_per_session" required placeholder="65.00" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                    <label class="form-label">Rate Per Class ($)</label>
+                    <input type="number" step="0.01" name="rate_per_session" required placeholder="65.00" class="form-input">
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Coach Portal Password</label>
-                <input type="password" name="password" placeholder="Default: coach123" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                <label class="form-label">Coach Portal Password</label>
+                <input type="password" name="password" placeholder="Default: coach123" class="form-input">
             </div>
             <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <span class="text-xs uppercase font-bold text-rose-600 dark:text-rose-400">First Aid Safety Verification</span>
@@ -122,16 +122,16 @@
                 </div>
                 <div>
                     <label class="block text-[10px] uppercase font-bold text-slate-700 dark:text-slate-400">Certification Expiry Date</label>
-                    <input type="date" name="first_aid_expiry" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded p-2 text-xs text-slate-900 dark:text-white">
+                    <input type="date" name="first_aid_expiry" class="form-input">
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-400 mb-1">Specialties (comma separated)</label>
-                <input type="text" name="specialties" placeholder="Sparring/Kyorugi, Forms/Poomsae, Conditioning" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:border-emerald-500">
+                <label class="form-label">Specialties (comma separated)</label>
+                <input type="text" name="specialties" placeholder="Sparring/Kyorugi, Forms/Poomsae, Conditioning" class="form-input">
             </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" onclick="document.getElementById('new-coach-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">Cancel</button>
-                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider">Save Coach</button>
+            <div class="modal-footer">
+                <button type="button" onclick="document.getElementById('new-coach-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Coach</button>
             </div>
         </form>
     </div>

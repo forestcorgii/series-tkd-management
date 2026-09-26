@@ -74,10 +74,10 @@
             </p>
         </div>
         <div class="flex items-center gap-3">
-            <a href="/students" class="px-3.5 py-2 rounded-xl bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
+            <a href="/students" class="btn btn-primary btn-sm flex items-center gap-1.5">
                 ➕ Add Student
             </a>
-            <a href="/coaches" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-display font-bold text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
+            <a href="/coaches" class="btn btn-outline btn-sm flex items-center gap-1.5">
                 ➕ Add Coach
             </a>
         </div>
@@ -154,7 +154,7 @@
                                         hx-vals='{"student_id": "{{.Student.ID}}"}'
                                         hx-target="#promote-status-{{.Student.ID}}"
                                         hx-confirm="Promote {{.Student.FullName}} to {{.Student.NextBelt}}? This resets tenure days and attendance counts."
-                                        class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-[11px] uppercase tracking-wider transition shadow-sm">
+                                        class="btn btn-success btn-xs">
                                     Promote Belt
                                 </button>
                             </span>
@@ -219,7 +219,7 @@
                         <button hx-post="/api/safety/resolve"
                                 hx-vals='{"incident_id": "{{.ID}}"}'
                                 hx-target="#incident-card-{{.ID}}"
-                                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider transition">
+                                class="btn btn-success btn-xs">
                             Clear Safety Hold
                         </button>
                         {{end}}
@@ -268,23 +268,20 @@
 
                 <div class="grid grid-cols-3 gap-3">
                     <div>
-                        <label class="block font-semibold text-slate-600 dark:text-slate-400">Date</label>
-                        <input type="date" name="session_date" required
-                               class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium">
+                        <label class="form-label">Date</label>
+                        <input type="date" name="session_date" required class="form-input">
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 dark:text-slate-400">Start Time</label>
-                        <select name="start_time" required
-                                class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium">
+                        <label class="form-label">Start Time</label>
+                        <select name="start_time" required class="form-select">
                             <option value="17:00">17:00</option>
                             <option value="18:30">18:30</option>
                             <option value="19:45">19:45</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 dark:text-slate-400">End Time</label>
-                        <select name="end_time" required
-                                class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium">
+                        <label class="form-label">End Time</label>
+                        <select name="end_time" required class="form-select">
                             <option value="18:15">18:15</option>
                             <option value="18:30">18:30 (Extended)</option>
                             <option value="19:45">19:45</option>
@@ -294,13 +291,12 @@
                 </div>
 
                 <div>
-                    <label class="block font-semibold text-slate-600 dark:text-slate-400">Training Notes &amp; Curriculum Focus</label>
+                    <label class="form-label">Training Notes &amp; Curriculum Focus</label>
                     <textarea name="notes" rows="2" placeholder="e.g. Taegeuk forms precision, counter-attack timing drills..."
-                              class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-medium"></textarea>
+                              class="form-textarea"></textarea>
                 </div>
 
-                <button type="submit"
-                        class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] dark:from-[#DC2626] dark:to-[#B91C1C] dark:hover:from-[#B91C1C] text-white font-display font-bold uppercase tracking-wider transition shadow-sm">
+                <button type="submit" class="btn btn-primary btn-md w-full">
                     + Generate Scheduled Floor Slot
                 </button>
                 <div id="schedule-feedback"></div>

@@ -30,4 +30,38 @@
 | Primary Action Link/Card | `bg-[#990303] hover:bg-[#7D0202] text-white font-display uppercase tracking-wider` | `dark:bg-[#DC2626] dark:hover:bg-[#B91C1C]` | Same contrast pairing for active floor cards and links |
 | Secondary / Cancel Button | `bg-slate-200 hover:bg-slate-300 text-slate-700` | `dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300` | Neutral slate tone preserves visual hierarchy |
 
+### Context: Centralized Component Utilities Architecture
+
+**Problem:**
+Repeated inline utility classes across 11 pages and 3 partials led to discrepancies in button padding, corner radiuses (`rounded-xl` vs `rounded-lg`), form focus ring colors (emerald vs brand crimson), and modal structures.
+
+**Enforced Solution:**
+Components are centralized in `web/templates/layout.html` within `<style type="text/tailwindcss">` using `@layer components`:
+
+| Component Class | Description | Standard Usage |
+| :--- | :--- | :--- |
+| `.btn` | Base flex, uppercase font-display, active scale, transition | Never use alone; combine with variant |
+| `.btn-primary` | Brand crimson (`#990303` light / `#DC2626` dark) with shadow | Primary CTAs (Save, Register, Schedule, Sign In) |
+| `.btn-secondary` | Neutral slate (`bg-slate-200` / `dark:bg-slate-800`) | Cancel, dismiss, navigate back |
+| `.btn-outline` | Crimson border with hover fill | Grade, secondary quick actions |
+| `.btn-ghost` | Slate hover with transparent background | Icon buttons, theme toggle |
+| `.btn-danger` | Rose red (`bg-rose-600` / `dark:bg-rose-700`) | Safety hold flags, delete actions |
+| `.btn-success` | Emerald green (`bg-emerald-600`) | Mat admission, belt promotion, safety clearance |
+| `.btn-warning` | Amber tone (`bg-amber-500` / `dark:bg-amber-500`) | Manual overrides, warning bypasses |
+| `.btn-xs`, `.btn-sm`, `.btn-md`, `.btn-lg` | Explicit sizing scales from 10px to 14px | Table inline actions to hero CTAs |
+| `.form-input` | Consistent border, bg, text, and crimson focus ring | Text, date, email, password, search inputs |
+| `.form-select` | Consistent select dropdown with crimson focus ring | Form selects |
+| `.form-textarea` | Consistent textarea with crimson focus ring | Form remarks, notes |
+| `.form-label` | Uppercase, tracking-wider, legible slate | Form field labels |
+| `.badge-belt` | Slate pill with border | Kup and Dan belt ranks |
+| `.badge-ready` | Emerald chip with shadow | 🟢 READY status |
+| `.badge-pretest` | Amber chip with shadow | 🟡 PRE-TEST status |
+| `.badge-developing`| Rose chip with shadow | 🔴 DEVELOPING status |
+| `.modal-backdrop` | Fixed inset-0 with backdrop blur and centered flex | Modal overlays |
+| `.modal-dialog` | Glass panel max-w-lg or max-w-md with 2xl shadow | Modal container |
+| `.modal-header` | Flex space-between with border-b | Modal title bar |
+| `.modal-close` | Subtle close button with hover state | `&times;` dismissal |
+| `.modal-footer` | Flex justify-end with top border | Action buttons bar |
+
+
 

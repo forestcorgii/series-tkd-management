@@ -10,19 +10,19 @@
             &larr; Back to Student Directory
         </a>
         <div class="flex items-center gap-2">
-            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
+            <span class="badge-belt">
                 Belt: {{.Student.CurrentBelt}}
             </span>
             {{if eq .Readiness.Status "READY"}}
-            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800 shadow-sm">
+            <span class="badge-ready">
                 🟢 READY FOR PROMOTION
             </span>
             {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
-            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 shadow-sm">
+            <span class="badge-pretest">
                 🟡 PRE-TEST ELIGIBLE
             </span>
             {{else}}
-            <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800 shadow-sm">
+            <span class="badge-developing">
                 🔴 DEVELOPING
             </span>
             {{end}}
@@ -130,35 +130,35 @@
                     </div>
                     <div class="grid grid-cols-3 gap-2">
                         <div>
-                            <label class="block text-[10px] uppercase font-bold text-slate-700 dark:text-slate-400">Flexibility</label>
-                            <input type="number" min="1" max="10" name="flexibility" value="8" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1.5 text-xs text-slate-900 dark:text-white">
+                            <label class="form-label text-[10px]">Flexibility</label>
+                            <input type="number" min="1" max="10" name="flexibility" value="8" required class="form-input">
                         </div>
                         <div>
-                            <label class="block text-[10px] uppercase font-bold text-slate-700 dark:text-slate-400">Stamina</label>
-                            <input type="number" min="1" max="10" name="stamina" value="8" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1.5 text-xs text-slate-900 dark:text-white">
+                            <label class="form-label text-[10px]">Stamina</label>
+                            <input type="number" min="1" max="10" name="stamina" value="8" required class="form-input">
                         </div>
                         <div>
-                            <label class="block text-[10px] uppercase font-bold text-slate-700 dark:text-slate-400">Power</label>
-                            <input type="number" min="1" max="10" name="power" value="7" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1.5 text-xs text-slate-900 dark:text-white">
+                            <label class="form-label text-[10px]">Power</label>
+                            <input type="number" min="1" max="10" name="power" value="7" required class="form-input">
                         </div>
                         <div>
-                            <label class="block text-[10px] uppercase font-bold text-slate-700 dark:text-slate-400">Technique</label>
-                            <input type="number" min="1" max="10" name="technique" value="8" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1.5 text-xs text-slate-900 dark:text-white">
+                            <label class="form-label text-[10px]">Technique</label>
+                            <input type="number" min="1" max="10" name="technique" value="8" required class="form-input">
                         </div>
                         <div>
-                            <label class="block text-[10px] uppercase font-bold text-slate-700 dark:text-slate-400">Sparring IQ</label>
-                            <input type="number" min="1" max="10" name="sparring_iq" value="8" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1.5 text-xs text-slate-900 dark:text-white">
+                            <label class="form-label text-[10px]">Sparring IQ</label>
+                            <input type="number" min="1" max="10" name="sparring_iq" value="8" required class="form-input">
                         </div>
                         <div>
-                            <label class="block text-[10px] uppercase font-bold text-slate-700 dark:text-slate-400">Discipline</label>
-                            <input type="number" min="1" max="10" name="discipline" value="9" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1.5 text-xs text-slate-900 dark:text-white">
+                            <label class="form-label text-[10px]">Discipline</label>
+                            <input type="number" min="1" max="10" name="discipline" value="9" required class="form-input">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Remarks</label>
-                        <textarea name="coach_remarks" rows="2" placeholder="Notes on stance, sparring timing, poomsae precision..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-2 text-xs text-slate-900 dark:text-white"></textarea>
+                        <label class="form-label">Remarks</label>
+                        <textarea name="coach_remarks" rows="2" placeholder="Notes on stance, sparring timing, poomsae precision..." class="form-textarea"></textarea>
                     </div>
-                    <button type="submit" class="w-full py-2.5 rounded-lg text-xs font-bold bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-display uppercase tracking-wider shadow-md transition">
+                    <button type="submit" class="btn btn-primary btn-md w-full">
                         Save Evaluation &amp; Update Radar
                     </button>
                 </form>

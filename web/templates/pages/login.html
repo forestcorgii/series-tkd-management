@@ -51,27 +51,26 @@
                 <input type="hidden" name="redirect" value="{{.Redirect}}">
 
                 <div>
-                    <label for="email" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label for="email" class="form-label mb-1.5">
                         Dojang Email Address
                     </label>
                     <input type="email" id="email" name="email" required autocomplete="email"
                            placeholder="practitioner@seriestkd.com"
-                           class="w-full px-4 py-2.5 rounded-xl border border-[#E5E3D8] bg-white text-black dark:border-neutral-800 dark:bg-neutral-950 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#990303] text-sm transition">
+                           class="form-input py-2.5 px-4 text-sm">
                 </div>
 
                 <div>
                     <div class="flex items-center justify-between mb-1.5">
-                        <label for="password" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        <label for="password" class="form-label">
                             Password
                         </label>
                     </div>
                     <input type="password" id="password" name="password" required autocomplete="current-password"
                            placeholder="••••••••••••"
-                           class="w-full px-4 py-2.5 rounded-xl border border-[#E5E3D8] bg-white text-black dark:border-neutral-800 dark:bg-neutral-950 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#990303] text-sm transition">
+                           class="form-input py-2.5 px-4 text-sm">
                 </div>
 
-                <button type="submit"
-                        class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#990303] to-[#7D0202] hover:from-[#7D0202] hover:to-[#5E0101] dark:from-[#DC2626] dark:to-[#B91C1C] dark:hover:from-[#B91C1C] dark:hover:to-[#990303] text-white font-display font-bold uppercase tracking-wider text-sm shadow-lg shadow-[#990303]/30 dark:shadow-red-600/30 transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+                <button type="submit" class="btn btn-primary btn-lg w-full flex items-center justify-center gap-2">
                     <span>Enter Portal</span>
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
