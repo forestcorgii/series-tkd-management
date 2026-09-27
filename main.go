@@ -128,6 +128,7 @@ func main() {
 
 	// Administrators Management (Only Operation Manager)
 	mux.HandleFunc("GET /admins", app.RequireRole(models.RoleOperationManager)(app.HandleAdmins))
+	mux.HandleFunc("GET /admins/", app.RequireRole(models.RoleOperationManager)(app.HandleAdmins))
 	mux.HandleFunc("POST /admins", app.RequireRole(models.RoleOperationManager)(app.HandleCreateAdmin))
 	mux.HandleFunc("POST /admins/{id}/toggle", app.RequireRole(models.RoleOperationManager)(app.HandleToggleAdminStatus))
 	mux.HandleFunc("POST /admins/{id}/reset-password", app.RequireRole(models.RoleOperationManager)(app.HandleResetAdminPassword))
