@@ -127,4 +127,40 @@ func TestPromotionService_EvaluateReadiness(t *testing.T) {
 			t.Errorf("expected red badge icon, got %s", readiness.BadgeIcon)
 		}
 	})
+
+	t.Run("Excludes attendances from cancelled sessions", func(t *testing.T) {
+		student := &models.Student{
+			ID:                studentID,
+			CurrentBelt:       models.BeltWhite,
+			LastPromotionDate: time.Now().AddDate(0, 0, -60), // 60 days
+		}
+
+		// 16 total attendances, but 5 are from cancelled sessions -> net 11 (< 16 required)
+		attendances := make([]*models.Attendance, 16)
+		sessions := make(map[string]*models.TrainingSession)
+
+		for i := 0; i < 16; i++ {
+			sessID := uuid.New()
+			isCancelled := i < 5
+			sessions[sessID.String()] = &models.TrainingSession{
+				ID:           sessID,
+				TrainingType: models.TrainingPoomsae,
+				IsCancelled:  isCancelled,
+			}
+			attendances[i] = &models.Attendance{
+				ID:        uuid.New(),
+				SessionID: sessID,
+				StudentID: studentID,
+			}
+		}
+
+		readiness := svc.EvaluateReadiness(student, attendances, sessions, nil)
+
+		if readiness.TotalSessions != 11 {
+			t.Errorf("expected TotalSessions to be 11 (excluding 5 cancelled), got %d", readiness.TotalSessions)
+		}
+		if readiness.Status != services.StatusDeveloping {
+			t.Errorf("expected status DEVELOPING due to insufficient valid sessions, got %s", readiness.Status)
+		}
+	})
 }

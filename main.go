@@ -134,6 +134,7 @@ func main() {
 	// Training Sessions & Live Floor Tablet Check-In (Coach, Admin, and Operation Manager)
 	mux.HandleFunc("GET /sessions", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSessions))
 	mux.HandleFunc("POST /sessions", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateSession))
+	mux.HandleFunc("POST /sessions/{id}/cancel", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCancelSession))
 	mux.HandleFunc("GET /sessions/{id}/live", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLiveSession))
 	mux.HandleFunc("POST /sessions/{id}/search-student", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSearchStudent))
 	mux.HandleFunc("POST /sessions/{id}/checkin/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCheckIn))

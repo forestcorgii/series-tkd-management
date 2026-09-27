@@ -1,0 +1,81 @@
+{{define "session_cards.html"}}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {{range .Sessions}}
+    <div class="p-5 rounded-xl border flex flex-col justify-between gap-4 shadow-sm transition-all {{if .IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/60{{else}}bg-slate-50 dark:bg-slate-900/90 border-slate-200 dark:border-slate-800{{end}}">
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold {{if .IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
+                        {{if .IsCancelled}}🚫 CANCELLED{{else}}{{.TrainingType}}{{end}}
+                    </span>
+                    {{if .IsCancelled}}
+                    <span class="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
+                        {{.TrainingType}}
+                    </span>
+                    {{end}}
+                </div>
+                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    {{formatDate .SessionDate}}
+                </span>
+            </div>
+
+            <h3 class="font-display font-bold text-lg {{if .IsCancelled}}text-slate-500 dark:text-slate-400 line-through{{else}}text-slate-900 dark:text-white{{end}}">
+                {{.StartTime}} - {{.EndTime}}
+            </h3>
+
+            <p class="text-xs text-slate-600 dark:text-slate-400">
+                Lead Coach: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.CoachName}}</span>
+            </p>
+
+            {{if .Notes}}
+            <p class="text-xs text-slate-600 dark:text-slate-400 italic">"{{.Notes}}"</p>
+            {{end}}
+
+            {{if .IsCancelled}}
+            <div class="mt-3 p-2.5 bg-rose-100/70 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-lg text-xs space-y-1">
+                <p class="font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1">
+                    <span>⚠️</span> Cancellation Reason:
+                </p>
+                <p class="text-rose-800 dark:text-rose-200 pl-4">
+                    {{if .CancellationReason}}{{.CancellationReason}}{{else}}Cancelled by floor staff{{end}}
+                </p>
+                {{if .CancelledAt}}
+                <p class="text-[10px] text-rose-700 dark:text-rose-400 pl-4">
+                    Logged on {{formatDate .CancelledAt}}
+                </p>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+
+        <div class="flex items-center justify-between pt-3 border-t border-slate-200/80 dark:border-slate-800/80 gap-2">
+            <div>
+                {{if .IsCancelled}}
+                <span class="text-[11px] text-rose-700 dark:text-rose-400 font-medium">Check-in closed</span>
+                {{else}}
+                <button type="button"
+                        onclick="openCancelModal('{{.ID}}', '{{.TrainingType}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}', '{{.CoachName}}')"
+                        class="text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition-colors inline-flex items-center gap-1">
+                    <span>✖</span> Cancel Class
+                </button>
+                {{end}}
+            </div>
+            <a href="/sessions/{{.ID}}/live" class="{{if .IsCancelled}}btn btn-secondary btn-sm opacity-80{{else}}btn btn-primary btn-sm{{end}}">
+                {{if .IsCancelled}}View Cancelled Roster &rarr;{{else}}⚡ Live Tablet Attendance &rarr;{{end}}
+            </a>
+        </div>
+    </div>
+    {{else}}
+    <div class="col-span-full p-10 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 space-y-3">
+        <div class="text-3xl">🥋</div>
+        <h4 class="font-display font-bold text-base text-slate-800 dark:text-slate-200">No Training Classes Found</h4>
+        <p class="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
+            No dojang classes match the selected filter criteria. Try adjusting the lead coach, category, or day filters.
+        </p>
+        <button type="button" onclick="clearFilters()" class="btn btn-secondary btn-xs py-1.5 px-3">
+            Clear Filters
+        </button>
+    </div>
+    {{end}}
+</div>
+{{end}}

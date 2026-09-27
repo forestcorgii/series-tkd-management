@@ -16,6 +16,12 @@ var (
 	ErrAlreadyInRoster = errors.New("student already checked in for this session")
 )
 
+type SessionFilter struct {
+	CoachID      *uuid.UUID
+	TrainingType string
+	Date         string // "YYYY-MM-DD"
+}
+
 type RepositoryStore interface {
 	// Students
 	GetAllStudents() ([]*models.Student, error)
@@ -42,8 +48,10 @@ type RepositoryStore interface {
 
 	// Sessions & Floor Attendance
 	GetAllSessions() ([]*models.TrainingSession, error)
+	GetSessions(filter SessionFilter) ([]*models.TrainingSession, error)
 	GetSessionByID(id uuid.UUID) (*models.TrainingSession, error)
 	CreateSession(sess *models.TrainingSession) error
+	CancelSession(sessionID uuid.UUID, reason string, refundCredits bool) error
 	GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error)
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
 	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID) (*models.Attendance, error)
@@ -337,6 +345,68 @@ func (m *MemoryStore) GetSessionByID(id uuid.UUID) (*models.TrainingSession, err
 		s.CoachName = coach.FullName
 	}
 	return s, nil
+}
+
+func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSession, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make([]*models.TrainingSession, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		if filter.CoachID != nil && s.CoachID != *filter.CoachID {
+			continue
+		}
+		if filter.TrainingType != "" && string(s.TrainingType) != filter.TrainingType {
+			continue
+		}
+		if filter.Date != "" {
+			dateStr := s.SessionDate.Format("2006-01-02")
+			if dateStr != filter.Date {
+				continue
+			}
+		}
+		if coach, ok := m.coaches[s.CoachID]; ok {
+			s.CoachName = coach.FullName
+		}
+		result = append(result, s)
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) CancelSession(sessionID uuid.UUID, reason string, refundCredits bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sess, ok := m.sessions[sessionID]
+	if !ok {
+		return ErrNotFound
+	}
+	if sess.IsCancelled {
+		return errors.New("class is already cancelled")
+	}
+
+	if refundCredits {
+		// Refund any student package sessions that were deducted
+		for _, att := range m.attendances {
+			if att.SessionID == sessionID && att.StudentPackageID != nil {
+				if pkg, exists := m.studentPackages[*att.StudentPackageID]; exists && pkg.RemainingSessions != nil {
+					*pkg.RemainingSessions++
+				}
+			}
+		}
+		// Clear attendances for this session
+		for id, att := range m.attendances {
+			if att.SessionID == sessionID {
+				delete(m.attendances, id)
+			}
+		}
+	}
+
+	now := time.Now()
+	sess.IsCancelled = true
+	sess.CancelledAt = &now
+	sess.CancellationReason = reason
+	return nil
 }
 
 func (m *MemoryStore) CreateSession(sess *models.TrainingSession) error {

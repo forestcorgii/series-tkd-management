@@ -56,4 +56,44 @@ func TestPayrollService_CalculateCoachPayroll(t *testing.T) {
 			t.Errorf("expected FirstAidWarningFlag to be true for expired first aid")
 		}
 	})
+
+	t.Run("Excludes cancelled sessions from payroll", func(t *testing.T) {
+		validExpiry := time.Now().AddDate(0, 6, 0)
+		coach := &models.Coach{
+			ID:                coachID,
+			FullName:          "Master Han",
+			RatePerSession:    50.00,
+			FirstAidCertified: true,
+			FirstAidExpiry:    &validExpiry,
+		}
+
+		sessActive := uuid.New()
+		sessCancelled := uuid.New()
+		sessions := []*models.TrainingSession{
+			{ID: sessActive, CoachID: coachID, SessionDate: time.Now(), IsCancelled: false},
+			{ID: sessCancelled, CoachID: coachID, SessionDate: time.Now(), IsCancelled: true, CancellationReason: "Typhoon"},
+		}
+
+		student1 := uuid.New()
+		student2 := uuid.New()
+		attendances := []*models.Attendance{
+			{SessionID: sessActive, StudentID: student1},
+			{SessionID: sessCancelled, StudentID: student2},
+		}
+
+		start := time.Now().AddDate(0, 0, -1)
+		end := time.Now().AddDate(0, 0, 1)
+
+		summary := svc.CalculateCoachPayroll(coach, sessions, attendances, start, end)
+
+		if summary.TotalSessionsLed != 1 {
+			t.Errorf("expected 1 session led (excluding cancelled), got %d", summary.TotalSessionsLed)
+		}
+		if summary.CalculatedPayout != 50.00 {
+			t.Errorf("expected payout 50.00, got %f", summary.CalculatedPayout)
+		}
+		if summary.TotalStudentsTaught != 1 {
+			t.Errorf("expected 1 student taught, got %d", summary.TotalStudentsTaught)
+		}
+	})
 }

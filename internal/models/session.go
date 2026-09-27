@@ -24,9 +24,12 @@ type TrainingSession struct {
 	CoachName    string       `json:"coach_name,omitempty"`
 	AdminID      *uuid.UUID   `json:"admin_id,omitempty"`
 	AdminName    string       `json:"admin_name,omitempty"`
-	TrainingType TrainingType `json:"training_type"`
-	Notes        string       `json:"notes"`
-	CreatedAt    time.Time    `json:"created_at"`
+	TrainingType       TrainingType `json:"training_type"`
+	Notes              string       `json:"notes"`
+	IsCancelled        bool         `json:"is_cancelled"`
+	CancelledAt        *time.Time   `json:"cancelled_at,omitempty"`
+	CancellationReason string       `json:"cancellation_reason,omitempty"`
+	CreatedAt          time.Time    `json:"created_at"`
 }
 
 type Attendance struct {

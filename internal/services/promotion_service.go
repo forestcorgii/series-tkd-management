@@ -88,9 +88,9 @@ func (s *PromotionService) EvaluateReadiness(
 	latestEval *models.StudentEvaluation,
 ) PromotionReadiness {
 	req := getBeltRequirement(student.CurrentBelt)
-	totalSessions := len(attendances)
 	daysInRank := student.DaysInCurrentRank()
 
+	validAttendancesCount := 0
 	sparringCount := 0
 	poomsaeCount := 0
 
@@ -99,15 +99,22 @@ func (s *PromotionService) EvaluateReadiness(
 			continue
 		}
 		if sess, ok := sessions[att.SessionID.String()]; ok && sess != nil {
+			if sess.IsCancelled {
+				continue
+			}
+			validAttendancesCount++
 			switch sess.TrainingType {
 			case models.TrainingSparring:
 				sparringCount++
 			case models.TrainingPoomsae:
 				poomsaeCount++
 			}
+		} else {
+			validAttendancesCount++
 		}
 	}
 
+	totalSessions := validAttendancesCount
 	sparringRatio := 0.0
 	poomsaeRatio := 0.0
 	if totalSessions > 0 {

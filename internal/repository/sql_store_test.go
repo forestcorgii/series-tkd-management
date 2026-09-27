@@ -437,3 +437,250 @@ func TestSQLStore_UpdateCoachAndUser(t *testing.T) {
 		t.Errorf("expected password to match updated hash")
 	}
 }
+
+func TestSQLStore_CancelSession(t *testing.T) {
+	dbFile := "test_cancel_session.db"
+	_ = os.Remove(dbFile)
+	defer os.Remove(dbFile)
+
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+
+	coaches, _ := store.GetAllCoaches()
+	if len(coaches) == 0 {
+		t.Fatalf("no seeded coaches")
+	}
+	coach := coaches[0]
+
+	students, _ := store.GetAllStudents()
+	if len(students) == 0 {
+		t.Fatalf("no seeded students")
+	}
+	student := students[0]
+
+	templates, _ := store.GetPackageTemplates()
+	if len(templates) == 0 {
+		t.Fatalf("no seeded templates")
+	}
+	tplID := templates[0].ID
+
+	// Create a package for student with 5 remaining sessions
+	remSessions := 5
+	totSessions := 10
+	pkg := &models.StudentPackage{
+		ID:                uuid.New(),
+		StudentID:         student.ID,
+		TemplateID:        tplID,
+		TotalSessions:     &totSessions,
+		RemainingSessions: &remSessions,
+		PurchaseDate:      time.Now(),
+		ExpiryDate:        time.Now().AddDate(0, 1, 0),
+		PaymentStatus:     "paid",
+	}
+	if err := store.AssignPackage(pkg); err != nil {
+		t.Fatalf("AssignPackage failed: %v", err)
+	}
+
+	// 1. Create session 1 (to be cancelled WITH refund)
+	sess1 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "17:00",
+		EndTime:      "18:30",
+		CoachID:      coach.ID,
+		TrainingType: models.TrainingSparring,
+		Notes:        "Sparring fundamentals",
+	}
+	if err := store.CreateSession(sess1); err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+
+	// Deduct 1 credit for check-in
+	*pkg.RemainingSessions = 4
+	if err := store.UpdateStudentPackage(pkg); err != nil {
+		t.Fatalf("UpdateStudentPackage failed: %v", err)
+	}
+	if _, err := store.CheckInStudent(sess1.ID, student.ID, &pkg.ID); err != nil {
+		t.Fatalf("CheckInStudent failed: %v", err)
+	}
+
+	// Verify check-in exists
+	atts, err := store.GetSessionAttendances(sess1.ID)
+	if err != nil || len(atts) != 1 {
+		t.Fatalf("expected 1 attendance before cancel, got %d", len(atts))
+	}
+
+	// Cancel session 1 WITH refund
+	if err := store.CancelSession(sess1.ID, "Typhoon signal", true); err != nil {
+		t.Fatalf("CancelSession failed: %v", err)
+	}
+
+	// Verify session status
+	updatedSess1, err := store.GetSessionByID(sess1.ID)
+	if err != nil {
+		t.Fatalf("GetSessionByID failed: %v", err)
+	}
+	if !updatedSess1.IsCancelled {
+		t.Errorf("expected session to be marked cancelled")
+	}
+	if updatedSess1.CancellationReason != "Typhoon signal" {
+		t.Errorf("expected cancellation reason 'Typhoon signal', got '%s'", updatedSess1.CancellationReason)
+	}
+	if updatedSess1.CancelledAt == nil {
+		t.Errorf("expected CancelledAt to be populated")
+	}
+
+	// Verify attendances cleared
+	attsAfter, err := store.GetSessionAttendances(sess1.ID)
+	if err != nil || len(attsAfter) != 0 {
+		t.Errorf("expected 0 attendances after refund cancellation, got %d", len(attsAfter))
+	}
+
+	// Verify package remaining sessions refunded from 4 back to 5
+	pkgs, _ := store.GetStudentPackages(student.ID)
+	var foundPkg *models.StudentPackage
+	for _, p := range pkgs {
+		if p.ID == pkg.ID {
+			foundPkg = p
+			break
+		}
+	}
+	if foundPkg == nil || foundPkg.RemainingSessions == nil || *foundPkg.RemainingSessions != 5 {
+		t.Errorf("expected package sessions to be refunded to 5, got %v", foundPkg)
+	}
+
+	// Verify double cancellation returns error
+	if err := store.CancelSession(sess1.ID, "Try again", true); err == nil {
+		t.Errorf("expected error on cancelling already cancelled session")
+	}
+
+	// 2. Create session 2 (cancelled WITHOUT refund)
+	sess2 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "19:00",
+		EndTime:      "20:30",
+		CoachID:      coach.ID,
+		TrainingType: models.TrainingPoomsae,
+	}
+	if err := store.CreateSession(sess2); err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+	if _, err := store.CheckInStudent(sess2.ID, student.ID, nil); err != nil {
+		t.Fatalf("CheckInStudent failed: %v", err)
+	}
+
+	if err := store.CancelSession(sess2.ID, "Coach sick", false); err != nil {
+		t.Fatalf("CancelSession without refund failed: %v", err)
+	}
+	updatedSess2, _ := store.GetSessionByID(sess2.ID)
+	if !updatedSess2.IsCancelled {
+		t.Errorf("expected sess2 to be cancelled")
+	}
+	// Attendances should remain
+	attsSess2, _ := store.GetSessionAttendances(sess2.ID)
+	if len(attsSess2) != 1 {
+		t.Errorf("expected 1 attendance kept when refund=false, got %d", len(attsSess2))
+	}
+}
+
+func TestSQLStore_FilterSessions(t *testing.T) {
+	dbFile := "test_filter_session.db"
+	_ = os.Remove(dbFile)
+	defer os.Remove(dbFile)
+
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+
+	coaches, _ := store.GetAllCoaches()
+	if len(coaches) < 2 {
+		t.Fatalf("expected at least 2 coaches")
+	}
+	coachA := coaches[0]
+	coachB := coaches[1]
+
+	date1, _ := time.Parse("2006-01-02", "2026-10-01")
+	date2, _ := time.Parse("2006-01-02", "2026-10-02")
+
+	// Create distinctive sessions
+	s1 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  date1,
+		StartTime:    "10:00",
+		EndTime:      "11:00",
+		CoachID:      coachA.ID,
+		TrainingType: models.TrainingSparring,
+	}
+	s2 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  date1,
+		StartTime:    "14:00",
+		EndTime:      "15:00",
+		CoachID:      coachB.ID,
+		TrainingType: models.TrainingPoomsae,
+	}
+	s3 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  date2,
+		StartTime:    "16:00",
+		EndTime:      "17:00",
+		CoachID:      coachA.ID,
+		TrainingType: models.TrainingConditioning,
+	}
+
+	for _, s := range []*models.TrainingSession{s1, s2, s3} {
+		if err := store.CreateSession(s); err != nil {
+			t.Fatalf("CreateSession failed: %v", err)
+		}
+	}
+
+	// 1. Filter by Coach
+	byCoachA, err := store.GetSessions(repository.SessionFilter{CoachID: &coachA.ID})
+	if err != nil {
+		t.Fatalf("Filter by coach failed: %v", err)
+	}
+	for _, s := range byCoachA {
+		if s.CoachID != coachA.ID {
+			t.Errorf("expected session coach %v, got %v", coachA.ID, s.CoachID)
+		}
+	}
+
+	// 2. Filter by Category
+	bySparring, err := store.GetSessions(repository.SessionFilter{TrainingType: "Sparring"})
+	if err != nil {
+		t.Fatalf("Filter by category failed: %v", err)
+	}
+	for _, s := range bySparring {
+		if s.TrainingType != models.TrainingSparring {
+			t.Errorf("expected Sparring, got %s", s.TrainingType)
+		}
+	}
+
+	// 3. Filter by Date
+	byDate2, err := store.GetSessions(repository.SessionFilter{Date: "2026-10-02"})
+	if err != nil {
+		t.Fatalf("Filter by date failed: %v", err)
+	}
+	for _, s := range byDate2 {
+		if s.SessionDate.Format("2006-01-02") != "2026-10-02" {
+			t.Errorf("expected date 2026-10-02, got %s", s.SessionDate.Format("2006-01-02"))
+		}
+	}
+
+	// 4. Combined: CoachA + Date1
+	combined, err := store.GetSessions(repository.SessionFilter{
+		CoachID: &coachA.ID,
+		Date:    "2026-10-01",
+	})
+	if err != nil {
+		t.Fatalf("Combined filter failed: %v", err)
+	}
+	if len(combined) != 1 || combined[0].ID != s1.ID {
+		t.Errorf("expected s1, got %d sessions", len(combined))
+	}
+}
+

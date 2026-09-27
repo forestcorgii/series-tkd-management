@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"series-tkd-management/internal/models"
+	"series-tkd-management/internal/repository"
 	"series-tkd-management/internal/services"
 )
 
@@ -18,9 +19,12 @@ type SessionListItem struct {
 }
 
 type SessionsPageData struct {
-	CurrentUser *models.User
-	Sessions    []*models.TrainingSession
-	Coaches     []*models.Coach
+	CurrentUser    *models.User
+	Sessions       []*models.TrainingSession
+	Coaches        []*models.Coach
+	FilterCoachID  string
+	FilterCategory string
+	FilterDay      string
 }
 
 type LiveCheckInPageData struct {
@@ -42,7 +46,21 @@ type StudentSearchResultItem struct {
 }
 
 func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
-	sessions, err := a.store.GetAllSessions()
+	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
+	category := strings.TrimSpace(r.URL.Query().Get("category"))
+	day := strings.TrimSpace(r.URL.Query().Get("day"))
+
+	filter := repository.SessionFilter{
+		TrainingType: category,
+		Date:         day,
+	}
+	if coachIDStr != "" {
+		if cID, err := uuid.Parse(coachIDStr); err == nil {
+			filter.CoachID = &cID
+		}
+	}
+
+	sessions, err := a.store.GetSessions(filter)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -51,9 +69,17 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 
 	user := GetUserFromContext(r.Context())
 	data := SessionsPageData{
-		CurrentUser: user,
-		Sessions:    sessions,
-		Coaches:     coaches,
+		CurrentUser:    user,
+		Sessions:       sessions,
+		Coaches:        coaches,
+		FilterCoachID:  coachIDStr,
+		FilterCategory: category,
+		FilterDay:      day,
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		a.RenderPartial(w, "session_cards.html", data)
+		return
 	}
 
 	a.RenderPage(w, "sessions.html", data)
@@ -197,6 +223,52 @@ func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request)
 	a.RenderPartial(w, "search_results.html", results)
 }
 
+func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Path: /sessions/{id}/cancel
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	sessionID, err := uuid.Parse(pathParts[2])
+	if err != nil {
+		http.Error(w, "Invalid session ID", http.StatusBadRequest)
+		return
+	}
+
+	_ = r.ParseForm()
+	reason := strings.TrimSpace(r.FormValue("reason"))
+	if reason == "" {
+		reason = "Cancelled by staff"
+	}
+
+	refundVal := r.FormValue("refund_credits")
+	refundCredits := refundVal == "true" || refundVal == "on" || refundVal == "1"
+
+	if err := a.store.CancelSession(sessionID, reason, refundCredits); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to cancel session: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Refresh", "true")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	referer := r.Header.Get("Referer")
+	if referer != "" {
+		http.Redirect(w, r, referer, http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+}
+
 func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -214,6 +286,20 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 	studentID, err2 := uuid.Parse(pathParts[4])
 	if err1 != nil || err2 != nil {
 		http.Error(w, "Invalid parameters", http.StatusBadRequest)
+		return
+	}
+
+	session, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+	if session.IsCancelled {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="p-3 bg-rose-950 border border-rose-800 text-rose-300 rounded-lg text-sm">
+			❌ Check-in rejected: This class has been cancelled.
+		</div>`))
 		return
 	}
 

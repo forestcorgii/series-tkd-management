@@ -146,6 +146,9 @@ func (s *SQLStore) runMigrations() error {
 			admin_id TEXT REFERENCES coaches(id),
 			training_type TEXT NOT NULL,
 			notes TEXT,
+			is_cancelled INTEGER NOT NULL DEFAULT 0,
+			cancellation_reason TEXT DEFAULT '',
+			cancelled_at TEXT,
 			created_at TEXT NOT NULL
 		);
 
@@ -269,6 +272,9 @@ func (s *SQLStore) runMigrations() error {
 			admin_id UUID REFERENCES coaches(id),
 			training_type VARCHAR(50) NOT NULL,
 			notes TEXT,
+			is_cancelled BOOLEAN NOT NULL DEFAULT FALSE,
+			cancellation_reason TEXT DEFAULT '',
+			cancelled_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -339,11 +345,17 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN custom_price REAL`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN notes TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN is_cancelled INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN cancellation_reason TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN cancelled_at TEXT`)
 	} else {
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS has_safety_flag BOOLEAN DEFAULT FALSE`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS custom_price NUMERIC(10, 2)`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS is_cancelled BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS cancellation_reason TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ`)
 	}
 
 	return nil
@@ -775,7 +787,8 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 
 	var pkgs []*models.StudentPackage
 	for rows.Next() {
-		var idStr, stIDStr, tmplIDStr, titleStr, purchStr, expStr, createdStr, notesStr string
+		var idStr, stIDStr, tmplIDStr, purchStr, expStr, createdStr, notesStr string
+		var titleStr sql.NullString
 		var total, rem sql.NullInt64
 		var customPrice sql.NullFloat64
 		sp := &models.StudentPackage{}
@@ -789,7 +802,9 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 		sp.ID = uuid.Must(uuid.Parse(idStr))
 		sp.StudentID = uuid.Must(uuid.Parse(stIDStr))
 		sp.TemplateID = uuid.Must(uuid.Parse(tmplIDStr))
-		sp.TemplateTitle = titleStr
+		if titleStr.Valid {
+			sp.TemplateTitle = titleStr.String
+		}
 		sp.Notes = notesStr
 		if customPrice.Valid {
 			cp := customPrice.Float64
@@ -843,65 +858,16 @@ func (s *SQLStore) UpdateStudentPackage(pkg *models.StudentPackage) error {
 }
 
 // Training Sessions
-func (s *SQLStore) GetAllSessions() ([]*models.TrainingSession, error) {
-	query := `SELECT ts.id, ts.session_date, ts.start_time, ts.end_time, ts.coach_id,
-		c.full_name, ts.admin_id, ts.training_type, ts.notes, ts.created_at
-		FROM training_sessions ts
-		LEFT JOIN coaches c ON ts.coach_id = c.id
-		ORDER BY ts.session_date DESC, ts.start_time DESC`
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var sessions []*models.TrainingSession
-	for rows.Next() {
-		var idStr, coachIDStr, sessDateStr, createdStr string
-		var coachName, adminIDStr, notes sql.NullString
-		ts := &models.TrainingSession{}
-		err := rows.Scan(
-			&idStr, &sessDateStr, &ts.StartTime, &ts.EndTime, &coachIDStr,
-			&coachName, &adminIDStr, &ts.TrainingType, &notes, &createdStr,
-		)
-		if err != nil {
-			return nil, err
-		}
-		ts.ID = uuid.Must(uuid.Parse(idStr))
-		ts.CoachID = uuid.Must(uuid.Parse(coachIDStr))
-		ts.SessionDate, _ = parseTimeFlex(sessDateStr)
-		ts.CreatedAt, _ = parseTimeFlex(createdStr)
-		if coachName.Valid {
-			ts.CoachName = coachName.String
-		}
-		if adminIDStr.Valid && adminIDStr.String != "" {
-			adm := uuid.Must(uuid.Parse(adminIDStr.String))
-			ts.AdminID = &adm
-		}
-		if notes.Valid {
-			ts.Notes = notes.String
-		}
-		sessions = append(sessions, ts)
-	}
-	return sessions, nil
-}
-
-func (s *SQLStore) GetSessionByID(id uuid.UUID) (*models.TrainingSession, error) {
-	query := `SELECT ts.id, ts.session_date, ts.start_time, ts.end_time, ts.coach_id,
-		c.full_name, ts.admin_id, ts.training_type, ts.notes, ts.created_at
-		FROM training_sessions ts
-		LEFT JOIN coaches c ON ts.coach_id = c.id
-		WHERE ts.id = $1`
+func (s *SQLStore) scanSession(scan func(...interface{}) error) (*models.TrainingSession, error) {
 	var idStr, coachIDStr, sessDateStr, createdStr string
-	var coachName, adminIDStr, notes sql.NullString
+	var coachName, adminIDStr, notes, cancelReason, cancelledAtStr sql.NullString
+	var isCancelled sql.NullBool
 	ts := &models.TrainingSession{}
-	err := s.db.QueryRow(query, id.String()).Scan(
+	err := scan(
 		&idStr, &sessDateStr, &ts.StartTime, &ts.EndTime, &coachIDStr,
 		&coachName, &adminIDStr, &ts.TrainingType, &notes, &createdStr,
+		&isCancelled, &cancelReason, &cancelledAtStr,
 	)
-	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -919,6 +885,89 @@ func (s *SQLStore) GetSessionByID(id uuid.UUID) (*models.TrainingSession, error)
 	if notes.Valid {
 		ts.Notes = notes.String
 	}
+	if isCancelled.Valid {
+		ts.IsCancelled = isCancelled.Bool
+	}
+	if cancelReason.Valid {
+		ts.CancellationReason = cancelReason.String
+	}
+	if cancelledAtStr.Valid && cancelledAtStr.String != "" {
+		t, err := parseTimeFlex(cancelledAtStr.String)
+		if err == nil && !t.IsZero() {
+			ts.CancelledAt = &t
+		}
+	}
+	return ts, nil
+}
+
+func (s *SQLStore) GetAllSessions() ([]*models.TrainingSession, error) {
+	return s.GetSessions(SessionFilter{})
+}
+
+func (s *SQLStore) GetSessions(filter SessionFilter) ([]*models.TrainingSession, error) {
+	query := `SELECT ts.id, ts.session_date, ts.start_time, ts.end_time, ts.coach_id,
+		c.full_name, ts.admin_id, ts.training_type, ts.notes, ts.created_at,
+		COALESCE(ts.is_cancelled, FALSE), COALESCE(ts.cancellation_reason, ''), ts.cancelled_at
+		FROM training_sessions ts
+		LEFT JOIN coaches c ON ts.coach_id = c.id
+		WHERE 1=1`
+
+	var args []interface{}
+	idx := 1
+
+	if filter.CoachID != nil {
+		query += fmt.Sprintf(" AND ts.coach_id = $%d", idx)
+		args = append(args, filter.CoachID.String())
+		idx++
+	}
+	if filter.TrainingType != "" {
+		query += fmt.Sprintf(" AND ts.training_type = $%d", idx)
+		args = append(args, filter.TrainingType)
+		idx++
+	}
+	if filter.Date != "" {
+		if s.driver == "sqlite" {
+			query += fmt.Sprintf(" AND (DATE(ts.session_date) = $%d OR substr(ts.session_date, 1, 10) = $%d)", idx, idx)
+		} else {
+			query += fmt.Sprintf(" AND DATE(ts.session_date) = $%d::date", idx)
+		}
+		args = append(args, filter.Date)
+		idx++
+	}
+
+	query += " ORDER BY ts.session_date DESC, ts.start_time DESC"
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []*models.TrainingSession
+	for rows.Next() {
+		ts, err := s.scanSession(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, ts)
+	}
+	return sessions, nil
+}
+
+func (s *SQLStore) GetSessionByID(id uuid.UUID) (*models.TrainingSession, error) {
+	query := `SELECT ts.id, ts.session_date, ts.start_time, ts.end_time, ts.coach_id,
+		c.full_name, ts.admin_id, ts.training_type, ts.notes, ts.created_at,
+		COALESCE(ts.is_cancelled, FALSE), COALESCE(ts.cancellation_reason, ''), ts.cancelled_at
+		FROM training_sessions ts
+		LEFT JOIN coaches c ON ts.coach_id = c.id
+		WHERE ts.id = $1`
+	ts, err := s.scanSession(s.db.QueryRow(query, id.String()).Scan)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
 	return ts, nil
 }
 
@@ -933,14 +982,86 @@ func (s *SQLStore) CreateSession(sess *models.TrainingSession) error {
 	if sess.AdminID != nil {
 		adminIDVal = sess.AdminID.String()
 	}
+	var cancelledAtVal interface{}
+	if sess.CancelledAt != nil {
+		cancelledAtVal = formatTimeForDB(*sess.CancelledAt)
+	}
 	query := `INSERT INTO training_sessions (id, session_date, start_time, end_time, coach_id,
-		admin_id, training_type, notes, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+		admin_id, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 	_, err := s.db.Exec(query,
 		sess.ID.String(), formatDateForDB(sess.SessionDate), sess.StartTime, sess.EndTime,
-		sess.CoachID.String(), adminIDVal, string(sess.TrainingType), sess.Notes, formatTimeForDB(sess.CreatedAt),
+		sess.CoachID.String(), adminIDVal, string(sess.TrainingType), sess.Notes,
+		sess.IsCancelled, sess.CancellationReason, cancelledAtVal, formatTimeForDB(sess.CreatedAt),
 	)
 	return err
+}
+
+func (s *SQLStore) CancelSession(sessionID uuid.UUID, reason string, refundCredits bool) error {
+	// 1. Verify session exists and is not already cancelled
+	var isCancelled bool
+	err := s.db.QueryRow(`SELECT COALESCE(is_cancelled, FALSE) FROM training_sessions WHERE id = $1`, sessionID.String()).Scan(&isCancelled)
+	if err == sql.ErrNoRows {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if isCancelled {
+		return errors.New("class is already cancelled")
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if refundCredits {
+		// Find attendances that used student package
+		rows, err := tx.Query(`SELECT student_package_id FROM attendance WHERE session_id = $1 AND student_package_id IS NOT NULL`, sessionID.String())
+		if err != nil {
+			return err
+		}
+		var pkgIDs []string
+		for rows.Next() {
+			var pkgID string
+			if err := rows.Scan(&pkgID); err == nil && pkgID != "" {
+				pkgIDs = append(pkgIDs, pkgID)
+			}
+		}
+		rows.Close()
+
+		// Refund 1 session to each student package with limited sessions
+		for _, pkgID := range pkgIDs {
+			_, err = tx.Exec(`UPDATE student_packages SET remaining_sessions = remaining_sessions + 1 WHERE id = $1 AND remaining_sessions IS NOT NULL`, pkgID)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Delete attendance records for this session
+		_, err = tx.Exec(`DELETE FROM attendance WHERE session_id = $1`, sessionID.String())
+		if err != nil {
+			return err
+		}
+	}
+
+	// Update session cancellation status
+	now := time.Now()
+	nowDB := formatTimeForDB(now)
+	if s.driver == "sqlite" {
+		_, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = 1, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3`,
+			reason, nowDB, sessionID.String())
+	} else {
+		_, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = TRUE, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3`,
+			reason, nowDB, sessionID.String())
+	}
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // Attendance & Live Check-In

@@ -5,49 +5,96 @@
 {{define "content"}}
 <div class="space-y-6">
     <!-- Session Status Header -->
-    <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+    <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm {{if .Session.IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900{{end}}">
         <div>
             <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
-                    LIVE CLASS
+                <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
+                    {{if .Session.IsCancelled}}🚫 CANCELLED CLASS{{else}}LIVE CLASS{{end}}
                 </span>
-                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Session.StartTime}} - {{.Session.EndTime}}</span>
+                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold {{if .Session.IsCancelled}}line-through{{end}}">
+                    {{.Session.StartTime}} - {{.Session.EndTime}}
+                </span>
+                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">&bull; {{formatDate .Session.SessionDate}}</span>
             </div>
-            <h1 class="font-display font-extrabold text-2xl text-slate-900 dark:text-white mt-1">{{.Session.TrainingType}} Class</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400">Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span></p>
+            <h1 class="font-display font-extrabold text-2xl {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}} mt-1">
+                {{.Session.TrainingType}} Class
+            </h1>
+            <p class="text-xs text-slate-600 dark:text-slate-400">
+                Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span>
+            </p>
         </div>
-        <a href="/sessions" class="btn btn-secondary btn-sm">
-            &larr; Exit Attendance
-        </a>
+
+        <div class="flex items-center gap-3 self-start md:self-auto">
+            {{if not .Session.IsCancelled}}
+            <button type="button"
+                    onclick="document.getElementById('cancel-session-modal').classList.remove('hidden')"
+                    class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
+                <span>✖</span> Cancel Class
+            </button>
+            {{end}}
+            <a href="/sessions" class="btn btn-secondary btn-sm">
+                &larr; Exit Attendance
+            </a>
+        </div>
     </div>
+
+    {{if .Session.IsCancelled}}
+    <!-- Prominent Cancellation Banner -->
+    <div class="p-4 bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900 rounded-2xl text-rose-900 dark:text-rose-200 text-sm flex items-start gap-3 shadow-sm">
+        <span class="text-2xl mt-0.5">⚠️</span>
+        <div class="space-y-1">
+            <h4 class="font-display font-bold text-base text-rose-950 dark:text-rose-100">This class was cancelled</h4>
+            <p class="text-xs text-rose-800 dark:text-rose-300">
+                <strong>Reason:</strong> {{if .Session.CancellationReason}}{{.Session.CancellationReason}}{{else}}Cancelled by floor staff{{end}}
+                {{if .Session.CancelledAt}} &bull; Logged on {{formatDate .Session.CancelledAt}}{{end}}
+            </p>
+            <p class="text-xs text-rose-700 dark:text-rose-400 mt-1">
+                Attendance check-in has been disabled. The roster below reflects attendance recorded prior to cancellation.
+            </p>
+        </div>
+    </div>
+    {{end}}
 
     <!-- Two Column Floor Tablet Layout: Left Search & Check-in | Right Live Roster -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Left: Quick Search / QR Code Reader & Admit Action -->
-        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
-            <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Floor Attendance Search</h2>
+        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
+            <div class="flex items-center justify-between">
+                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Floor Attendance Search</h2>
+                {{if .Session.IsCancelled}}
+                <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold">Disabled</span>
+                {{end}}
+            </div>
+
             <div class="relative">
                 <input type="search"
                        name="query"
-                       placeholder="Scan QR code or search student by name..."
+                       {{if .Session.IsCancelled}}disabled placeholder="Check-in disabled for cancelled class"{{else}}placeholder="Scan QR code or search student by name..." autofocus{{end}}
                        hx-post="/sessions/{{.Session.ID}}/search-student"
                        hx-trigger="keyup changed delay:250ms, search"
                        hx-target="#search-results"
-                       autofocus
                        class="form-input text-base py-3 px-4 rounded-xl" />
             </div>
 
             <!-- HTMX Search Results Container -->
             <div id="search-results" class="space-y-3 pt-2">
+                {{if .Session.IsCancelled}}
+                <p class="text-xs text-slate-500 dark:text-slate-400 text-center py-4">Attendance admittance is locked.</p>
+                {{else}}
                 <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">Type student name or scan QR code to perform instant attendance check-in...</p>
+                {{end}}
             </div>
         </div>
 
-        <!-- Right: Verified Floor Roster (Appends dynamically via HTMX!) -->
+        <!-- Right: Verified Floor Roster -->
         <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                 <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Verified Floor Roster</h2>
+                {{if .Session.IsCancelled}}
+                <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">Class Cancelled 🚫</span>
+                {{else}}
                 <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">Real-Time Sync 🟢</span>
+                {{end}}
             </div>
 
             <div class="overflow-hidden">
@@ -63,6 +110,12 @@
                     <tbody id="attendance-roster" class="divide-y divide-slate-200 dark:divide-slate-800/60">
                         {{range .Attendances}}
                         {{template "checkin_row.html" (dict "Attendance" . "Readiness" (index $.ReadinessMap .StudentID.String))}}
+                        {{else}}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-xs text-slate-500 dark:text-slate-400">
+                                No check-ins recorded for this class session.
+                            </td>
+                        </tr>
                         {{end}}
                     </tbody>
                 </table>
@@ -70,4 +123,55 @@
         </div>
     </div>
 </div>
+
+{{if not .Session.IsCancelled}}
+<!-- Modal: Cancel Session Confirmation -->
+<div id="cancel-session-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <span>⚠️</span> Cancel Training Class
+            </h3>
+            <button type="button" onclick="document.getElementById('cancel-session-modal').classList.add('hidden')" class="modal-close">&times;</button>
+        </div>
+        <form action="/sessions/{{.Session.ID}}/cancel" method="POST" class="space-y-4">
+            <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1">
+                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{.Session.CoachName}}</p>
+            </div>
+
+            <div>
+                <label class="form-label">Cancellation Reason</label>
+                <input type="text"
+                       name="reason"
+                       placeholder="e.g. Typhoon signal, Coach emergency, Facility repair..."
+                       required
+                       class="form-input text-sm">
+            </div>
+
+            <!-- Credit Refund Prompt (Checkbox per user selection) -->
+            <div class="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                <label class="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox"
+                           name="refund_credits"
+                           value="true"
+                           checked
+                           class="mt-0.5 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500">
+                    <div class="text-xs">
+                        <span class="font-bold text-slate-900 dark:text-white block">Refund student package credits</span>
+                        <span class="text-slate-600 dark:text-slate-400 block mt-0.5">
+                            Restores 1 class session to checked-in students' memberships and clears attendance records for this session.
+                        </span>
+                    </div>
+                </label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="document.getElementById('cancel-session-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Dismiss</button>
+                <button type="submit" class="btn btn-danger btn-sm">Confirm Cancellation</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
 {{end}}

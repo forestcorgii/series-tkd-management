@@ -40,6 +40,9 @@ func (ps *PayrollService) CalculateCoachPayroll(
 	studentsCountMap := make(map[string]bool)
 
 	for _, sess := range sessions {
+		if sess.IsCancelled {
+			continue
+		}
 		if sess.CoachID == coach.ID {
 			if !sess.SessionDate.Before(startDate) && !sess.SessionDate.After(endDate) {
 				sessionsLed++
@@ -49,6 +52,9 @@ func (ps *PayrollService) CalculateCoachPayroll(
 
 	for _, att := range attendances {
 		for _, sess := range sessions {
+			if sess.IsCancelled {
+				continue
+			}
 			if sess.ID == att.SessionID && sess.CoachID == coach.ID {
 				if !sess.SessionDate.Before(startDate) && !sess.SessionDate.After(endDate) {
 					studentsCountMap[att.StudentID.String()] = true
