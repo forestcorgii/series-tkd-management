@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"series-tkd-management/internal/handlers"
 	"series-tkd-management/internal/repository"
@@ -90,5 +91,28 @@ func TestAppHandler_ParseTemplates(t *testing.T) {
 		if strings.Contains(rec.Body.String(), "Template error") {
 			t.Errorf("found 'Template error' in student detail: %s", rec.Body.String())
 		}
+	}
+}
+
+func TestFormatPHTime(t *testing.T) {
+	// 2026-09-27 10:05:00 UTC is 18:05:00 (06:05 PM) in Philippine Time (UTC+8)
+	utcTime := time.Date(2026, time.September, 27, 10, 5, 0, 0, time.UTC)
+	expected := "September 27, 2026 06:05 PM"
+	actual := handlers.FormatPHTime(utcTime)
+	if actual != expected {
+		t.Errorf("expected %q, got %q", expected, actual)
+	}
+
+	// Morning time test: 2026-01-05 01:30:00 UTC is 09:30:00 AM PHT
+	utcMorning := time.Date(2026, time.January, 5, 1, 30, 0, 0, time.UTC)
+	expectedMorning := "January 05, 2026 09:30 AM"
+	actualMorning := handlers.FormatPHTime(utcMorning)
+	if actualMorning != expectedMorning {
+		t.Errorf("expected %q, got %q", expectedMorning, actualMorning)
+	}
+
+	// Zero time test
+	if zeroStr := handlers.FormatPHTime(time.Time{}); zeroStr != "" {
+		t.Errorf("expected empty string for zero time, got %q", zeroStr)
 	}
 }

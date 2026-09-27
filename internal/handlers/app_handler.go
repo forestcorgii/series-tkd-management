@@ -8,11 +8,32 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
+	_ "time/tzdata"
 
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
 	"series-tkd-management/internal/services"
 )
+
+var (
+	phLocation = func() *time.Location {
+		loc, err := time.LoadLocation("Asia/Manila")
+		if err == nil {
+			return loc
+		}
+		return time.FixedZone("Asia/Manila", 8*3600)
+	}()
+	phDateTimeFormat = "January 02, 2006 03:04 PM"
+)
+
+// FormatPHTime formats a time.Time to "MMMM dd, YYYY hh:mm" in Philippine Time (Asia/Manila, UTC+8).
+func FormatPHTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.In(phLocation).Format(phDateTimeFormat)
+}
 
 type AppHandler struct {
 	store            repository.RepositoryStore
@@ -74,8 +95,32 @@ func (a *AppHandler) parseTemplates() error {
 			return nil
 		},
 		"formatDate": func(t interface{}) string {
+			if t == nil {
+				return ""
+			}
 			switch v := t.(type) {
+			case time.Time:
+				return FormatPHTime(v)
+			case *time.Time:
+				if v == nil {
+					return ""
+				}
+				return FormatPHTime(*v)
 			case string:
+				if v == "" {
+					return ""
+				}
+				for _, layout := range []string{
+					time.RFC3339,
+					"2006-01-02T15:04:05Z07:00",
+					"2006-01-02T15:04:05",
+					"2006-01-02 15:04:05",
+					"2006-01-02",
+				} {
+					if parsed, err := time.ParseInLocation(layout, v, phLocation); err == nil {
+						return FormatPHTime(parsed)
+					}
+				}
 				return v
 			}
 			return fmt.Sprintf("%v", t)

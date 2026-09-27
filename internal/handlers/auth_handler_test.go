@@ -424,7 +424,7 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 	mux.HandleFunc("GET /", app.RequireRole(models.RoleOperationManager)(app.HandleDashboard))
 	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleStudents))
 	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleStudentDetail))
-	mux.HandleFunc("GET /sessions", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleSessions))
+	mux.HandleFunc("GET /sessions", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSessions))
 	mux.HandleFunc("GET /coaches", app.RequireRole(models.RoleOperationManager)(app.HandleCoaches))
 	mux.HandleFunc("GET /packages", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandlePackages))
 
@@ -486,17 +486,19 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 		}
 	})
 
-	// 3. ADMIN (Can only view and assign membership package to students)
+	// 3. ADMIN (Can view/assign membership packages and access attendance)
 	t.Run("Admin_AllowedViews", func(t *testing.T) {
-		rec := testReq(tokAdmin, "/packages")
-		if rec.Code != http.StatusOK {
-			t.Errorf("Admin expected 200 on /packages, got %d", rec.Code)
+		for _, path := range []string{"/packages", "/sessions"} {
+			rec := testReq(tokAdmin, path)
+			if rec.Code != http.StatusOK {
+				t.Errorf("Admin expected 200 on %s, got %d", path, rec.Code)
+			}
 		}
 	})
 
 	t.Run("Admin_RestrictedViews", func(t *testing.T) {
-		// Admin cannot view Dashboard, Students, Attendance, Coaches, or Admin Portal
-		for _, path := range []string{"/", "/students", "/sessions", "/coaches", "/portal/admin"} {
+		// Admin cannot view Dashboard, Students, Coaches, or Admin Portal
+		for _, path := range []string{"/", "/students", "/coaches", "/portal/admin"} {
 			rec := testReq(tokAdmin, path)
 			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/packages" {
 				t.Errorf("Admin expected redirect to /packages on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))

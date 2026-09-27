@@ -23,7 +23,7 @@
 * **Enforced Solution**:
   1. **Strict 4-Role RBAC Model**:
      - **`OPERATION_MANAGER` (Full Control)**: Full oversight and write permissions over Dashboard (`/`), Students (`/students`), Attendance/Sessions (`/sessions`), Coaches & Payroll (`/coaches`), Packages & Templates (`/packages`), Master Operations Portal (`/portal/admin`), User Registration, Belt Promotions, and Incident Resolution.
-     - **`ADMIN` (Membership Packages Only)**: Restricted strictly to viewing membership packages and assigning packages to students (`/packages`, `POST /packages/assign`). All other endpoints redirect to `/packages`.
+     - **`ADMIN` (Attendance & Membership Packages)**: Permitted to manage floor attendance check-ins (`/sessions`, `/sessions/{id}/live`, `POST /sessions/{id}/checkin/{student_id}`, `POST /api/coach/check-in`) as well as viewing membership packages and assigning packages to students (`/packages`, `POST /packages/assign`). Excluded from Dashboard (`/`), Student Directory (`/students`), Coaches (`/coaches`), and Operations Portal (`/portal/admin`).
      - **`COACH` (Students & Attendance Only)**: Permitted to view student directory (`/students`), student details (`/students/{id}`), submit coach evaluations (`POST /students/{id}/evaluations`), attendance and floor live check-ins (`/sessions`, `/sessions/{id}/live`), and coach portal (`/portal/coach`). Excluded from Dashboard (`/`), Coaches (`/coaches`), and Packages (`/packages`).
      - **`STUDENT` (Own Profile Only)**: Permitted strictly to view their personal profile (`/portal/student` or `/students/{own_student_id}`). Attempting to view other students' profiles or administrative routes automatically redirects to `/portal/student`.
   2. **Navigation Bar Conditional Filtering**:

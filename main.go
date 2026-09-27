@@ -101,8 +101,8 @@ func main() {
 
 	// Section 4 Role Guarded APIs
 	mux.HandleFunc("GET /api/student/readiness", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleAPIStudentReadiness))
-	mux.HandleFunc("GET /api/coach/sessions/live", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleAPICoachLiveSession))
-	mux.HandleFunc("POST /api/coach/check-in", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleAPICoachCheckIn))
+	mux.HandleFunc("GET /api/coach/sessions/live", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleAPICoachLiveSession))
+	mux.HandleFunc("POST /api/coach/check-in", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleAPICoachCheckIn))
 	mux.HandleFunc("POST /api/coach/evaluate", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleAPICoachEvaluate))
 	mux.HandleFunc("POST /api/safety/flag", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleAPISafetyFlag))
 	mux.HandleFunc("POST /api/safety/resolve", app.RequireRole(models.RoleOperationManager)(app.HandleAPISafetyResolve))
@@ -131,12 +131,12 @@ func main() {
 	mux.HandleFunc("POST /packages/templates/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleUpdatePackageTemplate))
 	mux.HandleFunc("POST /packages/templates/{id}/toggle", app.RequireRole(models.RoleOperationManager)(app.HandleTogglePackageTemplateStatus))
 
-	// Training Sessions & Live Floor Tablet Check-In (Coach and Operation Manager)
-	mux.HandleFunc("GET /sessions", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleSessions))
-	mux.HandleFunc("POST /sessions", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCreateSession))
-	mux.HandleFunc("GET /sessions/{id}/live", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleLiveSession))
-	mux.HandleFunc("POST /sessions/{id}/search-student", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleSearchStudent))
-	mux.HandleFunc("POST /sessions/{id}/checkin/{student_id}", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCheckIn))
+	// Training Sessions & Live Floor Tablet Check-In (Coach, Admin, and Operation Manager)
+	mux.HandleFunc("GET /sessions", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSessions))
+	mux.HandleFunc("POST /sessions", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateSession))
+	mux.HandleFunc("GET /sessions/{id}/live", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLiveSession))
+	mux.HandleFunc("POST /sessions/{id}/search-student", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSearchStudent))
+	mux.HandleFunc("POST /sessions/{id}/checkin/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCheckIn))
 
 	// Static assets if needed
 	fs := http.FileServer(http.Dir("web/static"))

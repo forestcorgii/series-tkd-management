@@ -260,12 +260,12 @@
 
                     <div>
                         <label class="form-label">System Role</label>
-                        <input type="text" value="{{if .CurrentUser.IsOperationManager}}Operation Manager (Full Control){{else}}Dojang Administrator (Packages &amp; Memberships){{end}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                        <input type="text" value="{{if .CurrentUser.IsOperationManager}}Operation Manager (Full Control){{else}}Dojang Administrator (Attendance &amp; Memberships){{end}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>
 
                     <div>
                         <label class="form-label">Account Active Since</label>
-                        <input type="text" value="{{.CurrentUser.CreatedAt.Format "Jan 02, 2006"}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                        <input type="text" value="{{formatDate .CurrentUser.CreatedAt}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>
                 </div>
             </div>
