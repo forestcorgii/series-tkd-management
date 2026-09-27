@@ -126,6 +126,12 @@ func main() {
 	mux.HandleFunc("GET /coaches", app.RequireRole(models.RoleOperationManager)(app.HandleCoaches))
 	mux.HandleFunc("POST /coaches", app.RequireRole(models.RoleOperationManager)(app.HandleCreateCoach))
 
+	// Administrators Management (Only Operation Manager)
+	mux.HandleFunc("GET /admins", app.RequireRole(models.RoleOperationManager)(app.HandleAdmins))
+	mux.HandleFunc("POST /admins", app.RequireRole(models.RoleOperationManager)(app.HandleCreateAdmin))
+	mux.HandleFunc("POST /admins/{id}/toggle", app.RequireRole(models.RoleOperationManager)(app.HandleToggleAdminStatus))
+	mux.HandleFunc("POST /admins/{id}/reset-password", app.RequireRole(models.RoleOperationManager)(app.HandleResetAdminPassword))
+
 	// Packages & Billing Passes (Admin can view and assign; Operation Manager has full control)
 	mux.HandleFunc("GET /packages", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandlePackages))
 	mux.HandleFunc("POST /packages/assign", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleAssignPackage))

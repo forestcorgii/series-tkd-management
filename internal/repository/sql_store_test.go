@@ -684,3 +684,80 @@ func TestSQLStore_FilterSessions(t *testing.T) {
 	}
 }
 
+func TestSQLStore_AdminsManagement(t *testing.T) {
+	dbFile := "test_admins_mgmt.db"
+	_ = os.Remove(dbFile)
+	defer os.Remove(dbFile)
+
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+
+	// Initial seed has admin@seriestkd.com with role ADMIN
+	admins, err := store.GetUsersByRole(models.RoleAdmin)
+	if err != nil {
+		t.Fatalf("GetUsersByRole failed: %v", err)
+	}
+	if len(admins) == 0 {
+		t.Fatalf("expected at least 1 admin from seed, got 0")
+	}
+
+	// Create a new admin with custom display name
+	newAdmin := &models.User{
+		ID:          uuid.New(),
+		Email:       "elena.rostova@seriestkd.com",
+		Role:        models.RoleAdmin,
+		DisplayName: "Elena Rostova",
+		IsActive:    true,
+	}
+	if err := newAdmin.SetPassword("adminpass123"); err != nil {
+		t.Fatalf("SetPassword failed: %v", err)
+	}
+	if err := store.CreateUser(newAdmin); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Retrieve by ID and check display_name
+	retrieved, err := store.GetUserByID(newAdmin.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID failed: %v", err)
+	}
+	if retrieved.DisplayName != "Elena Rostova" {
+		t.Errorf("expected DisplayName 'Elena Rostova', got '%s'", retrieved.DisplayName)
+	}
+
+	// Retrieve by role
+	adminsAfter, err := store.GetUsersByRole(models.RoleAdmin)
+	if err != nil {
+		t.Fatalf("GetUsersByRole after create failed: %v", err)
+	}
+	if len(adminsAfter) != len(admins)+1 {
+		t.Errorf("expected %d admins, got %d", len(admins)+1, len(adminsAfter))
+	}
+
+	// Toggle active status
+	if err := store.ToggleUserActive(newAdmin.ID, false); err != nil {
+		t.Fatalf("ToggleUserActive failed: %v", err)
+	}
+	deactivated, err := store.GetUserByID(newAdmin.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID after toggle failed: %v", err)
+	}
+	if deactivated.IsActive {
+		t.Errorf("expected admin to be inactive")
+	}
+
+	// Reactivate
+	if err := store.ToggleUserActive(newAdmin.ID, true); err != nil {
+		t.Fatalf("ToggleUserActive reactivate failed: %v", err)
+	}
+	reactivated, err := store.GetUserByID(newAdmin.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID after reactivate failed: %v", err)
+	}
+	if !reactivated.IsActive {
+		t.Errorf("expected admin to be active again")
+	}
+}
+

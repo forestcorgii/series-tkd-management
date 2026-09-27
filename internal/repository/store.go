@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -64,8 +65,10 @@ type RepositoryStore interface {
 	// Auth & Users
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserByID(id uuid.UUID) (*models.User, error)
+	GetUsersByRole(role models.UserRole) ([]*models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
+	ToggleUserActive(userID uuid.UUID, isActive bool) error
 	UpdateUserLastLogin(id uuid.UUID) error
 	CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error
 	GetUserBySessionToken(token string) (*models.User, error)
@@ -566,6 +569,22 @@ func (m *MemoryStore) GetUserByID(id uuid.UUID) (*models.User, error) {
 	return u, nil
 }
 
+func (m *MemoryStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*models.User
+	for _, u := range m.users {
+		if u.Role == role {
+			result = append(result, u)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+	return result, nil
+}
+
 func (m *MemoryStore) CreateUser(u *models.User) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -594,6 +613,19 @@ func (m *MemoryStore) UpdateUser(u *models.User) error {
 	existing.PasswordHash = u.PasswordHash
 	existing.IsActive = u.IsActive
 	existing.DisplayName = u.DisplayName
+	existing.UpdatedAt = time.Now()
+	return nil
+}
+
+func (m *MemoryStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.users[userID]
+	if !ok {
+		return ErrNotFound
+	}
+	existing.IsActive = isActive
 	existing.UpdatedAt = time.Now()
 	return nil
 }

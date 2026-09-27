@@ -1,0 +1,302 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Administrators - STMS{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Page Header & Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Administrator Directory &amp; Access Governance
+            </h1>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Manage front-desk staff accounts, audit active administrative credentials, and provision new administrator access.
+            </p>
+        </div>
+        <button onclick="document.getElementById('new-admin-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
+            ➕ Provision New Administrator
+        </button>
+    </div>
+
+    <!-- Notification Banners -->
+    {{if .SuccessNotice}}
+    <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>✅</span>
+            <span>{{.SuccessNotice}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
+    {{if .ErrorMessage}}
+    <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{{.ErrorMessage}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
+    <!-- Telemetry & Security Scope Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Metric: Total Admins -->
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Administrators</span>
+            <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalAdmins}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Front-desk staff accounts</p>
+        </div>
+
+        <!-- Metric: Active Staff -->
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active Staff</span>
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+            </div>
+            <div class="font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{.ActiveAdmins}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Can log in &amp; manage floor</p>
+        </div>
+
+        <!-- Metric: Inactive / Suspended -->
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Inactive Accounts</span>
+            <div class="font-display text-2xl font-bold text-slate-600 dark:text-slate-400">{{.InactiveAdmins}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Access suspended</p>
+        </div>
+
+        <!-- Security Scope Summary -->
+        <div class="glass-panel p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 tracking-wider flex items-center gap-1">
+                🛡️ Front-Desk Scope
+            </span>
+            <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-snug">
+                Admins manage <strong>Attendance</strong>, <strong>Memberships</strong>, and <strong>Student Contact Info</strong>. Belt rankings &amp; promotions remain locked.
+            </p>
+        </div>
+    </div>
+
+    <!-- Administrator Directory Table -->
+    <div class="glass-panel rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div>
+                <h3 class="font-display font-bold text-base text-slate-900 dark:text-white uppercase tracking-wider">
+                    Staff Accounts Roster
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Authorized operators with Role: ADMIN</p>
+            </div>
+            <span class="text-xs text-slate-500 font-semibold">{{.TotalAdmins}} Records</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-semibold tracking-wider">
+                    <tr>
+                        <th class="py-3.5 px-6">Administrator</th>
+                        <th class="py-3.5 px-4">Role &amp; Permissions</th>
+                        <th class="py-3.5 px-4">Account Status</th>
+                        <th class="py-3.5 px-4">Last Login</th>
+                        <th class="py-3.5 px-4">Created Date</th>
+                        <th class="py-3.5 px-6 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60">
+                    {{range .Admins}}
+                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition">
+                        <!-- Admin Profile Column -->
+                        <td class="py-4 px-6">
+                            <div class="flex items-center gap-3">
+                                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white font-display font-extrabold text-xs shadow-sm flex-shrink-0">
+                                    {{if .DisplayName}}
+                                        {{slice .DisplayName 0 1}}
+                                    {{else}}
+                                        A
+                                    {{end}}
+                                </div>
+                                <div>
+                                    <div class="font-display font-bold text-slate-900 dark:text-white">
+                                        {{if .DisplayName}}{{.DisplayName}}{{else}}Dojang Administrator{{end}}
+                                    </div>
+                                    <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                        {{.Email}}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Role & Scope Column -->
+                        <td class="py-4 px-4">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-purple-500/10 text-purple-700 border border-purple-500/25 dark:bg-purple-500/20 dark:text-purple-300">
+                                🛡️ {{.Role}}
+                            </span>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                                Front-Desk Floor Access
+                            </div>
+                        </td>
+
+                        <!-- Status Column -->
+                        <td class="py-4 px-4">
+                            {{if .IsActive}}
+                            <span class="badge-ready">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Active
+                            </span>
+                            {{else}}
+                            <span class="badge-developing">
+                                <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span> Inactive / Locked
+                            </span>
+                            {{end}}
+                        </td>
+
+                        <!-- Last Login Column -->
+                        <td class="py-4 px-4 text-xs font-mono">
+                            {{if .LastLoginAt}}
+                                <span class="text-slate-700 dark:text-slate-300">{{formatDate .LastLoginAt}}</span>
+                            {{else}}
+                                <span class="text-slate-400 italic">Never logged in</span>
+                            {{end}}
+                        </td>
+
+                        <!-- Created At Column -->
+                        <td class="py-4 px-4 text-xs font-mono text-slate-500 dark:text-slate-400">
+                            {{formatDate .CreatedAt}}
+                        </td>
+
+                        <!-- Actions Column -->
+                        <td class="py-4 px-6 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <!-- Reset Password Trigger -->
+                                <button type="button"
+                                        onclick="openResetPasswordModal('{{.ID}}', '{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}')"
+                                        class="btn btn-ghost btn-xs text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                                        title="Reset Account Password">
+                                    🔑 Reset Password
+                                </button>
+
+                                <!-- Toggle Active / Inactive Form -->
+                                <form action="/admins/{{.ID}}/toggle" method="POST" class="inline">
+                                    {{if .IsActive}}
+                                    <button type="submit"
+                                            onclick="return confirm('Are you sure you want to deactivate {{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}? They will be unable to log in.')"
+                                            class="btn btn-secondary btn-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                            title="Suspend this administrator account">
+                                        Deactivate
+                                    </button>
+                                    {{else}}
+                                    <button type="submit"
+                                            class="btn btn-success btn-xs"
+                                            title="Reactivate this administrator account">
+                                        Activate
+                                    </button>
+                                    {{end}}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                            No administrators provisioned yet. Click "Provision New Administrator" above.
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Provision New Administrator -->
+<div id="new-admin-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wider">
+                Provision Administrator
+            </h3>
+            <button onclick="document.getElementById('new-admin-modal').classList.add('hidden')" class="modal-close">&times;</button>
+        </div>
+        <form action="/admins" method="POST" class="space-y-4">
+            <div>
+                <label class="form-label">Full Name / Display Name</label>
+                <input type="text" name="full_name" required placeholder="e.g. Sarah Connor" class="form-input">
+            </div>
+
+            <div>
+                <label class="form-label">Email Address</label>
+                <input type="email" name="email" required placeholder="admin.sarah@seriestkd.com" class="form-input">
+            </div>
+
+            <div>
+                <label class="form-label">Initial Password</label>
+                <input type="password" name="password" placeholder="Default: admin123 (min 6 characters)" class="form-input">
+                <span class="text-[10px] text-slate-500 dark:text-slate-400">Leave blank to assign default password <code class="font-mono">admin123</code></span>
+            </div>
+
+            <div class="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl space-y-1">
+                <span class="text-[10px] uppercase font-bold text-purple-700 dark:text-purple-300">Front-Desk Access Tier</span>
+                <p class="text-[11px] text-slate-600 dark:text-slate-400">
+                    The newly provisioned administrator will be granted front-desk permissions to admit students, manage packages, and view contact info.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="document.getElementById('new-admin-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    Provision Administrator
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Reset Administrator Password -->
+<div id="reset-password-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wider">
+                Reset Admin Password
+            </h3>
+            <button onclick="document.getElementById('reset-password-modal').classList.add('hidden')" class="modal-close">&times;</button>
+        </div>
+        <form id="reset-password-form" method="POST" class="space-y-4">
+            <div class="p-3 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Target Account</span>
+                <div id="reset-modal-admin-name" class="font-display font-bold text-sm text-slate-900 dark:text-white mt-0.5"></div>
+            </div>
+
+            <div>
+                <label class="form-label">New Password</label>
+                <input type="password" name="new_password" required minlength="6" placeholder="Minimum 6 characters" class="form-input">
+            </div>
+
+            <div>
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" name="confirm_password" required minlength="6" placeholder="Repeat new password" class="form-input">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="document.getElementById('reset-password-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    Update Password
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openResetPasswordModal(adminId, adminName) {
+    var form = document.getElementById('reset-password-form');
+    form.action = '/admins/' + adminId + '/reset-password';
+    document.getElementById('reset-modal-admin-name').textContent = adminName;
+    document.getElementById('reset-password-modal').classList.remove('hidden');
+}
+</script>
+{{end}}

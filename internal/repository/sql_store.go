@@ -181,6 +181,7 @@ func (s *SQLStore) runMigrations() error {
 			email TEXT UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
 			role TEXT NOT NULL DEFAULT 'STUDENT',
+			display_name TEXT DEFAULT '',
 			student_id TEXT REFERENCES students(id) ON DELETE SET NULL,
 			coach_id TEXT REFERENCES coaches(id) ON DELETE SET NULL,
 			is_active INTEGER NOT NULL DEFAULT 1,
@@ -307,6 +308,7 @@ func (s *SQLStore) runMigrations() error {
 			email VARCHAR(255) UNIQUE NOT NULL,
 			password_hash VARCHAR(255) NOT NULL,
 			role VARCHAR(50) NOT NULL DEFAULT 'STUDENT',
+			display_name VARCHAR(120) DEFAULT '',
 			student_id UUID NULL REFERENCES students(id) ON DELETE SET NULL,
 			coach_id UUID NULL REFERENCES coaches(id) ON DELETE SET NULL,
 			is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -341,6 +343,7 @@ func (s *SQLStore) runMigrations() error {
 
 	// Safely guarantee column migrations
 	if s.driver == "sqlite" {
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN has_safety_flag INTEGER DEFAULT 0`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN custom_price REAL`)
@@ -349,6 +352,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN cancellation_reason TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN cancelled_at TEXT`)
 	} else {
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(120) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS has_safety_flag BOOLEAN DEFAULT FALSE`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS custom_price NUMERIC(10, 2)`)
@@ -1531,7 +1535,7 @@ func (s *SQLStore) SeedDefaultData() error {
 func (s *SQLStore) GetUserByEmail(email string) (*models.User, error) {
 	normEmail := strings.ToLower(strings.TrimSpace(email))
 	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
-		COALESCE(st.full_name, c.full_name, 'Dojang Administrator') as display_name
+		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name
 		FROM users u
 		LEFT JOIN students st ON u.student_id = st.id
 		LEFT JOIN coaches c ON u.coach_id = c.id
@@ -1570,7 +1574,7 @@ func (s *SQLStore) GetUserByEmail(email string) (*models.User, error) {
 
 func (s *SQLStore) GetUserByID(id uuid.UUID) (*models.User, error) {
 	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
-		COALESCE(st.full_name, c.full_name, 'Dojang Administrator') as display_name
+		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name
 		FROM users u
 		LEFT JOIN students st ON u.student_id = st.id
 		LEFT JOIN coaches c ON u.coach_id = c.id
@@ -1625,10 +1629,10 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 		coachID = sql.NullString{String: u.CoachID.String(), Valid: true}
 	}
 
-	query := `INSERT INTO users (id, email, password_hash, role, student_id, coach_id, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	query := `INSERT INTO users (id, email, password_hash, role, display_name, student_id, coach_id, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 	_, err := s.db.Exec(query,
-		u.ID.String(), u.Email, u.PasswordHash, string(u.Role), studentID, coachID,
+		u.ID.String(), u.Email, u.PasswordHash, string(u.Role), u.DisplayName, studentID, coachID,
 		u.IsActive, formatTimeForDB(u.CreatedAt), formatTimeForDB(u.UpdatedAt),
 	)
 	return err
@@ -1636,8 +1640,8 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 
 func (s *SQLStore) UpdateUser(u *models.User) error {
 	now := time.Now()
-	query := `UPDATE users SET password_hash = $1, is_active = $2, updated_at = $3 WHERE id = $4`
-	res, err := s.db.Exec(query, u.PasswordHash, u.IsActive, formatTimeForDB(now), u.ID.String())
+	query := `UPDATE users SET password_hash = $1, is_active = $2, display_name = $3, updated_at = $4 WHERE id = $5`
+	res, err := s.db.Exec(query, u.PasswordHash, u.IsActive, u.DisplayName, formatTimeForDB(now), u.ID.String())
 	if err != nil {
 		return err
 	}
@@ -1646,6 +1650,66 @@ func (s *SQLStore) UpdateUser(u *models.User) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *SQLStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
+	now := time.Now()
+	query := `UPDATE users SET is_active = $1, updated_at = $2 WHERE id = $3`
+	res, err := s.db.Exec(query, isActive, formatTimeForDB(now), userID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *SQLStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
+	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
+		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name
+		FROM users u
+		LEFT JOIN students st ON u.student_id = st.id
+		LEFT JOIN coaches c ON u.coach_id = c.id
+		WHERE u.role = $1
+		ORDER BY u.created_at DESC`
+	rows, err := s.db.Query(query, string(role))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*models.User
+	for rows.Next() {
+		var idStr, studentIDStr, coachIDStr, lastLoginStr, createdStr, updatedStr sql.NullString
+		u := &models.User{}
+		var roleStr string
+		if err := rows.Scan(
+			&idStr, &u.Email, &u.PasswordHash, &roleStr, &studentIDStr, &coachIDStr,
+			&u.IsActive, &lastLoginStr, &createdStr, &updatedStr, &u.DisplayName,
+		); err != nil {
+			return nil, err
+		}
+		u.ID = uuid.Must(uuid.Parse(idStr.String))
+		u.Role = models.UserRole(roleStr)
+		if studentIDStr.Valid && studentIDStr.String != "" {
+			sid, _ := uuid.Parse(studentIDStr.String)
+			u.StudentID = &sid
+		}
+		if coachIDStr.Valid && coachIDStr.String != "" {
+			cid, _ := uuid.Parse(coachIDStr.String)
+			u.CoachID = &cid
+		}
+		if lastLoginStr.Valid && lastLoginStr.String != "" {
+			t, _ := parseTimeFlex(lastLoginStr.String)
+			u.LastLoginAt = &t
+		}
+		u.CreatedAt, _ = parseTimeFlex(createdStr.String)
+		u.UpdatedAt, _ = parseTimeFlex(updatedStr.String)
+		users = append(users, u)
+	}
+	return users, rows.Err()
 }
 
 func (s *SQLStore) UpdateUserLastLogin(id uuid.UUID) error {
@@ -1663,7 +1727,7 @@ func (s *SQLStore) CreateSessionToken(token string, userID uuid.UUID, expiresAt 
 
 func (s *SQLStore) GetUserBySessionToken(token string) (*models.User, error) {
 	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
-		COALESCE(st.full_name, c.full_name, 'Dojang Administrator') as display_name,
+		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name,
 		sess.expires_at
 		FROM user_sessions sess
 		JOIN users u ON sess.user_id = u.id

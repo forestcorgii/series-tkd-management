@@ -62,3 +62,22 @@
      - In `students.html`: "➕ Register New Student" button rendered for both Admin and Operation Manager.
      - In `student_detail.html`: "✏️ Edit Student Info" modal rendered for Admin and Operation Manager; the `current_belt` input is rendered as a read-only badge for Admin. Coach evaluation forms remain hidden from Admin.
 
+### Context: Administrator Directory & Access Governance (`/admins`)
+
+* **Problem**:
+  1. The Operations Manager lacked a dedicated interface to oversee front-desk administrator accounts, track their active/inactive status, audit last logins, provision new administrator staff credentials, and reset administrator passwords.
+  2. Unauthorized roles (Admin, Coach, Student) must be strictly forbidden from accessing administrator governance tools.
+* **Enforced Solution**:
+  1. **Dedicated Route Guarding**:
+     - `GET /admins`, `POST /admins`, `POST /admins/{id}/toggle`, `POST /admins/{id}/reset-password` are protected strictly with `RequireRole(models.RoleOperationManager)`.
+     - Non-manager roles navigating to `/admins` are automatically redirected to their respective home views, or returned HTTP 403 Forbidden for API/HTMX requests.
+  2. **Persistence & Operations**:
+     - `users` table schema guarantees `display_name` column persistence across SQLite and PostgreSQL.
+     - `GetUsersByRole(models.RoleAdmin)` and `ToggleUserActive(id, isActive)` methods added to `RepositoryStore`.
+  3. **Interactive UI (`admins.html`)**:
+     - Displays telemetry stats: Total Administrators, Active Staff (with live pulse indicator), Inactive Accounts, and Front-Desk Scope reminder.
+     - Renders administrators roster with name, avatar, email, status badge, last login time in Philippine Time (`January 02, 2006 03:04 PM`), and created date.
+     - Modals for **Provision Administrator** and **Reset Password**.
+     - Navigation links added to `layout.html` for `IsOperationManager` on desktop and mobile navbars.
+
+
