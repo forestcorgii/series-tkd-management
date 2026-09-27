@@ -43,9 +43,18 @@
 
         <div>
             {{if .IsAlreadyChecked}}
-            <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                ✓ Already In Roster
-            </span>
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                    ✓ Already In Roster
+                </span>
+                <button type="button"
+                        hx-post="/sessions/{{.SessionID}}/attendance/{{.Student.ID}}/remove?from=search"
+                        hx-confirm="Remove {{.Student.FullName}} from this class roster? If a membership class was deducted, 1 class will be refunded."
+                        class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 py-1 px-2.5"
+                        title="Remove student & restore class credit">
+                    Remove
+                </button>
+            </div>
             {{else if .ActivePackage}}
             <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
                     hx-target="#attendance-roster"

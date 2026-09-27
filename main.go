@@ -165,6 +165,9 @@ func main() {
 	mux.HandleFunc("GET /sessions/{id}/live", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLiveSession))
 	mux.HandleFunc("POST /sessions/{id}/search-student", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSearchStudent))
 	mux.HandleFunc("POST /sessions/{id}/checkin/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCheckIn))
+	mux.HandleFunc("POST /sessions/{id}/attendance/{student_id}/remove", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
+	mux.HandleFunc("DELETE /sessions/{id}/attendance/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
+	mux.HandleFunc("POST /sessions/{id}/remove/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
 
 	// Static assets if needed
 	fs := http.FileServer(http.Dir("web/static"))

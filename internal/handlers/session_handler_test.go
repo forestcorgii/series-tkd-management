@@ -144,4 +144,122 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 			t.Errorf("expected rejection notice in body, got: %s", rec.Body.String())
 		}
 	})
+
+	t.Run("Done session still allows add and remove students", func(t *testing.T) {
+		// Session from yesterday -> IsDone() is true
+		yesterday := time.Now().AddDate(0, 0, -1)
+		doneSess := &models.TrainingSession{
+			ID:           uuid.New(),
+			SessionDate:  yesterday,
+			StartTime:    "10:00",
+			EndTime:      "11:30",
+			CoachID:      coach.ID,
+			TrainingType: models.TrainingPoomsae,
+		}
+		_ = store.CreateSession(doneSess)
+
+		if !doneSess.IsDone() {
+			t.Fatalf("expected doneSess.IsDone() to be true")
+		}
+
+		// Verify live session page shows Attendance Closed
+		reqLive := httptest.NewRequest(http.MethodGet, "/sessions/"+doneSess.ID.String()+"/live", nil)
+		recLive := httptest.NewRecorder()
+		app.HandleLiveSession(recLive, reqLive)
+		if recLive.Code != http.StatusOK {
+			t.Fatalf("expected 200 on live session page, got %d", recLive.Code)
+		}
+		liveBody := recLive.Body.String()
+		if !strings.Contains(liveBody, "ATTENDANCE CLOSED") {
+			t.Errorf("expected 'ATTENDANCE CLOSED' badge on done session live page")
+		}
+		if !strings.Contains(liveBody, "Action") {
+			t.Errorf("expected 'Action' column in roster table header")
+		}
+
+		// Admit a student to this concluded session (override checkin)
+		student := &models.Student{
+			ID:          uuid.New(),
+			FullName:    "Lucas Vance",
+			CurrentBelt: models.BeltLowYellow,
+		}
+		_ = store.CreateStudent(student)
+
+		// Create student package with 8 credits
+		tpls, _ := store.GetPackageTemplates()
+		rem := 8
+		pkg := &models.StudentPackage{
+			ID:                uuid.New(),
+			StudentID:         student.ID,
+			TemplateID:        tpls[0].ID,
+			TotalSessions:     &rem,
+			RemainingSessions: &rem,
+			PurchaseDate:      time.Now(),
+			ExpiryDate:        time.Now().AddDate(0, 1, 0),
+			PaymentStatus:     "paid",
+		}
+		_ = store.AssignPackage(pkg)
+
+		// Check-in student to done session
+		reqCheckIn := httptest.NewRequest(http.MethodPost, "/sessions/"+doneSess.ID.String()+"/checkin/"+student.ID.String(), nil)
+		recCheckIn := httptest.NewRecorder()
+		app.HandleCheckIn(recCheckIn, reqCheckIn)
+
+		if recCheckIn.Code != http.StatusOK {
+			t.Fatalf("expected checkin to succeed for done session, got status %d, body: %s", recCheckIn.Code, recCheckIn.Body.String())
+		}
+		if !strings.Contains(recCheckIn.Body.String(), "Lucas Vance") {
+			t.Errorf("expected student name in returned checkin row")
+		}
+		if !strings.Contains(recCheckIn.Body.String(), "Remove") {
+			t.Errorf("expected Remove button in checkin row")
+		}
+		if recCheckIn.Header().Get("HX-Trigger") != "attendanceUpdated" {
+			t.Errorf("expected HX-Trigger: attendanceUpdated, got %s", recCheckIn.Header().Get("HX-Trigger"))
+		}
+
+		// Verify package was decremented
+		pkgs, _ := store.GetStudentPackages(student.ID)
+		if *pkgs[0].RemainingSessions != 7 {
+			t.Errorf("expected 7 sessions remaining after checkin, got %d", *pkgs[0].RemainingSessions)
+		}
+
+		// Now remove student from done session attendance
+		reqRemove := httptest.NewRequest(http.MethodPost, "/sessions/"+doneSess.ID.String()+"/attendance/"+student.ID.String()+"/remove", nil)
+		reqRemove.Header.Set("HX-Request", "true")
+		recRemove := httptest.NewRecorder()
+		app.HandleRemoveAttendance(recRemove, reqRemove)
+
+		if recRemove.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK on remove attendance, got %d", recRemove.Code)
+		}
+		if recRemove.Header().Get("HX-Trigger") != "attendanceUpdated" {
+			t.Errorf("expected HX-Trigger: attendanceUpdated on remove, got %s", recRemove.Header().Get("HX-Trigger"))
+		}
+
+		// Verify student is removed from attendance
+		atts, err := store.GetSessionAttendances(doneSess.ID)
+		if err != nil {
+			t.Fatalf("GetSessionAttendances failed: %v", err)
+		}
+		for _, a := range atts {
+			if a.StudentID == student.ID {
+				t.Errorf("student still found in session attendance after removal")
+			}
+		}
+
+		// Verify package was refunded back to 8 credits
+		pkgsAfter, _ := store.GetStudentPackages(student.ID)
+		if *pkgsAfter[0].RemainingSessions != 8 {
+			t.Errorf("expected 8 sessions remaining after refund, got %d", *pkgsAfter[0].RemainingSessions)
+		}
+
+		// Removing again should return 404
+		recRemoveAgain := httptest.NewRecorder()
+		app.HandleRemoveAttendance(recRemoveAgain, reqRemove)
+		if recRemoveAgain.Code != http.StatusNotFound {
+			t.Errorf("expected 404 when removing non-existent attendance, got %d", recRemoveAgain.Code)
+		}
+	})
 }
+

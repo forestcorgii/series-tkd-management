@@ -3,6 +3,7 @@ package repository_test
 import (
 	"database/sql"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -846,5 +847,150 @@ func TestSQLStore_CoachToggleAndDeletion(t *testing.T) {
 		t.Errorf("expected ErrNotFound for deleted coach user, got: %v", err)
 	}
 }
+
+func TestRemoveAttendance_SQLAndMemory(t *testing.T) {
+	// Test both MemoryStore and SQLStore
+	dbFile := filepath.Join(t.TempDir(), "test_remove_att.db")
+	sqlStore, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if s, ok := sqlStore.(*repository.SQLStore); ok {
+			_ = s.Close()
+		}
+	}()
+
+	memStore := repository.NewMemoryStore()
+
+	stores := map[string]repository.RepositoryStore{
+		"SQLStore":    sqlStore,
+		"MemoryStore": memStore,
+	}
+
+	for storeName, store := range stores {
+		t.Run(storeName, func(t *testing.T) {
+			students, _ := store.GetAllStudents()
+			if len(students) == 0 {
+				t.Fatalf("no students found")
+			}
+			student := students[0]
+
+			coaches, _ := store.GetAllCoaches()
+			if len(coaches) == 0 {
+				t.Fatalf("no coaches found")
+			}
+
+			session := &models.TrainingSession{
+				ID:           uuid.New(),
+				SessionDate:  time.Now(),
+				StartTime:    "17:00",
+				EndTime:      "18:30",
+				CoachID:      coaches[0].ID,
+				TrainingType: models.TrainingSparring,
+			}
+			if err := store.CreateSession(session); err != nil {
+				t.Fatalf("CreateSession failed: %v", err)
+			}
+
+			// Create a package with 5 sessions
+			templates, _ := store.GetPackageTemplates()
+			tplID := templates[0].ID
+			rem := 5
+			pkg := &models.StudentPackage{
+				ID:                uuid.New(),
+				StudentID:         student.ID,
+				TemplateID:        tplID,
+				TotalSessions:     &rem,
+				RemainingSessions: &rem,
+				PurchaseDate:      time.Now(),
+				ExpiryDate:        time.Now().AddDate(0, 1, 0),
+				PaymentStatus:     "paid",
+			}
+			if err := store.AssignPackage(pkg); err != nil {
+				t.Fatalf("AssignPackage failed: %v", err)
+			}
+
+			// Deduct 1 session for check-in
+			remAfterDeduct := 4
+			pkg.RemainingSessions = &remAfterDeduct
+			_ = store.UpdateStudentPackage(pkg)
+
+			// Check in student
+			att, err := store.CheckInStudent(session.ID, student.ID, &pkg.ID)
+			if err != nil {
+				t.Fatalf("CheckInStudent failed: %v", err)
+			}
+			if att.StudentID != student.ID {
+				t.Errorf("expected att student ID %s, got %s", student.ID, att.StudentID)
+			}
+
+			// Verify attendance exists
+			atts, err := store.GetSessionAttendances(session.ID)
+			if err != nil {
+				t.Fatalf("GetSessionAttendances failed: %v", err)
+			}
+			found := false
+			for _, a := range atts {
+				if a.StudentID == student.ID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected student to be in session attendances")
+			}
+
+			// Remove attendance
+			if err := store.RemoveAttendance(session.ID, student.ID); err != nil {
+				t.Fatalf("RemoveAttendance failed: %v", err)
+			}
+
+			// Verify attendance is gone
+			attsAfter, err := store.GetSessionAttendances(session.ID)
+			if err != nil {
+				t.Fatalf("GetSessionAttendances after removal failed: %v", err)
+			}
+			for _, a := range attsAfter {
+				if a.StudentID == student.ID {
+					t.Errorf("student still found in session attendances after removal")
+				}
+			}
+
+			// Verify package session was refunded (+1 to remaining)
+			pkgs, _ := store.GetStudentPackages(student.ID)
+			var updatedPkg *models.StudentPackage
+			for _, p := range pkgs {
+				if p.ID == pkg.ID {
+					updatedPkg = p
+					break
+				}
+			}
+			if updatedPkg == nil || updatedPkg.RemainingSessions == nil || *updatedPkg.RemainingSessions != 5 {
+				var got int
+				if updatedPkg != nil && updatedPkg.RemainingSessions != nil {
+					got = *updatedPkg.RemainingSessions
+				}
+				t.Errorf("expected package sessions refunded to 5, got %d", got)
+			}
+
+			// Calling RemoveAttendance again should return ErrNotFound
+			errAgain := store.RemoveAttendance(session.ID, student.ID)
+			if errAgain != repository.ErrNotFound {
+				t.Errorf("expected ErrNotFound on second removal, got: %v", errAgain)
+			}
+
+			// Check in again should now succeed because student was removed
+			att2, err := store.CheckInStudent(session.ID, student.ID, &pkg.ID)
+			if err != nil {
+				t.Errorf("expected CheckInStudent to succeed after removal, got: %v", err)
+			}
+			if att2 == nil {
+				t.Errorf("expected non-nil attendance after re-check-in")
+			}
+		})
+	}
+}
+
 
 

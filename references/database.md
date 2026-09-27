@@ -24,3 +24,13 @@
   * Added `description TEXT DEFAULT ''` to `package_templates`, and `custom_price REAL / NUMERIC(10, 2)` & `notes TEXT DEFAULT ''` to `student_packages`.
   * In `SQLStore.runMigrations()`, execute runtime column evolution using `ALTER TABLE ... ADD COLUMN ...` with safe SQLite and PostgreSQL variants (`ADD COLUMN IF NOT EXISTS` for PostgreSQL).
   * Use `COALESCE(description, '')` and `COALESCE(notes, '')` in SELECT statements to guarantee non-nil string scans.
+
+### Context: Session Concluded Lifecycle & Attendance Removal with Credit Refund
+
+* **Problem**: Training sessions that passed their scheduled end time remained displayed as live classes, with no status distinction indicating concluded attendance. Furthermore, floor staff had no way to remove students who were mistakenly admitted or needed roster removal, leaving package deductions unrefunded and preventing re-check-in.
+* **Enforced Solution**:
+  * **Dynamic Session Lifecycle (`IsDone()`)**: Evaluated via [TrainingSession.IsDone()](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) and [IsPastEndTime()](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go), automatically transitioning sessions to `🔒 ATTENDANCE CLOSED` upon passing their scheduled end time without blocking audit edits.
+  * **Continuous Roster Modification**: Concluded sessions permit post-session additions (late admissions) and removals for front-desk auditing.
+  * **Transactional Student Removal (`RemoveAttendance`)**: Implemented in both [SQLStore.RemoveAttendance](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/sql_store.go) and [MemoryStore.RemoveAttendance](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/store.go). Deletes the attendance record and automatically restores (`+1`) the deducted package class credit for limited passes.
+  * **Reactive HTMX Roster Sync**: Attendance modifications dispatch `HX-Trigger: attendanceUpdated`, keeping live rosters and search admittance buttons instantly in sync across floor tablets.
+

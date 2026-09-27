@@ -5,11 +5,12 @@
 {{define "content"}}
 <div class="space-y-6">
     <!-- Session Status Header -->
+    <!-- Session Status Header -->
     <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm {{if .Session.IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900{{end}}">
         <div>
             <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
-                    {{if .Session.IsCancelled}}🚫 CANCELLED CLASS{{else}}LIVE CLASS{{end}}
+                <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .Session.IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
+                    {{if .Session.IsCancelled}}🚫 CANCELLED CLASS{{else if .Session.IsDone}}🔒 ATTENDANCE CLOSED{{else}}LIVE CLASS{{end}}
                 </span>
                 <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold {{if .Session.IsCancelled}}line-through{{end}}">
                     {{.Session.StartTime}} - {{.Session.EndTime}}
@@ -25,7 +26,7 @@
         </div>
 
         <div class="flex items-center gap-3 self-start md:self-auto">
-            {{if not .Session.IsCancelled}}
+            {{if and (not .Session.IsCancelled) (not .Session.IsDone)}}
             <button type="button"
                     onclick="document.getElementById('cancel-session-modal').classList.remove('hidden')"
                     class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
@@ -53,6 +54,22 @@
             </p>
         </div>
     </div>
+    {{else if .Session.IsDone}}
+    <!-- Closed Attendance Notice (Admit & Remove remain available) -->
+    <div class="p-4 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 text-sm flex items-start justify-between gap-3 shadow-sm">
+        <div class="flex items-start gap-3">
+            <span class="text-2xl mt-0.5">🔒</span>
+            <div class="space-y-1">
+                <h4 class="font-display font-bold text-base text-slate-900 dark:text-white">Attendance Closed (Session Concluded)</h4>
+                <p class="text-xs text-slate-600 dark:text-slate-400">
+                    This training class scheduled from {{.Session.StartTime}} to {{.Session.EndTime}} has ended. Normal attendance is closed, but you may still admit late students or remove students to maintain an accurate verified roster.
+                </p>
+            </div>
+        </div>
+        <span class="hidden sm:inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap self-center">
+            Audit Mode
+        </span>
+    </div>
     {{end}}
 
     <!-- Two Column Floor Tablet Layout: Left Search & Check-in | Right Live Roster -->
@@ -63,15 +80,17 @@
                 <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Floor Attendance Search</h2>
                 {{if .Session.IsCancelled}}
                 <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold">Disabled</span>
+                {{else if .Session.IsDone}}
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1">Roster Adjustment ✏️</span>
                 {{end}}
             </div>
 
             <div class="relative">
                 <input type="search"
                        name="query"
-                       {{if .Session.IsCancelled}}disabled placeholder="Check-in disabled for cancelled class"{{else}}placeholder="Scan QR code or search student by name..." autofocus{{end}}
+                       {{if .Session.IsCancelled}}disabled placeholder="Check-in disabled for cancelled class"{{else if .Session.IsDone}}placeholder="Search student to add or adjust roster..." autofocus{{else}}placeholder="Scan QR code or search student by name..." autofocus{{end}}
                        hx-post="/sessions/{{.Session.ID}}/search-student"
-                       hx-trigger="keyup changed delay:250ms, search"
+                       hx-trigger="keyup changed delay:250ms, search, attendanceUpdated from:body"
                        hx-target="#search-results"
                        class="form-input text-base py-3 px-4 rounded-xl" />
             </div>
@@ -92,6 +111,8 @@
                 <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Verified Floor Roster</h2>
                 {{if .Session.IsCancelled}}
                 <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">Class Cancelled 🚫</span>
+                {{else if .Session.IsDone}}
+                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold flex items-center gap-1">Attendance Closed 🔒</span>
                 {{else}}
                 <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">Real-Time Sync 🟢</span>
                 {{end}}
@@ -105,14 +126,15 @@
                             <th class="py-2.5 px-3">Belt Rank</th>
                             <th class="py-2.5 px-3">Membership / Deducted</th>
                             <th class="py-2.5 px-3 text-right">Checked In</th>
+                            <th class="py-2.5 px-3 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody id="attendance-roster" class="divide-y divide-slate-200 dark:divide-slate-800/60">
                         {{range .Attendances}}
                         {{template "checkin_row.html" (dict "Attendance" . "Readiness" (index $.ReadinessMap .StudentID.String))}}
                         {{else}}
-                        <tr>
-                            <td colspan="4" class="text-center py-8 text-xs text-slate-500 dark:text-slate-400">
+                        <tr id="empty-roster-row">
+                            <td colspan="5" class="text-center py-8 text-xs text-slate-500 dark:text-slate-400">
                                 No check-ins recorded for this class session.
                             </td>
                         </tr>

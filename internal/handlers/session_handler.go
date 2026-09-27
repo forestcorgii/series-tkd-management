@@ -364,5 +364,76 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		Readiness:  readiness,
 	}
 
+	w.Header().Set("HX-Trigger", "attendanceUpdated")
 	a.RenderPartial(w, "checkin_row.html", data)
 }
+
+func (a *AppHandler) HandleRemoveAttendance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	// Supported formats:
+	// /sessions/{sessionID}/remove/{studentID}
+	// /sessions/{sessionID}/attendance/{studentID}
+	// /sessions/{sessionID}/attendance/{studentID}/remove
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid path parameters", http.StatusBadRequest)
+		return
+	}
+
+	sessionID, err1 := uuid.Parse(pathParts[1])
+	var studentID uuid.UUID
+	var err2 error
+	if pathParts[2] == "remove" {
+		studentID, err2 = uuid.Parse(pathParts[3])
+	} else if pathParts[2] == "attendance" {
+		studentID, err2 = uuid.Parse(pathParts[3])
+	} else {
+		studentID, err2 = uuid.Parse(pathParts[len(pathParts)-1])
+	}
+
+	if err1 != nil || err2 != nil {
+		http.Error(w, "Invalid session or student ID", http.StatusBadRequest)
+		return
+	}
+
+	session, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+	_ = session
+
+	if err := a.store.RemoveAttendance(sessionID, studentID); err != nil {
+		if err == repository.ErrNotFound {
+			http.Error(w, "Student is not checked in to this session", http.StatusNotFound)
+			return
+		}
+		http.Error(w, fmt.Sprintf("Failed to remove attendance: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Trigger", "attendanceUpdated")
+
+	if r.URL.Query().Get("from") == "search" {
+		w.Header().Set("HX-Refresh", "true")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	referer := r.Header.Get("Referer")
+	if referer != "" {
+		http.Redirect(w, r, referer, http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/sessions/%s/live", sessionID), http.StatusSeeOther)
+}
+

@@ -1386,6 +1386,39 @@ func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uui
 	return att, nil
 }
 
+func (s *SQLStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var attIDStr string
+	var pkgIDStr sql.NullString
+	err = tx.QueryRow(`SELECT id, student_package_id FROM attendance WHERE session_id = $1 AND student_id = $2`,
+		sessionID.String(), studentID.String()).Scan(&attIDStr, &pkgIDStr)
+	if err == sql.ErrNoRows {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	if pkgIDStr.Valid && pkgIDStr.String != "" {
+		_, err = tx.Exec(`UPDATE student_packages SET remaining_sessions = remaining_sessions + 1 WHERE id = $1 AND remaining_sessions IS NOT NULL`, pkgIDStr.String)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = tx.Exec(`DELETE FROM attendance WHERE id = $1`, attIDStr)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // Student Evaluations
 func (s *SQLStore) GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEvaluation, error) {
 	query := `SELECT se.id, se.student_id, se.coach_id, c.full_name, se.evaluation_date,

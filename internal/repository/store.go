@@ -59,6 +59,7 @@ type RepositoryStore interface {
 	GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error)
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
 	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID) (*models.Attendance, error)
+	RemoveAttendance(sessionID, studentID uuid.UUID) error
 
 	// Evaluations
 	GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEvaluation, error)
@@ -568,6 +569,36 @@ func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *
 
 	m.attendances[att.ID] = att
 	return att, nil
+}
+
+func (m *MemoryStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var targetID uuid.UUID
+	var targetPkgID *uuid.UUID
+	found := false
+	for id, a := range m.attendances {
+		if a.SessionID == sessionID && a.StudentID == studentID {
+			targetID = id
+			targetPkgID = a.StudentPackageID
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrNotFound
+	}
+
+	// Refund deducted package session if applicable
+	if targetPkgID != nil {
+		if pkg, exists := m.studentPackages[*targetPkgID]; exists && pkg.RemainingSessions != nil {
+			*pkg.RemainingSessions++
+		}
+	}
+
+	delete(m.attendances, targetID)
+	return nil
 }
 
 func (m *MemoryStore) GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEvaluation, error) {
