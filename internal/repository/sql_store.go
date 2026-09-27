@@ -648,6 +648,29 @@ func (s *SQLStore) CreateCoach(c *models.Coach) error {
 	return err
 }
 
+func (s *SQLStore) UpdateCoach(c *models.Coach) error {
+	var expiryVal interface{}
+	if c.FirstAidExpiry != nil {
+		expiryVal = formatDateForDB(*c.FirstAidExpiry)
+	}
+	specBytes, _ := json.Marshal(c.Specialties)
+	query := `UPDATE coaches SET full_name = $1, phone = $2, belt_rank = $3,
+		rate_per_session = $4, first_aid_certified = $5, first_aid_expiry = $6,
+		specialties = $7, is_active = $8 WHERE id = $9`
+	res, err := s.db.Exec(query,
+		c.FullName, c.Phone, c.BeltRank, c.RatePerSession,
+		c.FirstAidCertified, expiryVal, string(specBytes), c.IsActive, c.ID.String(),
+	)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // Packages
 func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 	query := `SELECT id, title, COALESCE(description, ''), session_count, validity_days, price, is_active
@@ -1488,6 +1511,20 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 		u.IsActive, formatTimeForDB(u.CreatedAt), formatTimeForDB(u.UpdatedAt),
 	)
 	return err
+}
+
+func (s *SQLStore) UpdateUser(u *models.User) error {
+	now := time.Now()
+	query := `UPDATE users SET password_hash = $1, is_active = $2, updated_at = $3 WHERE id = $4`
+	res, err := s.db.Exec(query, u.PasswordHash, u.IsActive, formatTimeForDB(now), u.ID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *SQLStore) UpdateUserLastLogin(id uuid.UUID) error {

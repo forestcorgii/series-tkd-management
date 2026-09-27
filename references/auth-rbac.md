@@ -27,4 +27,22 @@
      - **`COACH` (Students & Attendance Only)**: Permitted to view student directory (`/students`), student details (`/students/{id}`), submit coach evaluations (`POST /students/{id}/evaluations`), attendance and floor live check-ins (`/sessions`, `/sessions/{id}/live`), and coach portal (`/portal/coach`). Excluded from Dashboard (`/`), Coaches (`/coaches`), and Packages (`/packages`).
      - **`STUDENT` (Own Profile Only)**: Permitted strictly to view their personal profile (`/portal/student` or `/students/{own_student_id}`). Attempting to view other students' profiles or administrative routes automatically redirects to `/portal/student`.
   2. **Navigation Bar Conditional Filtering**:
-     - [`layout.html`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html) conditionally renders only authorized navigation links per role (e.g. Memberships for Admin; Students & Attendance for Coach; My Profile for Student; All links for Operation Manager).
+     - [`layout.html`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html) conditionally renders only authorized navigation links per role (e.g. Memberships for Admin; Students & Attendance for Coach; All links for Operation Manager).
+     - **Students View Simplification**: The student role has its center navbar menu links cleared completely. Students navigate to their Practitioner Portal via the brand logo and access profile settings via the user indicator pill.
+
+### Context: Self-Service Multi-Role User Profile & Navbar Simplification (`/profile`)
+
+* **Problem**: 
+  1. Practitioners, instructors, and administrators lacked a direct self-service interface to update personal contact info and safety-critical emergency medical notes without contacting a database administrator.
+  2. The navigation header had redundant links ("My Profile") for student users whose sole home interface is the Practitioner Portal.
+* **Enforced Solution**:
+  1. **Branding & Dynamic Role Indicator**:
+     - Brand title standard is **"SERIES TAEKWONDO"**.
+     - Dynamic role badge reflects authenticated role: `Students`, `Coach`, `Admin`, or `Manager`.
+     - Logo click routes directly to the role's home view (`/portal/student` for students, `/portal/coach` for coaches, `/packages` for admins, `/` for managers).
+  2. **Dedicated Profile Route (`/profile`)**:
+     - Protected by `RequireAuth`.
+     - Accessible via the user profile pill directly adjacent to the Sign Out button.
+     - **Student Profile**: Permits editing phone, gender, and floor safety-critical emergency details (`emergency_name`, `emergency_phone`, `emergency_relation`, `medical_notes`).
+     - **Coach Profile**: Permits editing instructor phone number and coaching specialties list.
+     - **Admin & Manager Profile**: Permits updating account display name and password credentials.

@@ -387,3 +387,53 @@ func TestSQLStore_CustomizablePackageTemplates(t *testing.T) {
 		t.Fatalf("expected 14 custom sessions, got total %d rem %d", *found.TotalSessions, *found.RemainingSessions)
 	}
 }
+
+func TestSQLStore_UpdateCoachAndUser(t *testing.T) {
+	dbFile := "test_coach_user.db"
+	_ = os.Remove(dbFile)
+	defer os.Remove(dbFile)
+
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+
+	// 1. Test UpdateCoach
+	coaches, err := store.GetAllCoaches()
+	if err != nil || len(coaches) == 0 {
+		t.Fatalf("failed to get seeded coaches: %v", err)
+	}
+	targetCoach := coaches[0]
+	targetCoach.Phone = "+1-555-999-8888"
+	targetCoach.Specialties = []string{"Kyorugi/Sparring", "Acrobatic Kicking"}
+	if err := store.UpdateCoach(targetCoach); err != nil {
+		t.Fatalf("UpdateCoach failed: %v", err)
+	}
+	updatedCoach, err := store.GetCoachByID(targetCoach.ID)
+	if err != nil {
+		t.Fatalf("GetCoachByID failed: %v", err)
+	}
+	if updatedCoach.Phone != "+1-555-999-8888" {
+		t.Errorf("expected phone '+1-555-999-8888', got '%s'", updatedCoach.Phone)
+	}
+	if len(updatedCoach.Specialties) != 2 || updatedCoach.Specialties[1] != "Acrobatic Kicking" {
+		t.Errorf("expected updated specialties, got %v", updatedCoach.Specialties)
+	}
+
+	// 2. Test UpdateUser
+	user, err := store.GetUserByEmail("manager@seriestkd.com")
+	if err != nil {
+		t.Fatalf("GetUserByEmail failed: %v", err)
+	}
+	_ = user.SetPassword("newsecret123")
+	if err := store.UpdateUser(user); err != nil {
+		t.Fatalf("UpdateUser failed: %v", err)
+	}
+	refetchedUser, err := store.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID failed: %v", err)
+	}
+	if !refetchedUser.CheckPassword("newsecret123") {
+		t.Errorf("expected password to match updated hash")
+	}
+}

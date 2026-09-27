@@ -28,6 +28,7 @@ type RepositoryStore interface {
 	GetAllCoaches() ([]*models.Coach, error)
 	GetCoachByID(id uuid.UUID) (*models.Coach, error)
 	CreateCoach(c *models.Coach) error
+	UpdateCoach(c *models.Coach) error
 
 	// Packages
 	GetPackageTemplates() ([]*models.PackageTemplate, error)
@@ -56,6 +57,7 @@ type RepositoryStore interface {
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserByID(id uuid.UUID) (*models.User, error)
 	CreateUser(user *models.User) error
+	UpdateUser(user *models.User) error
 	UpdateUserLastLogin(id uuid.UUID) error
 	CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error
 	GetUserBySessionToken(token string) (*models.User, error)
@@ -199,6 +201,17 @@ func (m *MemoryStore) CreateCoach(c *models.Coach) error {
 		c.ID = uuid.New()
 	}
 	c.CreatedAt = time.Now()
+	m.coaches[c.ID] = c
+	return nil
+}
+
+func (m *MemoryStore) UpdateCoach(c *models.Coach) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.coaches[c.ID]; !ok {
+		return ErrNotFound
+	}
 	m.coaches[c.ID] = c
 	return nil
 }
@@ -497,6 +510,21 @@ func (m *MemoryStore) CreateUser(u *models.User) error {
 	u.UpdatedAt = now
 	m.users[u.ID] = u
 	m.usersByEmail[normEmail] = u.ID
+	return nil
+}
+
+func (m *MemoryStore) UpdateUser(u *models.User) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.users[u.ID]
+	if !ok {
+		return ErrNotFound
+	}
+	existing.PasswordHash = u.PasswordHash
+	existing.IsActive = u.IsActive
+	existing.DisplayName = u.DisplayName
+	existing.UpdatedAt = time.Now()
 	return nil
 }
 

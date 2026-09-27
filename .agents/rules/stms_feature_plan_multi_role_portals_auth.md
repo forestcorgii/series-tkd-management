@@ -11,7 +11,7 @@ description: When working on auth related tasks
 
 ## 1. System Context & Overview
 
-The **Series Taekwondo Management System (STMS)** is an operational dojang floor management and athletic matrix platform deployed in production:
+The **Series Taekwondo Management System (STMS)**
 * **Production Deployment:** `https://series-tkd-management-production.up.railway.app/`
 * **Operational Status:** Floor Online / Live Operations Active
 * **Brand Foundation:**

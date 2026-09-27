@@ -1,0 +1,306 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Profile &bull; {{if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}{{.CurrentUser.Email}}{{end}} &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="space-y-6 max-w-4xl mx-auto">
+    <!-- Success Feedback Notification -->
+    {{if .SuccessNotice}}
+    <div class="p-4 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500/40 text-emerald-800 dark:text-emerald-300 shadow-md flex items-center justify-between gap-3 animate-fade-in">
+        <div class="flex items-center gap-3">
+            <div class="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <div>
+                <h4 class="font-display font-bold text-sm">Update Successful</h4>
+                <p class="text-xs text-slate-700 dark:text-emerald-200">{{.SuccessNotice}}</p>
+            </div>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white p-1 rounded-lg">
+            &times;
+        </button>
+    </div>
+    {{end}}
+
+    <!-- Error Notification -->
+    {{if .ErrorMessage}}
+    <div class="p-4 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 text-rose-800 dark:text-rose-300 shadow-md flex items-center justify-between gap-3 animate-fade-in">
+        <div class="flex items-center gap-3">
+            <div class="p-2 rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400 flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <div>
+                <h4 class="font-display font-bold text-sm">Action Failed</h4>
+                <p class="text-xs text-slate-700 dark:text-rose-200">{{.ErrorMessage}}</p>
+            </div>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white p-1 rounded-lg">
+            &times;
+        </button>
+    </div>
+    {{end}}
+
+    <!-- Profile Hero Card -->
+    <div class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+                    {{if .CurrentUser.DisplayName}}
+                        {{printf "%.1s" .CurrentUser.DisplayName}}
+                    {{else if .CurrentUser.Email}}
+                        {{printf "%.1s" .CurrentUser.Email}}
+                    {{else}}
+                        ST
+                    {{end}}
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="font-display font-black text-2xl sm:text-3xl text-black dark:text-[#FFFDF4] uppercase">
+                            {{if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}{{.CurrentUser.Email}}{{end}}
+                        </h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider
+                            {{if .CurrentUser.IsOperationManager}}bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30
+                            {{else if .CurrentUser.IsAdmin}}bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30
+                            {{else if .CurrentUser.IsCoach}}bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30
+                            {{else}}bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30{{end}}">
+                            {{if .CurrentUser.IsOperationManager}}Operation Manager{{else if .CurrentUser.IsAdmin}}Dojang Admin{{else if .CurrentUser.IsCoach}}Instructor / Coach{{else}}Student Practitioner{{end}}
+                        </span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
+                        {{.CurrentUser.Email}}
+                        {{if .Student}} &bull; Belt: <strong class="text-black dark:text-white">{{.Student.CurrentBelt}}</strong>{{end}}
+                        {{if .Coach}} &bull; Rank: <strong class="text-black dark:text-white">{{.Coach.BeltRank}}</strong>{{end}}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Portal Quick Navigation -->
+            <div>
+                <a href="{{if .CurrentUser.IsOperationManager}}/portal/admin{{else if .CurrentUser.IsAdmin}}/packages{{else if .CurrentUser.IsCoach}}/portal/coach{{else}}/portal/student{{end}}"
+                   class="btn btn-secondary btn-sm flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to {{if .CurrentUser.IsOperationManager}}Operations Portal{{else if .CurrentUser.IsAdmin}}Memberships{{else if .CurrentUser.IsCoach}}Coach Console{{else}}Student Portal{{end}}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Profile Edit Form -->
+    <form action="/profile" method="POST" class="space-y-6">
+        {{if .CurrentUser.IsStudent}}
+            {{if .Student}}
+            <!-- Student Personal Information Card -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
+                    <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Personal Information</h2>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">View and update your student contact details.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Full Name</label>
+                        <input type="text" value="{{.Student.FullName}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">Full name changes require dojang administration clearance.</span>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Contact Phone</label>
+                        <input type="tel" name="phone" value="{{.Student.Phone}}" placeholder="+1-555-0100" class="form-input" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Gender</label>
+                        <select name="gender" class="form-select">
+                            <option value="Male" {{if eq .Student.Gender "Male"}}selected{{end}}>Male</option>
+                            <option value="Female" {{if eq .Student.Gender "Female"}}selected{{end}}>Female</option>
+                            <option value="Other" {{if eq .Student.Gender "Other"}}selected{{end}}>Other</option>
+                            <option value="" {{if not .Student.Gender}}selected{{end}}>Prefer not to say</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Date of Birth &bull; Age</label>
+                        <input type="text" value="{{.Student.DOB.Format "Jan 02, 2006"}} ({{.Student.Age}} years old)" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Current Belt Rank</label>
+                        <div class="flex items-center gap-2 pt-1">
+                            <span class="badge-belt font-bold text-xs">{{.Student.CurrentBelt}}</span>
+                            <span class="text-xs text-slate-600 dark:text-slate-400">({{.Student.DaysInCurrentRank}} days in rank)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Account Email</label>
+                        <input type="email" value="{{.CurrentUser.Email}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Emergency Contact Card -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center justify-between">
+                    <div>
+                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Emergency Contact &amp; Medical</h2>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">Critical contacts accessed by floor coaches during training sessions.</p>
+                    </div>
+                    <span class="badge bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold">
+                        Floor Safety Critical
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Emergency Contact Name <span class="text-rose-500">*</span></label>
+                        <input type="text" name="emergency_name" value="{{.Student.EmergencyName}}" required placeholder="e.g. Maria Vance" class="form-input" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Emergency Contact Phone <span class="text-rose-500">*</span></label>
+                        <input type="tel" name="emergency_phone" value="{{.Student.EmergencyPhone}}" required placeholder="+1-555-0199" class="form-input" />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="form-label">Relationship to Student</label>
+                        <input type="text" name="emergency_relation" value="{{.Student.EmergencyRelation}}" placeholder="e.g. Mother, Father, Guardian, Spouse" class="form-input" />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="form-label">Medical Notes &amp; Allergies</label>
+                        <textarea name="medical_notes" rows="3" placeholder="Specify any allergies, asthma, prior joint injuries, or health conditions our coaches need to know..." class="form-textarea">{{.Student.MedicalNotes}}</textarea>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
+        {{else if .CurrentUser.IsCoach}}
+            {{if .Coach}}
+            <!-- Coach Information Card -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
+                    <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Instructor Profile</h2>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">View and update your coaching profile and specialties.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Full Name</label>
+                        <input type="text" value="{{.Coach.FullName}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Contact Phone</label>
+                        <input type="tel" name="phone" value="{{.Coach.Phone}}" placeholder="+1-555-0188" class="form-input" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Dan Belt Rank</label>
+                        <input type="text" value="{{.Coach.BeltRank}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Base Compensation</label>
+                        <input type="text" value="${{printf "%.2f" .Coach.RatePerSession}} / floor session" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">First Aid &amp; BLS Readiness</label>
+                        <div class="pt-1">
+                            {{if .Coach.IsFirstAidValid}}
+                                <span class="badge bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                    🛡️ Certified (Valid for {{.Coach.DaysUntilFirstAidExpiry}} days)
+                                </span>
+                            {{else}}
+                                <span class="badge bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                    ⚠️ Certification Pending or Expired
+                                </span>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Account Email</label>
+                        <input type="email" value="{{.CurrentUser.Email}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="form-label">Specialties (Comma Separated)</label>
+                        <input type="text" name="specialties" value="{{range $i, $s := .Coach.Specialties}}{{if $i}}, {{end}}{{$s}}{{end}}" placeholder="Sparring/Kyorugi, Forms/Poomsae, Cadets/Kids, Conditioning" class="form-input" />
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">Enter specialties separated by commas.</span>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
+        {{else if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}
+            <!-- Administrator / Manager Profile Card -->
+            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
+                    <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Operations Account</h2>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">Manage administrative account display credentials.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Display Name</label>
+                        <input type="text" name="display_name" value="{{.CurrentUser.DisplayName}}" class="form-input" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Account Email</label>
+                        <input type="email" value="{{.CurrentUser.Email}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">System Role</label>
+                        <input type="text" value="{{if .CurrentUser.IsOperationManager}}Operation Manager (Full Control){{else}}Dojang Administrator (Packages &amp; Memberships){{end}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Account Active Since</label>
+                        <input type="text" value="{{.CurrentUser.CreatedAt.Format "Jan 02, 2006"}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                    </div>
+                </div>
+            </div>
+        {{end}}
+
+        <!-- Account Security / Password Update (Available to all roles) -->
+        <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+            <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
+                <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Security Credentials</h2>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Update your login password. Leave blank if you do not wish to change it.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label">New Password</label>
+                    <input type="password" name="new_password" placeholder="Minimum 6 characters" class="form-input" autocomplete="new-password" />
+                </div>
+
+                <div>
+                    <label class="form-label">Confirm New Password</label>
+                    <input type="password" name="confirm_password" placeholder="Confirm your new password" class="form-input" autocomplete="new-password" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Submission Actions -->
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <a href="{{if .CurrentUser.IsOperationManager}}/portal/admin{{else if .CurrentUser.IsAdmin}}/packages{{else if .CurrentUser.IsCoach}}/portal/coach{{else}}/portal/student{{end}}"
+               class="btn btn-secondary btn-md">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary btn-md">
+                💾 Save Profile Changes
+            </button>
+        </div>
+    </form>
+</div>
+{{end}}

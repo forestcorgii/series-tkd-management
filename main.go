@@ -95,6 +95,10 @@ func main() {
 	mux.HandleFunc("GET /portal/coach", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCoachPortal))
 	mux.HandleFunc("GET /portal/admin", app.RequireRole(models.RoleOperationManager)(app.HandleAdminPortal))
 
+	// User Profile (All Authenticated Roles)
+	mux.HandleFunc("GET /profile", app.RequireAuth(app.HandleProfile))
+	mux.HandleFunc("POST /profile", app.RequireAuth(app.HandleProfile))
+
 	// Section 4 Role Guarded APIs
 	mux.HandleFunc("GET /api/student/readiness", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleAPIStudentReadiness))
 	mux.HandleFunc("GET /api/coach/sessions/live", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleAPICoachLiveSession))
