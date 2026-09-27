@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -106,11 +107,62 @@ func (a *AppHandler) RequireRole(roles ...models.UserRole) func(http.HandlerFunc
 	}
 }
 
+// IsDemoLoginEnabled returns whether quick demo logins should be displayed.
+// By default, demo login is enabled in development/local environments and disabled in production.
+// It can be explicitly overridden via SHOW_DEMO_LOGIN or ENABLE_DEMO_LOGIN ("true"/"false").
+func IsDemoLoginEnabled() bool {
+	if val := os.Getenv("SHOW_DEMO_LOGIN"); val != "" {
+		val = strings.ToLower(strings.TrimSpace(val))
+		return val == "true" || val == "1" || val == "yes"
+	}
+	if val := os.Getenv("ENABLE_DEMO_LOGIN"); val != "" {
+		val = strings.ToLower(strings.TrimSpace(val))
+		return val == "true" || val == "1" || val == "yes"
+	}
+
+	// Environment variable checks (production vs dev)
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+	if env == "" {
+		env = strings.ToLower(strings.TrimSpace(os.Getenv("ENV")))
+	}
+	if env == "" {
+		env = strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV")))
+	}
+	if env == "" {
+		env = strings.ToLower(strings.TrimSpace(os.Getenv("ENVIRONMENT")))
+	}
+
+	if env == "production" || env == "prod" {
+		return false
+	}
+
+	// Railway or cloud deployment detection
+	if os.Getenv("RAILWAY_ENVIRONMENT") != "" || os.Getenv("RAILWAY_ENVIRONMENT_NAME") != "" {
+		return false
+	}
+
+	// In this system, DATABASE_URL with postgres denotes production deployment
+	// unless explicitly tagged as development/dev/local.
+	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if dbURL != "" && (strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://")) {
+		if env != "development" && env != "dev" && env != "local" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (a *AppHandler) IsDemoLoginEnabled() bool {
+	return IsDemoLoginEnabled()
+}
+
 type LoginPageData struct {
-	CurrentUser *models.User
-	Error       string
-	Success     string
-	Redirect    string
+	CurrentUser   *models.User
+	Error         string
+	Success       string
+	Redirect      string
+	ShowDemoLogin bool
 }
 
 func (a *AppHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
@@ -136,9 +188,10 @@ func (a *AppHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := LoginPageData{
-		Error:    r.URL.Query().Get("error"),
-		Success:  r.URL.Query().Get("success"),
-		Redirect: r.URL.Query().Get("redirect"),
+		Error:         r.URL.Query().Get("error"),
+		Success:       r.URL.Query().Get("success"),
+		Redirect:      r.URL.Query().Get("redirect"),
+		ShowDemoLogin: a.IsDemoLoginEnabled(),
 	}
 
 	a.RenderPage(w, "login.html", data)

@@ -117,3 +117,17 @@
      - **POST/PUT /admins/{id}/reset-password & POST/PUT /api/admins/{id}/reset-password**: Accepts JSON or form data, hashes new password, and responds with 200 OK JSON, HTMX banner, or 303 redirect.
   2. **Auth Guard Compatibility**:
      - RequireAuth and RequireRole check for Accept: application/json or Content-Type: application/json, returning HTTP 401 Unauthorized or 403 Forbidden JSON payloads instead of redirect loops.
+
+### Context: Production Demo Login Gating (/login)
+
+* **Problem**:
+  1. The login view featured a 1-click "Quick Demo Sign-In" role switcher exposing pre-filled demo credentials and passwords in client-side HTML/JavaScript.
+  2. While convenient for local development and QA, displaying demo logins and credentials in production environments compromises security hygiene and professional presentation.
+* **Enforced Solution**:
+  1. **Environment-Aware Demo Detection (`IsDemoLoginEnabled`)**:
+     - Automatically disables the demo panel when running in production: `APP_ENV=production`, `ENV=production`, `GO_ENV=production`, `ENVIRONMENT=production`, or cloud platforms (`RAILWAY_ENVIRONMENT`).
+     - Detects PostgreSQL production connection strings (`DATABASE_URL=postgres://...`) unless explicitly tagged with development flags.
+     - Supports explicit opt-in/opt-out via `SHOW_DEMO_LOGIN` or `ENABLE_DEMO_LOGIN` (`"true"` / `"false"`).
+  2. **Template & Script Isolation (`login.html`)**:
+     - Both the quick demo button group and the client-side `fillDemo(...)` script containing hardcoded credentials are gated behind `{{if .ShowDemoLogin}}`. In production, no demo HTML elements or credentials scripts are rendered to the client browser.
+

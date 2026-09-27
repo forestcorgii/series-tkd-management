@@ -86,6 +86,7 @@
             </form>
 
             <!-- Quick-Switch Demo Role Switcher -->
+            {{if .ShowDemoLogin}}
             <div class="mt-8 pt-6 border-t border-[#E5E3D8] dark:border-neutral-800">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 text-center mb-3">
                     ⚡ Quick Demo Sign-In (1-Click Fill)
@@ -124,14 +125,17 @@
                     </button>
                 </div>
             </div>
+            {{end}}
         </div>
     </div>
 </div>
 
+{{if .ShowDemoLogin}}
 <script>
     function fillDemo(email, pass) {
         document.getElementById('email').value = email;
         document.getElementById('password').value = pass;
     }
 </script>
+{{end}}
 {{end}}

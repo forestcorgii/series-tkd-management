@@ -677,3 +677,137 @@ func TestAdmin_StudentPermissions(t *testing.T) {
 	}
 }
 
+func TestAuthHandler_DemoLoginProductionGating(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	t.Run("development default shows demo login", func(t *testing.T) {
+		t.Setenv("APP_ENV", "")
+		t.Setenv("ENV", "")
+		t.Setenv("GO_ENV", "")
+		t.Setenv("ENVIRONMENT", "")
+		t.Setenv("SHOW_DEMO_LOGIN", "")
+		t.Setenv("ENABLE_DEMO_LOGIN", "")
+		t.Setenv("RAILWAY_ENVIRONMENT", "")
+		t.Setenv("RAILWAY_ENVIRONMENT_NAME", "")
+		t.Setenv("DATABASE_URL", "")
+
+		if !app.IsDemoLoginEnabled() {
+			t.Errorf("expected demo login enabled in development default")
+		}
+
+		req := httptest.NewRequest("GET", "/login", nil)
+		rec := httptest.NewRecorder()
+		app.HandleLoginPage(rec, req)
+		body := rec.Body.String()
+
+		if !strings.Contains(body, "Quick Demo Sign-In") {
+			t.Errorf("expected Quick Demo Sign-In in dev login page HTML")
+		}
+		if !strings.Contains(body, "fillDemo") {
+			t.Errorf("expected fillDemo script in dev login page HTML")
+		}
+	})
+
+	t.Run("production via APP_ENV hides demo login", func(t *testing.T) {
+		t.Setenv("APP_ENV", "production")
+		t.Setenv("SHOW_DEMO_LOGIN", "")
+		t.Setenv("ENABLE_DEMO_LOGIN", "")
+
+		if app.IsDemoLoginEnabled() {
+			t.Errorf("expected demo login disabled when APP_ENV=production")
+		}
+
+		req := httptest.NewRequest("GET", "/login", nil)
+		rec := httptest.NewRecorder()
+		app.HandleLoginPage(rec, req)
+		body := rec.Body.String()
+
+		if strings.Contains(body, "Quick Demo Sign-In") {
+			t.Errorf("demo login must NOT be shown when APP_ENV=production")
+		}
+		if strings.Contains(body, "fillDemo") {
+			t.Errorf("fillDemo credentials script must NOT be rendered when APP_ENV=production")
+		}
+	})
+
+	t.Run("production via ENV=prod hides demo login", func(t *testing.T) {
+		t.Setenv("APP_ENV", "")
+		t.Setenv("ENV", "prod")
+		t.Setenv("SHOW_DEMO_LOGIN", "")
+
+		if app.IsDemoLoginEnabled() {
+			t.Errorf("expected demo login disabled when ENV=prod")
+		}
+
+		req := httptest.NewRequest("GET", "/login", nil)
+		rec := httptest.NewRecorder()
+		app.HandleLoginPage(rec, req)
+		body := rec.Body.String()
+
+		if strings.Contains(body, "Quick Demo Sign-In") || strings.Contains(body, "fillDemo") {
+			t.Errorf("demo login must NOT be shown when ENV=prod")
+		}
+	})
+
+	t.Run("production via DATABASE_URL postgres hides demo login", func(t *testing.T) {
+		t.Setenv("APP_ENV", "")
+		t.Setenv("ENV", "")
+		t.Setenv("SHOW_DEMO_LOGIN", "")
+		t.Setenv("DATABASE_URL", "postgres://user:pass@host:5432/series_tkd")
+
+		if app.IsDemoLoginEnabled() {
+			t.Errorf("expected demo login disabled when DATABASE_URL is postgres")
+		}
+
+		req := httptest.NewRequest("GET", "/login", nil)
+		rec := httptest.NewRecorder()
+		app.HandleLoginPage(rec, req)
+		body := rec.Body.String()
+
+		if strings.Contains(body, "Quick Demo Sign-In") || strings.Contains(body, "fillDemo") {
+			t.Errorf("demo login must NOT be shown when DATABASE_URL is postgres")
+		}
+	})
+
+	t.Run("explicit override SHOW_DEMO_LOGIN=false hides in development", func(t *testing.T) {
+		t.Setenv("APP_ENV", "development")
+		t.Setenv("SHOW_DEMO_LOGIN", "false")
+
+		if app.IsDemoLoginEnabled() {
+			t.Errorf("expected demo login disabled when SHOW_DEMO_LOGIN=false")
+		}
+
+		req := httptest.NewRequest("GET", "/login", nil)
+		rec := httptest.NewRecorder()
+		app.HandleLoginPage(rec, req)
+		body := rec.Body.String()
+
+		if strings.Contains(body, "Quick Demo Sign-In") || strings.Contains(body, "fillDemo") {
+			t.Errorf("demo login must NOT be shown when SHOW_DEMO_LOGIN=false")
+		}
+	})
+
+	t.Run("explicit override SHOW_DEMO_LOGIN=true enables even in production", func(t *testing.T) {
+		t.Setenv("APP_ENV", "production")
+		t.Setenv("SHOW_DEMO_LOGIN", "true")
+
+		if !app.IsDemoLoginEnabled() {
+			t.Errorf("expected demo login enabled when SHOW_DEMO_LOGIN=true override is set")
+		}
+
+		req := httptest.NewRequest("GET", "/login", nil)
+		rec := httptest.NewRecorder()
+		app.HandleLoginPage(rec, req)
+		body := rec.Body.String()
+
+		if !strings.Contains(body, "Quick Demo Sign-In") {
+			t.Errorf("expected Quick Demo Sign-In when SHOW_DEMO_LOGIN=true override")
+		}
+	})
+}
+
+
