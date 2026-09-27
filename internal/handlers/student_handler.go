@@ -89,6 +89,20 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	user := GetUserFromContext(r.Context())
+	if user != nil {
+		if user.Role == models.RoleAdmin {
+			http.Redirect(w, r, "/packages", http.StatusSeeOther)
+			return
+		}
+		if user.Role == models.RoleStudent {
+			if user.StudentID == nil || *user.StudentID != id {
+				http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
+				return
+			}
+		}
+	}
+
 	student, err := a.store.GetStudentByID(id)
 	if err != nil {
 		http.Error(w, "Student not found", http.StatusNotFound)

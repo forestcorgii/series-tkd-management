@@ -11,9 +11,10 @@ import (
 type UserRole string
 
 const (
-	RoleStudent UserRole = "STUDENT"
-	RoleCoach   UserRole = "COACH"
-	RoleAdmin   UserRole = "ADMIN"
+	RoleStudent          UserRole = "STUDENT"
+	RoleCoach            UserRole = "COACH"
+	RoleAdmin            UserRole = "ADMIN"
+	RoleOperationManager UserRole = "OPERATION_MANAGER"
 )
 
 var (
@@ -60,6 +61,10 @@ func (u *User) HasRole(roles ...UserRole) bool {
 		}
 	}
 	return false
+}
+
+func (u *User) IsOperationManager() bool {
+	return u.Role == RoleOperationManager
 }
 
 func (u *User) IsAdmin() bool {

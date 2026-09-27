@@ -34,17 +34,24 @@ func TestUser_RolePermissions(t *testing.T) {
 	admin := &models.User{Role: models.RoleAdmin}
 	coach := &models.User{Role: models.RoleCoach}
 	student := &models.User{Role: models.RoleStudent}
+	opManager := &models.User{Role: models.RoleOperationManager}
 
-	if !admin.IsAdmin() || admin.IsCoach() || admin.IsStudent() {
+	if !opManager.IsOperationManager() || opManager.IsAdmin() || opManager.IsCoach() || opManager.IsStudent() {
+		t.Errorf("operation manager role check failed")
+	}
+	if !admin.IsAdmin() || admin.IsCoach() || admin.IsStudent() || admin.IsOperationManager() {
 		t.Errorf("admin role check failed")
 	}
-	if !coach.IsCoach() || coach.IsAdmin() || coach.IsStudent() {
+	if !coach.IsCoach() || coach.IsAdmin() || coach.IsStudent() || coach.IsOperationManager() {
 		t.Errorf("coach role check failed")
 	}
-	if !student.IsStudent() || student.IsAdmin() || student.IsCoach() {
+	if !student.IsStudent() || student.IsAdmin() || student.IsCoach() || student.IsOperationManager() {
 		t.Errorf("student role check failed")
 	}
 
+	if !opManager.HasRole(models.RoleOperationManager) {
+		t.Errorf("expected opManager to have RoleOperationManager")
+	}
 	if !admin.HasRole(models.RoleAdmin, models.RoleCoach) {
 		t.Errorf("expected admin to have RoleAdmin")
 	}

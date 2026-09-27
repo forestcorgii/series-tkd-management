@@ -81,14 +81,17 @@ func (a *AppHandler) RequireRole(roles ...models.UserRole) func(http.HandlerFunc
 					})
 					return
 				}
-				// If browser request, send to their own portal
+				// If browser request, send to their authorized view
 				if user != nil {
 					switch user.Role {
+					case models.RoleOperationManager:
+						http.Redirect(w, r, "/", http.StatusSeeOther)
+						return
 					case models.RoleAdmin:
-						http.Redirect(w, r, "/portal/admin", http.StatusSeeOther)
+						http.Redirect(w, r, "/packages", http.StatusSeeOther)
 						return
 					case models.RoleCoach:
-						http.Redirect(w, r, "/portal/coach", http.StatusSeeOther)
+						http.Redirect(w, r, "/students", http.StatusSeeOther)
 						return
 					case models.RoleStudent:
 						http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
@@ -114,11 +117,14 @@ func (a *AppHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	user := GetUserFromContext(r.Context())
 	if user != nil {
 		switch user.Role {
+		case models.RoleOperationManager:
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
 		case models.RoleAdmin:
-			http.Redirect(w, r, "/portal/admin", http.StatusSeeOther)
+			http.Redirect(w, r, "/packages", http.StatusSeeOther)
 			return
 		case models.RoleCoach:
-			http.Redirect(w, r, "/portal/coach", http.StatusSeeOther)
+			http.Redirect(w, r, "/students", http.StatusSeeOther)
 			return
 		case models.RoleStudent:
 			http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
@@ -174,10 +180,12 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch user.Role {
+	case models.RoleOperationManager:
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	case models.RoleAdmin:
-		http.Redirect(w, r, "/portal/admin", http.StatusSeeOther)
+		http.Redirect(w, r, "/packages", http.StatusSeeOther)
 	case models.RoleCoach:
-		http.Redirect(w, r, "/portal/coach", http.StatusSeeOther)
+		http.Redirect(w, r, "/students", http.StatusSeeOther)
 	case models.RoleStudent:
 		http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
 	default:

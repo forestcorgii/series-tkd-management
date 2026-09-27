@@ -20,9 +20,12 @@
             </p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
+            {{$user := currentUser .}}
+            {{if and $user $user.IsOperationManager}}
             <button onclick="openCreatePlanModal()" class="btn btn-outline btn-md shadow-sm">
                 ✨ New Membership Plan
             </button>
+            {{end}}
             <button onclick="openAssignModal()" class="btn btn-primary btn-md shadow-md">
                 💳 Assign Membership
             </button>
@@ -95,13 +98,18 @@
 
                 <!-- Template Controls -->
                 <div class="pt-5 mt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
+                    {{if and $user $user.IsOperationManager}}
                     <button type="button"
                             onclick='openEditPlanModal("{{.ID}}", "{{.Title}}", "{{.Description}}", {{if .SessionCount}}{{.SessionCount}}{{else}}null{{end}}, {{.ValidityDays}}, {{.Price}}, {{.IsActive}})'
                             class="btn btn-secondary btn-xs flex items-center gap-1">
                         ✏️ Edit Plan
                     </button>
+                    {{else}}
+                    <div></div>
+                    {{end}}
 
                     <div class="flex items-center gap-1.5">
+                        {{if and $user $user.IsOperationManager}}
                         <form action="/packages/templates/{{.ID}}/toggle" method="POST" class="inline">
                             <button type="submit"
                                     title="{{if .IsActive}}Archive plan so it is hidden from quick checkout{{else}}Activate plan for student assignment{{end}}"
@@ -109,6 +117,7 @@
                                 {{if .IsActive}}📁 Archive{{else}}↩️ Activate{{end}}
                             </button>
                         </form>
+                        {{end}}
                         <button type="button"
                                 onclick='quickAssignWithTemplate("{{.ID}}")'
                                 class="btn btn-outline btn-xs"

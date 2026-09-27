@@ -10,9 +10,12 @@
             <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Student Directory &amp; Ability Radar</h1>
             <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Manage athletic evaluations, emergency medical notes, and promotion readiness status.</p>
         </div>
+        {{$user := currentUser .}}
+        {{if and $user $user.IsOperationManager}}
         <button onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
             ➕ Register New Student
         </button>
+        {{end}}
     </div>
 
     <!-- Search Bar & Filters -->

@@ -187,11 +187,23 @@
 
             <!-- Navigation Links -->
             <nav class="hidden md:flex items-center space-x-1 sm:space-x-2 font-medium text-sm">
-                <a href="/" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
-                <a href="/students" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
-                <a href="/sessions" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
-                <a href="/coaches" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Coaches</a>
-                <a href="/packages" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Memberships</a>
+                {{$user := currentUser .}}
+                {{if $user}}
+                    {{if $user.IsOperationManager}}
+                        <a href="/" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
+                        <a href="/students" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
+                        <a href="/sessions" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
+                        <a href="/coaches" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Coaches</a>
+                        <a href="/packages" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Memberships</a>
+                    {{else if $user.IsAdmin}}
+                        <a href="/packages" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Memberships</a>
+                    {{else if $user.IsCoach}}
+                        <a href="/students" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
+                        <a href="/sessions" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
+                    {{else if $user.IsStudent}}
+                        <a href="/portal/student" class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">My Profile</a>
+                    {{end}}
+                {{end}}
             </nav>
 
             <div class="flex items-center space-x-2 sm:space-x-3">
@@ -221,17 +233,18 @@
                 {{$user := currentUser .}}
                 {{if $user}}
                 <div class="flex items-center gap-1.5 sm:gap-2 pl-2 border-l border-[#E5E3D8] dark:border-neutral-800">
-                    <a href="{{if eq $user.Role "ADMIN"}}/portal/admin{{else if eq $user.Role "COACH"}}/portal/coach{{else}}/portal/student{{end}}"
-                       title="Go to {{if eq $user.Role "ADMIN"}}Admin Operations{{else if eq $user.Role "COACH"}}Coach Console{{else}}Practitioner Portal{{end}}"
+                    <a href="{{if $user.IsOperationManager}}/portal/admin{{else if $user.IsAdmin}}/packages{{else if $user.IsCoach}}/portal/coach{{else}}/portal/student{{end}}"
+                       title="Go to {{if $user.IsOperationManager}}Operations Portal{{else if $user.IsAdmin}}Memberships Management{{else if $user.IsCoach}}Coach Console{{else}}Practitioner Profile{{end}}"
                        class="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-neutral-100 hover:bg-[#F4F1E4] dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-[#E5E3D8] dark:border-neutral-800 transition text-xs shadow-sm">
                         <span class="font-bold text-black dark:text-white truncate max-w-[90px] sm:max-w-[130px]">
                             {{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}
                         </span>
                         <span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider
-                            {{if eq $user.Role "ADMIN"}}bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30
-                            {{else if eq $user.Role "COACH"}}bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30
+                            {{if $user.IsOperationManager}}bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30
+                            {{else if $user.IsAdmin}}bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30
+                            {{else if $user.IsCoach}}bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30
                             {{else}}bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30{{end}}">
-                            {{$user.Role}}
+                            {{if $user.IsOperationManager}}OP MANAGER{{else}}{{$user.Role}}{{end}}
                         </span>
                     </a>
                     <a href="/logout"
@@ -252,17 +265,28 @@
 
         <!-- Mobile Navigation Row -->
         <nav class="flex md:hidden items-center justify-between pt-2.5 mt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800 overflow-x-auto gap-1 text-xs font-semibold">
-            <a href="/" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Dashboard</a>
-            <a href="/students" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
-            <a href="/sessions" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
-            <a href="/coaches" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Coaches</a>
-            <a href="/packages" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Memberships</a>
             {{$user := currentUser .}}
             {{if $user}}
-            <a href="{{if eq $user.Role "ADMIN"}}/portal/admin{{else if eq $user.Role "COACH"}}/portal/coach{{else}}/portal/student{{end}}" class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">Portal</a>
-            <a href="/logout" class="px-2 py-1 rounded text-rose-600 whitespace-nowrap">Sign Out</a>
+                {{if $user.IsOperationManager}}
+                    <a href="/" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Dashboard</a>
+                    <a href="/students" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
+                    <a href="/sessions" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
+                    <a href="/coaches" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Coaches</a>
+                    <a href="/packages" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Memberships</a>
+                {{else if $user.IsAdmin}}
+                    <a href="/packages" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Memberships</a>
+                {{else if $user.IsCoach}}
+                    <a href="/students" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
+                    <a href="/sessions" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
+                {{else if $user.IsStudent}}
+                    <a href="/portal/student" class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">My Profile</a>
+                {{end}}
+                <a href="{{if $user.IsOperationManager}}/portal/admin{{else if $user.IsAdmin}}/packages{{else if $user.IsCoach}}/portal/coach{{else}}/portal/student{{end}}" class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">
+                    {{if $user.IsOperationManager}}Op Portal{{else if $user.IsAdmin}}Memberships{{else if $user.IsCoach}}Coach Portal{{else}}My Profile{{end}}
+                </a>
+                <a href="/logout" class="px-2 py-1 rounded text-rose-600 whitespace-nowrap">Sign Out</a>
             {{else}}
-            <a href="/login" class="btn btn-primary btn-xs">Sign In</a>
+                <a href="/login" class="btn btn-primary btn-xs">Sign In</a>
             {{end}}
         </nav>
     </header>

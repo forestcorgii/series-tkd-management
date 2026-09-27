@@ -369,12 +369,25 @@ func (m *MemoryStore) seedData() {
 	m.evaluations[eval1.ID] = eval1
 
 	// 8. Default Users for Multi-Role Auth
+	uManager := &models.User{
+		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000000"),
+		Email:       "manager@seriestkd.com",
+		Role:        models.RoleOperationManager,
+		IsActive:    true,
+		DisplayName: "Operation Manager",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	_ = uManager.SetPassword("manager123")
+	m.users[uManager.ID] = uManager
+	m.usersByEmail[uManager.Email] = uManager.ID
+
 	uAdmin := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		Email:       "admin@seriestkd.com",
 		Role:        models.RoleAdmin,
 		IsActive:    true,
-		DisplayName: "Master Administrator",
+		DisplayName: "Dojang Administrator",
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}

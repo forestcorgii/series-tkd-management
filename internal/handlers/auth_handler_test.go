@@ -53,7 +53,7 @@ func TestAuthHandler_WebFlow(t *testing.T) {
 		t.Errorf("expected error in redirect query, got %s", loc)
 	}
 
-	// 3. POST /login with valid admin credentials
+	// 3. POST /login with valid admin credentials (redirects to /packages)
 	form.Set("password", "admin123")
 	req = httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -62,8 +62,23 @@ func TestAuthHandler_WebFlow(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("expected 303 on successful login, got %d", rec.Code)
 	}
-	if rec.Header().Get("Location") != "/portal/admin" {
-		t.Errorf("expected redirect to /portal/admin, got %s", rec.Header().Get("Location"))
+	if rec.Header().Get("Location") != "/packages" {
+		t.Errorf("expected redirect to /packages for admin, got %s", rec.Header().Get("Location"))
+	}
+
+	// 4. POST /login with Operation Manager credentials (redirects to /)
+	formMgr := url.Values{}
+	formMgr.Set("email", "manager@seriestkd.com")
+	formMgr.Set("password", "manager123")
+	req = httptest.NewRequest("POST", "/login", strings.NewReader(formMgr.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleLoginSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 on successful login, got %d", rec.Code)
+	}
+	if rec.Header().Get("Location") != "/" {
+		t.Errorf("expected redirect to / for manager, got %s", rec.Header().Get("Location"))
 	}
 
 	// Check cookie
@@ -79,9 +94,9 @@ func TestAuthHandler_WebFlow(t *testing.T) {
 		t.Fatalf("expected stms_session cookie to be set")
 	}
 
-	// 4. Access /portal/admin using session cookie wrapped in AuthMiddleware
+	// 5. Access /portal/admin using session cookie wrapped in AuthMiddleware
 	adminMux := http.NewServeMux()
-	adminMux.HandleFunc("GET /portal/admin", app.RequireRole(models.RoleAdmin)(app.HandleAdminPortal))
+	adminMux.HandleFunc("GET /portal/admin", app.RequireRole(models.RoleOperationManager)(app.HandleAdminPortal))
 	handler := app.AuthMiddleware(adminMux)
 
 	req = httptest.NewRequest("GET", "/portal/admin", nil)
@@ -95,7 +110,7 @@ func TestAuthHandler_WebFlow(t *testing.T) {
 		t.Errorf("expected admin portal content on /portal/admin")
 	}
 
-	// 5. Logout
+	// 6. Logout
 	req = httptest.NewRequest("GET", "/logout", nil)
 	req.AddCookie(sessionCookie)
 	rec = httptest.NewRecorder()
@@ -337,7 +352,6 @@ func TestPortals_RenderPages(t *testing.T) {
 		t.Fatalf("failed to initialize AppHandler: %v", err)
 	}
 
-	adminUser, _ := store.GetUserByEmail("admin@seriestkd.com")
 	coachUser, _ := store.GetUserByEmail("jiwoo.park@seriestkd.com")
 	studentUser, _ := store.GetUserByEmail("alex.vance@seriestkd.com")
 
@@ -374,11 +388,12 @@ func TestPortals_RenderPages(t *testing.T) {
 		t.Errorf("expected coach portal content")
 	}
 
-	// 3. Render Admin Portal
-	tokenAdmin := "admin-token-test"
-	_ = store.CreateSessionToken(tokenAdmin, adminUser.ID, time.Now().Add(time.Hour))
+	// 3. Render Admin Portal (Operation Manager)
+	mgrUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	tokenMgr := "mgr-token-test"
+	_ = store.CreateSessionToken(tokenMgr, mgrUser.ID, time.Now().Add(time.Hour))
 	req = httptest.NewRequest("GET", "/portal/admin", nil)
-	req.AddCookie(&http.Cookie{Name: "stms_session", Value: tokenAdmin})
+	req.AddCookie(&http.Cookie{Name: "stms_session", Value: tokenMgr})
 	rec = httptest.NewRecorder()
 	app.AuthMiddleware(http.HandlerFunc(app.HandleAdminPortal)).ServeHTTP(rec, req)
 
@@ -388,4 +403,130 @@ func TestPortals_RenderPages(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "Safety Incident &amp; First Aid Clearance") {
 		t.Errorf("expected admin portal content")
 	}
+}
+
+func TestRolePermissions_ViewMatrix(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// Build full routing mux matching main.go
+	mux := http.NewServeMux()
+
+	// Portals
+	mux.HandleFunc("GET /portal/student", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleStudentPortal))
+	mux.HandleFunc("GET /portal/coach", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCoachPortal))
+	mux.HandleFunc("GET /portal/admin", app.RequireRole(models.RoleOperationManager)(app.HandleAdminPortal))
+
+	// Core Views
+	mux.HandleFunc("GET /", app.RequireRole(models.RoleOperationManager)(app.HandleDashboard))
+	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleStudents))
+	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleStudentDetail))
+	mux.HandleFunc("GET /sessions", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleSessions))
+	mux.HandleFunc("GET /coaches", app.RequireRole(models.RoleOperationManager)(app.HandleCoaches))
+	mux.HandleFunc("GET /packages", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandlePackages))
+
+	handler := app.AuthMiddleware(mux)
+
+	// Fetch users
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	adminUser, _ := store.GetUserByEmail("admin@seriestkd.com")
+	coachUser, _ := store.GetUserByEmail("jiwoo.park@seriestkd.com")
+	studentUser, _ := store.GetUserByEmail("alex.vance@seriestkd.com")
+
+	// Create tokens
+	tokManager := "tok-mgr"
+	_ = store.CreateSessionToken(tokManager, managerUser.ID, time.Now().Add(time.Hour))
+	tokAdmin := "tok-adm"
+	_ = store.CreateSessionToken(tokAdmin, adminUser.ID, time.Now().Add(time.Hour))
+	tokCoach := "tok-coa"
+	_ = store.CreateSessionToken(tokCoach, coachUser.ID, time.Now().Add(time.Hour))
+	tokStudent := "tok-stu"
+	_ = store.CreateSessionToken(tokStudent, studentUser.ID, time.Now().Add(time.Hour))
+
+	testReq := func(token string, path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", path, nil)
+		if token != "" {
+			req.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec
+	}
+
+	// 1. OPERATION MANAGER (Full Control: can view everything)
+	t.Run("OperationManager_FullControl", func(t *testing.T) {
+		for _, path := range []string{"/", "/students", "/sessions", "/coaches", "/packages", "/portal/admin"} {
+			rec := testReq(tokManager, path)
+			if rec.Code != http.StatusOK {
+				t.Errorf("Operation Manager expected 200 on %s, got %d", path, rec.Code)
+			}
+		}
+	})
+
+	// 2. COACH (Can only view Students and Attendance)
+	t.Run("Coach_AllowedViews", func(t *testing.T) {
+		for _, path := range []string{"/students", "/sessions", "/portal/coach"} {
+			rec := testReq(tokCoach, path)
+			if rec.Code != http.StatusOK {
+				t.Errorf("Coach expected 200 on %s, got %d", path, rec.Code)
+			}
+		}
+	})
+
+	t.Run("Coach_RestrictedViews", func(t *testing.T) {
+		// Coaches cannot view Dashboard, Coaches directory, or Packages
+		for _, path := range []string{"/", "/coaches", "/packages", "/portal/admin"} {
+			rec := testReq(tokCoach, path)
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/students" {
+				t.Errorf("Coach expected redirect to /students on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
+			}
+		}
+	})
+
+	// 3. ADMIN (Can only view and assign membership package to students)
+	t.Run("Admin_AllowedViews", func(t *testing.T) {
+		rec := testReq(tokAdmin, "/packages")
+		if rec.Code != http.StatusOK {
+			t.Errorf("Admin expected 200 on /packages, got %d", rec.Code)
+		}
+	})
+
+	t.Run("Admin_RestrictedViews", func(t *testing.T) {
+		// Admin cannot view Dashboard, Students, Attendance, Coaches, or Admin Portal
+		for _, path := range []string{"/", "/students", "/sessions", "/coaches", "/portal/admin"} {
+			rec := testReq(tokAdmin, path)
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/packages" {
+				t.Errorf("Admin expected redirect to /packages on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
+			}
+		}
+	})
+
+	// 4. STUDENT (Can only view his/her profile)
+	t.Run("Student_OwnProfile", func(t *testing.T) {
+		rec := testReq(tokStudent, "/portal/student")
+		if rec.Code != http.StatusOK {
+			t.Errorf("Student expected 200 on /portal/student, got %d", rec.Code)
+		}
+
+		if studentUser.StudentID != nil {
+			recOwn := testReq(tokStudent, "/students/"+studentUser.StudentID.String())
+			if recOwn.Code != http.StatusOK {
+				t.Errorf("Student expected 200 on own detail /students/%s, got %d", studentUser.StudentID.String(), recOwn.Code)
+			}
+		}
+	})
+
+	t.Run("Student_RestrictedViews", func(t *testing.T) {
+		// Student cannot view other students, students list, sessions, coaches, packages, dashboard
+		otherStudentID := "22222222-2222-2222-2222-222222222222"
+		for _, path := range []string{"/", "/students", "/sessions", "/coaches", "/packages", "/portal/admin", "/students/" + otherStudentID} {
+			rec := testReq(tokStudent, path)
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/portal/student" {
+				t.Errorf("Student expected redirect to /portal/student on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
+			}
+		}
+	})
 }

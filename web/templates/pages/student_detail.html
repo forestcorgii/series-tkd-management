@@ -116,6 +116,8 @@
             </div>
             {{end}}
 
+            {{$user := currentUser .}}
+            {{if and $user (or $user.IsCoach $user.IsOperationManager)}}
             <!-- Coach Evaluation Submission Form -->
             <div class="pt-4 border-t border-slate-200 dark:border-slate-800">
                 <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white mb-3">Submit New Coach Evaluation</h3>
@@ -163,6 +165,7 @@
                     </button>
                 </form>
             </div>
+            {{end}}
         </div>
 
         <!-- Right: Promotion Readiness Rules Engine Breakdown -->

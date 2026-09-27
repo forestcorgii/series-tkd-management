@@ -63,10 +63,14 @@ func (a *AppHandler) HandleStudentPortal(w http.ResponseWriter, r *http.Request)
 	}
 
 	var targetStudentID uuid.UUID
-	if user.StudentID != nil && *user.StudentID != uuid.Nil {
+	if user.Role == models.RoleStudent {
+		if user.StudentID == nil || *user.StudentID == uuid.Nil {
+			http.Error(w, "No student profile linked to your account", http.StatusBadRequest)
+			return
+		}
 		targetStudentID = *user.StudentID
 	} else {
-		// If Admin/Coach viewing or student_id query param
+		// If Coach or Operation Manager viewing
 		if qID := r.URL.Query().Get("student_id"); qID != "" {
 			if parsed, err := uuid.Parse(qID); err == nil {
 				targetStudentID = parsed
