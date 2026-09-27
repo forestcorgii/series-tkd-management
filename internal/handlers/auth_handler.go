@@ -47,7 +47,7 @@ func (a *AppHandler) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := GetUserFromContext(r.Context())
 		if user == nil {
-			if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" {
+			if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -72,7 +72,7 @@ func (a *AppHandler) RequireRole(roles ...models.UserRole) func(http.HandlerFunc
 		return a.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 			user := GetUserFromContext(r.Context())
 			if user == nil || !user.HasRole(roles...) {
-				if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" {
+				if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden)
 					_ = json.NewEncoder(w).Encode(map[string]interface{}{

@@ -102,3 +102,18 @@
 
 
 
+
+### Context: Administrator Management HTMX & JSON API Endpoints (/admins)
+
+* **Problem**:
+  1. The /admins endpoints only accepted standard HTML form posts and performed full-page redirects with query parameters (?success=..., ?error=...), breaking compatibility with headless API consumers and HTMX dynamic modal / partial updates.
+  2. Deactivating front-desk administrators did not invalidate active user session tokens, allowing deactivated administrators to continue accessing authorized resources until session expiry.
+* **Enforced Solution**:
+  1. **Dual-Format Request & Response Dispatching**:
+     - Endpoints inspect Accept: application/json, Content-Type: application/json, ?format=json, and HX-Request: true.
+     - **GET /admins & GET /api/admins**: Returns JSON telemetry summary (	otal, ctive, inactive, dmins array) for API clients; renders dmins.html for browser navigation.
+     - **POST /admins & POST /api/admins**: Accepts either JSON body or URL-encoded form data. Returns 201 Created JSON with created admin entity for API calls, HTML alert banner for HTMX, or 303 redirect with query notice for web forms. Handles duplicate emails (409 Conflict) and validation errors (400 Bad Request) cleanly across formats.
+     - **POST/PATCH /admins/{id}/toggle & POST/PATCH /api/admins/{id}/toggle**: Toggles active status and immediately invalidates all active session tokens in user_sessions upon deactivation. Returns 200 OK JSON or HTMX status banner.
+     - **POST/PUT /admins/{id}/reset-password & POST/PUT /api/admins/{id}/reset-password**: Accepts JSON or form data, hashes new password, and responds with 200 OK JSON, HTMX banner, or 303 redirect.
+  2. **Auth Guard Compatibility**:
+     - RequireAuth and RequireRole check for Accept: application/json or Content-Type: application/json, returning HTTP 401 Unauthorized or 403 Forbidden JSON payloads instead of redirect loops.

@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -256,3 +257,213 @@ func TestAdminHandler_HandleResetAdminPassword(t *testing.T) {
 		t.Errorf("old password should no longer be valid")
 	}
 }
+
+func TestAdminHandler_JSON_HTMX_Flows(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	withSession := func(req *http.Request, u *models.User) *http.Request {
+		token := uuid.New().String()
+		_ = store.CreateSessionToken(token, u.ID, time.Now().Add(time.Hour))
+		req.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+		return req
+	}
+
+	// 1. GET /admins with Accept: application/json returns 200 OK JSON
+	req := httptest.NewRequest("GET", "/admins", nil)
+	req.Header.Set("Accept", "application/json")
+	req = withSession(req, managerUser)
+	rec := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleAdmins)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for JSON GET /admins, got %d", rec.Code)
+	}
+	var getResp struct {
+		Status string         `json:"status"`
+		Total  int            `json:"total"`
+		Admins []*models.User `json:"admins"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&getResp); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+	if getResp.Total == 0 || len(getResp.Admins) == 0 {
+		t.Errorf("expected admins in JSON response, got total=%d", getResp.Total)
+	}
+
+	// 2. POST /admins with JSON body (Valid)
+	createBody := map[string]string{
+		"full_name": "API Admin",
+		"email":     "api.admin@seriestkd.com",
+		"password":  "securepass123",
+	}
+	bodyBytes, _ := json.Marshal(createBody)
+	req = httptest.NewRequest("POST", "/admins", strings.NewReader(string(bodyBytes)))
+	req.Header.Set("Content-Type", "application/json")
+	req = withSession(req, managerUser)
+	rec = httptest.NewRecorder()
+	app.HandleCreateAdmin(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for JSON POST /admins, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+	var createResp struct {
+		Status string       `json:"status"`
+		Admin  *models.User `json:"admin"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&createResp); err != nil {
+		t.Fatalf("failed to decode create JSON: %v", err)
+	}
+	if createResp.Admin == nil || createResp.Admin.Email != "api.admin@seriestkd.com" {
+		t.Errorf("expected created admin email api.admin@seriestkd.com, got %v", createResp.Admin)
+	}
+
+	// 3. POST /admins with JSON body (Duplicate Email Conflict)
+	req = httptest.NewRequest("POST", "/admins", strings.NewReader(string(bodyBytes)))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	app.HandleCreateAdmin(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Errorf("expected 409 Conflict for duplicate admin, got %d", rec.Code)
+	}
+
+	// 4. POST /admins with HTMX (Validation Error & Success)
+	form := url.Values{}
+	form.Set("full_name", "")
+	form.Set("email", "")
+	req = httptest.NewRequest("POST", "/admins", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	rec = httptest.NewRecorder()
+	app.HandleCreateAdmin(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for HTMX missing fields, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "required") {
+		t.Errorf("expected error banner in HTMX body, got: %s", rec.Body.String())
+	}
+
+	// Valid HTMX creation
+	form.Set("full_name", "HTMX Admin")
+	form.Set("email", "htmx.admin@seriestkd.com")
+	form.Set("password", "htmxpass123")
+	req = httptest.NewRequest("POST", "/admins", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	rec = httptest.NewRecorder()
+	app.HandleCreateAdmin(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for valid HTMX creation, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "provisioned successfully") {
+		t.Errorf("expected success banner in HTMX body, got: %s", rec.Body.String())
+	}
+
+	// 5. POST /admins/{id}/toggle with JSON
+	createdAdmin, _ := store.GetUserByEmail("api.admin@seriestkd.com")
+	req = httptest.NewRequest("POST", "/admins/"+createdAdmin.ID.String()+"/toggle", nil)
+	req.Header.Set("Accept", "application/json")
+	req.SetPathValue("id", createdAdmin.ID.String())
+	rec = httptest.NewRecorder()
+	app.HandleToggleAdminStatus(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for JSON toggle, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+	var toggleResp struct {
+		Status   string `json:"status"`
+		IsActive bool   `json:"is_active"`
+	}
+	_ = json.NewDecoder(rec.Body).Decode(&toggleResp)
+	if toggleResp.IsActive {
+		t.Errorf("expected admin to be toggled to inactive")
+	}
+
+	// 6. POST /admins/{id}/toggle with HTMX
+	req = httptest.NewRequest("POST", "/admins/"+createdAdmin.ID.String()+"/toggle", nil)
+	req.Header.Set("HX-Request", "true")
+	req.SetPathValue("id", createdAdmin.ID.String())
+	rec = httptest.NewRecorder()
+	app.HandleToggleAdminStatus(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for HTMX toggle, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "activated") {
+		t.Errorf("expected activated banner in HTMX body, got: %s", rec.Body.String())
+	}
+
+	// 7. POST /admins/{id}/reset-password with JSON
+	resetBody := map[string]string{
+		"new_password":     "apipassword456",
+		"confirm_password": "apipassword456",
+	}
+	resetBytes, _ := json.Marshal(resetBody)
+	req = httptest.NewRequest("POST", "/admins/"+createdAdmin.ID.String()+"/reset-password", strings.NewReader(string(resetBytes)))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", createdAdmin.ID.String())
+	rec = httptest.NewRecorder()
+	app.HandleResetAdminPassword(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for JSON password reset, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+	refreshed, _ := store.GetUserByID(createdAdmin.ID)
+	if !refreshed.CheckPassword("apipassword456") {
+		t.Errorf("new JSON password verification failed")
+	}
+
+	// 8. POST /admins/{id}/reset-password with HTMX
+	form = url.Values{}
+	form.Set("new_password", "htmxnewpass123")
+	form.Set("confirm_password", "htmxnewpass123")
+	req = httptest.NewRequest("POST", "/admins/"+createdAdmin.ID.String()+"/reset-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	req.SetPathValue("id", createdAdmin.ID.String())
+	rec = httptest.NewRecorder()
+	app.HandleResetAdminPassword(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for HTMX password reset, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "reset successfully") {
+		t.Errorf("expected success banner in HTMX body, got: %s", rec.Body.String())
+	}
+}
+
+func TestAdminHandler_RouteAliases(t *testing.T) {
+	app, store := setupTestApp(t)
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+
+	withSession := func(req *http.Request, u *models.User) *http.Request {
+		token := uuid.New().String()
+		_ = store.CreateSessionToken(token, u.ID, time.Now().Add(time.Hour))
+		req.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+		return req
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admins", http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /admin/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admins", http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /admins", app.RequireRole(models.RoleOperationManager)(app.HandleAdmins))
+	handler := app.AuthMiddleware(mux)
+
+	// GET /admin redirects to /admins
+	req := httptest.NewRequest("GET", "/admin", nil)
+	req = withSession(req, managerUser)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admins" {
+		t.Fatalf("expected 303 redirect to /admins, got code=%d loc=%s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+

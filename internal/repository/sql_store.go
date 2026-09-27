@@ -1842,6 +1842,9 @@ func (s *SQLStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
 	if rows == 0 {
 		return ErrNotFound
 	}
+	if !isActive {
+		_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, userID.String())
+	}
 	return nil
 }
 

@@ -701,6 +701,13 @@ func (m *MemoryStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
 	}
 	existing.IsActive = isActive
 	existing.UpdatedAt = time.Now()
+	if !isActive {
+		for token, rec := range m.sessionTokens {
+			if rec.UserID == userID {
+				delete(m.sessionTokens, token)
+			}
+		}
+	}
 	return nil
 }
 
