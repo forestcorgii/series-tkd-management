@@ -114,10 +114,12 @@ func main() {
 	// Dashboard (Only Operation Manager has full control over executive dashboard)
 	mux.HandleFunc("GET /", app.RequireRole(models.RoleOperationManager)(app.HandleDashboard))
 
-	// Students & Ability Radar (Coach & Operation Manager; Students can view their own profile via /students/{id})
-	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleStudents))
-	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleStudentDetail))
-	mux.HandleFunc("POST /students", app.RequireRole(models.RoleOperationManager)(app.HandleCreateStudent))
+	// Students & Ability Radar (Coach, Admin & Operation Manager; Students can view their own profile via /students/{id})
+	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudents))
+	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudentDetail))
+	mux.HandleFunc("POST /students", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateStudent))
+	mux.HandleFunc("POST /students/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
+	mux.HandleFunc("POST /students/{id}/edit", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
 	mux.HandleFunc("POST /students/{id}/evaluations", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCreateEvaluation))
 
 	// Coaches & Staff Directory / Payroll (Only Operation Manager)

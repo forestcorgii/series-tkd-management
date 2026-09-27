@@ -422,8 +422,11 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 
 	// Core Views
 	mux.HandleFunc("GET /", app.RequireRole(models.RoleOperationManager)(app.HandleDashboard))
-	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleStudents))
-	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleStudentDetail))
+	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudents))
+	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudentDetail))
+	mux.HandleFunc("POST /students", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateStudent))
+	mux.HandleFunc("POST /students/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
+	mux.HandleFunc("POST /students/{id}/evaluations", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCreateEvaluation))
 	mux.HandleFunc("GET /sessions", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSessions))
 	mux.HandleFunc("GET /coaches", app.RequireRole(models.RoleOperationManager)(app.HandleCoaches))
 	mux.HandleFunc("GET /packages", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandlePackages))
@@ -486,9 +489,9 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 		}
 	})
 
-	// 3. ADMIN (Can view/assign membership packages and access attendance)
+	// 3. ADMIN (Can view/assign membership packages, attendance, and student directory)
 	t.Run("Admin_AllowedViews", func(t *testing.T) {
-		for _, path := range []string{"/packages", "/sessions"} {
+		for _, path := range []string{"/packages", "/sessions", "/students"} {
 			rec := testReq(tokAdmin, path)
 			if rec.Code != http.StatusOK {
 				t.Errorf("Admin expected 200 on %s, got %d", path, rec.Code)
@@ -497,8 +500,8 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 	})
 
 	t.Run("Admin_RestrictedViews", func(t *testing.T) {
-		// Admin cannot view Dashboard, Students, Coaches, or Admin Portal
-		for _, path := range []string{"/", "/students", "/coaches", "/portal/admin"} {
+		// Admin cannot view Dashboard, Coaches, or Admin Portal
+		for _, path := range []string{"/", "/coaches", "/portal/admin"} {
 			rec := testReq(tokAdmin, path)
 			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/packages" {
 				t.Errorf("Admin expected redirect to /packages on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
@@ -532,3 +535,145 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 		}
 	})
 }
+
+func TestAdmin_StudentPermissions(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudents))
+	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudentDetail))
+	mux.HandleFunc("POST /students", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateStudent))
+	mux.HandleFunc("POST /students/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
+	mux.HandleFunc("POST /students/{id}/evaluations", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCreateEvaluation))
+
+	handler := app.AuthMiddleware(mux)
+
+	adminUser, _ := store.GetUserByEmail("admin@seriestkd.com")
+	tokAdmin := "tok-admin-student-perm"
+	_ = store.CreateSessionToken(tokAdmin, adminUser.ID, time.Now().Add(time.Hour))
+
+	// 1. Admin can GET /students
+	req := httptest.NewRequest("GET", "/students", nil)
+	req.AddCookie(&http.Cookie{Name: "stms_session", Value: tokAdmin})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Admin expected 200 on GET /students, got %d", rec.Code)
+	}
+
+	// 2. Admin can POST /students (add student)
+	form := url.Values{}
+	form.Set("full_name", "Sarah Connor")
+	form.Set("dob", "2005-04-12")
+	form.Set("gender", "Female")
+	form.Set("phone", "+1 555-0987")
+	form.Set("current_belt", "White")
+	form.Set("emergency_name", "John Connor")
+	form.Set("emergency_phone", "+1 555-0988")
+	form.Set("emergency_relation", "Son")
+	form.Set("medical_notes", "No known allergies")
+
+	req = httptest.NewRequest("POST", "/students", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "stms_session", Value: tokAdmin})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/students" {
+		t.Fatalf("Admin expected 303 redirect to /students on create, got %d to %s", rec.Code, rec.Header().Get("Location"))
+	}
+
+	// Verify student was created
+	students, _ := store.SearchStudents("Sarah Connor")
+	if len(students) != 1 {
+		t.Fatalf("expected 1 student named Sarah Connor, found %d", len(students))
+	}
+	sarah := students[0]
+
+	// 3. Admin can GET /students/{id}
+	req = httptest.NewRequest("GET", "/students/"+sarah.ID.String(), nil)
+	req.AddCookie(&http.Cookie{Name: "stms_session", Value: tokAdmin})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Admin expected 200 on GET /students/%s, got %d", sarah.ID.String(), rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Sarah Connor") {
+		t.Errorf("expected student detail page to contain Sarah Connor")
+	}
+
+	// 4. Admin can edit student personal and emergency info, but NOT belt rank
+	editForm := url.Values{}
+	editForm.Set("full_name", "Sarah J. Connor")
+	editForm.Set("dob", "2005-04-12")
+	editForm.Set("gender", "Female")
+	editForm.Set("phone", "+1 555-1111")
+	editForm.Set("emergency_name", "Kyle Reese")
+	editForm.Set("emergency_phone", "+1 555-2222")
+	editForm.Set("emergency_relation", "Partner")
+	editForm.Set("medical_notes", "Asthma inhaler required")
+	// Malicious/unauthorized attempt by admin to alter belt rank
+	editForm.Set("current_belt", string(models.BeltBlack1stDan))
+
+	req = httptest.NewRequest("POST", "/students/"+sarah.ID.String(), strings.NewReader(editForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "stms_session", Value: tokAdmin})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/students/"+sarah.ID.String() {
+		t.Fatalf("Admin expected 303 redirect to /students/%s, got %d to %s", sarah.ID.String(), rec.Code, rec.Header().Get("Location"))
+	}
+
+	// Verify personal and emergency info was updated, but belt rank remained White
+	updated, _ := store.GetStudentByID(sarah.ID)
+	if updated.FullName != "Sarah J. Connor" {
+		t.Errorf("expected FullName 'Sarah J. Connor', got %q", updated.FullName)
+	}
+	if updated.Phone != "+1 555-1111" {
+		t.Errorf("expected Phone '+1 555-1111', got %q", updated.Phone)
+	}
+	if updated.EmergencyName != "Kyle Reese" {
+		t.Errorf("expected EmergencyName 'Kyle Reese', got %q", updated.EmergencyName)
+	}
+	if updated.EmergencyPhone != "+1 555-2222" {
+		t.Errorf("expected EmergencyPhone '+1 555-2222', got %q", updated.EmergencyPhone)
+	}
+	if updated.EmergencyRelation != "Partner" {
+		t.Errorf("expected EmergencyRelation 'Partner', got %q", updated.EmergencyRelation)
+	}
+	if updated.MedicalNotes != "Asthma inhaler required" {
+		t.Errorf("expected MedicalNotes 'Asthma inhaler required', got %q", updated.MedicalNotes)
+	}
+	// Belt rank MUST NOT be changed by Admin!
+	if updated.CurrentBelt != models.BeltWhite {
+		t.Errorf("security violation: admin altered belt rank to %q; must remain White", updated.CurrentBelt)
+	}
+
+	// 5. Admin CANNOT submit coach evaluations (forbidden / redirected)
+	evalForm := url.Values{}
+	evalForm.Set("coach_id", uuid.New().String())
+	evalForm.Set("flexibility", "10")
+	evalForm.Set("stamina", "10")
+	evalForm.Set("power", "10")
+	evalForm.Set("technique", "10")
+	evalForm.Set("sparring_iq", "10")
+	evalForm.Set("discipline", "10")
+	evalForm.Set("coach_remarks", "Admin attempting evaluation")
+
+	req = httptest.NewRequest("POST", "/students/"+sarah.ID.String()+"/evaluations", strings.NewReader(evalForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "stms_session", Value: tokAdmin})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	// Admin is not authorized on POST /students/{id}/evaluations, must redirect to /packages
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/packages" {
+		t.Errorf("expected Admin evaluation attempt to be rejected (303 to /packages), got %d to %s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+

@@ -53,6 +53,13 @@ func (s *Student) DaysInCurrentRank() int {
 	return int(time.Since(s.LastPromotionDate).Hours() / 24)
 }
 
+func (s *Student) FormattedDOB() string {
+	if s.DOB.IsZero() {
+		return ""
+	}
+	return s.DOB.Format("2006-01-02")
+}
+
 func (s *Student) NextBelt() BeltRank {
 	switch s.CurrentBelt {
 	case BeltWhite:

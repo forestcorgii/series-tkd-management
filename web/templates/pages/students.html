@@ -11,7 +11,7 @@
             <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Manage athletic evaluations, emergency medical notes, and promotion readiness status.</p>
         </div>
         {{$user := currentUser .}}
-        {{if and $user $user.IsOperationManager}}
+        {{if or (not $user) $user.IsOperationManager $user.IsAdmin}}
         <button onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
             ➕ Register New Student
         </button>
@@ -125,9 +125,6 @@
                 <button type="button" onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary btn-sm">Save Student</button>
             </div>
-        </form>
-    </div>
-</div>
         </form>
     </div>
 </div>

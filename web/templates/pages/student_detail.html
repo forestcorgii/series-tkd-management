@@ -10,6 +10,12 @@
             &larr; Back to Student Directory
         </a>
         <div class="flex items-center gap-2">
+            {{$user := currentUser .}}
+            {{if and $user (or $user.IsAdmin $user.IsOperationManager)}}
+            <button onclick="document.getElementById('edit-student-modal').classList.remove('hidden')" class="btn btn-secondary btn-sm flex items-center gap-1.5 shadow-sm">
+                ✏️ Edit Student Info
+            </button>
+            {{end}}
             <span class="badge-belt">
                 Belt: {{.Student.CurrentBelt}}
             </span>
@@ -290,4 +296,98 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Edit Student Information -->
+{{$user := currentUser .}}
+{{if and $user (or $user.IsAdmin $user.IsOperationManager)}}
+<div id="edit-student-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <div>
+                <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Edit Student Information</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Personal &amp; emergency contact records</p>
+            </div>
+            <button type="button" onclick="document.getElementById('edit-student-modal').classList.add('hidden')" class="modal-close">&times;</button>
+        </div>
+        <form action="/students/{{.Student.ID}}" method="POST" class="space-y-4">
+            <div>
+                <label class="form-label">Full Name</label>
+                <input type="text" name="full_name" value="{{.Student.FullName}}" required class="form-input">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" name="dob" value="{{.Student.FormattedDOB}}" required class="form-input">
+                </div>
+                <div>
+                    <label class="form-label">Gender</label>
+                    <select name="gender" class="form-select">
+                        <option value="Male" {{if eq .Student.Gender "Male"}}selected{{end}}>Male</option>
+                        <option value="Female" {{if eq .Student.Gender "Female"}}selected{{end}}>Female</option>
+                        <option value="Other" {{if eq .Student.Gender "Other"}}selected{{end}}>Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="form-label">Contact Phone</label>
+                    <input type="text" name="phone" value="{{.Student.Phone}}" required class="form-input">
+                </div>
+                <div>
+                    <label class="form-label">Belt Rank</label>
+                    {{if $user.IsOperationManager}}
+                    <select name="current_belt" class="form-select">
+                        <option value="White" {{if eq .Student.CurrentBelt "White"}}selected{{end}}>White Belt</option>
+                        <option value="Low Yellow" {{if eq .Student.CurrentBelt "Low Yellow"}}selected{{end}}>Low Yellow</option>
+                        <option value="High Yellow" {{if eq .Student.CurrentBelt "High Yellow"}}selected{{end}}>High Yellow</option>
+                        <option value="Low Blue" {{if eq .Student.CurrentBelt "Low Blue"}}selected{{end}}>Low Blue</option>
+                        <option value="High Blue" {{if eq .Student.CurrentBelt "High Blue"}}selected{{end}}>High Blue</option>
+                        <option value="Low Red" {{if eq .Student.CurrentBelt "Low Red"}}selected{{end}}>Low Red</option>
+                        <option value="High Red" {{if eq .Student.CurrentBelt "High Red"}}selected{{end}}>High Red</option>
+                        <option value="Low Brown" {{if eq .Student.CurrentBelt "Low Brown"}}selected{{end}}>Low Brown</option>
+                        <option value="High Brown" {{if eq .Student.CurrentBelt "High Brown"}}selected{{end}}>High Brown</option>
+                        <option value="1st Dan Black" {{if eq .Student.CurrentBelt "1st Dan Black"}}selected{{end}}>1st Dan Black</option>
+                        <option value="2nd Dan Black" {{if eq .Student.CurrentBelt "2nd Dan Black"}}selected{{end}}>2nd Dan Black</option>
+                        <option value="3rd Dan Black" {{if eq .Student.CurrentBelt "3rd Dan Black"}}selected{{end}}>3rd Dan Black</option>
+                    </select>
+                    {{else}}
+                    <div class="py-2 px-3 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <span>{{.Student.CurrentBelt}}</span>
+                        <span class="text-[10px] text-slate-500 italic">Read-only for Admin</span>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Emergency Safety & Medical Section -->
+            <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <span class="text-xs uppercase font-bold text-rose-600 dark:text-rose-400">Emergency &amp; Medical Clearance</span>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="form-label text-[10px]">Contact Name</label>
+                        <input type="text" name="emergency_name" value="{{.Student.EmergencyName}}" required class="form-input">
+                    </div>
+                    <div>
+                        <label class="form-label text-[10px]">Phone Number</label>
+                        <input type="text" name="emergency_phone" value="{{.Student.EmergencyPhone}}" required class="form-input">
+                    </div>
+                    <div>
+                        <label class="form-label text-[10px]">Relationship</label>
+                        <input type="text" name="emergency_relation" value="{{.Student.EmergencyRelation}}" required class="form-input">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label text-[10px]">Medical Notes &amp; Allergies</label>
+                    <textarea name="medical_notes" rows="2" placeholder="Medical clearance flags, allergies, injury logs..." class="form-textarea">{{.Student.MedicalNotes}}</textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="document.getElementById('edit-student-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
 {{end}}

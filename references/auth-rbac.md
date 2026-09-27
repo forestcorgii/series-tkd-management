@@ -23,11 +23,11 @@
 * **Enforced Solution**:
   1. **Strict 4-Role RBAC Model**:
      - **`OPERATION_MANAGER` (Full Control)**: Full oversight and write permissions over Dashboard (`/`), Students (`/students`), Attendance/Sessions (`/sessions`), Coaches & Payroll (`/coaches`), Packages & Templates (`/packages`), Master Operations Portal (`/portal/admin`), User Registration, Belt Promotions, and Incident Resolution.
-     - **`ADMIN` (Attendance & Membership Packages)**: Permitted to manage floor attendance check-ins (`/sessions`, `/sessions/{id}/live`, `POST /sessions/{id}/checkin/{student_id}`, `POST /api/coach/check-in`) as well as viewing membership packages and assigning packages to students (`/packages`, `POST /packages/assign`). Excluded from Dashboard (`/`), Student Directory (`/students`), Coaches (`/coaches`), and Operations Portal (`/portal/admin`).
+     - **`ADMIN` (Attendance, Membership Packages & Student Contact Info)**: Permitted to manage floor attendance check-ins (`/sessions`, `/sessions/{id}/live`, `POST /sessions/{id}/checkin/{student_id}`, `POST /api/coach/check-in`), view and assign membership packages (`/packages`, `POST /packages/assign`), and access the Student Directory (`/students`, `/students/{id}`). Within the Student Directory, Admins are permitted to register new students (`POST /students`) and edit their personal and emergency medical info (`POST /students/{id}`), but are strictly forbidden from modifying belt ranks, promotion dates, or submitting athletic coach evaluations. Excluded from Dashboard (`/`), Coaches (`/coaches`), and Operations Portal (`/portal/admin`).
      - **`COACH` (Students & Attendance Only)**: Permitted to view student directory (`/students`), student details (`/students/{id}`), submit coach evaluations (`POST /students/{id}/evaluations`), attendance and floor live check-ins (`/sessions`, `/sessions/{id}/live`), and coach portal (`/portal/coach`). Excluded from Dashboard (`/`), Coaches (`/coaches`), and Packages (`/packages`).
      - **`STUDENT` (Own Profile Only)**: Permitted strictly to view their personal profile (`/portal/student` or `/students/{own_student_id}`). Attempting to view other students' profiles or administrative routes automatically redirects to `/portal/student`.
   2. **Navigation Bar Conditional Filtering**:
-     - [`layout.html`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html) conditionally renders only authorized navigation links per role (e.g. Memberships for Admin; Students & Attendance for Coach; All links for Operation Manager).
+     - [`layout.html`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html) conditionally renders authorized navigation links per role (e.g. Students, Attendance, Memberships for Admin; Students & Attendance for Coach; All links for Operation Manager).
      - **Students View Simplification**: The student role has its center navbar menu links cleared completely. Students navigate to their Practitioner Portal via the brand logo and access profile settings via the user indicator pill.
 
 ### Context: Self-Service Multi-Role User Profile & Navbar Simplification (`/profile`)
@@ -46,3 +46,19 @@
      - **Student Profile**: Permits editing phone, gender, and floor safety-critical emergency details (`emergency_name`, `emergency_phone`, `emergency_relation`, `medical_notes`).
      - **Coach Profile**: Permits editing instructor phone number and coaching specialties list.
      - **Admin & Manager Profile**: Permits updating account display name and password credentials.
+
+### Context: Admin Student Management Boundaries (Personal & Emergency Info Only)
+
+* **Problem**:
+  1. Administrative staff needed access to manage student rosters and maintain accurate emergency contact and personal details for floor safety without granting them authority to alter athletic belt ranks or bypass coach-led evaluations.
+* **Enforced Solution**:
+  1. **Route Guarding**:
+     - `GET /students`, `GET /students/{id}`, `POST /students`, `POST /students/{id}` permit `models.RoleAdmin`.
+     - `POST /students/{id}/evaluations` strictly restricted to `models.RoleCoach` and `models.RoleOperationManager`.
+  2. **Server-Side Field Isolation**:
+     - `HandleUpdateStudent` allows Admins to update `full_name`, `dob`, `gender`, `phone`, `emergency_name`, `emergency_phone`, `emergency_relation`, and `medical_notes`.
+     - Requests attempting to alter `current_belt` or promotion timestamps are strictly ignored unless executed by an `OperationManager`.
+  3. **UI Adaptation**:
+     - In `students.html`: "➕ Register New Student" button rendered for both Admin and Operation Manager.
+     - In `student_detail.html`: "✏️ Edit Student Info" modal rendered for Admin and Operation Manager; the `current_belt` input is rendered as a read-only badge for Admin. Coach evaluation forms remain hidden from Admin.
+

@@ -94,10 +94,6 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 
 	user := GetUserFromContext(r.Context())
 	if user != nil {
-		if user.Role == models.RoleAdmin {
-			http.Redirect(w, r, "/packages", http.StatusSeeOther)
-			return
-		}
 		if user.Role == models.RoleStudent {
 			if user.StudentID == nil || *user.StudentID != id {
 				http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
@@ -239,3 +235,78 @@ func (a *AppHandler) HandleCreateEvaluation(w http.ResponseWriter, r *http.Reque
 
 	http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)
 }
+
+func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimPrefix(r.URL.Path, "/students/")
+		idStr = strings.TrimSuffix(idStr, "/edit")
+	}
+	studentID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid student ID", http.StatusBadRequest)
+		return
+	}
+
+	student, err := a.store.GetStudentByID(studentID)
+	if err != nil {
+		http.Error(w, "Student not found", http.StatusNotFound)
+		return
+	}
+
+	fullName := strings.TrimSpace(r.FormValue("full_name"))
+	if fullName == "" {
+		http.Error(w, "Full name is required", http.StatusBadRequest)
+		return
+	}
+	student.FullName = fullName
+
+	dobStr := strings.TrimSpace(r.FormValue("dob"))
+	if dobStr != "" {
+		if dob, err := time.Parse("2006-01-02", dobStr); err == nil && !dob.IsZero() {
+			student.DOB = dob
+		}
+	}
+
+	if gender := strings.TrimSpace(r.FormValue("gender")); gender != "" {
+		student.Gender = gender
+	}
+	if phone := strings.TrimSpace(r.FormValue("phone")); phone != "" {
+		student.Phone = phone
+	}
+
+	emName := strings.TrimSpace(r.FormValue("emergency_name"))
+	emPhone := strings.TrimSpace(r.FormValue("emergency_phone"))
+	if emName != "" {
+		student.EmergencyName = emName
+	}
+	if emPhone != "" {
+		student.EmergencyPhone = emPhone
+	}
+	if emRel := strings.TrimSpace(r.FormValue("emergency_relation")); emRel != "" {
+		student.EmergencyRelation = emRel
+	}
+	student.MedicalNotes = strings.TrimSpace(r.FormValue("medical_notes"))
+
+	// Non-admin roles like Operation Manager could update current_belt if provided,
+	// but Admin is strictly barred from modifying belt rank or promotion dates.
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.IsOperationManager() {
+		if belt := strings.TrimSpace(r.FormValue("current_belt")); belt != "" {
+			student.CurrentBelt = models.BeltRank(belt)
+		}
+	}
+
+	if err := a.store.UpdateStudent(student); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)
+}
+
