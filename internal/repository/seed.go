@@ -73,11 +73,18 @@ func (m *MemoryStore) seedData() {
 
 	c12 := 12
 	c24 := 24
+	c4 := 4
+	c8 := 8
+	spw1 := 1
+	spw2 := 2
+	t4ID := uuid.MustParse("a4444444-4444-4444-4444-444444444444")
+	t5ID := uuid.MustParse("a5555555-5555-5555-5555-555555555555")
 
 	t1 := &models.PackageTemplate{
 		ID:           t1ID,
 		Title:        "12-Session Sparring & Technical Pass",
 		Description:  "Structured sparring drills, footwork, and tactical timing combinations.",
+		PlanType:     models.PlanTypeStandard,
 		SessionCount: &c12,
 		ValidityDays: 90,
 		Price:        180.00,
@@ -88,6 +95,7 @@ func (m *MemoryStore) seedData() {
 		ID:           t2ID,
 		Title:        "24-Session Promotion Prep Pass",
 		Description:  "Comprehensive syllabus coverage, Kup forms, and board breaking preparation.",
+		PlanType:     models.PlanTypeStandard,
 		SessionCount: &c24,
 		ValidityDays: 180,
 		Price:        320.00,
@@ -98,15 +106,42 @@ func (m *MemoryStore) seedData() {
 		ID:           t3ID,
 		Title:        "Monthly Unlimited Athlete Membership",
 		Description:  "Full floor access to all regular classes, poomsae sessions, and open sparring mats.",
+		PlanType:     models.PlanTypeUnlimited,
 		SessionCount: nil, // Unlimited
 		ValidityDays: 30,
 		Price:        220.00,
 		IsActive:     true,
 	}
 
+	t4 := &models.PackageTemplate{
+		ID:              t4ID,
+		Title:           "4-Week Fundamental Pass (1x/week)",
+		Description:     "Weekly foundational drills and discipline. Strictly consumable over 4 weeks.",
+		PlanType:        models.PlanTypeFourWeek,
+		SessionCount:    &c4,
+		SessionsPerWeek: &spw1,
+		ValidityDays:    28,
+		Price:           80.00,
+		IsActive:        true,
+	}
+
+	t5 := &models.PackageTemplate{
+		ID:              t5ID,
+		Title:           "4-Week Cadet & Athlete Pass (2x/week)",
+		Description:     "Twice-weekly high performance training. Strictly consumable over 4 weeks.",
+		PlanType:        models.PlanTypeFourWeek,
+		SessionCount:    &c8,
+		SessionsPerWeek: &spw2,
+		ValidityDays:    28,
+		Price:           140.00,
+		IsActive:        true,
+	}
+
 	m.packageTemplates[t1ID] = t1
 	m.packageTemplates[t2ID] = t2
 	m.packageTemplates[t3ID] = t3
+	m.packageTemplates[t4ID] = t4
+	m.packageTemplates[t5ID] = t5
 
 	// 3. Students
 	s1ID := uuid.MustParse("b1111111-1111-1111-1111-111111111111") // Ready
@@ -190,6 +225,7 @@ func (m *MemoryStore) seedData() {
 		StudentID:         s1ID,
 		TemplateID:        t1ID,
 		TemplateTitle:     t1.Title,
+		PlanType:          models.PlanTypeStandard,
 		TotalSessions:     t1.SessionCount,
 		RemainingSessions: &sp1Rem,
 		PurchaseDate:      now.AddDate(0, 0, -30),
@@ -204,6 +240,7 @@ func (m *MemoryStore) seedData() {
 		StudentID:         s2ID,
 		TemplateID:        t2ID,
 		TemplateTitle:     t2.Title,
+		PlanType:          models.PlanTypeStandard,
 		TotalSessions:     t2.SessionCount,
 		RemainingSessions: &sp2Rem,
 		PurchaseDate:      now.AddDate(0, 0, -60),
@@ -218,6 +255,7 @@ func (m *MemoryStore) seedData() {
 		StudentID:         s3ID,
 		TemplateID:        t1ID,
 		TemplateTitle:     t1.Title,
+		PlanType:          models.PlanTypeStandard,
 		TotalSessions:     t1.SessionCount,
 		RemainingSessions: &sp3Rem,
 		PurchaseDate:      now.AddDate(0, 0, -10),
@@ -231,6 +269,7 @@ func (m *MemoryStore) seedData() {
 		StudentID:         s4ID,
 		TemplateID:        t3ID,
 		TemplateTitle:     t3.Title,
+		PlanType:          models.PlanTypeUnlimited,
 		TotalSessions:     nil,
 		RemainingSessions: nil,
 		PurchaseDate:      now.AddDate(0, 0, -15),

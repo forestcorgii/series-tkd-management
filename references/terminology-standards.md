@@ -61,3 +61,16 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
 | 11 | **2nd Dan Black** | `BeltBlack2ndDan` | 72 | 240 |
 | 12 | **3rd Dan Black** | `BeltBlack3rdDan` | 84 | 365 |
 
+---
+
+## 4. Membership Plan Types & Cadence Rules
+
+### Context: 4-Week Consumable Membership Plans
+- **Problem:** Dojangs offer strictly consumable monthly passes (e.g. 4 classes = 1x/week, 8 classes = 2x/week, 12 classes = 3x/week) that must not roll over beyond 28 days and must enforce weekly cadence quotas during floor attendance check-in.
+- **Enforced Solution:**
+  - `plan_type` attribute with values: `'standard'`, `'four_week'`, `'unlimited'`.
+  - Fixed 28-day validity for all `four_week` templates and student packages.
+  - Calculated weekly cadence quota: $\text{Quota} = \max(1, \lfloor \text{Total Sessions} / 4 \rfloor)$.
+  - 7-day rolling cycle boundaries calculated relative to `PurchaseDate`: `[cycleStart, cycleEnd)`.
+  - Floor check-in enforcement: Rejects check-in attempts when weekly quota is reached, indicating cycle reset date, while allowing one-click coach/admin manual override (`?override=true`).
+

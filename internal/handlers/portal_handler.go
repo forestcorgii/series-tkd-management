@@ -369,32 +369,25 @@ func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Find oldest valid package to decrement
+	// Find oldest valid package to decrement respecting weekly cadence
 	pkgs, _ := a.store.GetStudentPackages(req.StudentID)
-	var chosenPkg *models.StudentPackage
-	for _, p := range pkgs {
-		if p.IsValidAt(time.Now()) {
-			chosenPkg = p
-			break
-		}
+	atts, _ := a.store.GetStudentAttendances(req.StudentID)
+	usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	var pkgID *uuid.UUID
-	if chosenPkg != nil {
-		pkgID = &chosenPkg.ID
+	if usedPkg != nil {
+		pkgID = &usedPkg.ID
+		_ = a.store.UpdateStudentPackage(usedPkg)
 	}
 
 	att, err := a.store.CheckInStudent(req.SessionID, req.StudentID, pkgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	}
-
-	// Auto-decrement 1 session from package if capped
-	if chosenPkg != nil && chosenPkg.RemainingSessions != nil && *chosenPkg.RemainingSessions > 0 {
-		newRemaining := *chosenPkg.RemainingSessions - 1
-		chosenPkg.RemainingSessions = &newRemaining
-		_ = a.store.UpdateStudentPackage(chosenPkg)
 	}
 
 	if r.Header.Get("HX-Request") == "true" {

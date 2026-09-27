@@ -75,11 +75,28 @@ func (a *AppHandler) HandleCreatePackageTemplate(w http.ResponseWriter, r *http.
 	description := strings.TrimSpace(r.FormValue("description"))
 	validityDaysStr := r.FormValue("validity_days")
 	priceStr := r.FormValue("price")
-	isUnlimited := r.FormValue("is_unlimited") == "1" || r.FormValue("is_unlimited") == "true" || r.FormValue("is_unlimited") == "on"
+	planTypeStr := r.FormValue("plan_type")
+	isUnlimited := r.FormValue("is_unlimited") == "1" || r.FormValue("is_unlimited") == "true" || r.FormValue("is_unlimited") == "on" || planTypeStr == "unlimited"
+	isFourWeek := planTypeStr == "four_week"
+
+	var planType models.PlanType
+	if isUnlimited {
+		planType = models.PlanTypeUnlimited
+	} else if isFourWeek {
+		planType = models.PlanTypeFourWeek
+	} else {
+		planType = models.PlanTypeStandard
+	}
 
 	validityDays, err := strconv.Atoi(validityDaysStr)
 	if err != nil || validityDays <= 0 {
-		validityDays = 30
+		if isFourWeek {
+			validityDays = 28
+		} else {
+			validityDays = 30
+		}
+	} else if isFourWeek {
+		validityDays = 28
 	}
 
 	price, err := strconv.ParseFloat(priceStr, 64)
@@ -88,24 +105,39 @@ func (a *AppHandler) HandleCreatePackageTemplate(w http.ResponseWriter, r *http.
 	}
 
 	var sessionCount *int
+	var sessionsPerWeek *int
 	if !isUnlimited {
 		count, err := strconv.Atoi(r.FormValue("session_count"))
 		if err == nil && count > 0 {
 			sessionCount = &count
 		} else {
-			defaultCount := 10
-			sessionCount = &defaultCount
+			if isFourWeek {
+				defaultCount := 4
+				sessionCount = &defaultCount
+			} else {
+				defaultCount := 10
+				sessionCount = &defaultCount
+			}
+		}
+		if isFourWeek {
+			cadence := *sessionCount / 4
+			if cadence < 1 {
+				cadence = 1
+			}
+			sessionsPerWeek = &cadence
 		}
 	}
 
 	tpl := &models.PackageTemplate{
-		ID:           uuid.New(),
-		Title:        title,
-		Description:  description,
-		SessionCount: sessionCount,
-		ValidityDays: validityDays,
-		Price:        price,
-		IsActive:     true,
+		ID:              uuid.New(),
+		Title:           title,
+		Description:     description,
+		PlanType:        planType,
+		SessionCount:    sessionCount,
+		SessionsPerWeek: sessionsPerWeek,
+		ValidityDays:    validityDays,
+		Price:           price,
+		IsActive:        true,
 	}
 
 	if err := tpl.Validate(); err != nil {
@@ -145,12 +177,20 @@ func (a *AppHandler) HandleUpdatePackageTemplate(w http.ResponseWriter, r *http.
 	description := strings.TrimSpace(r.FormValue("description"))
 	validityDaysStr := r.FormValue("validity_days")
 	priceStr := r.FormValue("price")
-	isUnlimited := r.FormValue("is_unlimited") == "1" || r.FormValue("is_unlimited") == "true" || r.FormValue("is_unlimited") == "on"
+	planTypeStr := r.FormValue("plan_type")
+	if planTypeStr == "" {
+		planTypeStr = r.FormValue("edit_plan_type")
+	}
+	isUnlimited := r.FormValue("is_unlimited") == "1" || r.FormValue("is_unlimited") == "true" || r.FormValue("is_unlimited") == "on" || planTypeStr == "unlimited"
+	isFourWeek := planTypeStr == "four_week"
 	isActive := r.FormValue("is_active") == "1" || r.FormValue("is_active") == "true" || r.FormValue("is_active") == "on"
 
 	validityDays, err := strconv.Atoi(validityDaysStr)
 	if err == nil && validityDays > 0 {
 		existing.ValidityDays = validityDays
+	}
+	if isFourWeek {
+		existing.ValidityDays = 28
 	}
 
 	price, err := strconv.ParseFloat(priceStr, 64)
@@ -165,8 +205,24 @@ func (a *AppHandler) HandleUpdatePackageTemplate(w http.ResponseWriter, r *http.
 	existing.IsActive = isActive
 
 	if isUnlimited {
+		existing.PlanType = models.PlanTypeUnlimited
 		existing.SessionCount = nil
+		existing.SessionsPerWeek = nil
+	} else if isFourWeek {
+		existing.PlanType = models.PlanTypeFourWeek
+		existing.ValidityDays = 28
+		count, err := strconv.Atoi(r.FormValue("session_count"))
+		if err == nil && count > 0 {
+			existing.SessionCount = &count
+			cadence := count / 4
+			if cadence < 1 {
+				cadence = 1
+			}
+			existing.SessionsPerWeek = &cadence
+		}
 	} else {
+		existing.PlanType = models.PlanTypeStandard
+		existing.SessionsPerWeek = nil
 		count, err := strconv.Atoi(r.FormValue("session_count"))
 		if err == nil && count > 0 {
 			existing.SessionCount = &count
@@ -296,13 +352,28 @@ func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request)
 
 	notes := strings.TrimSpace(r.FormValue("notes"))
 
+	var sessionsPerWeek *int
+	if selectedTpl.IsFourWeek() {
+		if totalSess != nil && *totalSess > 0 {
+			cadence := *totalSess / 4
+			if cadence < 1 {
+				cadence = 1
+			}
+			sessionsPerWeek = &cadence
+		} else if selectedTpl.SessionsPerWeek != nil {
+			sessionsPerWeek = selectedTpl.SessionsPerWeek
+		}
+	}
+
 	sp := &models.StudentPackage{
 		ID:                uuid.New(),
 		StudentID:         studentID,
 		TemplateID:        templateID,
 		TemplateTitle:     selectedTpl.Title,
+		PlanType:          selectedTpl.PlanType,
 		TotalSessions:     totalSess,
 		RemainingSessions: remSess,
+		SessionsPerWeek:   sessionsPerWeek,
 		CustomPrice:       customPrice,
 		Notes:             notes,
 		PurchaseDate:      now,

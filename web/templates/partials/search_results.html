@@ -22,7 +22,9 @@
             <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 {{if .ActivePackage}}
                     Membership: <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
-                    {{if .ActivePackage.RemainingSessions}}
+                    {{if .ActivePackage.IsFourWeek}}
+                        ({{.ActivePackage.RemainingSessions}} classes left &bull; {{.ActivePackage.WeeklyCadence}}x/wk &bull; 4 Weeks)
+                    {{else if .ActivePackage.RemainingSessions}}
                         ({{.ActivePackage.RemainingSessions}} classes left)
                     {{else}}
                         (Unlimited Membership ♾️)

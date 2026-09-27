@@ -117,7 +117,9 @@ func (s *SQLStore) runMigrations() error {
 			id TEXT PRIMARY KEY,
 			title TEXT NOT NULL,
 			description TEXT,
+			plan_type TEXT DEFAULT 'standard',
 			session_count INTEGER,
+			sessions_per_week INTEGER,
 			validity_days INTEGER NOT NULL,
 			price REAL NOT NULL,
 			is_active INTEGER NOT NULL DEFAULT 1
@@ -127,8 +129,10 @@ func (s *SQLStore) runMigrations() error {
 			id TEXT PRIMARY KEY,
 			student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
 			template_id TEXT NOT NULL REFERENCES package_templates(id),
+			plan_type TEXT DEFAULT 'standard',
 			total_sessions INTEGER,
 			remaining_sessions INTEGER,
+			sessions_per_week INTEGER,
 			custom_price REAL,
 			notes TEXT,
 			purchase_date TEXT NOT NULL,
@@ -244,7 +248,9 @@ func (s *SQLStore) runMigrations() error {
 			id UUID PRIMARY KEY,
 			title VARCHAR(100) NOT NULL,
 			description TEXT,
+			plan_type VARCHAR(50) DEFAULT 'standard',
 			session_count INT,
+			sessions_per_week INT,
 			validity_days INT NOT NULL,
 			price NUMERIC(10, 2) NOT NULL,
 			is_active BOOLEAN NOT NULL DEFAULT TRUE
@@ -254,8 +260,10 @@ func (s *SQLStore) runMigrations() error {
 			id UUID PRIMARY KEY,
 			student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
 			template_id UUID NOT NULL REFERENCES package_templates(id),
+			plan_type VARCHAR(50) DEFAULT 'standard',
 			total_sessions INT,
 			remaining_sessions INT,
+			sessions_per_week INT,
 			custom_price NUMERIC(10, 2),
 			notes TEXT,
 			purchase_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -346,6 +354,10 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN has_safety_flag INTEGER DEFAULT 0`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN description TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN plan_type TEXT DEFAULT 'standard'`)
+		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN sessions_per_week INTEGER`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN plan_type TEXT DEFAULT 'standard'`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN sessions_per_week INTEGER`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN custom_price REAL`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN notes TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN is_cancelled INTEGER DEFAULT 0`)
@@ -355,6 +367,10 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(120) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS has_safety_flag BOOLEAN DEFAULT FALSE`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS plan_type VARCHAR(50) DEFAULT 'standard'`)
+		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS sessions_per_week INT`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS plan_type VARCHAR(50) DEFAULT 'standard'`)
+		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS sessions_per_week INT`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS custom_price NUMERIC(10, 2)`)
 		_, _ = s.db.Exec(`ALTER TABLE student_packages ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS is_cancelled BOOLEAN DEFAULT FALSE`)
@@ -689,7 +705,7 @@ func (s *SQLStore) UpdateCoach(c *models.Coach) error {
 
 // Packages
 func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
-	query := `SELECT id, title, COALESCE(description, ''), session_count, validity_days, price, is_active
+	query := `SELECT id, title, COALESCE(description, ''), COALESCE(plan_type, 'standard'), session_count, sessions_per_week, validity_days, price, is_active
 		FROM package_templates ORDER BY is_active DESC, price ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -699,18 +715,30 @@ func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 
 	var templates []*models.PackageTemplate
 	for rows.Next() {
-		var idStr, desc string
-		var count sql.NullInt64
+		var idStr, desc, planTypeStr string
+		var count, spw sql.NullInt64
 		pt := &models.PackageTemplate{}
-		err := rows.Scan(&idStr, &pt.Title, &desc, &count, &pt.ValidityDays, &pt.Price, &pt.IsActive)
+		err := rows.Scan(&idStr, &pt.Title, &desc, &planTypeStr, &count, &spw, &pt.ValidityDays, &pt.Price, &pt.IsActive)
 		if err != nil {
 			return nil, err
 		}
 		pt.ID = uuid.Must(uuid.Parse(idStr))
 		pt.Description = desc
+		if planTypeStr == "" {
+			if count.Valid {
+				planTypeStr = "standard"
+			} else {
+				planTypeStr = "unlimited"
+			}
+		}
+		pt.PlanType = models.PlanType(planTypeStr)
 		if count.Valid {
 			c := int(count.Int64)
 			pt.SessionCount = &c
+		}
+		if spw.Valid {
+			w := int(spw.Int64)
+			pt.SessionsPerWeek = &w
 		}
 		templates = append(templates, pt)
 	}
@@ -718,12 +746,12 @@ func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 }
 
 func (s *SQLStore) GetPackageTemplateByID(id uuid.UUID) (*models.PackageTemplate, error) {
-	query := `SELECT id, title, COALESCE(description, ''), session_count, validity_days, price, is_active
+	query := `SELECT id, title, COALESCE(description, ''), COALESCE(plan_type, 'standard'), session_count, sessions_per_week, validity_days, price, is_active
 		FROM package_templates WHERE id = $1`
-	var idStr, desc string
-	var count sql.NullInt64
+	var idStr, desc, planTypeStr string
+	var count, spw sql.NullInt64
 	pt := &models.PackageTemplate{}
-	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &pt.Title, &desc, &count, &pt.ValidityDays, &pt.Price, &pt.IsActive)
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &pt.Title, &desc, &planTypeStr, &count, &spw, &pt.ValidityDays, &pt.Price, &pt.IsActive)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -732,9 +760,21 @@ func (s *SQLStore) GetPackageTemplateByID(id uuid.UUID) (*models.PackageTemplate
 	}
 	pt.ID = uuid.Must(uuid.Parse(idStr))
 	pt.Description = desc
+	if planTypeStr == "" {
+		if count.Valid {
+			planTypeStr = "standard"
+		} else {
+			planTypeStr = "unlimited"
+		}
+	}
+	pt.PlanType = models.PlanType(planTypeStr)
 	if count.Valid {
 		c := int(count.Int64)
 		pt.SessionCount = &c
+	}
+	if spw.Valid {
+		w := int(spw.Int64)
+		pt.SessionsPerWeek = &w
 	}
 	return pt, nil
 }
@@ -743,16 +783,30 @@ func (s *SQLStore) CreatePackageTemplate(tpl *models.PackageTemplate) error {
 	if tpl.ID == uuid.Nil {
 		tpl.ID = uuid.New()
 	}
-	query := `INSERT INTO package_templates (id, title, description, session_count, validity_days, price, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := s.db.Exec(query, tpl.ID.String(), tpl.Title, tpl.Description, tpl.SessionCount, tpl.ValidityDays, tpl.Price, tpl.IsActive)
+	if tpl.PlanType == "" {
+		if tpl.SessionCount == nil {
+			tpl.PlanType = models.PlanTypeUnlimited
+		} else {
+			tpl.PlanType = models.PlanTypeStandard
+		}
+	}
+	query := `INSERT INTO package_templates (id, title, description, plan_type, session_count, sessions_per_week, validity_days, price, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err := s.db.Exec(query, tpl.ID.String(), tpl.Title, tpl.Description, string(tpl.PlanType), tpl.SessionCount, tpl.SessionsPerWeek, tpl.ValidityDays, tpl.Price, tpl.IsActive)
 	return err
 }
 
 func (s *SQLStore) UpdatePackageTemplate(tpl *models.PackageTemplate) error {
-	query := `UPDATE package_templates SET title = $1, description = $2, session_count = $3, validity_days = $4, price = $5, is_active = $6
-		WHERE id = $7`
-	res, err := s.db.Exec(query, tpl.Title, tpl.Description, tpl.SessionCount, tpl.ValidityDays, tpl.Price, tpl.IsActive, tpl.ID.String())
+	if tpl.PlanType == "" {
+		if tpl.SessionCount == nil {
+			tpl.PlanType = models.PlanTypeUnlimited
+		} else {
+			tpl.PlanType = models.PlanTypeStandard
+		}
+	}
+	query := `UPDATE package_templates SET title = $1, description = $2, plan_type = $3, session_count = $4, sessions_per_week = $5, validity_days = $6, price = $7, is_active = $8
+		WHERE id = $9`
+	res, err := s.db.Exec(query, tpl.Title, tpl.Description, string(tpl.PlanType), tpl.SessionCount, tpl.SessionsPerWeek, tpl.ValidityDays, tpl.Price, tpl.IsActive, tpl.ID.String())
 	if err != nil {
 		return err
 	}
@@ -777,8 +831,8 @@ func (s *SQLStore) TogglePackageTemplateStatus(id uuid.UUID, isActive bool) erro
 }
 
 func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPackage, error) {
-	query := `SELECT sp.id, sp.student_id, sp.template_id, pt.title, sp.total_sessions,
-		sp.remaining_sessions, sp.custom_price, COALESCE(sp.notes, ''), sp.purchase_date, sp.expiry_date, sp.payment_status, sp.created_at
+	query := `SELECT sp.id, sp.student_id, sp.template_id, pt.title, COALESCE(sp.plan_type, 'standard'), sp.total_sessions,
+		sp.remaining_sessions, sp.sessions_per_week, sp.custom_price, COALESCE(sp.notes, ''), sp.purchase_date, sp.expiry_date, sp.payment_status, sp.created_at
 		FROM student_packages sp
 		LEFT JOIN package_templates pt ON sp.template_id = pt.id
 		WHERE sp.student_id = $1
@@ -792,13 +846,13 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 	var pkgs []*models.StudentPackage
 	for rows.Next() {
 		var idStr, stIDStr, tmplIDStr, purchStr, expStr, createdStr, notesStr string
-		var titleStr sql.NullString
-		var total, rem sql.NullInt64
+		var titleStr, planTypeStr sql.NullString
+		var total, rem, spw sql.NullInt64
 		var customPrice sql.NullFloat64
 		sp := &models.StudentPackage{}
 		err := rows.Scan(
-			&idStr, &stIDStr, &tmplIDStr, &titleStr, &total,
-			&rem, &customPrice, &notesStr, &purchStr, &expStr, &sp.PaymentStatus, &createdStr,
+			&idStr, &stIDStr, &tmplIDStr, &titleStr, &planTypeStr, &total,
+			&rem, &spw, &customPrice, &notesStr, &purchStr, &expStr, &sp.PaymentStatus, &createdStr,
 		)
 		if err != nil {
 			return nil, err
@@ -809,6 +863,13 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 		if titleStr.Valid {
 			sp.TemplateTitle = titleStr.String
 		}
+		pType := "standard"
+		if planTypeStr.Valid && planTypeStr.String != "" {
+			pType = planTypeStr.String
+		} else if !total.Valid {
+			pType = "unlimited"
+		}
+		sp.PlanType = models.PlanType(pType)
 		sp.Notes = notesStr
 		if customPrice.Valid {
 			cp := customPrice.Float64
@@ -821,6 +882,10 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 		if rem.Valid {
 			r := int(rem.Int64)
 			sp.RemainingSessions = &r
+		}
+		if spw.Valid {
+			w := int(spw.Int64)
+			sp.SessionsPerWeek = &w
 		}
 		sp.PurchaseDate, _ = parseTimeFlex(purchStr)
 		sp.ExpiryDate, _ = parseTimeFlex(expStr)
@@ -837,12 +902,19 @@ func (s *SQLStore) AssignPackage(pkg *models.StudentPackage) error {
 	if pkg.CreatedAt.IsZero() {
 		pkg.CreatedAt = time.Now()
 	}
-	query := `INSERT INTO student_packages (id, student_id, template_id, total_sessions,
-		remaining_sessions, custom_price, notes, purchase_date, expiry_date, payment_status, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	if pkg.PlanType == "" {
+		if pkg.TotalSessions == nil {
+			pkg.PlanType = models.PlanTypeUnlimited
+		} else {
+			pkg.PlanType = models.PlanTypeStandard
+		}
+	}
+	query := `INSERT INTO student_packages (id, student_id, template_id, plan_type, total_sessions,
+		remaining_sessions, sessions_per_week, custom_price, notes, purchase_date, expiry_date, payment_status, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 	_, err := s.db.Exec(query,
-		pkg.ID.String(), pkg.StudentID.String(), pkg.TemplateID.String(),
-		pkg.TotalSessions, pkg.RemainingSessions, pkg.CustomPrice, pkg.Notes, formatDateForDB(pkg.PurchaseDate),
+		pkg.ID.String(), pkg.StudentID.String(), pkg.TemplateID.String(), string(pkg.PlanType),
+		pkg.TotalSessions, pkg.RemainingSessions, pkg.SessionsPerWeek, pkg.CustomPrice, pkg.Notes, formatDateForDB(pkg.PurchaseDate),
 		formatDateForDB(pkg.ExpiryDate), pkg.PaymentStatus, formatTimeForDB(pkg.CreatedAt),
 	)
 	return err
@@ -1347,14 +1419,23 @@ func (s *SQLStore) SeedDefaultData() error {
 	t1ID := uuid.MustParse("a1111111-1111-1111-1111-111111111111")
 	t2ID := uuid.MustParse("a2222222-2222-2222-2222-222222222222")
 	t3ID := uuid.MustParse("a3333333-3333-3333-3333-333333333333")
+	t4ID := uuid.MustParse("a4444444-4444-4444-4444-444444444444")
+	t5ID := uuid.MustParse("a5555555-5555-5555-5555-555555555555")
 	c12 := 12
 	c24 := 24
+	c4 := 4
+	c8 := 8
+	spw1 := 1
+	spw2 := 2
 
-	_, _ = s.db.Exec(`INSERT INTO package_templates (id, title, description, session_count, validity_days, price, is_active) VALUES
-		($1, '12-Session Sparring & Technical Pass', 'Structured sparring drills, footwork, and tactical timing combinations.', $2, 90, 180.00, 1),
-		($3, '24-Session Promotion Prep Pass', 'Comprehensive syllabus coverage, Kup forms, and board breaking preparation.', $4, 180, 320.00, 1),
-		($5, 'Monthly Unlimited Athlete Membership', 'Full floor access to all regular classes, poomsae sessions, and open sparring mats.', NULL, 30, 220.00, 1)`,
+	_, _ = s.db.Exec(`INSERT INTO package_templates (id, title, description, plan_type, session_count, sessions_per_week, validity_days, price, is_active) VALUES
+		($1, '12-Session Sparring & Technical Pass', 'Structured sparring drills, footwork, and tactical timing combinations.', 'standard', $2, NULL, 90, 180.00, 1),
+		($3, '24-Session Promotion Prep Pass', 'Comprehensive syllabus coverage, Kup forms, and board breaking preparation.', 'standard', $4, NULL, 180, 320.00, 1),
+		($5, 'Monthly Unlimited Athlete Membership', 'Full floor access to all regular classes, poomsae sessions, and open sparring mats.', 'unlimited', NULL, NULL, 30, 220.00, 1),
+		($6, '4-Week Fundamental Pass (1x/week)', 'Weekly foundational drills and discipline. Strictly consumable over 4 weeks.', 'four_week', $7, $8, 28, 80.00, 1),
+		($9, '4-Week Cadet & Athlete Pass (2x/week)', 'Twice-weekly high performance training. Strictly consumable over 4 weeks.', 'four_week', $10, $11, 28, 140.00, 1)`,
 		t1ID.String(), c12, t2ID.String(), c24, t3ID.String(),
+		t4ID.String(), c4, spw1, t5ID.String(), c8, spw2,
 	)
 
 	// 3. Students

@@ -143,3 +143,114 @@ func TestStudentPackage_ValidityAndDeduction(t *testing.T) {
 		t.Fatalf("expected ErrPackageExpired, got %v", err)
 	}
 }
+
+func TestPackageTemplate_FourWeekPlan(t *testing.T) {
+	four := 4
+	eight := 8
+	twelve := 12
+
+	t.Run("Valid 4-week 4-session plan defaults to 28 days and 1/week cadence", func(t *testing.T) {
+		tpl := PackageTemplate{
+			Title:        "4-Week Foundations Pass",
+			PlanType:     PlanTypeFourWeek,
+			SessionCount: &four,
+			ValidityDays: 0, // Should default to 28
+			Price:        100.00,
+		}
+		if err := tpl.Validate(); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
+		if tpl.ValidityDays != 28 {
+			t.Fatalf("expected validity days 28, got %d", tpl.ValidityDays)
+		}
+		if !tpl.IsFourWeek() {
+			t.Fatal("expected IsFourWeek to be true")
+		}
+		if tpl.WeeklyCadence() != 1 {
+			t.Fatalf("expected weekly cadence 1, got %d", tpl.WeeklyCadence())
+		}
+	})
+
+	t.Run("Valid 4-week 8-session plan has 2/week cadence", func(t *testing.T) {
+		tpl := PackageTemplate{
+			Title:        "4-Week Competitor Pass",
+			PlanType:     PlanTypeFourWeek,
+			SessionCount: &eight,
+			ValidityDays: 28,
+			Price:        180.00,
+		}
+		if err := tpl.Validate(); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
+		if tpl.WeeklyCadence() != 2 {
+			t.Fatalf("expected weekly cadence 2, got %d", tpl.WeeklyCadence())
+		}
+	})
+
+	t.Run("Valid 4-week 12-session plan has 3/week cadence", func(t *testing.T) {
+		tpl := PackageTemplate{
+			Title:        "4-Week Intensive Pass",
+			PlanType:     PlanTypeFourWeek,
+			SessionCount: &twelve,
+			ValidityDays: 28,
+			Price:        250.00,
+		}
+		if tpl.WeeklyCadence() != 3 {
+			t.Fatalf("expected weekly cadence 3, got %d", tpl.WeeklyCadence())
+		}
+	})
+
+	t.Run("Four-week plan requires positive session count", func(t *testing.T) {
+		tpl := PackageTemplate{
+			Title:        "Invalid 4-Week Pass",
+			PlanType:     PlanTypeFourWeek,
+			SessionCount: nil,
+			ValidityDays: 28,
+			Price:        100.00,
+		}
+		if err := tpl.Validate(); err != ErrInvalidSessionCount {
+			t.Fatalf("expected ErrInvalidSessionCount, got %v", err)
+		}
+	})
+}
+
+func TestStudentPackage_FourWeekCycleWindow(t *testing.T) {
+	startDate := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+	four := 4
+
+	sp := &StudentPackage{
+		ID:            uuid.New(),
+		PlanType:      PlanTypeFourWeek,
+		TotalSessions: &four,
+		PurchaseDate:  startDate,
+		ExpiryDate:    startDate.AddDate(0, 0, 28),
+		PaymentStatus: "paid",
+	}
+
+	// Day 3 (within Week 1: Days 1-7)
+	weekNum, start, end := sp.CurrentCycleWindow(startDate.AddDate(0, 0, 2))
+	if weekNum != 1 {
+		t.Fatalf("expected week 1, got %d", weekNum)
+	}
+	if !start.Equal(startDate) {
+		t.Fatalf("expected cycle start %v, got %v", startDate, start)
+	}
+	if !end.Equal(startDate.AddDate(0, 0, 7)) {
+		t.Fatalf("expected cycle end %v, got %v", startDate.AddDate(0, 0, 7), end)
+	}
+
+	// Day 8 (within Week 2: Days 8-14)
+	weekNum, start, end = sp.CurrentCycleWindow(startDate.AddDate(0, 0, 7))
+	if weekNum != 2 {
+		t.Fatalf("expected week 2, got %d", weekNum)
+	}
+	if !start.Equal(startDate.AddDate(0, 0, 7)) {
+		t.Fatalf("expected cycle start %v, got %v", startDate.AddDate(0, 0, 7), start)
+	}
+
+	// Day 25 (within Week 4: Days 22-28)
+	weekNum, _, _ = sp.CurrentCycleWindow(startDate.AddDate(0, 0, 24))
+	if weekNum != 4 {
+		t.Fatalf("expected week 4, got %d", weekNum)
+	}
+}

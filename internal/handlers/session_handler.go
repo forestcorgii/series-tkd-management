@@ -149,9 +149,16 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 		readinessMap[st.ID.String()] = rStatus
 
 		pkgs, _ := a.store.GetStudentPackages(st.ID)
-		oldestValid, err := a.packageSvc.FindOldestValidPackage(pkgs, time.Now())
+		oldestValid, err := a.packageSvc.FindOldestValidPackage(pkgs, atts, time.Now())
 		if err != nil {
 			pkgStatusMap[st.ID.String()] = "No Active Credits ⚠️"
+		} else if oldestValid.IsFourWeek() {
+			weekNum, _, _ := oldestValid.CurrentCycleWindow(time.Now())
+			if oldestValid.RemainingSessions != nil {
+				pkgStatusMap[st.ID.String()] = fmt.Sprintf("Wk %d: %d left (%dx/wk)", weekNum, *oldestValid.RemainingSessions, oldestValid.WeeklyCadence())
+			} else {
+				pkgStatusMap[st.ID.String()] = fmt.Sprintf("Wk %d 4-Week Pass", weekNum)
+			}
 		} else if oldestValid.RemainingSessions != nil {
 			pkgStatusMap[st.ID.String()] = fmt.Sprintf("%d sessions left", *oldestValid.RemainingSessions)
 		} else {
@@ -203,11 +210,11 @@ func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request)
 		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 
 		pkgs, _ := a.store.GetStudentPackages(st.ID)
-		validPkg, pkgErr := a.packageSvc.FindOldestValidPackage(pkgs, time.Now())
+		validPkg, pkgErr := a.packageSvc.FindOldestValidPackage(pkgs, atts, time.Now())
 
 		warning := ""
 		if pkgErr != nil {
-			warning = "EXPIRED / ZERO CREDITS - Override Required"
+			warning = pkgErr.Error()
 		}
 
 		results = append(results, StudentSearchResultItem{
@@ -304,9 +311,10 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkgs, _ := a.store.GetStudentPackages(studentID)
+	atts, _ := a.store.GetStudentAttendances(studentID)
 	override := r.FormValue("override") == "true"
 
-	usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, time.Now())
+	usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
 	var pkgID *uuid.UUID
 	if err == nil && usedPkg != nil {
 		pkgID = &usedPkg.ID
@@ -318,6 +326,15 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 			❌ Check-in rejected: %v. <button hx-post="/sessions/%s/checkin/%s?override=true" hx-target="#attendance-roster" hx-swap="afterbegin" class="underline font-bold ml-2">Manual Override</button>
 		</div>`, err, sessionID, studentID)))
 		return
+	} else if override {
+		for _, p := range pkgs {
+			if p.IsValidAt(time.Now()) {
+				_ = p.DeductSession(time.Now())
+				pkgID = &p.ID
+				_ = a.store.UpdateStudentPackage(p)
+				break
+			}
+		}
 	}
 
 	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID)
@@ -335,7 +352,7 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		allSessionsMap[s.ID.String()] = s
 	}
 
-	atts, _ := a.store.GetStudentAttendances(studentID)
+	atts, _ = a.store.GetStudentAttendances(studentID)
 	latestEval, _ := a.store.GetLatestEvaluation(studentID)
 	readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 

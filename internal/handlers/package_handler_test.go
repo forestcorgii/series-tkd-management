@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"series-tkd-management/internal/handlers"
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
@@ -201,4 +203,126 @@ func TestHandleAssignPackage_WithCustomOverrides(t *testing.T) {
 		t.Errorf("expected expiry at least 99 days in future, got %v", latest.ExpiryDate)
 	}
 	_ = strconv.Itoa(0)
+}
+
+func TestHandleFourWeekPlan_CreationAndCheckIn(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	// 1. Create a 4-week 4-class plan template
+	formData := url.Values{
+		"title":         {"4-Week Weekly Cadet Pass"},
+		"description":   {"1 class per week strictly over 4 weeks"},
+		"plan_type":     {"four_week"},
+		"session_count": {"4"},
+		"validity_days": {"28"},
+		"price":         {"95.00"},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/packages/templates", strings.NewReader(formData.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+
+	app.HandleCreatePackageTemplate(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect 303, got %d", rec.Code)
+	}
+
+	// Verify template created
+	templates, _ := store.GetPackageTemplates()
+	var created *models.PackageTemplate
+	for _, tpl := range templates {
+		if tpl.Title == "4-Week Weekly Cadet Pass" {
+			created = tpl
+			break
+		}
+	}
+	if created == nil {
+		t.Fatal("4-week package template was not created")
+	}
+	if !created.IsFourWeek() {
+		t.Fatal("expected template to be IsFourWeek")
+	}
+	if created.ValidityDays != 28 {
+		t.Fatalf("expected 28 validity days, got %d", created.ValidityDays)
+	}
+	if created.WeeklyCadence() != 1 {
+		t.Fatalf("expected weekly cadence 1, got %d", created.WeeklyCadence())
+	}
+
+	// 2. Assign the 4-week package to a new student
+	student := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Cadet Jordan",
+		DOB:               time.Now().AddDate(-12, 0, 0),
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Parent Jordan",
+		EmergencyPhone:    "555-0011",
+		EmergencyRelation: "Parent",
+		IsActive:          true,
+	}
+	_ = store.CreateStudent(student)
+
+	assignData := url.Values{
+		"student_id":     {student.ID.String()},
+		"template_id":    {created.ID.String()},
+		"payment_status": {"paid"},
+	}
+	assignReq := httptest.NewRequest(http.MethodPost, "/packages/assign", strings.NewReader(assignData.Encode()))
+	assignReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	assignRec := httptest.NewRecorder()
+
+	app.HandleAssignPackage(assignRec, assignReq)
+	if assignRec.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect 303, got %d", assignRec.Code)
+	}
+
+	// 3. Create two training sessions on the same day
+	coaches, _ := store.GetAllCoaches()
+	cID := coaches[0].ID
+	sess1 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "10:00",
+		EndTime:      "11:00",
+		CoachID:      cID,
+		TrainingType: models.TrainingSparring,
+	}
+	sess2 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "14:00",
+		EndTime:      "15:00",
+		CoachID:      cID,
+		TrainingType: models.TrainingPoomsae,
+	}
+	_ = store.CreateSession(sess1)
+	_ = store.CreateSession(sess2)
+
+	// Check-in 1: Should succeed
+	checkin1Req := httptest.NewRequest(http.MethodPost, "/sessions/"+sess1.ID.String()+"/checkin/"+student.ID.String(), nil)
+	checkin1Rec := httptest.NewRecorder()
+	app.HandleCheckIn(checkin1Rec, checkin1Req)
+	if checkin1Rec.Code != http.StatusOK {
+		t.Fatalf("expected first check-in to succeed (200), got %d. Body: %s", checkin1Rec.Code, checkin1Rec.Body.String())
+	}
+
+	// Check-in 2 (same week, 2nd class for 1x/wk plan): Should be rejected with 402 and weekly limit message
+	checkin2Req := httptest.NewRequest(http.MethodPost, "/sessions/"+sess2.ID.String()+"/checkin/"+student.ID.String(), nil)
+	checkin2Rec := httptest.NewRecorder()
+	app.HandleCheckIn(checkin2Rec, checkin2Req)
+	if checkin2Rec.Code != http.StatusPaymentRequired {
+		t.Fatalf("expected second check-in to be rejected with 402, got %d. Body: %s", checkin2Rec.Code, checkin2Rec.Body.String())
+	}
+	if !strings.Contains(checkin2Rec.Body.String(), "weekly limit") {
+		t.Fatalf("expected rejection body to mention weekly limit, got: %s", checkin2Rec.Body.String())
+	}
+
+	// Check-in 2 with override=true: Should succeed
+	overrideReq := httptest.NewRequest(http.MethodPost, "/sessions/"+sess2.ID.String()+"/checkin/"+student.ID.String()+"?override=true", nil)
+	overrideRec := httptest.NewRecorder()
+	app.HandleCheckIn(overrideRec, overrideReq)
+	if overrideRec.Code != http.StatusOK {
+		t.Fatalf("expected override check-in to succeed (200), got %d. Body: %s", overrideRec.Code, overrideRec.Body.String())
+	}
 }

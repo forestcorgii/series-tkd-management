@@ -58,7 +58,7 @@
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-[11px] uppercase font-bold tracking-wider {{if .IsActive}}text-[#990303] dark:text-red-400{{else}}text-slate-500{{end}}">
-                            {{if .IsUnlimited}}Unlimited Pass{{else}}Class Package{{end}}
+                            {{if .IsFourWeek}}4-Week Cadence ({{.WeeklyCadence}}x/wk){{else if .IsUnlimited}}Unlimited Pass{{else}}Class Package{{end}}
                         </span>
                         <span class="font-display font-black text-2xl text-slate-900 dark:text-white">
                             ₱{{printf "%.2f" .Price}}
@@ -83,7 +83,9 @@
                     <div class="space-y-2 text-xs pt-2">
                         <div class="flex justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
                             <span class="text-slate-600 dark:text-slate-400 font-medium">Session Credits:</span>
-                            {{if .SessionCount}}
+                            {{if .IsFourWeek}}
+                            <span class="text-slate-900 dark:text-white font-bold">{{.SessionCount}} Classes ({{.WeeklyCadence}} / wk)</span>
+                            {{else if .SessionCount}}
                             <span class="text-slate-900 dark:text-white font-bold">{{.SessionCount}} Classes</span>
                             {{else}}
                             <span class="text-teal-600 dark:text-teal-300 font-bold">Unlimited Floor Access ♾️</span>
@@ -91,7 +93,11 @@
                         </div>
                         <div class="flex justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
                             <span class="text-slate-600 dark:text-slate-400 font-medium">Validity Period:</span>
+                            {{if .IsFourWeek}}
+                            <span class="text-purple-700 dark:text-purple-300 font-bold">Strict 28 Days (4 Weeks) ⏳</span>
+                            {{else}}
                             <span class="text-slate-900 dark:text-white font-bold">{{.ValidityDays}} Days</span>
+                            {{end}}
                         </div>
                     </div>
                 </div>
@@ -100,7 +106,7 @@
                 <div class="pt-5 mt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
                     {{if and $user $user.IsOperationManager}}
                     <button type="button"
-                            onclick='openEditPlanModal("{{.ID}}", "{{.Title}}", "{{.Description}}", {{if .SessionCount}}{{.SessionCount}}{{else}}null{{end}}, {{.ValidityDays}}, {{.Price}}, {{.IsActive}})'
+                            onclick='openEditPlanModal("{{.ID}}", "{{.Title}}", "{{.Description}}", "{{.PlanType}}", {{if .SessionCount}}{{.SessionCount}}{{else}}null{{end}}, {{.ValidityDays}}, {{.Price}}, {{.IsActive}})'
                             class="btn btn-secondary btn-xs flex items-center gap-1">
                         ✏️ Edit Plan
                     </button>
@@ -177,7 +183,14 @@
                             </span>
                         </td>
                         <td class="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">
-                            {{.Package.TemplateTitle}}
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span>{{.Package.TemplateTitle}}</span>
+                                {{if .Package.IsFourWeek}}
+                                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                                    4-Wk ({{.Package.WeeklyCadence}}x/wk)
+                                </span>
+                                {{end}}
+                            </div>
                         </td>
                         <td class="py-3.5 px-4 font-medium">
                             {{if .Package.RemainingSessions}}
@@ -254,20 +267,44 @@
 
             <div class="p-3 bg-slate-50 dark:bg-neutral-900/80 rounded-xl border border-slate-200 dark:border-neutral-800 space-y-3">
                 <span class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase block">Plan Type &amp; Attendance Credits</span>
-                <div class="flex items-center gap-6 text-xs">
+                <div class="flex flex-wrap items-center gap-4 text-xs">
                     <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-800 dark:text-slate-200">
-                        <input type="radio" name="plan_type" value="sessions" checked onchange="togglePlanTypeCreate(false)" class="text-[#990303] focus:ring-[#990303]">
+                        <input type="radio" id="create-type-sessions" name="plan_type" value="standard" checked onchange="handlePlanTypeChangeCreate('standard')" class="text-[#990303] focus:ring-[#990303]">
                         Fixed Class Count
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-800 dark:text-slate-200">
-                        <input type="radio" name="plan_type" value="unlimited" onchange="togglePlanTypeCreate(true)" class="text-[#990303] focus:ring-[#990303]">
+                        <input type="radio" id="create-type-four-week" name="plan_type" value="four_week" onchange="handlePlanTypeChangeCreate('four_week')" class="text-[#990303] focus:ring-[#990303]">
+                        4-Week Strictly Consumable ⏱️
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-800 dark:text-slate-200">
+                        <input type="radio" id="create-type-unlimited" name="plan_type" value="unlimited" onchange="handlePlanTypeChangeCreate('unlimited')" class="text-[#990303] focus:ring-[#990303]">
                         Unlimited Classes ♾️
                     </label>
                 </div>
 
+                <!-- 4-Week Guidance Info Banner -->
+                <div id="create-four-week-info" class="hidden p-3 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 rounded-lg text-xs leading-relaxed space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold">⏱️ 4-Week Consumption Rules:</span>
+                        <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-300">Strict 28 Days</span>
+                    </div>
+                    <p class="text-[11px] text-purple-800/90 dark:text-purple-300/90">
+                        Enforces a weekly attendance cap. Check-ins reject when quota is reached in a 7-day cycle (coaches can manual override).
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                        <span class="font-semibold text-slate-600 dark:text-slate-400">Quick Presets:</span>
+                        <button type="button" onclick="setFourWeekPresetCreate(4)" class="px-2 py-0.5 rounded bg-purple-200/80 dark:bg-purple-900/60 hover:bg-purple-300 dark:hover:bg-purple-800 font-bold transition">4 classes (1x/wk)</button>
+                        <button type="button" onclick="setFourWeekPresetCreate(8)" class="px-2 py-0.5 rounded bg-purple-200/80 dark:bg-purple-900/60 hover:bg-purple-300 dark:hover:bg-purple-800 font-bold transition">8 classes (2x/wk)</button>
+                        <button type="button" onclick="setFourWeekPresetCreate(12)" class="px-2 py-0.5 rounded bg-purple-200/80 dark:bg-purple-900/60 hover:bg-purple-300 dark:hover:bg-purple-800 font-bold transition">12 classes (3x/wk)</button>
+                    </div>
+                </div>
+
                 <div id="create-sessions-container">
-                    <label class="form-label">Total Class Credits *</label>
-                    <input type="number" id="create-session-count" name="session_count" value="12" min="1" class="form-input">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="form-label mb-0">Total Class Credits *</label>
+                        <span id="create-cadence-preview" class="text-[11px] font-semibold text-purple-700 dark:text-purple-300 hidden"></span>
+                    </div>
+                    <input type="number" id="create-session-count" name="session_count" value="12" min="1" oninput="updateCadencePreviewCreate()" class="form-input">
                 </div>
                 <input type="hidden" id="create-is-unlimited" name="is_unlimited" value="0">
             </div>
@@ -275,7 +312,8 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="form-label">Validity Period (Days) *</label>
-                    <input type="number" name="validity_days" value="90" min="1" required class="form-input">
+                    <input type="number" id="create-validity-days" name="validity_days" value="90" min="1" required class="form-input">
+                    <span id="create-validity-hint" class="text-[10px] text-purple-600 dark:text-purple-400 mt-1 hidden block font-medium">Locked to 28 Days (4 Weeks)</span>
                 </div>
                 <div>
                     <label class="form-label">Plan Price (₱) *</label>
@@ -316,20 +354,44 @@
 
             <div class="p-3 bg-slate-50 dark:bg-neutral-900/80 rounded-xl border border-slate-200 dark:border-neutral-800 space-y-3">
                 <span class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase block">Plan Type &amp; Attendance Credits</span>
-                <div class="flex items-center gap-6 text-xs">
+                <div class="flex flex-wrap items-center gap-4 text-xs">
                     <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-800 dark:text-slate-200">
-                        <input type="radio" id="edit-type-sessions" name="edit_plan_type" value="sessions" onchange="togglePlanTypeEdit(false)" class="text-[#990303] focus:ring-[#990303]">
+                        <input type="radio" id="edit-type-sessions" name="edit_plan_type" value="standard" onchange="handlePlanTypeChangeEdit('standard')" class="text-[#990303] focus:ring-[#990303]">
                         Fixed Class Count
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-800 dark:text-slate-200">
-                        <input type="radio" id="edit-type-unlimited" name="edit_plan_type" value="unlimited" onchange="togglePlanTypeEdit(true)" class="text-[#990303] focus:ring-[#990303]">
+                        <input type="radio" id="edit-type-four-week" name="edit_plan_type" value="four_week" onchange="handlePlanTypeChangeEdit('four_week')" class="text-[#990303] focus:ring-[#990303]">
+                        4-Week Strictly Consumable ⏱️
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-800 dark:text-slate-200">
+                        <input type="radio" id="edit-type-unlimited" name="edit_plan_type" value="unlimited" onchange="handlePlanTypeChangeEdit('unlimited')" class="text-[#990303] focus:ring-[#990303]">
                         Unlimited Classes ♾️
                     </label>
                 </div>
 
+                <!-- 4-Week Guidance Info Banner -->
+                <div id="edit-four-week-info" class="hidden p-3 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 rounded-lg text-xs leading-relaxed space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold">⏱️ 4-Week Consumption Rules:</span>
+                        <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-300">Strict 28 Days</span>
+                    </div>
+                    <p class="text-[11px] text-purple-800/90 dark:text-purple-300/90">
+                        Enforces a weekly attendance cap. Check-ins reject when quota is reached in a 7-day cycle.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                        <span class="font-semibold text-slate-600 dark:text-slate-400">Quick Presets:</span>
+                        <button type="button" onclick="setFourWeekPresetEdit(4)" class="px-2 py-0.5 rounded bg-purple-200/80 dark:bg-purple-900/60 hover:bg-purple-300 dark:hover:bg-purple-800 font-bold transition">4 classes (1x/wk)</button>
+                        <button type="button" onclick="setFourWeekPresetEdit(8)" class="px-2 py-0.5 rounded bg-purple-200/80 dark:bg-purple-900/60 hover:bg-purple-300 dark:hover:bg-purple-800 font-bold transition">8 classes (2x/wk)</button>
+                        <button type="button" onclick="setFourWeekPresetEdit(12)" class="px-2 py-0.5 rounded bg-purple-200/80 dark:bg-purple-900/60 hover:bg-purple-300 dark:hover:bg-purple-800 font-bold transition">12 classes (3x/wk)</button>
+                    </div>
+                </div>
+
                 <div id="edit-sessions-container">
-                    <label class="form-label">Total Class Credits *</label>
-                    <input type="number" id="edit-session-count" name="session_count" min="1" class="form-input">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="form-label mb-0">Total Class Credits *</label>
+                        <span id="edit-cadence-preview" class="text-[11px] font-semibold text-purple-700 dark:text-purple-300 hidden"></span>
+                    </div>
+                    <input type="number" id="edit-session-count" name="session_count" min="1" oninput="updateCadencePreviewEdit()" class="form-input">
                 </div>
                 <input type="hidden" id="edit-is-unlimited" name="is_unlimited" value="0">
             </div>
@@ -338,6 +400,7 @@
                 <div>
                     <label class="form-label">Validity Period (Days) *</label>
                     <input type="number" id="edit-validity-days" name="validity_days" min="1" required class="form-input">
+                    <span id="edit-validity-hint" class="text-[10px] text-purple-600 dark:text-purple-400 mt-1 hidden block font-medium">Locked to 28 Days (4 Weeks)</span>
                 </div>
                 <div>
                     <label class="form-label">Plan Price (₱) *</label>
@@ -392,8 +455,10 @@
                             data-price="{{printf "%.2f" .Price}}"
                             data-days="{{.ValidityDays}}"
                             data-sessions="{{if .SessionCount}}{{.SessionCount}}{{else}}unlimited{{end}}"
+                            data-type="{{.PlanType}}"
+                            data-cadence="{{.WeeklyCadence}}"
                             data-unlimited="{{if .IsUnlimited}}true{{else}}false{{end}}">
-                        {{.Title}} &bull; ₱{{printf "%.2f" .Price}} {{if .IsUnlimited}}(Unlimited){{else}}({{.SessionCount}} classes){{end}}
+                        {{.Title}} &bull; ₱{{printf "%.2f" .Price}} {{if .IsFourWeek}}({{.SessionCount}} classes &bull; {{.WeeklyCadence}}x/wk &bull; 4 Weeks){{else if .IsUnlimited}}(Unlimited){{else}}({{.SessionCount}} classes){{end}}
                     </option>
                     {{end}}
                 </select>
@@ -413,6 +478,7 @@
                         <label class="form-label">Class Credits</label>
                         <input type="number" id="override-sessions" name="override_sessions" placeholder="Auto" min="1" class="form-input">
                         <span id="unlimited-label" class="text-[11px] text-teal-600 dark:text-teal-400 font-semibold hidden mt-1 block">Unlimited Pass ♾️</span>
+                        <span id="four-week-assign-label" class="text-[11px] text-purple-700 dark:text-purple-400 font-semibold hidden mt-1 block"></span>
                     </div>
                     <div>
                         <label class="form-label">Validity (Days)</label>
@@ -453,27 +519,71 @@
     // Create Plan Modal
     function openCreatePlanModal() {
         document.getElementById('create-plan-modal').classList.remove('hidden');
+        handlePlanTypeChangeCreate('standard');
     }
     function closeCreatePlanModal() {
         document.getElementById('create-plan-modal').classList.add('hidden');
     }
-    function togglePlanTypeCreate(isUnlimited) {
+
+    function handlePlanTypeChangeCreate(type) {
         const container = document.getElementById('create-sessions-container');
         const countInput = document.getElementById('create-session-count');
         const hiddenInput = document.getElementById('create-is-unlimited');
-        if (isUnlimited) {
+        const fourWeekInfo = document.getElementById('create-four-week-info');
+        const cadencePreview = document.getElementById('create-cadence-preview');
+        const validityInput = document.getElementById('create-validity-days');
+        const validityHint = document.getElementById('create-validity-hint');
+
+        if (type === 'unlimited') {
             container.classList.add('hidden');
             countInput.removeAttribute('required');
             hiddenInput.value = "1";
-        } else {
+            fourWeekInfo.classList.add('hidden');
+            cadencePreview.classList.add('hidden');
+            validityHint.classList.add('hidden');
+            validityInput.removeAttribute('readonly');
+            if (validityInput.value === '28') validityInput.value = '30';
+        } else if (type === 'four_week') {
             container.classList.remove('hidden');
             countInput.setAttribute('required', 'required');
             hiddenInput.value = "0";
+            fourWeekInfo.classList.remove('hidden');
+            validityInput.value = '28';
+            validityHint.classList.remove('hidden');
+            updateCadencePreviewCreate();
+        } else {
+            // Standard
+            container.classList.remove('hidden');
+            countInput.setAttribute('required', 'required');
+            hiddenInput.value = "0";
+            fourWeekInfo.classList.add('hidden');
+            cadencePreview.classList.add('hidden');
+            validityHint.classList.add('hidden');
+            validityInput.removeAttribute('readonly');
+            if (validityInput.value === '28') validityInput.value = '90';
+        }
+    }
+
+    function setFourWeekPresetCreate(count) {
+        document.getElementById('create-session-count').value = count;
+        updateCadencePreviewCreate();
+    }
+
+    function updateCadencePreviewCreate() {
+        const count = parseInt(document.getElementById('create-session-count').value, 10) || 0;
+        const cadencePreview = document.getElementById('create-cadence-preview');
+        const radioFourWeek = document.getElementById('create-type-four-week');
+        if (radioFourWeek && radioFourWeek.checked && count > 0) {
+            const cadence = Math.max(1, Math.floor(count / 4));
+            cadencePreview.textContent = `Cadence: ${cadence} class(es) / week`;
+            cadencePreview.classList.remove('hidden');
+        } else {
+            cadencePreview.classList.add('hidden');
         }
     }
 
     // Edit Plan Modal
-    function openEditPlanModal(id, title, desc, sessionCount, validityDays, price, isActive) {
+    function openEditPlanModal(id, title, desc, planType, sessionCount, validityDays, price, isActive) {
         const form = document.getElementById('edit-plan-form');
         form.action = '/packages/templates/' + id;
 
@@ -483,32 +593,80 @@
         document.getElementById('edit-price').value = parseFloat(price).toFixed(2);
         document.getElementById('edit-is-active').checked = isActive;
 
-        if (sessionCount === null || sessionCount === 'null') {
+        if (planType === 'four_week') {
+            document.getElementById('edit-type-four-week').checked = true;
+            document.getElementById('edit-session-count').value = sessionCount || 4;
+            handlePlanTypeChangeEdit('four_week');
+        } else if (planType === 'unlimited' || sessionCount === null || sessionCount === 'null') {
             document.getElementById('edit-type-unlimited').checked = true;
-            togglePlanTypeEdit(true);
+            handlePlanTypeChangeEdit('unlimited');
         } else {
             document.getElementById('edit-type-sessions').checked = true;
-            document.getElementById('edit-session-count').value = sessionCount;
-            togglePlanTypeEdit(false);
+            document.getElementById('edit-session-count').value = sessionCount || 10;
+            handlePlanTypeChangeEdit('standard');
         }
 
         document.getElementById('edit-plan-modal').classList.remove('hidden');
     }
+
     function closeEditPlanModal() {
         document.getElementById('edit-plan-modal').classList.add('hidden');
     }
-    function togglePlanTypeEdit(isUnlimited) {
+
+    function handlePlanTypeChangeEdit(type) {
         const container = document.getElementById('edit-sessions-container');
         const countInput = document.getElementById('edit-session-count');
         const hiddenInput = document.getElementById('edit-is-unlimited');
-        if (isUnlimited) {
+        const fourWeekInfo = document.getElementById('edit-four-week-info');
+        const cadencePreview = document.getElementById('edit-cadence-preview');
+        const validityInput = document.getElementById('edit-validity-days');
+        const validityHint = document.getElementById('edit-validity-hint');
+
+        if (type === 'unlimited') {
             container.classList.add('hidden');
             countInput.removeAttribute('required');
             hiddenInput.value = "1";
-        } else {
+            fourWeekInfo.classList.add('hidden');
+            cadencePreview.classList.add('hidden');
+            validityHint.classList.add('hidden');
+            validityInput.removeAttribute('readonly');
+            if (validityInput.value === '28') validityInput.value = '30';
+        } else if (type === 'four_week') {
             container.classList.remove('hidden');
             countInput.setAttribute('required', 'required');
             hiddenInput.value = "0";
+            fourWeekInfo.classList.remove('hidden');
+            validityInput.value = '28';
+            validityHint.classList.remove('hidden');
+            updateCadencePreviewEdit();
+        } else {
+            // Standard
+            container.classList.remove('hidden');
+            countInput.setAttribute('required', 'required');
+            hiddenInput.value = "0";
+            fourWeekInfo.classList.add('hidden');
+            cadencePreview.classList.add('hidden');
+            validityHint.classList.add('hidden');
+            validityInput.removeAttribute('readonly');
+            if (validityInput.value === '28') validityInput.value = '90';
+        }
+    }
+
+    function setFourWeekPresetEdit(count) {
+        document.getElementById('edit-session-count').value = count;
+        updateCadencePreviewEdit();
+    }
+
+    function updateCadencePreviewEdit() {
+        const count = parseInt(document.getElementById('edit-session-count').value, 10) || 0;
+        const cadencePreview = document.getElementById('edit-cadence-preview');
+        const radioFourWeek = document.getElementById('edit-type-four-week');
+        if (radioFourWeek && radioFourWeek.checked && count > 0) {
+            const cadence = Math.max(1, Math.floor(count / 4));
+            cadencePreview.textContent = `Cadence: ${cadence} class(es) / week`;
+            cadencePreview.classList.remove('hidden');
+        } else {
+            cadencePreview.classList.add('hidden');
         }
     }
 
@@ -533,19 +691,30 @@
         const price = selectedOpt.getAttribute('data-price');
         const days = selectedOpt.getAttribute('data-days');
         const sessions = selectedOpt.getAttribute('data-sessions');
+        const planType = selectedOpt.getAttribute('data-type');
+        const cadence = selectedOpt.getAttribute('data-cadence');
         const isUnlimited = selectedOpt.getAttribute('data-unlimited') === 'true';
 
         const sessionsInput = document.getElementById('override-sessions');
         const unlimitedLabel = document.getElementById('unlimited-label');
+        const fourWeekLabel = document.getElementById('four-week-assign-label');
 
         if (isUnlimited) {
             sessionsInput.value = '';
             sessionsInput.classList.add('hidden');
             unlimitedLabel.classList.remove('hidden');
+            fourWeekLabel.classList.add('hidden');
         } else {
             sessionsInput.classList.remove('hidden');
             sessionsInput.value = sessions;
             unlimitedLabel.classList.add('hidden');
+
+            if (planType === 'four_week') {
+                fourWeekLabel.textContent = `⏱️ 4-Week Plan: ${cadence || 1} class(es) / week`;
+                fourWeekLabel.classList.remove('hidden');
+            } else {
+                fourWeekLabel.classList.add('hidden');
+            }
         }
 
         document.getElementById('override-validity-days').value = days;
