@@ -16,9 +16,10 @@ type CoachListItem struct {
 }
 
 type CoachesPageData struct {
-	Coaches   []CoachListItem
-	StartDate string
-	EndDate   string
+	Coaches     []CoachListItem
+	StartDate   string
+	EndDate     string
+	CurrentUser *models.User
 }
 
 func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
@@ -48,10 +49,12 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	user := GetUserFromContext(r.Context())
 	data := CoachesPageData{
-		Coaches:   items,
-		StartDate: start.Format("2006-01-02"),
-		EndDate:   end.Format("2006-01-02"),
+		Coaches:     items,
+		StartDate:   start.Format("2006-01-02"),
+		EndDate:     end.Format("2006-01-02"),
+		CurrentUser: user,
 	}
 
 	a.RenderPage(w, "coaches.html", data)

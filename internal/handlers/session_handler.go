@@ -18,16 +18,18 @@ type SessionListItem struct {
 }
 
 type SessionsPageData struct {
-	Sessions []*models.TrainingSession
-	Coaches  []*models.Coach
+	CurrentUser *models.User
+	Sessions    []*models.TrainingSession
+	Coaches     []*models.Coach
 }
 
 type LiveCheckInPageData struct {
-	Session            *models.TrainingSession
-	Attendances        []*models.Attendance
-	Students           []*models.Student
-	ReadinessMap       map[string]services.PromotionReadiness
-	PackageStatusMap   map[string]string
+	CurrentUser      *models.User
+	Session          *models.TrainingSession
+	Attendances      []*models.Attendance
+	Students         []*models.Student
+	ReadinessMap     map[string]services.PromotionReadiness
+	PackageStatusMap map[string]string
 }
 
 type StudentSearchResultItem struct {
@@ -47,9 +49,11 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	coaches, _ := a.store.GetAllCoaches()
 
+	user := GetUserFromContext(r.Context())
 	data := SessionsPageData{
-		Sessions: sessions,
-		Coaches:  coaches,
+		CurrentUser: user,
+		Sessions:    sessions,
+		Coaches:     coaches,
 	}
 
 	a.RenderPage(w, "sessions.html", data)
@@ -129,7 +133,9 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	user := GetUserFromContext(r.Context())
 	data := LiveCheckInPageData{
+		CurrentUser:      user,
 		Session:          session,
 		Attendances:      attendances,
 		Students:         allStudents,

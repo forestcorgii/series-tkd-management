@@ -15,6 +15,7 @@ type DashboardViewData struct {
 	FirstAidAlertsCount int
 	RecentSessions      []*models.TrainingSession
 	ReadinessList       []StudentReadinessSummary
+	CurrentUser         *models.User
 }
 
 type StudentReadinessSummary struct {
@@ -82,6 +83,7 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		FirstAidAlertsCount: firstAidAlerts,
 		RecentSessions:      sessions,
 		ReadinessList:       readinessSummaries,
+		CurrentUser:         user,
 	}
 
 	a.RenderPage(w, "dashboard.html", data)

@@ -21,8 +21,9 @@ type StudentListItem struct {
 }
 
 type StudentsPageData struct {
-	Students []StudentListItem
-	Search   string
+	CurrentUser *models.User
+	Students    []StudentListItem
+	Search      string
 }
 
 func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
@@ -68,9 +69,11 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	user := GetUserFromContext(r.Context())
 	data := StudentsPageData{
-		Students: items,
-		Search:   query,
+		CurrentUser: user,
+		Students:    items,
+		Search:      query,
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -128,6 +131,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 	}
 
 	data := struct {
+		CurrentUser      *models.User
 		Student          *models.Student
 		Readiness        services.PromotionReadiness
 		Packages         []*models.StudentPackage
@@ -136,6 +140,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 		Coaches          []*models.Coach
 		SVGRadarPolygon  string
 	}{
+		CurrentUser:      user,
 		Student:          student,
 		Readiness:        readiness,
 		Packages:         pkgs,
