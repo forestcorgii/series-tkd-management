@@ -52,6 +52,24 @@ func (s *AuthService) Login(email, password string) (*models.User, string, error
 		return nil, "", ErrUserInactive
 	}
 
+	if user.Role == models.RoleCoach {
+		var coach *models.Coach
+		if user.CoachID != nil {
+			coach, _ = s.store.GetCoachByID(*user.CoachID)
+		} else {
+			coaches, _ := s.store.GetAllCoaches()
+			for _, c := range coaches {
+				if strings.EqualFold(c.Email, user.Email) {
+					coach = c
+					break
+				}
+			}
+		}
+		if coach != nil && !coach.IsActive {
+			return nil, "", ErrUserInactive
+		}
+	}
+
 	if !user.CheckPassword(password) {
 		return nil, "", ErrInvalidCredentials
 	}
@@ -81,6 +99,23 @@ func (s *AuthService) ValidateSession(token string) (*models.User, error) {
 	}
 	if !user.IsActive {
 		return nil, ErrUserInactive
+	}
+	if user.Role == models.RoleCoach {
+		var coach *models.Coach
+		if user.CoachID != nil {
+			coach, _ = s.store.GetCoachByID(*user.CoachID)
+		} else {
+			coaches, _ := s.store.GetAllCoaches()
+			for _, c := range coaches {
+				if strings.EqualFold(c.Email, user.Email) {
+					coach = c
+					break
+				}
+			}
+		}
+		if coach != nil && !coach.IsActive {
+			return nil, ErrUserInactive
+		}
 	}
 	return user, nil
 }

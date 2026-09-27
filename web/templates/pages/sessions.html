@@ -117,7 +117,9 @@
                 <label class="form-label">Lead Coach</label>
                 <select name="coach_id" required class="form-select">
                     {{range .Coaches}}
+                    {{if .IsActive}}
                     <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                    {{end}}
                     {{end}}
                 </select>
             </div>

@@ -125,6 +125,10 @@ func main() {
 	// Coaches & Staff Directory / Payroll (Only Operation Manager)
 	mux.HandleFunc("GET /coaches", app.RequireRole(models.RoleOperationManager)(app.HandleCoaches))
 	mux.HandleFunc("POST /coaches", app.RequireRole(models.RoleOperationManager)(app.HandleCreateCoach))
+	mux.HandleFunc("POST /coaches/{id}/toggle", app.RequireRole(models.RoleOperationManager)(app.HandleToggleCoachStatus))
+	mux.HandleFunc("POST /coaches/{id}/delete", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteCoach))
+	mux.HandleFunc("DELETE /coaches/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteCoach))
+
 
 	// Administrators Management (Only Operation Manager)
 	mux.HandleFunc("GET /admins", app.RequireRole(models.RoleOperationManager)(app.HandleAdmins))

@@ -761,3 +761,90 @@ func TestSQLStore_AdminsManagement(t *testing.T) {
 	}
 }
 
+func TestSQLStore_CoachToggleAndDeletion(t *testing.T) {
+	dbFile := "test_coach_toggle.db"
+	_ = os.Remove(dbFile)
+	defer os.Remove(dbFile)
+
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+
+	c2ID := uuid.MustParse("22222222-2222-2222-2222-222222222222") // Coach Ji-Woo Park (has sessions)
+
+	// 1. Ji-Woo Park has sessions, so DeleteCoach must fail with ErrCoachHasRecords
+	err = store.DeleteCoach(c2ID)
+	if err != repository.ErrCoachHasRecords {
+		t.Errorf("expected ErrCoachHasRecords deleting coach with sessions, got: %v", err)
+	}
+
+	// 2. Toggle active to false
+	if err := store.ToggleCoachActive(c2ID, false); err != nil {
+		t.Fatalf("ToggleCoachActive(false) failed: %v", err)
+	}
+	coach, err := store.GetCoachByID(c2ID)
+	if err != nil || coach.IsActive {
+		t.Errorf("expected coach to be inactive, got active=%v, err=%v", coach.IsActive, err)
+	}
+	coachUser, err := store.GetUserByEmail("jiwoo.park@seriestkd.com")
+	if err != nil || coachUser.IsActive {
+		t.Errorf("expected linked user to be inactive, got active=%v, err=%v", coachUser.IsActive, err)
+	}
+
+	// 3. Toggle active back to true
+	if err := store.ToggleCoachActive(c2ID, true); err != nil {
+		t.Fatalf("ToggleCoachActive(true) failed: %v", err)
+	}
+	coach, err = store.GetCoachByID(c2ID)
+	if err != nil || !coach.IsActive {
+		t.Errorf("expected coach to be active, got active=%v, err=%v", coach.IsActive, err)
+	}
+	coachUser, err = store.GetUserByEmail("jiwoo.park@seriestkd.com")
+	if err != nil || !coachUser.IsActive {
+		t.Errorf("expected linked user to be active, got active=%v, err=%v", coachUser.IsActive, err)
+	}
+
+	// 4. Create a fresh coach with no sessions or evaluations
+	freshCoach := &models.Coach{
+		ID:             uuid.New(),
+		FullName:       "Temp Coach John",
+		Email:          "temp.john@seriestkd.com",
+		Phone:          "+1555111222",
+		BeltRank:       "2nd Dan",
+		RatePerSession: 50.00,
+		IsActive:       true,
+		CreatedAt:      time.Now(),
+	}
+	if err := store.CreateCoach(freshCoach); err != nil {
+		t.Fatalf("CreateCoach failed: %v", err)
+	}
+	freshUser := &models.User{
+		ID:          uuid.New(),
+		Email:       freshCoach.Email,
+		Role:        models.RoleCoach,
+		CoachID:     &freshCoach.ID,
+		DisplayName: freshCoach.FullName,
+		IsActive:    true,
+	}
+	_ = freshUser.SetPassword("coach123")
+	if err := store.CreateUser(freshUser); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Deleting fresh coach should succeed completely
+	if err := store.DeleteCoach(freshCoach.ID); err != nil {
+		t.Fatalf("DeleteCoach failed on fresh coach: %v", err)
+	}
+
+	// Verify coach is gone
+	if _, err := store.GetCoachByID(freshCoach.ID); err != repository.ErrNotFound {
+		t.Errorf("expected ErrNotFound for deleted coach, got: %v", err)
+	}
+	// Verify user is gone
+	if _, err := store.GetUserByEmail(freshCoach.Email); err != repository.ErrNotFound {
+		t.Errorf("expected ErrNotFound for deleted coach user, got: %v", err)
+	}
+}
+
+

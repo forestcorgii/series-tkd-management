@@ -8,17 +8,77 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Coach Directory, Safety &amp; Payroll</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Verify Red Cross / BLS First Aid credentials and calculate verified class payroll compensation.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Manage instructor credentials, monitor first aid compliance, control login access, and calculate verified class payroll compensation.</p>
         </div>
         <button onclick="document.getElementById('new-coach-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
             ➕ Add New Coach Profile
         </button>
     </div>
 
+    <!-- Notification Banners -->
+    {{if .SuccessNotice}}
+    <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>✅</span>
+            <span>{{.SuccessNotice}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
+    {{if .ErrorMessage}}
+    <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{{.ErrorMessage}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
+    <!-- Telemetry & Staff Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Metric: Total Coaches -->
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Coaches</span>
+            <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalCoaches}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Registered instructors</p>
+        </div>
+
+        <!-- Metric: Active Staff -->
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active Instructors</span>
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+            </div>
+            <div class="font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{.ActiveCoaches}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Can log in &amp; lead classes</p>
+        </div>
+
+        <!-- Metric: Inactive / Suspended -->
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Deactivated</span>
+            <div class="font-display text-2xl font-bold text-slate-600 dark:text-slate-400">{{.InactiveCoaches}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Login &amp; sessions blocked</p>
+        </div>
+
+        <!-- Metric: Safety Verification -->
+        <div class="glass-panel p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 dark:bg-indigo-500/10 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-indigo-700 dark:text-indigo-400 tracking-wider flex items-center gap-1">
+                🛡️ First Aid Certified
+            </span>
+            <div class="font-display text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{.CertifiedCoaches}} / {{.TotalCoaches}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Valid Red Cross / BLS credentials</p>
+        </div>
+    </div>
+
     <!-- Coach Cards Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         {{range .Coaches}}
-        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 relative overflow-hidden shadow-sm">
+        <div class="glass-panel p-6 rounded-2xl border {{if .Coach.IsActive}}border-slate-200/80 dark:border-slate-800{{else}}border-rose-200 dark:border-rose-900/50 bg-rose-500/[0.02]{{end}} space-y-4 relative overflow-hidden shadow-sm flex flex-col justify-between">
             <!-- First Aid Warning Banner if flagged -->
             {{if .Payroll.FirstAidWarningFlag}}
             <div class="bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border-b border-amber-300 dark:border-amber-800 -mx-6 -mt-6 p-2.5 text-center text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
@@ -26,52 +86,99 @@
             </div>
             {{end}}
 
-            <div class="flex items-center space-x-3">
-                <div class="h-12 w-12 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-display font-extrabold text-[10px] leading-tight text-center px-1 shadow-md flex-shrink-0 overflow-hidden break-words line-clamp-2" title="{{.Coach.FullName}}">
-                    {{.Coach.FullName}}
-                </div>
-                <div>
-                    <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">{{.Coach.FullName}}</h3>
-                    <p class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Coach.BeltRank}}</p>
-                </div>
-            </div>
-
-            <div class="space-y-2 text-xs">
-                <div class="flex justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
-                    <span class="text-slate-600 dark:text-slate-400 font-medium">First Aid Status:</span>
-                    {{if .Coach.IsFirstAidValid}}
-                    <span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">🛡️ Certified (Valid)</span>
-                    {{else}}
-                    <span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1">🚨 EXPIRED / UNVERIFIED</span>
-                    {{end}}
-                </div>
-
-                <div class="flex justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
-                    <span class="text-slate-600 dark:text-slate-400 font-medium">Rate Per Class:</span>
-                    <span class="text-slate-900 dark:text-white font-bold">₱{{printf "%.2f" .Coach.RatePerSession}} / class</span>
-                </div>
-
-                <div class="space-y-1 pt-1">
-                    <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Specialties:</span>
-                    <div class="flex flex-wrap gap-1">
-                        {{range .Coach.Specialties}}
-                        <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-slate-800 dark:text-indigo-300 dark:border-slate-700">
-                            {{.}}
+            <div class="space-y-4">
+                <!-- Header: Coach Info & Status Badge -->
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-12 w-12 rounded-xl {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center font-display font-extrabold text-[10px] leading-tight text-center px-1 shadow-md flex-shrink-0 overflow-hidden break-words line-clamp-2" title="{{.Coach.FullName}}">
+                            {{.Coach.FullName}}
+                        </div>
+                        <div>
+                            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white leading-tight">{{.Coach.FullName}}</h3>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Coach.BeltRank}}</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[160px]">{{.Coach.Email}}</p>
+                        </div>
+                    </div>
+                    <div>
+                        {{if .Coach.IsActive}}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex-shrink-0">
+                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active
+                        </span>
+                        {{else}}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex-shrink-0">
+                            ⛔ Deactivated
                         </span>
                         {{end}}
                     </div>
                 </div>
+
+                {{if not .Coach.IsActive}}
+                <div class="p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-900/50 text-[11px] text-rose-700 dark:text-rose-300 flex items-center gap-2 font-medium">
+                    <span>🔒</span>
+                    <span>Account inactive &bull; Portal login access is blocked</span>
+                </div>
+                {{end}}
+
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                        <span class="text-slate-600 dark:text-slate-400 font-medium">First Aid Status:</span>
+                        {{if .Coach.IsFirstAidValid}}
+                        <span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">🛡️ Certified (Valid)</span>
+                        {{else}}
+                        <span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1">🚨 EXPIRED / UNVERIFIED</span>
+                        {{end}}
+                    </div>
+
+                    <div class="flex justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                        <span class="text-slate-600 dark:text-slate-400 font-medium">Rate Per Class:</span>
+                        <span class="text-slate-900 dark:text-white font-bold">₱{{printf "%.2f" .Coach.RatePerSession}} / class</span>
+                    </div>
+
+                    <div class="space-y-1 pt-1">
+                        <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Specialties:</span>
+                        <div class="flex flex-wrap gap-1">
+                            {{range .Coach.Specialties}}
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-slate-800 dark:text-indigo-300 dark:border-slate-700">
+                                {{.}}
+                            </span>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payroll Calculation Widget -->
+                <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Period Payout</span>
+                        <div class="text-xs text-slate-700 dark:text-slate-300">{{.Payroll.TotalSessionsLed}} Classes Led &bull; {{.Payroll.TotalStudentsTaught}} Students</div>
+                    </div>
+                    <div class="font-display font-extrabold text-lg text-emerald-600 dark:text-emerald-400">
+                        ₱{{printf "%.2f" .Payroll.CalculatedPayout}}
+                    </div>
+                </div>
             </div>
 
-            <!-- Payroll Calculation Widget -->
-            <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between mt-2 shadow-sm">
-                <div>
-                    <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Period Payout</span>
-                    <div class="text-xs text-slate-700 dark:text-slate-300">{{.Payroll.TotalSessionsLed}} Classes Led &bull; {{.Payroll.TotalStudentsTaught}} Students</div>
-                </div>
-                <div class="font-display font-extrabold text-lg text-emerald-600 dark:text-emerald-400">
-                    ₱{{printf "%.2f" .Payroll.CalculatedPayout}}
-                </div>
+            <!-- Action Buttons: Toggle Active/Deactivate & Delete -->
+            <div class="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                {{if .Coach.IsActive}}
+                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="flex-1" onsubmit="return confirm('Are you sure you want to deactivate coach {{.Coach.FullName}}? Their active sessions will be terminated and they will not be allowed to log in.');">
+                    <button type="submit" class="btn btn-secondary btn-sm w-full text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border-rose-200 dark:border-rose-800/60 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5">
+                        ⏸️ Deactivate
+                    </button>
+                </form>
+                {{else}}
+                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="flex-1" onsubmit="return confirm('Reactivate coach {{.Coach.FullName}} and restore their portal login access?');">
+                    <button type="submit" class="btn btn-primary btn-sm w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5">
+                        ▶️ Reactivate
+                    </button>
+                </form>
+                {{end}}
+
+                <form action="/coaches/{{.Coach.ID}}/delete" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete coach {{.Coach.FullName}}? If they have historical classes or evaluations, deletion is blocked and you must deactivate them instead.');">
+                    <button type="submit" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors border border-slate-200 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-800" title="Delete Coach">
+                        🗑️
+                    </button>
+                </form>
             </div>
         </div>
         {{end}}

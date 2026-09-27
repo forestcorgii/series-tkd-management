@@ -75,3 +75,51 @@ func TestAuthService_RegisterUser(t *testing.T) {
 		t.Errorf("expected ErrEmailAlreadyExists, got %v", err)
 	}
 }
+
+func TestAuthService_CoachDeactivationAndDeletionLoginBlocked(t *testing.T) {
+	store := repository.NewMemoryStore()
+	authSvc := services.NewAuthService(store)
+
+	// Coach Ji-Woo Park is seeded with email jiwoo.park@seriestkd.com, password coach123
+	coachUser, token, err := authSvc.Login("jiwoo.park@seriestkd.com", "coach123")
+	if err != nil {
+		t.Fatalf("expected successful coach login, got: %v", err)
+	}
+	if coachUser == nil || coachUser.Role != models.RoleCoach {
+		t.Fatalf("expected coach role, got %v", coachUser)
+	}
+
+	// Session is valid initially
+	validatedUser, err := authSvc.ValidateSession(token)
+	if err != nil || validatedUser.ID != coachUser.ID {
+		t.Fatalf("expected valid session, got err: %v", err)
+	}
+
+	// Deactivate Coach
+	if err := store.ToggleCoachActive(*coachUser.CoachID, false); err != nil {
+		t.Fatalf("failed to deactivate coach: %v", err)
+	}
+
+	// 1. Existing session should now be rejected as inactive or purged
+	_, err = authSvc.ValidateSession(token)
+	if err == nil {
+		t.Errorf("expected session to be invalid after coach deactivation on ValidateSession, got nil err")
+	}
+
+
+	// 2. New login attempt must fail with ErrUserInactive
+	_, _, err = authSvc.Login("jiwoo.park@seriestkd.com", "coach123")
+	if err != services.ErrUserInactive {
+		t.Errorf("expected ErrUserInactive after coach deactivation on Login, got: %v", err)
+	}
+
+	// 3. Reactivate Coach -> login should succeed again
+	if err := store.ToggleCoachActive(*coachUser.CoachID, true); err != nil {
+		t.Fatalf("failed to reactivate coach: %v", err)
+	}
+	_, newToken, err := authSvc.Login("jiwoo.park@seriestkd.com", "coach123")
+	if err != nil || newToken == "" {
+		t.Fatalf("expected successful login after reactivation, got err: %v", err)
+	}
+}
+

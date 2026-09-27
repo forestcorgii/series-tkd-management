@@ -80,4 +80,25 @@
      - Modals for **Provision Administrator** and **Reset Password**.
      - Navigation links added to `layout.html` for `IsOperationManager` on desktop and mobile navbars.
 
+### Context: Coach Deactivation, Deletion & Session Invalidation Governance (`/coaches`)
+
+* **Problem**:
+  1. The dojang lacked controls to deactivate or delete coach accounts. When coach contracts expire or relationships terminate, coaches must be immediately barred from accessing the coach portal or logging in.
+  2. Simply deleting coaches who have conducted classes or submitted student evaluations causes foreign key constraint violations and corrupts historical attendance/payroll audit trails.
+* **Enforced Solution**:
+  1. **Dual-Layer Login & Session Guarding**:
+     - `AuthService.Login` and `AuthService.ValidateSession` verify both `user.IsActive` and the linked coach's `coach.IsActive`. If either is false, returns `ErrUserInactive` ("Account is inactive. Please contact your dojang administrator").
+     - On deactivation (`ToggleCoachActive`), all active user sessions in `user_sessions` for the coach are immediately revoked/deleted, forcing instant logout on their next request.
+  2. **Preservation-First Coach Deletion**:
+     - `DeleteCoach` first queries `training_sessions`, `student_evaluations`, and `safety_incidents` for historical activity.
+     - If records exist, hard deletion is blocked with `ErrCoachHasRecords`, prompting the Operations Manager to deactivate the coach instead to safeguard data integrity.
+     - If zero historical records exist, the coach profile, associated `users` account, and session tokens are cleanly purged.
+  3. **Operational UI & Telemetry (`coaches.html`)**:
+     - Telemetry stats banner: Total Coaches, Active Instructors (live pulse indicator), Deactivated accounts, and First Aid Certified count.
+     - Each coach card features an Active / Inactive status pill, deactivation warning notice, and quick actions:
+       - **Deactivate / Reactivate**: Toggles access with confirmation dialog.
+       - **Delete**: Permanently removes unused coach profiles with confirmation.
+     - Timetable generator, student evaluation, and new session modals filter out deactivated coaches (`{{if .IsActive}}`).
+
+
 

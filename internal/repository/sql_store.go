@@ -703,6 +703,104 @@ func (s *SQLStore) UpdateCoach(c *models.Coach) error {
 	return nil
 }
 
+func (s *SQLStore) ToggleCoachActive(coachID uuid.UUID, isActive bool) error {
+	res, err := s.db.Exec(`UPDATE coaches SET is_active = $1 WHERE id = $2`, isActive, coachID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	var coachEmail string
+	_ = s.db.QueryRow(`SELECT email FROM coaches WHERE id = $1`, coachID.String()).Scan(&coachEmail)
+
+	nowStr := formatTimeForDB(time.Now())
+	_, err = s.db.Exec(`UPDATE users SET is_active = $1, updated_at = $2 WHERE coach_id = $3 OR (role = 'COACH' AND LOWER(email) = LOWER($4))`,
+		isActive, nowStr, coachID.String(), coachEmail)
+	if err != nil {
+		return err
+	}
+
+	if !isActive {
+		query := `DELETE FROM user_sessions WHERE user_id IN (
+			SELECT id FROM users WHERE coach_id = $1 OR (role = 'COACH' AND LOWER(email) = LOWER($2))
+		)`
+		_, _ = s.db.Exec(query, coachID.String(), coachEmail)
+	}
+
+	return nil
+}
+
+func (s *SQLStore) DeleteCoach(coachID uuid.UUID) error {
+	var coachEmail string
+	err := s.db.QueryRow(`SELECT email FROM coaches WHERE id = $1`, coachID.String()).Scan(&coachEmail)
+	if err == sql.ErrNoRows {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	// Check if coach has sessions
+	var sessionCount int
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM training_sessions WHERE coach_id = $1 OR admin_id = $1`, coachID.String()).Scan(&sessionCount)
+	if err != nil {
+		return err
+	}
+	if sessionCount > 0 {
+		return ErrCoachHasRecords
+	}
+
+	// Check if coach has evaluations
+	var evalCount int
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM student_evaluations WHERE coach_id = $1`, coachID.String()).Scan(&evalCount)
+	if err != nil {
+		return err
+	}
+	if evalCount > 0 {
+		return ErrCoachHasRecords
+	}
+
+	// Check if coach has safety incidents
+	var incCount int
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM safety_incidents WHERE coach_id = $1`, coachID.String()).Scan(&incCount)
+	if err == nil && incCount > 0 {
+		return ErrCoachHasRecords
+	}
+
+	// Purge associated user sessions and user records
+	rows, err := s.db.Query(`SELECT id FROM users WHERE coach_id = $1 OR (role = 'COACH' AND LOWER(email) = LOWER($2))`, coachID.String(), coachEmail)
+	if err == nil {
+		defer rows.Close()
+		var uids []string
+		for rows.Next() {
+			var uid string
+			if scanErr := rows.Scan(&uid); scanErr == nil {
+				uids = append(uids, uid)
+			}
+		}
+		for _, uid := range uids {
+			_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, uid)
+			_, _ = s.db.Exec(`DELETE FROM users WHERE id = $1`, uid)
+		}
+	}
+
+	// Delete coach record
+	res, err := s.db.Exec(`DELETE FROM coaches WHERE id = $1`, coachID.String())
+	if err != nil {
+		return err
+	}
+	rAffected, _ := res.RowsAffected()
+	if rAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+
 // Packages
 func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 	query := `SELECT id, title, COALESCE(description, ''), COALESCE(plan_type, 'standard'), session_count, sessions_per_week, validity_days, price, is_active

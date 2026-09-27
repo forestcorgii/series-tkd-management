@@ -15,6 +15,7 @@ import (
 var (
 	ErrNotFound      = errors.New("record not found")
 	ErrAlreadyInRoster = errors.New("student already checked in for this session")
+	ErrCoachHasRecords = errors.New("cannot delete coach with existing training classes, evaluations, or incident logs; deactivate coach instead")
 )
 
 type SessionFilter struct {
@@ -36,6 +37,8 @@ type RepositoryStore interface {
 	GetCoachByID(id uuid.UUID) (*models.Coach, error)
 	CreateCoach(c *models.Coach) error
 	UpdateCoach(c *models.Coach) error
+	ToggleCoachActive(coachID uuid.UUID, isActive bool) error
+	DeleteCoach(coachID uuid.UUID) error
 
 	// Packages
 	GetPackageTemplates() ([]*models.PackageTemplate, error)
@@ -226,6 +229,77 @@ func (m *MemoryStore) UpdateCoach(c *models.Coach) error {
 	m.coaches[c.ID] = c
 	return nil
 }
+
+func (m *MemoryStore) ToggleCoachActive(coachID uuid.UUID, isActive bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	coach, exists := m.coaches[coachID]
+	if !exists {
+		return ErrNotFound
+	}
+	coach.IsActive = isActive
+
+	// Update associated user account and purge sessions if deactivating
+	for _, user := range m.users {
+		if (user.CoachID != nil && *user.CoachID == coachID) || (user.Role == models.RoleCoach && strings.EqualFold(user.Email, coach.Email)) {
+			user.IsActive = isActive
+			user.UpdatedAt = time.Now()
+			if !isActive {
+				for token, rec := range m.sessionTokens {
+					if rec.UserID == user.ID {
+						delete(m.sessionTokens, token)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) DeleteCoach(coachID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	coach, exists := m.coaches[coachID]
+	if !exists {
+		return ErrNotFound
+	}
+
+	// Verify no historical records exist
+	for _, sess := range m.sessions {
+		if sess.CoachID == coachID || (sess.AdminID != nil && *sess.AdminID == coachID) {
+			return ErrCoachHasRecords
+		}
+	}
+	for _, eval := range m.evaluations {
+		if eval.CoachID == coachID {
+			return ErrCoachHasRecords
+		}
+	}
+	for _, inc := range m.safetyIncidents {
+		if inc.CoachID != nil && *inc.CoachID == coachID {
+			return ErrCoachHasRecords
+		}
+	}
+
+	// Purge associated user accounts and sessions
+	for uID, user := range m.users {
+		if (user.CoachID != nil && *user.CoachID == coachID) || (user.Role == models.RoleCoach && strings.EqualFold(user.Email, coach.Email)) {
+			for token, rec := range m.sessionTokens {
+				if rec.UserID == user.ID {
+					delete(m.sessionTokens, token)
+				}
+			}
+			delete(m.usersByEmail, user.Email)
+			delete(m.users, uID)
+		}
+	}
+
+	delete(m.coaches, coachID)
+	return nil
+}
+
 
 func (m *MemoryStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
 	m.mu.RLock()

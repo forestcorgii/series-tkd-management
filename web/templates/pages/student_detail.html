@@ -132,7 +132,9 @@
                         <label class="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Evaluating Coach</label>
                         <select name="coach_id" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-white">
                             {{range .Coaches}}
+                            {{if .IsActive}}
                             <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                            {{end}}
                             {{end}}
                         </select>
                     </div>

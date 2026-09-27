@@ -1,12 +1,18 @@
 package handlers
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"series-tkd-management/internal/models"
+	"series-tkd-management/internal/repository"
 	"series-tkd-management/internal/services"
 )
 
@@ -16,10 +22,16 @@ type CoachListItem struct {
 }
 
 type CoachesPageData struct {
-	Coaches     []CoachListItem
-	StartDate   string
-	EndDate     string
-	CurrentUser *models.User
+	Coaches          []CoachListItem
+	TotalCoaches     int
+	ActiveCoaches    int
+	InactiveCoaches  int
+	CertifiedCoaches int
+	StartDate        string
+	EndDate          string
+	CurrentUser      *models.User
+	SuccessNotice    string
+	ErrorMessage     string
 }
 
 func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
@@ -40,8 +52,20 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 	start := now.AddDate(0, -1, 0)
 	end := now
 
+	total := len(coaches)
+	active := 0
+	inactive := 0
+	certified := 0
 	items := make([]CoachListItem, 0, len(coaches))
 	for _, c := range coaches {
+		if c.IsActive {
+			active++
+		} else {
+			inactive++
+		}
+		if c.IsFirstAidValid() {
+			certified++
+		}
 		summary := a.payrollSvc.CalculateCoachPayroll(c, sessions, allAttendances, start, end)
 		items = append(items, CoachListItem{
 			Coach:   c,
@@ -51,10 +75,16 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 
 	user := GetUserFromContext(r.Context())
 	data := CoachesPageData{
-		Coaches:     items,
-		StartDate:   start.Format("2006-01-02"),
-		EndDate:     end.Format("2006-01-02"),
-		CurrentUser: user,
+		Coaches:          items,
+		TotalCoaches:     total,
+		ActiveCoaches:    active,
+		InactiveCoaches:  inactive,
+		CertifiedCoaches: certified,
+		StartDate:        start.Format("2006-01-02"),
+		EndDate:          end.Format("2006-01-02"),
+		CurrentUser:      user,
+		SuccessNotice:    r.URL.Query().Get("success"),
+		ErrorMessage:     r.URL.Query().Get("error"),
 	}
 
 	a.RenderPage(w, "coaches.html", data)
@@ -111,3 +141,70 @@ func (a *AppHandler) HandleCreateCoach(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, "/coaches", http.StatusSeeOther)
 }
+
+// HandleToggleCoachStatus toggles active/inactive state of a coach and their login access
+func (a *AppHandler) HandleToggleCoachStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	targetID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Invalid coach ID."), http.StatusSeeOther)
+		return
+	}
+
+	coach, err := a.store.GetCoachByID(targetID)
+	if err != nil || coach == nil {
+		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Coach record not found."), http.StatusSeeOther)
+		return
+	}
+
+	newStatus := !coach.IsActive
+	if err := a.store.ToggleCoachActive(targetID, newStatus); err != nil {
+		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Failed to update coach status: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	statusMsg := "activated and can now log in"
+	if !newStatus {
+		statusMsg = "deactivated. Their active sessions have been terminated and login access is blocked"
+	}
+
+	http.Redirect(w, r, "/coaches?success="+url.QueryEscape(fmt.Sprintf("Coach '%s' has been %s.", coach.FullName, statusMsg)), http.StatusSeeOther)
+}
+
+// HandleDeleteCoach permanently removes a coach profile and linked account if no historical classes exist
+func (a *AppHandler) HandleDeleteCoach(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	targetID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Invalid coach ID."), http.StatusSeeOther)
+		return
+	}
+
+	coach, err := a.store.GetCoachByID(targetID)
+	if err != nil || coach == nil {
+		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Coach record not found."), http.StatusSeeOther)
+		return
+	}
+
+	if err := a.store.DeleteCoach(targetID); err != nil {
+		if errors.Is(err, repository.ErrCoachHasRecords) {
+			http.Redirect(w, r, "/coaches?error="+url.QueryEscape(fmt.Sprintf("Cannot delete coach '%s' because they have existing training classes, evaluations, or incident logs. Please deactivate the coach instead to preserve historical records.", coach.FullName)), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Failed to delete coach: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/coaches?success="+url.QueryEscape(fmt.Sprintf("Coach '%s' and linked account have been permanently deleted.", coach.FullName)), http.StatusSeeOther)
+}
+
