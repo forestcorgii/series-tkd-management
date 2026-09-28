@@ -411,6 +411,7 @@ func (m *MemoryStore) seedData() {
 	uManager := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 		Email:       "manager@seriestkd.com",
+		Username:    "manager",
 		Role:        models.RoleOperationManager,
 		IsActive:    true,
 		DisplayName: "Operation Manager",
@@ -420,10 +421,12 @@ func (m *MemoryStore) seedData() {
 	_ = uManager.SetPassword("manager123")
 	m.users[uManager.ID] = uManager
 	m.usersByEmail[uManager.Email] = uManager.ID
+	m.usersByUsername[uManager.Username] = uManager.ID
 
 	uAdmin := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		Email:       "admin@seriestkd.com",
+		Username:    "admin",
 		Role:        models.RoleAdmin,
 		IsActive:    true,
 		DisplayName: "Dojang Administrator",
@@ -433,10 +436,12 @@ func (m *MemoryStore) seedData() {
 	_ = uAdmin.SetPassword("admin123")
 	m.users[uAdmin.ID] = uAdmin
 	m.usersByEmail[uAdmin.Email] = uAdmin.ID
+	m.usersByUsername[uAdmin.Username] = uAdmin.ID
 
 	uCoach := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		Email:       "jiwoo.park@seriestkd.com",
+		Username:    "jiwoo.park",
 		Role:        models.RoleCoach,
 		CoachID:     &c2ID,
 		IsActive:    true,
@@ -447,10 +452,12 @@ func (m *MemoryStore) seedData() {
 	_ = uCoach.SetPassword("coach123")
 	m.users[uCoach.ID] = uCoach
 	m.usersByEmail[uCoach.Email] = uCoach.ID
+	m.usersByUsername[uCoach.Username] = uCoach.ID
 
 	uStudent1 := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000003"),
 		Email:       "alex.vance@seriestkd.com",
+		Username:    "alex.vance",
 		Role:        models.RoleStudent,
 		StudentID:   &s1ID,
 		IsActive:    true,
@@ -461,10 +468,12 @@ func (m *MemoryStore) seedData() {
 	_ = uStudent1.SetPassword("student123")
 	m.users[uStudent1.ID] = uStudent1
 	m.usersByEmail[uStudent1.Email] = uStudent1.ID
+	m.usersByUsername[uStudent1.Username] = uStudent1.ID
 
 	uStudent2 := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000004"),
 		Email:       "chloe.ramirez@seriestkd.com",
+		Username:    "chloe.ramirez",
 		Role:        models.RoleStudent,
 		StudentID:   &s2ID,
 		IsActive:    true,
@@ -475,6 +484,7 @@ func (m *MemoryStore) seedData() {
 	_ = uStudent2.SetPassword("student123")
 	m.users[uStudent2.ID] = uStudent2
 	m.usersByEmail[uStudent2.Email] = uStudent2.ID
+	m.usersByUsername[uStudent2.Username] = uStudent2.ID
 
 	// 9. Initial Safety Incident on Marcus Brody (s3)
 	s3.HasSafetyFlag = true

@@ -68,6 +68,8 @@ type RepositoryStore interface {
 
 	// Auth & Users
 	GetUserByEmail(email string) (*models.User, error)
+	GetUserByUsername(username string) (*models.User, error)
+	GetUserByIdentifier(identifier string) (*models.User, error)
 	GetUserByID(id uuid.UUID) (*models.User, error)
 	GetUsersByRole(role models.UserRole) ([]*models.User, error)
 	CreateUser(user *models.User) error
@@ -77,6 +79,11 @@ type RepositoryStore interface {
 	CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error
 	GetUserBySessionToken(token string) (*models.User, error)
 	DeleteSessionToken(token string) error
+
+	// Password Reset Tokens
+	CreatePasswordResetToken(token *models.PasswordResetToken) error
+	GetPasswordResetToken(token string) (*models.PasswordResetToken, error)
+	MarkPasswordResetTokenUsed(token string) error
 
 	// Safety Incidents
 	CreateSafetyIncident(inc *models.SafetyIncident) error
@@ -95,33 +102,37 @@ type SessionTokenRecord struct {
 }
 
 type MemoryStore struct {
-	mu               sync.RWMutex
-	students         map[uuid.UUID]*models.Student
-	coaches          map[uuid.UUID]*models.Coach
-	packageTemplates map[uuid.UUID]*models.PackageTemplate
-	studentPackages  map[uuid.UUID]*models.StudentPackage
-	sessions         map[uuid.UUID]*models.TrainingSession
-	attendances      map[uuid.UUID]*models.Attendance
-	evaluations      map[uuid.UUID]*models.StudentEvaluation
-	users            map[uuid.UUID]*models.User
-	usersByEmail     map[string]uuid.UUID
-	sessionTokens    map[string]SessionTokenRecord
-	safetyIncidents  map[uuid.UUID]*models.SafetyIncident
+	mu                  sync.RWMutex
+	students            map[uuid.UUID]*models.Student
+	coaches             map[uuid.UUID]*models.Coach
+	packageTemplates    map[uuid.UUID]*models.PackageTemplate
+	studentPackages     map[uuid.UUID]*models.StudentPackage
+	sessions            map[uuid.UUID]*models.TrainingSession
+	attendances         map[uuid.UUID]*models.Attendance
+	evaluations         map[uuid.UUID]*models.StudentEvaluation
+	users               map[uuid.UUID]*models.User
+	usersByEmail        map[string]uuid.UUID
+	usersByUsername     map[string]uuid.UUID
+	sessionTokens       map[string]SessionTokenRecord
+	passwordResetTokens map[string]*models.PasswordResetToken
+	safetyIncidents     map[uuid.UUID]*models.SafetyIncident
 }
 
 func NewMemoryStore() *MemoryStore {
 	m := &MemoryStore{
-		students:         make(map[uuid.UUID]*models.Student),
-		coaches:          make(map[uuid.UUID]*models.Coach),
-		packageTemplates: make(map[uuid.UUID]*models.PackageTemplate),
-		studentPackages:  make(map[uuid.UUID]*models.StudentPackage),
-		sessions:         make(map[uuid.UUID]*models.TrainingSession),
-		attendances:      make(map[uuid.UUID]*models.Attendance),
-		evaluations:      make(map[uuid.UUID]*models.StudentEvaluation),
-		users:            make(map[uuid.UUID]*models.User),
-		usersByEmail:     make(map[string]uuid.UUID),
-		sessionTokens:    make(map[string]SessionTokenRecord),
-		safetyIncidents:  make(map[uuid.UUID]*models.SafetyIncident),
+		students:            make(map[uuid.UUID]*models.Student),
+		coaches:             make(map[uuid.UUID]*models.Coach),
+		packageTemplates:    make(map[uuid.UUID]*models.PackageTemplate),
+		studentPackages:     make(map[uuid.UUID]*models.StudentPackage),
+		sessions:            make(map[uuid.UUID]*models.TrainingSession),
+		attendances:         make(map[uuid.UUID]*models.Attendance),
+		evaluations:         make(map[uuid.UUID]*models.StudentEvaluation),
+		users:               make(map[uuid.UUID]*models.User),
+		usersByEmail:        make(map[string]uuid.UUID),
+		usersByUsername:     make(map[string]uuid.UUID),
+		sessionTokens:       make(map[string]SessionTokenRecord),
+		passwordResetTokens: make(map[string]*models.PasswordResetToken),
+		safetyIncidents:     make(map[uuid.UUID]*models.SafetyIncident),
 	}
 	m.seedData()
 	return m
@@ -663,6 +674,51 @@ func (m *MemoryStore) GetUserByEmail(email string) (*models.User, error) {
 	return u, nil
 }
 
+func (m *MemoryStore) GetUserByUsername(username string) (*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	normUsername := strings.ToLower(strings.TrimSpace(username))
+	if normUsername == "" {
+		return nil, ErrNotFound
+	}
+	id, ok := m.usersByUsername[normUsername]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	u, ok := m.users[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return u, nil
+}
+
+func (m *MemoryStore) GetUserByIdentifier(identifier string) (*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	norm := strings.ToLower(strings.TrimSpace(identifier))
+	if norm == "" {
+		return nil, ErrNotFound
+	}
+
+	// Try email first
+	if id, ok := m.usersByEmail[norm]; ok {
+		if u, exists := m.users[id]; exists {
+			return u, nil
+		}
+	}
+
+	// Try username
+	if id, ok := m.usersByUsername[norm]; ok {
+		if u, exists := m.users[id]; exists {
+			return u, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
 func (m *MemoryStore) GetUserByID(id uuid.UUID) (*models.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -699,11 +755,18 @@ func (m *MemoryStore) CreateUser(u *models.User) error {
 	}
 	normEmail := strings.ToLower(strings.TrimSpace(u.Email))
 	u.Email = normEmail
+
+	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
+	u.Username = normUsername
+
 	now := time.Now()
 	u.CreatedAt = now
 	u.UpdatedAt = now
 	m.users[u.ID] = u
 	m.usersByEmail[normEmail] = u.ID
+	if normUsername != "" {
+		m.usersByUsername[normUsername] = u.ID
+	}
 	return nil
 }
 
@@ -715,6 +778,18 @@ func (m *MemoryStore) UpdateUser(u *models.User) error {
 	if !ok {
 		return ErrNotFound
 	}
+
+	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
+	if existing.Username != normUsername {
+		if existing.Username != "" {
+			delete(m.usersByUsername, existing.Username)
+		}
+		if normUsername != "" {
+			m.usersByUsername[normUsername] = u.ID
+		}
+		existing.Username = normUsername
+	}
+
 	existing.PasswordHash = u.PasswordHash
 	existing.IsActive = u.IsActive
 	existing.DisplayName = u.DisplayName
@@ -792,6 +867,44 @@ func (m *MemoryStore) DeleteSessionToken(token string) error {
 	defer m.mu.Unlock()
 
 	delete(m.sessionTokens, token)
+	return nil
+}
+
+func (m *MemoryStore) CreatePasswordResetToken(t *models.PasswordResetToken) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now()
+	}
+	m.passwordResetTokens[t.Token] = t
+	return nil
+}
+
+func (m *MemoryStore) GetPasswordResetToken(token string) (*models.PasswordResetToken, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	t, ok := m.passwordResetTokens[token]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return t, nil
+}
+
+func (m *MemoryStore) MarkPasswordResetTokenUsed(token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	t, ok := m.passwordResetTokens[token]
+	if !ok {
+		return ErrNotFound
+	}
+	now := time.Now()
+	t.UsedAt = &now
 	return nil
 }
 

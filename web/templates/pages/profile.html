@@ -71,7 +71,7 @@
                         </span>
                     </div>
                     <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
-                        {{.CurrentUser.Email}}
+                        {{.CurrentUser.Email}}{{if .CurrentUser.Username}} &bull; <span class="font-mono text-xs">@{{.CurrentUser.Username}}</span>{{end}}
                         {{if .Student}} &bull; Belt: <strong class="text-black dark:text-white">{{.Student.CurrentBelt}}</strong>{{end}}
                         {{if .Coach}} &bull; Rank: <strong class="text-black dark:text-white">{{.Coach.BeltRank}}</strong>{{end}}
                     </p>

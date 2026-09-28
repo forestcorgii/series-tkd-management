@@ -183,6 +183,7 @@ func (s *SQLStore) runMigrations() error {
 		CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
 			email TEXT UNIQUE NOT NULL,
+			username TEXT UNIQUE,
 			password_hash TEXT NOT NULL,
 			role TEXT NOT NULL DEFAULT 'STUDENT',
 			display_name TEXT DEFAULT '',
@@ -198,6 +199,15 @@ func (s *SQLStore) runMigrations() error {
 			token TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			expires_at TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS password_reset_tokens (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			token TEXT UNIQUE NOT NULL,
+			expires_at TEXT NOT NULL,
+			used_at TEXT,
 			created_at TEXT NOT NULL
 		);
 
@@ -314,6 +324,7 @@ func (s *SQLStore) runMigrations() error {
 		CREATE TABLE IF NOT EXISTS users (
 			id UUID PRIMARY KEY,
 			email VARCHAR(255) UNIQUE NOT NULL,
+			username VARCHAR(80) UNIQUE,
 			password_hash VARCHAR(255) NOT NULL,
 			role VARCHAR(50) NOT NULL DEFAULT 'STUDENT',
 			display_name VARCHAR(120) DEFAULT '',
@@ -329,6 +340,15 @@ func (s *SQLStore) runMigrations() error {
 			token VARCHAR(255) PRIMARY KEY,
 			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			expires_at TIMESTAMPTZ NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS password_reset_tokens (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			token VARCHAR(255) UNIQUE NOT NULL,
+			expires_at TIMESTAMPTZ NOT NULL,
+			used_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -352,6 +372,16 @@ func (s *SQLStore) runMigrations() error {
 	// Safely guarantee column migrations
 	if s.driver == "sqlite" {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN username TEXT`)
+		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL AND username != ''`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			token TEXT UNIQUE NOT NULL,
+			expires_at TEXT NOT NULL,
+			used_at TEXT,
+			created_at TEXT NOT NULL
+		)`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN has_safety_flag INTEGER DEFAULT 0`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN plan_type TEXT DEFAULT 'standard'`)
@@ -365,6 +395,15 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN cancelled_at TEXT`)
 	} else {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(120) DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(80) UNIQUE`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			token VARCHAR(255) UNIQUE NOT NULL,
+			expires_at TIMESTAMPTZ NOT NULL,
+			used_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS has_safety_flag BOOLEAN DEFAULT FALSE`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS plan_type VARCHAR(50) DEFAULT 'standard'`)
@@ -1678,6 +1717,7 @@ func (s *SQLStore) SeedDefaultData() error {
 	uManager := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 		Email:       "manager@seriestkd.com",
+		Username:    "manager",
 		Role:        models.RoleOperationManager,
 		IsActive:    true,
 		DisplayName: "Operation Manager",
@@ -1688,6 +1728,7 @@ func (s *SQLStore) SeedDefaultData() error {
 	uAdmin := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		Email:       "admin@seriestkd.com",
+		Username:    "admin",
 		Role:        models.RoleAdmin,
 		IsActive:    true,
 		DisplayName: "Dojang Administrator",
@@ -1698,6 +1739,7 @@ func (s *SQLStore) SeedDefaultData() error {
 	uCoach := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		Email:       "jiwoo.park@seriestkd.com",
+		Username:    "jiwoo.park",
 		Role:        models.RoleCoach,
 		CoachID:     &c2ID,
 		IsActive:    true,
@@ -1709,6 +1751,7 @@ func (s *SQLStore) SeedDefaultData() error {
 	uStudent1 := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000003"),
 		Email:       "alex.vance@seriestkd.com",
+		Username:    "alex.vance",
 		Role:        models.RoleStudent,
 		StudentID:   &s1ID,
 		IsActive:    true,
@@ -1720,6 +1763,7 @@ func (s *SQLStore) SeedDefaultData() error {
 	uStudent2 := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000004"),
 		Email:       "chloe.ramirez@seriestkd.com",
+		Username:    "chloe.ramirez",
 		Role:        models.RoleStudent,
 		StudentID:   &s2ID,
 		IsActive:    true,
@@ -1744,19 +1788,18 @@ func (s *SQLStore) SeedDefaultData() error {
 }
 
 // Auth & Users
-func (s *SQLStore) GetUserByEmail(email string) (*models.User, error) {
-	normEmail := strings.ToLower(strings.TrimSpace(email))
-	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
-		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name
-		FROM users u
-		LEFT JOIN students st ON u.student_id = st.id
-		LEFT JOIN coaches c ON u.coach_id = c.id
-		WHERE LOWER(u.email) = $1`
-	var idStr, studentIDStr, coachIDStr, lastLoginStr, createdStr, updatedStr sql.NullString
+const userSelectFields = `SELECT u.id, u.email, u.username, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
+	COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name
+	FROM users u
+	LEFT JOIN students st ON u.student_id = st.id
+	LEFT JOIN coaches c ON u.coach_id = c.id`
+
+func scanUser(scanner interface{ Scan(dest ...any) error }) (*models.User, error) {
+	var idStr, studentIDStr, coachIDStr, lastLoginStr, createdStr, updatedStr, usernameStr sql.NullString
 	u := &models.User{}
 	var roleStr string
-	err := s.db.QueryRow(query, normEmail).Scan(
-		&idStr, &u.Email, &u.PasswordHash, &roleStr, &studentIDStr, &coachIDStr,
+	err := scanner.Scan(
+		&idStr, &u.Email, &usernameStr, &u.PasswordHash, &roleStr, &studentIDStr, &coachIDStr,
 		&u.IsActive, &lastLoginStr, &createdStr, &updatedStr, &u.DisplayName,
 	)
 	if err == sql.ErrNoRows {
@@ -1766,6 +1809,9 @@ func (s *SQLStore) GetUserByEmail(email string) (*models.User, error) {
 		return nil, err
 	}
 	u.ID = uuid.Must(uuid.Parse(idStr.String))
+	if usernameStr.Valid {
+		u.Username = usernameStr.String
+	}
 	u.Role = models.UserRole(roleStr)
 	if studentIDStr.Valid && studentIDStr.String != "" {
 		sid, _ := uuid.Parse(studentIDStr.String)
@@ -1784,43 +1830,33 @@ func (s *SQLStore) GetUserByEmail(email string) (*models.User, error) {
 	return u, nil
 }
 
-func (s *SQLStore) GetUserByID(id uuid.UUID) (*models.User, error) {
-	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
-		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name
-		FROM users u
-		LEFT JOIN students st ON u.student_id = st.id
-		LEFT JOIN coaches c ON u.coach_id = c.id
-		WHERE u.id = $1`
-	var idStr, studentIDStr, coachIDStr, lastLoginStr, createdStr, updatedStr sql.NullString
-	u := &models.User{}
-	var roleStr string
-	err := s.db.QueryRow(query, id.String()).Scan(
-		&idStr, &u.Email, &u.PasswordHash, &roleStr, &studentIDStr, &coachIDStr,
-		&u.IsActive, &lastLoginStr, &createdStr, &updatedStr, &u.DisplayName,
-	)
-	if err == sql.ErrNoRows {
+func (s *SQLStore) GetUserByEmail(email string) (*models.User, error) {
+	normEmail := strings.ToLower(strings.TrimSpace(email))
+	query := userSelectFields + ` WHERE LOWER(u.email) = $1`
+	return scanUser(s.db.QueryRow(query, normEmail))
+}
+
+func (s *SQLStore) GetUserByUsername(username string) (*models.User, error) {
+	normUsername := strings.ToLower(strings.TrimSpace(username))
+	if normUsername == "" {
 		return nil, ErrNotFound
 	}
-	if err != nil {
-		return nil, err
+	query := userSelectFields + ` WHERE LOWER(u.username) = $1`
+	return scanUser(s.db.QueryRow(query, normUsername))
+}
+
+func (s *SQLStore) GetUserByIdentifier(identifier string) (*models.User, error) {
+	norm := strings.ToLower(strings.TrimSpace(identifier))
+	if norm == "" {
+		return nil, ErrNotFound
 	}
-	u.ID = uuid.Must(uuid.Parse(idStr.String))
-	u.Role = models.UserRole(roleStr)
-	if studentIDStr.Valid && studentIDStr.String != "" {
-		sid, _ := uuid.Parse(studentIDStr.String)
-		u.StudentID = &sid
-	}
-	if coachIDStr.Valid && coachIDStr.String != "" {
-		cid, _ := uuid.Parse(coachIDStr.String)
-		u.CoachID = &cid
-	}
-	if lastLoginStr.Valid && lastLoginStr.String != "" {
-		t, _ := parseTimeFlex(lastLoginStr.String)
-		u.LastLoginAt = &t
-	}
-	u.CreatedAt, _ = parseTimeFlex(createdStr.String)
-	u.UpdatedAt, _ = parseTimeFlex(updatedStr.String)
-	return u, nil
+	query := userSelectFields + ` WHERE LOWER(u.email) = $1 OR LOWER(u.username) = $1`
+	return scanUser(s.db.QueryRow(query, norm))
+}
+
+func (s *SQLStore) GetUserByID(id uuid.UUID) (*models.User, error) {
+	query := userSelectFields + ` WHERE u.id = $1`
+	return scanUser(s.db.QueryRow(query, id.String()))
 }
 
 func (s *SQLStore) CreateUser(u *models.User) error {
@@ -1829,11 +1865,18 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 	}
 	normEmail := strings.ToLower(strings.TrimSpace(u.Email))
 	u.Email = normEmail
+
+	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
+	u.Username = normUsername
+
 	now := time.Now()
 	u.CreatedAt = now
 	u.UpdatedAt = now
 
-	var studentID, coachID sql.NullString
+	var studentID, coachID, usernameCol sql.NullString
+	if normUsername != "" {
+		usernameCol = sql.NullString{String: normUsername, Valid: true}
+	}
 	if u.StudentID != nil {
 		studentID = sql.NullString{String: u.StudentID.String(), Valid: true}
 	}
@@ -1841,10 +1884,10 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 		coachID = sql.NullString{String: u.CoachID.String(), Valid: true}
 	}
 
-	query := `INSERT INTO users (id, email, password_hash, role, display_name, student_id, coach_id, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+	query := `INSERT INTO users (id, email, username, password_hash, role, display_name, student_id, coach_id, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 	_, err := s.db.Exec(query,
-		u.ID.String(), u.Email, u.PasswordHash, string(u.Role), u.DisplayName, studentID, coachID,
+		u.ID.String(), u.Email, usernameCol, u.PasswordHash, string(u.Role), u.DisplayName, studentID, coachID,
 		u.IsActive, formatTimeForDB(u.CreatedAt), formatTimeForDB(u.UpdatedAt),
 	)
 	return err
@@ -1852,8 +1895,14 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 
 func (s *SQLStore) UpdateUser(u *models.User) error {
 	now := time.Now()
-	query := `UPDATE users SET password_hash = $1, is_active = $2, display_name = $3, updated_at = $4 WHERE id = $5`
-	res, err := s.db.Exec(query, u.PasswordHash, u.IsActive, u.DisplayName, formatTimeForDB(now), u.ID.String())
+	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
+	u.Username = normUsername
+	var usernameCol sql.NullString
+	if normUsername != "" {
+		usernameCol = sql.NullString{String: normUsername, Valid: true}
+	}
+	query := `UPDATE users SET username = $1, password_hash = $2, is_active = $3, display_name = $4, updated_at = $5 WHERE id = $6`
+	res, err := s.db.Exec(query, usernameCol, u.PasswordHash, u.IsActive, u.DisplayName, formatTimeForDB(now), u.ID.String())
 	if err != nil {
 		return err
 	}
@@ -1882,13 +1931,7 @@ func (s *SQLStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
 }
 
 func (s *SQLStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
-	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
-		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name
-		FROM users u
-		LEFT JOIN students st ON u.student_id = st.id
-		LEFT JOIN coaches c ON u.coach_id = c.id
-		WHERE u.role = $1
-		ORDER BY u.created_at DESC`
+	query := userSelectFields + ` WHERE u.role = $1 ORDER BY u.created_at DESC`
 	rows, err := s.db.Query(query, string(role))
 	if err != nil {
 		return nil, err
@@ -1897,34 +1940,67 @@ func (s *SQLStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) 
 
 	var users []*models.User
 	for rows.Next() {
-		var idStr, studentIDStr, coachIDStr, lastLoginStr, createdStr, updatedStr sql.NullString
-		u := &models.User{}
-		var roleStr string
-		if err := rows.Scan(
-			&idStr, &u.Email, &u.PasswordHash, &roleStr, &studentIDStr, &coachIDStr,
-			&u.IsActive, &lastLoginStr, &createdStr, &updatedStr, &u.DisplayName,
-		); err != nil {
+		u, err := scanUser(rows)
+		if err != nil {
 			return nil, err
 		}
-		u.ID = uuid.Must(uuid.Parse(idStr.String))
-		u.Role = models.UserRole(roleStr)
-		if studentIDStr.Valid && studentIDStr.String != "" {
-			sid, _ := uuid.Parse(studentIDStr.String)
-			u.StudentID = &sid
-		}
-		if coachIDStr.Valid && coachIDStr.String != "" {
-			cid, _ := uuid.Parse(coachIDStr.String)
-			u.CoachID = &cid
-		}
-		if lastLoginStr.Valid && lastLoginStr.String != "" {
-			t, _ := parseTimeFlex(lastLoginStr.String)
-			u.LastLoginAt = &t
-		}
-		u.CreatedAt, _ = parseTimeFlex(createdStr.String)
-		u.UpdatedAt, _ = parseTimeFlex(updatedStr.String)
 		users = append(users, u)
 	}
-	return users, rows.Err()
+	return users, nil
+}
+
+// Password Reset Tokens
+func (s *SQLStore) CreatePasswordResetToken(t *models.PasswordResetToken) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now()
+	}
+	query := `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, used_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+	var usedAtStr sql.NullString
+	if t.UsedAt != nil {
+		usedAtStr = sql.NullString{String: formatTimeForDB(*t.UsedAt), Valid: true}
+	}
+	_, err := s.db.Exec(query, t.ID.String(), t.UserID.String(), t.Token, formatTimeForDB(t.ExpiresAt), usedAtStr, formatTimeForDB(t.CreatedAt))
+	return err
+}
+
+func (s *SQLStore) GetPasswordResetToken(token string) (*models.PasswordResetToken, error) {
+	query := `SELECT id, user_id, token, expires_at, used_at, created_at FROM password_reset_tokens WHERE token = $1`
+	var idStr, userIDStr, expStr, usedStr, createdStr sql.NullString
+	t := &models.PasswordResetToken{}
+	err := s.db.QueryRow(query, token).Scan(&idStr, &userIDStr, &t.Token, &expStr, &usedStr, &createdStr)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	t.ID = uuid.Must(uuid.Parse(idStr.String))
+	t.UserID = uuid.Must(uuid.Parse(userIDStr.String))
+	t.ExpiresAt, _ = parseTimeFlex(expStr.String)
+	t.CreatedAt, _ = parseTimeFlex(createdStr.String)
+	if usedStr.Valid && usedStr.String != "" {
+		uAt, _ := parseTimeFlex(usedStr.String)
+		t.UsedAt = &uAt
+	}
+	return t, nil
+}
+
+func (s *SQLStore) MarkPasswordResetTokenUsed(token string) error {
+	now := time.Now()
+	query := `UPDATE password_reset_tokens SET used_at = $1 WHERE token = $2`
+	res, err := s.db.Exec(query, formatTimeForDB(now), token)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *SQLStore) UpdateUserLastLogin(id uuid.UUID) error {

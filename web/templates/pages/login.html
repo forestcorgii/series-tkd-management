@@ -51,11 +51,11 @@
                 <input type="hidden" name="redirect" value="{{.Redirect}}">
 
                 <div>
-                    <label for="email" class="form-label mb-1.5">
-                        Dojang Email Address
+                    <label for="identifier" class="form-label mb-1.5">
+                        Email or Username
                     </label>
-                    <input type="email" id="email" name="email" required autocomplete="email"
-                           placeholder="practitioner@seriestkd.com"
+                    <input type="text" id="identifier" name="identifier" required autocomplete="username"
+                           placeholder="e.g. alex.vance or practitioner@seriestkd.com"
                            class="form-input py-2.5 px-4 text-sm">
                 </div>
 
@@ -64,6 +64,9 @@
                         <label for="password" class="form-label">
                             Password
                         </label>
+                        <a href="/forgot-password" class="text-xs font-semibold text-[#990303] dark:text-red-400 hover:underline">
+                            Forgot Password?
+                        </a>
                     </div>
                     <input type="password" id="password" name="password" required autocomplete="current-password"
                            placeholder="••••••••••••"
@@ -93,35 +96,35 @@
                 </p>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <button type="button"
-                            onclick="fillDemo('manager@seriestkd.com', 'manager123')"
+                            onclick="fillDemo('manager', 'manager123')"
                             class="p-2.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900 hover:border-[#990303] dark:hover:border-red-500/50 transition text-center group">
                         <span class="block text-sm mb-0.5">👑</span>
                         <span class="block text-[11px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#990303] dark:group-hover:text-red-400">Op Manager</span>
-                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">Full Control</span>
+                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">manager</span>
                     </button>
 
                     <button type="button"
-                            onclick="fillDemo('admin@seriestkd.com', 'admin123')"
+                            onclick="fillDemo('admin', 'admin123')"
                             class="p-2.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900 hover:border-[#990303] dark:hover:border-red-500/50 transition text-center group">
                         <span class="block text-sm mb-0.5">💳</span>
                         <span class="block text-[11px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#990303] dark:group-hover:text-red-400">Admin</span>
-                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">Memberships</span>
+                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">admin</span>
                     </button>
 
                     <button type="button"
-                            onclick="fillDemo('jiwoo.park@seriestkd.com', 'coach123')"
+                            onclick="fillDemo('jiwoo.park', 'coach123')"
                             class="p-2.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900 hover:border-[#990303] dark:hover:border-red-500/50 transition text-center group">
                         <span class="block text-sm mb-0.5">🥊</span>
                         <span class="block text-[11px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#990303] dark:group-hover:text-red-400">Coach</span>
-                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">Floor Mat</span>
+                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">jiwoo.park</span>
                     </button>
 
                     <button type="button"
-                            onclick="fillDemo('alex.vance@seriestkd.com', 'student123')"
+                            onclick="fillDemo('alex.vance', 'student123')"
                             class="p-2.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900 hover:border-[#990303] dark:hover:border-red-500/50 transition text-center group">
                         <span class="block text-sm mb-0.5">🥇</span>
                         <span class="block text-[11px] font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#990303] dark:group-hover:text-red-400">Student</span>
-                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">My Profile</span>
+                        <span class="block text-[9px] text-slate-500 dark:text-slate-400 truncate">alex.vance</span>
                     </button>
                 </div>
             </div>
@@ -132,8 +135,9 @@
 
 {{if .ShowDemoLogin}}
 <script>
-    function fillDemo(email, pass) {
-        document.getElementById('email').value = email;
+    function fillDemo(identifier, pass) {
+        var input = document.getElementById('identifier') || document.getElementById('email');
+        if (input) input.value = identifier;
         document.getElementById('password').value = pass;
     }
 </script>

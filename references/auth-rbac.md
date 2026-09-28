@@ -100,7 +100,24 @@
        - **Delete**: Permanently removes unused coach profiles with confirmation.
      - Timetable generator, student evaluation, and new session modals filter out deactivated coaches (`{{if .IsActive}}`).
 
+### Context: Username Authentication & Anti-Enumeration Self-Service Password Recovery
 
+* **Problem**:
+  1. Practitioners, coaches, and administrators could previously only authenticate using email addresses, which created friction for floor check-in tablets and staff who preferred shorter handle identifiers.
+  2. Users who forgot their password had no self-service recovery mechanism, requiring manual administrative intervention in the database or management console.
+  3. Reset mechanisms can inadvertently expose account existence (user enumeration) if error messages reveal whether an identifier exists.
+* **Enforced Solution**:
+  1. **Dual-Identifier Authentication (`GetUserByIdentifier`)**:
+     - `models.User` struct persists an optional unique `username` (case-insensitive, alphanumeric + `._-`).
+     - `AuthService.Login` and `HandleLoginSubmit` accept either `username` or `email` interchangeably using case-insensitive matching (`LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)`).
+     - Form input is standard `name="identifier"`, with fallbacks to `email` and `username` for backward compatibility.
+  2. **Anti-Enumeration Password Recovery**:
+     - `POST /forgot-password` and `POST /api/auth/forgot-password` invoke `AuthService.RequestPasswordReset(identifier)`.
+     - If the account does not exist or is inactive, the handler still returns the identical generic confirmation notice (*"If an account with that email or username exists, instructions have been sent to reset your password."*), completely preventing user enumeration.
+  3. **Single-Use Cryptographic Reset Tokens (`password_reset_tokens`)**:
+     - 32-byte hex cryptographically random token (`GenerateSecureToken()`) with a 1-hour expiration.
+     - Tokens are validated upon access via `GET /reset-password?token=...` and invalidated immediately upon successful password change via `MarkPasswordResetTokenUsed(token)`.
+     - In development/local environments without an external SMTP gateway, generated reset URLs are output to the server console log for verification and auditing.
 
 
 ### Context: Administrator Management HTMX & JSON API Endpoints (/admins)

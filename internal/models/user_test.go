@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"testing"
+	"time"
 
 	"series-tkd-management/internal/models"
 )
@@ -94,3 +95,42 @@ func TestStudent_NextBeltProgression(t *testing.T) {
 		}
 	}
 }
+
+func TestPasswordResetToken_IsValid(t *testing.T) {
+	now := time.Now()
+
+	// Valid token
+	validToken := &models.PasswordResetToken{
+		ExpiresAt: now.Add(1 * time.Hour),
+		UsedAt:    nil,
+	}
+	if !validToken.IsValid() {
+		t.Errorf("expected valid token to return true")
+	}
+
+	// Expired token
+	expiredToken := &models.PasswordResetToken{
+		ExpiresAt: now.Add(-1 * time.Minute),
+		UsedAt:    nil,
+	}
+	if expiredToken.IsValid() {
+		t.Errorf("expected expired token to return false")
+	}
+
+	// Already used token
+	usedTime := now.Add(-5 * time.Minute)
+	usedToken := &models.PasswordResetToken{
+		ExpiresAt: now.Add(1 * time.Hour),
+		UsedAt:    &usedTime,
+	}
+	if usedToken.IsValid() {
+		t.Errorf("expected used token to return false")
+	}
+
+	// Nil token
+	var nilToken *models.PasswordResetToken
+	if nilToken.IsValid() {
+		t.Errorf("expected nil token to return false")
+	}
+}
+

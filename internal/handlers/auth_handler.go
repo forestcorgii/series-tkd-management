@@ -205,11 +205,17 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email := r.FormValue("email")
+	identifier := strings.TrimSpace(r.FormValue("identifier"))
+	if identifier == "" {
+		identifier = strings.TrimSpace(r.FormValue("email"))
+	}
+	if identifier == "" {
+		identifier = strings.TrimSpace(r.FormValue("username"))
+	}
 	password := r.FormValue("password")
 	redirectTarget := r.FormValue("redirect")
 
-	user, token, err := a.authSvc.Login(email, password)
+	user, token, err := a.authSvc.Login(identifier, password)
 	if err != nil {
 		msg := "Invalid email or password"
 		if errors.Is(err, services.ErrUserInactive) {
@@ -267,8 +273,10 @@ func (a *AppHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 // REST API Endpoints
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Identifier string `json:"identifier"`
+	Email      string `json:"email"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
 }
 
 type LoginResponse struct {
@@ -291,7 +299,15 @@ func (a *AppHandler) HandleAPILogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, token, err := a.authSvc.Login(req.Email, req.Password)
+	identifier := req.Identifier
+	if identifier == "" {
+		identifier = req.Email
+	}
+	if identifier == "" {
+		identifier = req.Username
+	}
+
+	user, token, err := a.authSvc.Login(identifier, req.Password)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
@@ -355,6 +371,7 @@ func (a *AppHandler) HandleAPILogout(w http.ResponseWriter, r *http.Request) {
 
 type RegisterRequest struct {
 	Email     string          `json:"email"`
+	Username  string          `json:"username"`
 	Password  string          `json:"password"`
 	Role      models.UserRole `json:"role"`
 	StudentID *uuid.UUID      `json:"student_id,omitempty"`
@@ -379,7 +396,7 @@ func (a *AppHandler) HandleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		req.Role = models.RoleStudent
 	}
 
-	user, err := a.authSvc.RegisterUser(req.Email, req.Password, req.Role, req.StudentID, req.CoachID)
+	user, err := a.authSvc.RegisterUser(req.Email, req.Password, req.Role, req.StudentID, req.CoachID, req.Username)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -392,5 +409,201 @@ func (a *AppHandler) HandleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "created",
 		"user":   user,
+	})
+}
+
+// Forgot Password & Reset Password Web Views and APIs
+
+type ForgotPasswordPageData struct {
+	CurrentUser *models.User
+	Error       string
+	Success     string
+}
+
+func (a *AppHandler) HandleForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	if user != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	data := ForgotPasswordPageData{
+		CurrentUser: nil,
+		Error:       r.URL.Query().Get("error"),
+		Success:     r.URL.Query().Get("success"),
+	}
+
+	a.RenderPage(w, "forgot_password.html", data)
+}
+
+func (a *AppHandler) HandleForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/forgot-password?error=Invalid+form+submission", http.StatusSeeOther)
+		return
+	}
+
+	identifier := strings.TrimSpace(r.FormValue("identifier"))
+	if identifier == "" {
+		identifier = strings.TrimSpace(r.FormValue("email"))
+	}
+	if identifier == "" {
+		identifier = strings.TrimSpace(r.FormValue("username"))
+	}
+
+	if identifier == "" {
+		http.Redirect(w, r, "/forgot-password?error="+url.QueryEscape("Please enter your registered email address or username."), http.StatusSeeOther)
+		return
+	}
+
+	_, _ = a.authSvc.RequestPasswordReset(identifier)
+
+	msg := "If an account with that email or username exists, instructions have been sent to reset your password."
+	http.Redirect(w, r, "/forgot-password?success="+url.QueryEscape(msg), http.StatusSeeOther)
+}
+
+type ResetPasswordPageData struct {
+	CurrentUser *models.User
+	Error       string
+	Token       string
+}
+
+func (a *AppHandler) HandleResetPasswordPage(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if token == "" {
+		http.Redirect(w, r, "/forgot-password?error="+url.QueryEscape("Password reset token is missing."), http.StatusSeeOther)
+		return
+	}
+
+	_, _, err := a.authSvc.ValidatePasswordResetToken(token)
+	if err != nil {
+		http.Redirect(w, r, "/forgot-password?error="+url.QueryEscape("This password reset link is invalid or has expired. Please request a new one."), http.StatusSeeOther)
+		return
+	}
+
+	data := ResetPasswordPageData{
+		CurrentUser: GetUserFromContext(r.Context()),
+		Error:       r.URL.Query().Get("error"),
+		Token:       token,
+	}
+
+	a.RenderPage(w, "reset_password.html", data)
+}
+
+func (a *AppHandler) HandleResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/forgot-password?error=Invalid+form+submission", http.StatusSeeOther)
+		return
+	}
+
+	token := strings.TrimSpace(r.FormValue("token"))
+	newPassword := strings.TrimSpace(r.FormValue("new_password"))
+	confirmPassword := strings.TrimSpace(r.FormValue("confirm_password"))
+
+	if token == "" {
+		http.Redirect(w, r, "/forgot-password?error="+url.QueryEscape("Password reset token is missing."), http.StatusSeeOther)
+		return
+	}
+
+	if len(newPassword) < 6 {
+		http.Redirect(w, r, "/reset-password?token="+url.QueryEscape(token)+"&error="+url.QueryEscape("Password must be at least 6 characters long."), http.StatusSeeOther)
+		return
+	}
+
+	if newPassword != confirmPassword {
+		http.Redirect(w, r, "/reset-password?token="+url.QueryEscape(token)+"&error="+url.QueryEscape("Passwords do not match."), http.StatusSeeOther)
+		return
+	}
+
+	_, err := a.authSvc.ResetPassword(token, newPassword)
+	if err != nil {
+		http.Redirect(w, r, "/forgot-password?error="+url.QueryEscape("Unable to reset password: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/login?success="+url.QueryEscape("Your password has been reset successfully! You can now sign in with your new credentials."), http.StatusSeeOther)
+}
+
+type ForgotPasswordRequest struct {
+	Identifier string `json:"identifier"`
+	Email      string `json:"email"`
+	Username   string `json:"username"`
+}
+
+func (a *AppHandler) HandleAPIForgotPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	id := req.Identifier
+	if id == "" {
+		id = req.Email
+	}
+	if id == "" {
+		id = req.Username
+	}
+
+	if id == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Identifier (email or username) is required"})
+		return
+	}
+
+	_, _ = a.authSvc.RequestPasswordReset(id)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "If an account exists, instructions have been sent to reset your password.",
+	})
+}
+
+type ResetPasswordRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
+func (a *AppHandler) HandleAPIResetPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	if len(req.Password) < 6 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Password must be at least 6 characters long"})
+		return
+	}
+
+	_, err := a.authSvc.ResetPassword(req.Token, req.Password)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Password reset successfully",
 	})
 }

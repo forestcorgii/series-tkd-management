@@ -810,4 +810,204 @@ func TestAuthHandler_DemoLoginProductionGating(t *testing.T) {
 	})
 }
 
+func TestAuthHandler_UsernameLoginFlow(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// 1. Login with username via form POST /login
+	form := url.Values{}
+	form.Set("identifier", "admin")
+	form.Set("password", "admin123")
+	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	app.HandleLoginSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 on successful login, got %d", rec.Code)
+	}
+	if rec.Header().Get("Location") != "/packages" {
+		t.Errorf("expected redirect to /packages for admin, got %s", rec.Header().Get("Location"))
+	}
+
+	// 2. Login with student username
+	formStudent := url.Values{}
+	formStudent.Set("identifier", "alex.vance")
+	formStudent.Set("password", "student123")
+	req = httptest.NewRequest("POST", "/login", strings.NewReader(formStudent.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleLoginSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 on student login, got %d", rec.Code)
+	}
+	if rec.Header().Get("Location") != "/portal/student" {
+		t.Errorf("expected redirect to /portal/student, got %s", rec.Header().Get("Location"))
+	}
+
+	// 3. API Login with username
+	apiBody := map[string]string{
+		"identifier": "manager",
+		"password":   "manager123",
+	}
+	bodyJSON, _ := json.Marshal(apiBody)
+	req = httptest.NewRequest("POST", "/api/auth/login", bytes.NewReader(bodyJSON))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	app.HandleAPILogin(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on API login with username, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var res handlers.LoginResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &res)
+	if res.User == nil || res.User.Username != "manager" {
+		t.Errorf("expected user with username 'manager'")
+	}
+}
+
+func TestAuthHandler_ForgotPasswordAndResetFlow(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// 1. GET /forgot-password
+	req := httptest.NewRequest("GET", "/forgot-password", nil)
+	rec := httptest.NewRecorder()
+	app.HandleForgotPasswordPage(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on /forgot-password, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "PASSWORD") || !strings.Contains(rec.Body.String(), "RECOVERY") {
+		t.Errorf("forgot password page missing title keywords")
+	}
+
+	// 2. POST /forgot-password with valid username
+	form := url.Values{}
+	form.Set("identifier", "alex.vance")
+	req = httptest.NewRequest("POST", "/forgot-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleForgotPasswordSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on submit, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Header().Get("Location"), "success=") {
+		t.Errorf("expected success query parameter in redirect, got %s", rec.Header().Get("Location"))
+	}
+
+	// 3. GET /reset-password without token -> error redirect
+	req = httptest.NewRequest("GET", "/reset-password", nil)
+	rec = httptest.NewRecorder()
+	app.HandleResetPasswordPage(rec, req)
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "error=") {
+		t.Errorf("expected error redirect when token is missing, got %d to %s", rec.Code, rec.Header().Get("Location"))
+	}
+
+	// 4. Generate token via AuthService and test valid GET /reset-password
+	tok, err := app.AuthService().RequestPasswordReset("alex.vance")
+	if err != nil || tok == nil {
+		t.Fatalf("failed to create reset token: %v", err)
+	}
+
+	req = httptest.NewRequest("GET", "/reset-password?token="+tok.Token, nil)
+	rec = httptest.NewRecorder()
+	app.HandleResetPasswordPage(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on valid /reset-password?token=..., got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "SET NEW") || !strings.Contains(rec.Body.String(), "PASSWORD") {
+		t.Errorf("reset password page missing title")
+	}
+
+	// 5. POST /reset-password with mismatched passwords -> error
+	resetForm := url.Values{}
+	resetForm.Set("token", tok.Token)
+	resetForm.Set("new_password", "newsecret123")
+	resetForm.Set("confirm_password", "mismatchpass")
+	req = httptest.NewRequest("POST", "/reset-password", strings.NewReader(resetForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleResetPasswordSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "error=") {
+		t.Errorf("expected error on password mismatch")
+	}
+
+	// 6. POST /reset-password with matching valid password
+	resetForm.Set("confirm_password", "newsecret123")
+	req = httptest.NewRequest("POST", "/reset-password", strings.NewReader(resetForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleResetPasswordSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 on successful reset, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Header().Get("Location"), "/login?success=") {
+		t.Errorf("expected redirect to /login with success banner, got %s", rec.Header().Get("Location"))
+	}
+
+	// 7. Verify login with new password
+	loginForm := url.Values{}
+	loginForm.Set("identifier", "alex.vance")
+	loginForm.Set("password", "newsecret123")
+	req = httptest.NewRequest("POST", "/login", strings.NewReader(loginForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleLoginSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/portal/student" {
+		t.Fatalf("expected login with new password to succeed and route to /portal/student, got %d to %s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestAuthHandler_APIForgotAndResetPassword(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// 1. POST /api/auth/forgot-password
+	reqBody, _ := json.Marshal(map[string]string{"identifier": "manager"})
+	req := httptest.NewRequest("POST", "/api/auth/forgot-password", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	app.HandleAPIForgotPassword(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on /api/auth/forgot-password, got %d", rec.Code)
+	}
+
+	// 2. Generate token for reset
+	tok, _ := app.AuthService().RequestPasswordReset("manager")
+
+	// 3. POST /api/auth/reset-password
+	resetBody, _ := json.Marshal(map[string]string{
+		"token":    tok.Token,
+		"password": "managerNewPass2026",
+	})
+	req = httptest.NewRequest("POST", "/api/auth/reset-password", bytes.NewReader(resetBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	app.HandleAPIResetPassword(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on /api/auth/reset-password, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 4. Verify login with new password via API
+	loginBody, _ := json.Marshal(map[string]string{
+		"identifier": "manager",
+		"password":   "managerNewPass2026",
+	})
+	req = httptest.NewRequest("POST", "/api/auth/login", bytes.NewReader(loginBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	app.HandleAPILogin(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on API login with new password, got %d", rec.Code)
+	}
+}
+
+
 

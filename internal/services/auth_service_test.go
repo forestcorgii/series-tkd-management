@@ -123,3 +123,135 @@ func TestAuthService_CoachDeactivationAndDeletionLoginBlocked(t *testing.T) {
 	}
 }
 
+func TestAuthService_UsernameLogin(t *testing.T) {
+	store := repository.NewMemoryStore()
+	authSvc := services.NewAuthService(store)
+
+	// 1. Login with username (exact)
+	user, token, err := authSvc.Login("admin", "admin123")
+	if err != nil {
+		t.Fatalf("expected successful login with username, got: %v", err)
+	}
+	if user.Role != models.RoleAdmin {
+		t.Errorf("expected role ADMIN, got %s", user.Role)
+	}
+	if token == "" {
+		t.Errorf("expected non-empty token")
+	}
+
+	// 2. Login with username (case-insensitive)
+	user, _, err = authSvc.Login("ADMIN", "admin123")
+	if err != nil {
+		t.Fatalf("expected case-insensitive username login to succeed, got: %v", err)
+	}
+	if user.Username != "admin" {
+		t.Errorf("expected username admin, got %s", user.Username)
+	}
+
+	// 3. Login with student username
+	studentUser, _, err := authSvc.Login("alex.vance", "student123")
+	if err != nil {
+		t.Fatalf("expected student login by username to succeed: %v", err)
+	}
+	if studentUser.Role != models.RoleStudent {
+		t.Errorf("expected STUDENT role, got %s", studentUser.Role)
+	}
+
+	// 4. Register new user with username
+	newStaff, err := authSvc.RegisterUser("desk@seriestkd.com", "deskpass123", models.RoleAdmin, nil, nil, "deskstaff")
+	if err != nil {
+		t.Fatalf("failed to register user with username: %v", err)
+	}
+	if newStaff.Username != "deskstaff" {
+		t.Errorf("expected username deskstaff, got %s", newStaff.Username)
+	}
+
+	// 5. Login new user by username
+	loggedNew, _, err := authSvc.Login("deskstaff", "deskpass123")
+	if err != nil || loggedNew.ID != newStaff.ID {
+		t.Fatalf("failed to login newly registered user by username: %v", err)
+	}
+
+	// 6. Duplicate username registration rejected
+	_, err = authSvc.RegisterUser("other@seriestkd.com", "deskpass123", models.RoleAdmin, nil, nil, "deskstaff")
+	if err != services.ErrUsernameAlreadyExists {
+		t.Errorf("expected ErrUsernameAlreadyExists, got %v", err)
+	}
+}
+
+func TestAuthService_ForgotPasswordAndReset(t *testing.T) {
+	store := repository.NewMemoryStore()
+	authSvc := services.NewAuthService(store)
+
+	// 1. Request password reset using email
+	tokenRec, err := authSvc.RequestPasswordReset("alex.vance@seriestkd.com")
+	if err != nil {
+		t.Fatalf("failed to request password reset by email: %v", err)
+	}
+	if tokenRec == nil || tokenRec.Token == "" {
+		t.Fatalf("expected valid token record")
+	}
+
+	// 2. Request password reset using username
+	tokenRecUser, err := authSvc.RequestPasswordReset("alex.vance")
+	if err != nil {
+		t.Fatalf("failed to request password reset by username: %v", err)
+	}
+	if tokenRecUser == nil || tokenRecUser.Token == "" {
+		t.Fatalf("expected valid token record")
+	}
+
+	// 3. Non-existent account returns nil without error (anti-enumeration)
+	unknownRec, err := authSvc.RequestPasswordReset("doesnotexist@nowhere.com")
+	if err != nil {
+		t.Errorf("expected nil error for unknown identifier (anti-enumeration), got: %v", err)
+	}
+	if unknownRec != nil {
+		t.Errorf("expected nil token for unknown identifier")
+	}
+
+	// 4. Validate token
+	validatedToken, targetUser, err := authSvc.ValidatePasswordResetToken(tokenRec.Token)
+	if err != nil {
+		t.Fatalf("expected token to be valid: %v", err)
+	}
+	if validatedToken.Token != tokenRec.Token {
+		t.Errorf("token mismatch")
+	}
+	if targetUser.Email != "alex.vance@seriestkd.com" {
+		t.Errorf("user mismatch, got email: %s", targetUser.Email)
+	}
+
+	// 5. Reset password with new password
+	newPassword := "brandNewPassword2026"
+	updatedUser, err := authSvc.ResetPassword(tokenRec.Token, newPassword)
+	if err != nil {
+		t.Fatalf("expected password reset to succeed: %v", err)
+	}
+	if updatedUser.ID != targetUser.ID {
+		t.Errorf("user ID mismatch")
+	}
+
+	// 6. Login with old password must fail
+	_, _, err = authSvc.Login("alex.vance", "student123")
+	if err != services.ErrInvalidCredentials {
+		t.Errorf("expected old password to fail with ErrInvalidCredentials, got %v", err)
+	}
+
+	// 7. Login with new password must succeed
+	loginUser, sessionToken, err := authSvc.Login("alex.vance", newPassword)
+	if err != nil {
+		t.Fatalf("expected login with new password to succeed, got %v", err)
+	}
+	if loginUser.ID != targetUser.ID || sessionToken == "" {
+		t.Errorf("login response invalid")
+	}
+
+	// 8. Attempting to reuse the reset token must fail
+	_, err = authSvc.ResetPassword(tokenRec.Token, "yetAnotherPassword")
+	if err != services.ErrInvalidResetToken {
+		t.Errorf("expected ErrInvalidResetToken on token reuse, got %v", err)
+	}
+}
+
+

@@ -66,6 +66,10 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 	return app, nil
 }
 
+func (a *AppHandler) AuthService() *services.AuthService {
+	return a.authSvc
+}
+
 func (a *AppHandler) parseTemplates() error {
 	funcMap := template.FuncMap{
 		"currentUser": func(data interface{}) *models.User {

@@ -142,11 +142,12 @@ func (a *AppHandler) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admins?error="+url.QueryEscape(msg), http.StatusSeeOther)
 	}
 
-	var fullName, email, password string
+	var fullName, email, username, password string
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 		var req struct {
 			FullName string `json:"full_name"`
 			Email    string `json:"email"`
+			Username string `json:"username"`
 			Password string `json:"password"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -155,10 +156,12 @@ func (a *AppHandler) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 		}
 		fullName = strings.TrimSpace(req.FullName)
 		email = strings.ToLower(strings.TrimSpace(req.Email))
+		username = strings.ToLower(strings.TrimSpace(req.Username))
 		password = strings.TrimSpace(req.Password)
 	} else {
 		fullName = strings.TrimSpace(r.FormValue("full_name"))
 		email = strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+		username = strings.ToLower(strings.TrimSpace(r.FormValue("username")))
 		password = strings.TrimSpace(r.FormValue("password"))
 	}
 
@@ -180,9 +183,18 @@ func (a *AppHandler) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Verify username uniqueness if provided
+	if username != "" {
+		if existing, _ := a.store.GetUserByUsername(username); existing != nil {
+			respondError(http.StatusConflict, "A user account with this username already exists.")
+			return
+		}
+	}
+
 	newAdmin := &models.User{
 		ID:          uuid.New(),
 		Email:       email,
+		Username:    username,
 		Role:        models.RoleAdmin,
 		DisplayName: fullName,
 		IsActive:    true,

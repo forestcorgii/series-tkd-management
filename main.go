@@ -80,6 +80,10 @@ func main() {
 	// Authentication (Web & REST API)
 	mux.HandleFunc("GET /login", app.HandleLoginPage)
 	mux.HandleFunc("POST /login", app.HandleLoginSubmit)
+	mux.HandleFunc("GET /forgot-password", app.HandleForgotPasswordPage)
+	mux.HandleFunc("POST /forgot-password", app.HandleForgotPasswordSubmit)
+	mux.HandleFunc("GET /reset-password", app.HandleResetPasswordPage)
+	mux.HandleFunc("POST /reset-password", app.HandleResetPasswordSubmit)
 	mux.HandleFunc("GET /register", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	})
@@ -89,6 +93,8 @@ func main() {
 	mux.HandleFunc("GET /api/auth/me", app.HandleAPIMe)
 	mux.HandleFunc("POST /api/auth/logout", app.HandleAPILogout)
 	mux.HandleFunc("POST /api/auth/register", app.RequireRole(models.RoleOperationManager)(app.HandleAPIRegister))
+	mux.HandleFunc("POST /api/auth/forgot-password", app.HandleAPIForgotPassword)
+	mux.HandleFunc("POST /api/auth/reset-password", app.HandleAPIResetPassword)
 
 	// Role Portals
 	mux.HandleFunc("GET /portal/student", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleStudentPortal))
