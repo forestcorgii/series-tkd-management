@@ -15,3 +15,12 @@
   1. Every partial template located in `web/templates/partials/*.html` must enclose its content inside `{{define "<filename>.html"}}` and conclude with `{{end}}`.
   2. This guarantees that `RenderPartial` invoked during HTMX requests (e.g. keyup search or category dropdown filters) executes and returns the exact HTML fragment targeted for swapping.
 
+### Context: Pointer Float Formatting in Templates (%!f Pointer Leak)
+
+* **Problem:** When domain model fields are pointer types (e.g., `CustomPrice *float64`), calling `{{printf "%.2f" .Package.CustomPrice}}` passes the pointer address to `fmt.Sprintf`. Because Go's `%f` verb does not automatically dereference pointer types, templates emit pointer formatting artifacts such as `%!f(*float64=0x340607ab8d60)`.
+* **Enforced Solution:**
+  1. **`formatCurrency` FuncMap Helper:** Register a generic `formatCurrency` function in the template `funcMap` using reflection/type-switching to dereference pointers (`*float64`, `*int`, etc.) and return a formatted 2-decimal string (`%.2f`) or empty string if `nil`.
+  2. **Domain Helper Method:** Add `CustomPriceVal() float64` to `models.StudentPackage` for nil-safe domain dereferencing.
+  3. **Template Standard:** Replace `{{printf "%.2f" ...}}` with `{{formatCurrency ...}}` in templates (`packages.html`, `student_detail.html`) when rendering pointer rates and prices.
+
+

@@ -254,3 +254,21 @@ func TestStudentPackage_FourWeekCycleWindow(t *testing.T) {
 		t.Fatalf("expected week 4, got %d", weekNum)
 	}
 }
+
+func TestStudentPackage_CustomPriceVal(t *testing.T) {
+	t.Run("nil CustomPrice returns 0", func(t *testing.T) {
+		sp := &StudentPackage{CustomPrice: nil}
+		if val := sp.CustomPriceVal(); val != 0 {
+			t.Fatalf("expected 0, got %f", val)
+		}
+	})
+
+	t.Run("non-nil CustomPrice returns dereferenced value", func(t *testing.T) {
+		price := 2500.75
+		sp := &StudentPackage{CustomPrice: &price}
+		if val := sp.CustomPriceVal(); val != 2500.75 {
+			t.Fatalf("expected 2500.75, got %f", val)
+		}
+	})
+}
+

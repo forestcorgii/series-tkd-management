@@ -326,3 +326,78 @@ func TestHandleFourWeekPlan_CreationAndCheckIn(t *testing.T) {
 		t.Fatalf("expected override check-in to succeed (200), got %d. Body: %s", overrideRec.Code, overrideRec.Body.String())
 	}
 }
+
+func TestHandlePackages_CustomPriceRendering(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	student := &models.Student{
+		ID:          uuid.New(),
+		FullName:    "Jin Kazama",
+		DOB:         time.Now().AddDate(-16, 0, 0),
+		CurrentBelt: models.BeltBlack1stDan,
+		IsActive:    true,
+	}
+	_ = store.CreateStudent(student)
+
+	ten := 10
+	tpl := &models.PackageTemplate{
+		ID:           uuid.New(),
+		Title:        "Custom Rate Plan",
+		SessionCount: &ten,
+		ValidityDays: 60,
+		Price:        1000.00,
+		IsActive:     true,
+	}
+	_ = store.CreatePackageTemplate(tpl)
+
+	customPrice := 1499.50
+	sp := &models.StudentPackage{
+		ID:                uuid.New(),
+		StudentID:         student.ID,
+		TemplateID:        tpl.ID,
+		TemplateTitle:     tpl.Title,
+		TotalSessions:     &ten,
+		RemainingSessions: &ten,
+		CustomPrice:       &customPrice,
+		Notes:             "VIP corporate sibling discount",
+		PurchaseDate:      time.Now(),
+		ExpiryDate:        time.Now().AddDate(0, 0, 60),
+		PaymentStatus:     "paid",
+	}
+	_ = store.AssignPackage(sp)
+
+	req := httptest.NewRequest(http.MethodGet, "/packages", nil)
+	rec := httptest.NewRecorder()
+	app.HandlePackages(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	if strings.Contains(body, "%!f") {
+		t.Errorf("body contains broken float pointer formatting artifact: %s", body)
+	}
+	if !strings.Contains(body, "₱1499.50") {
+		t.Errorf("expected formatted currency ₱1499.50 in body")
+	}
+	if !strings.Contains(body, "VIP corporate sibling discount") {
+		t.Errorf("expected notes in body")
+	}
+
+	// Also verify student detail view renders CustomPrice without %!f artifact
+	sReq := httptest.NewRequest(http.MethodGet, "/students/"+student.ID.String(), nil)
+	sRec := httptest.NewRecorder()
+	app.HandleStudentDetail(sRec, sReq)
+	if sRec.Code != http.StatusOK {
+		t.Fatalf("expected student detail status 200, got %d", sRec.Code)
+	}
+	sBody := sRec.Body.String()
+	if strings.Contains(sBody, "%!f") {
+		t.Errorf("student detail contains broken float pointer formatting artifact: %s", sBody)
+	}
+	if !strings.Contains(sBody, "₱1499.50") {
+		t.Errorf("expected formatted currency ₱1499.50 in student detail body")
+	}
+}
+

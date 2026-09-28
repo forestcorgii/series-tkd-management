@@ -167,3 +167,11 @@ func (sp *StudentPackage) DeductSession(t time.Time) error {
 	}
 	return nil
 }
+
+func (sp *StudentPackage) CustomPriceVal() float64 {
+	if sp.CustomPrice != nil {
+		return *sp.CustomPrice
+	}
+	return 0
+}
+

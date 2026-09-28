@@ -205,7 +205,7 @@
                         </td>
                         <td class="py-3.5 px-4 text-slate-600 dark:text-slate-400">
                             {{if .Package.CustomPrice}}
-                            <span class="font-bold text-slate-900 dark:text-slate-200">₱{{printf "%.2f" .Package.CustomPrice}}</span>
+                            <span class="font-bold text-slate-900 dark:text-slate-200">₱{{formatCurrency .Package.CustomPrice}}</span>
                             {{end}}
                             {{if .Package.Notes}}
                             <span class="block text-[11px] italic truncate max-w-xs text-slate-500" title="{{.Package.Notes}}">

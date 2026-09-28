@@ -155,6 +155,34 @@ func (a *AppHandler) parseTemplates() error {
 		"safeHTML": func(s string) template.HTML {
 			return template.HTML(s)
 		},
+		"formatCurrency": func(v interface{}) string {
+			if v == nil {
+				return ""
+			}
+			rv := reflect.ValueOf(v)
+			if rv.Kind() == reflect.Ptr {
+				if rv.IsNil() {
+					return ""
+				}
+				rv = rv.Elem()
+			}
+			switch rv.Kind() {
+			case reflect.Float32, reflect.Float64:
+				return fmt.Sprintf("%.2f", rv.Float())
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				return fmt.Sprintf("%.2f", float64(rv.Int()))
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				return fmt.Sprintf("%.2f", float64(rv.Uint()))
+			default:
+				return fmt.Sprintf("%v", v)
+			}
+		},
+		"derefFloat": func(v *float64) float64 {
+			if v == nil {
+				return 0
+			}
+			return *v
+		},
 	}
 
 	baseDir := "web/templates"
