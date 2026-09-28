@@ -122,3 +122,94 @@ func TestTrainingSession_IsDone(t *testing.T) {
 		})
 	}
 }
+
+func TestTrainingSession_IsOpen(t *testing.T) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := today.AddDate(0, 0, 1)
+
+	tests := []struct {
+		name     string
+		session  TrainingSession
+		refTime  time.Time
+		wantOpen bool
+	}{
+		{
+			name: "Yesterday session is not open",
+			session: TrainingSession{
+				ID:          uuid.New(),
+				SessionDate: yesterday,
+				StartTime:   "17:00",
+				EndTime:     "18:30",
+			},
+			refTime:  now,
+			wantOpen: false,
+		},
+		{
+			name: "Tomorrow session is open",
+			session: TrainingSession{
+				ID:          uuid.New(),
+				SessionDate: tomorrow,
+				StartTime:   "17:00",
+				EndTime:     "18:30",
+			},
+			refTime:  now,
+			wantOpen: true,
+		},
+		{
+			name: "Today session before end time is open",
+			session: TrainingSession{
+				ID:          uuid.New(),
+				SessionDate: today,
+				StartTime:   "17:00",
+				EndTime:     "18:30",
+			},
+			refTime:  time.Date(today.Year(), today.Month(), today.Day(), 17, 30, 0, 0, today.Location()),
+			wantOpen: true,
+		},
+		{
+			name: "Today session at end time is not open",
+			session: TrainingSession{
+				ID:          uuid.New(),
+				SessionDate: today,
+				StartTime:   "17:00",
+				EndTime:     "18:30",
+			},
+			refTime:  time.Date(today.Year(), today.Month(), today.Day(), 18, 30, 0, 0, today.Location()),
+			wantOpen: false,
+		},
+		{
+			name: "Today session after end time is not open",
+			session: TrainingSession{
+				ID:          uuid.New(),
+				SessionDate: today,
+				StartTime:   "17:00",
+				EndTime:     "18:30",
+			},
+			refTime:  time.Date(today.Year(), today.Month(), today.Day(), 19, 0, 0, 0, today.Location()),
+			wantOpen: false,
+		},
+		{
+			name: "Cancelled session is never open",
+			session: TrainingSession{
+				ID:          uuid.New(),
+				SessionDate: tomorrow,
+				StartTime:   "17:00",
+				EndTime:     "18:30",
+				IsCancelled: true,
+			},
+			refTime:  now,
+			wantOpen: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOpen := tt.session.IsOpenAt(tt.refTime)
+			if gotOpen != tt.wantOpen {
+				t.Errorf("IsOpenAt() = %v, want %v", gotOpen, tt.wantOpen)
+			}
+		})
+	}
+}

@@ -76,12 +76,19 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	var openSessions []*models.TrainingSession
+	for _, s := range sessions {
+		if s.IsOpen() {
+			openSessions = append(openSessions, s)
+		}
+	}
+
 	data := DashboardViewData{
 		ActiveStudentsCount: len(students),
 		ActiveCoachesCount:  len(coaches),
 		TotalSessionsCount:  len(sessions),
 		FirstAidAlertsCount: firstAidAlerts,
-		RecentSessions:      sessions,
+		RecentSessions:      openSessions,
 		ReadinessList:       readinessSummaries,
 		CurrentUser:         user,
 	}

@@ -42,6 +42,16 @@ func (s *TrainingSession) IsDone() bool {
 	return s.IsPastEndTimeAt(time.Now())
 }
 
+// IsOpen returns true if the session is not cancelled and has not completed its scheduled end time.
+func (s *TrainingSession) IsOpen() bool {
+	return !s.IsCancelled && !s.IsPastEndTime()
+}
+
+// IsOpenAt evaluates whether the session is open (not cancelled and not past its scheduled end time) relative to ref.
+func (s *TrainingSession) IsOpenAt(ref time.Time) bool {
+	return !s.IsCancelled && !s.IsPastEndTimeAt(ref)
+}
+
 // IsPastEndTime returns true if current local time has reached or passed the session's end time.
 func (s *TrainingSession) IsPastEndTime() bool {
 	return s.IsPastEndTimeAt(time.Now())

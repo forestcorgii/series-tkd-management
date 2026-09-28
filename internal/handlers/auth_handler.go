@@ -19,7 +19,8 @@ import (
 type contextKey string
 
 const (
-	userContextKey   contextKey = "stms_auth_user"
+	UserContextKey   contextKey = "stms_auth_user"
+	userContextKey              = UserContextKey
 	sessionCookieKey string     = "stms_session"
 )
 

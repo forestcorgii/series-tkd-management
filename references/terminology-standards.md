@@ -74,3 +74,15 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
   - 7-day rolling cycle boundaries calculated relative to `PurchaseDate`: `[cycleStart, cycleEnd)`.
   - Floor check-in enforcement: Rejects check-in attempts when weekly quota is reached, indicating cycle reset date, while allowing one-click coach/admin manual override (`?override=true`).
 
+---
+
+## 5. Dashboard Operations Standards
+
+### Context: Dashboard Active Classes Floor Filter
+- **Problem**: The dashboard's "Active Classes" floor quick-links panel previously rendered all sessions indiscriminately, including historical/concluded sessions (`🔒 CLOSED`) and cancelled sessions (`🚫 CANCELLED`), cluttering operational quick-check-in.
+- **Enforced Solution**:
+  - **Domain Model**: [TrainingSession.IsOpen()](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) and [TrainingSession.IsOpenAt()](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) evaluate `!s.IsCancelled && !s.IsPastEndTime()`.
+  - **Handler Filter**: [HandleDashboard](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/dashboard_handler.go) populates `RecentSessions` strictly with sessions satisfying `s.IsOpen()`.
+  - **UI Representation**: [web/templates/pages/dashboard.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/dashboard.html) badges each item as `Open`, updates the header telemetry to `N Open`, and provides an empty-state card ("No open classes right now") when the floor has no pending or live classes.
+
+

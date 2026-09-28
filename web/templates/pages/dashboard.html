@@ -148,7 +148,7 @@
             <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800">
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Active Classes</h2>
-                    <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{len .RecentSessions}} Scheduled</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{len .RecentSessions}} Open</span>
                 </div>
                 <div class="space-y-3 max-h-[30rem] overflow-y-auto pr-1">
                     {{range .RecentSessions}}
@@ -156,18 +156,18 @@
                         <div>
                             <div class="flex items-center gap-1.5">
                                 <span class="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wide">{{.TrainingType}}</span>
-                                {{if .IsCancelled}}
-                                <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">Cancelled</span>
-                                {{else if .IsDone}}
-                                <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Closed</span>
-                                {{end}}
+                                <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">Open</span>
                             </div>
                             <h3 class="font-bold text-slate-900 dark:text-white text-sm mt-0.5">{{.StartTime}} - {{.EndTime}}</h3>
                             <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Lead: {{.CoachName}}</p>
                         </div>
-                        <a href="/sessions/{{.ID}}/live" class="{{if or .IsCancelled .IsDone}}btn btn-secondary btn-sm{{else}}btn btn-primary btn-sm{{end}}">
-                            {{if .IsDone}}Roster &rarr;{{else if .IsCancelled}}Cancelled &rarr;{{else}}Attendance &rarr;{{end}}
+                        <a href="/sessions/{{.ID}}/live" class="btn btn-primary btn-sm">
+                            Attendance &rarr;
                         </a>
+                    </div>
+                    {{else}}
+                    <div class="p-6 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-800">
+                        <p class="text-sm font-medium">No open classes right now</p>
                     </div>
                     {{end}}
                 </div>
