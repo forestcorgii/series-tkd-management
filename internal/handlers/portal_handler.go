@@ -28,6 +28,7 @@ type StudentPortalData struct {
 	PastPackages           []*models.StudentPackage
 	RecentAttendances      []*models.Attendance
 	UpcomingSessions       []*models.TrainingSession
+	CheckedInSessions      map[string]bool
 	HasActiveSafetyHold    bool
 }
 
@@ -134,6 +135,11 @@ func (a *AppHandler) HandleStudentPortal(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	checkedInMap := make(map[string]bool, len(attendances))
+	for _, att := range attendances {
+		checkedInMap[att.SessionID.String()] = true
+	}
+
 	data := StudentPortalData{
 		CurrentUser:          user,
 		Student:              student,
@@ -146,6 +152,7 @@ func (a *AppHandler) HandleStudentPortal(w http.ResponseWriter, r *http.Request)
 		PastPackages:         pastPkgs,
 		RecentAttendances:    attendances,
 		UpcomingSessions:     upcoming,
+		CheckedInSessions:    checkedInMap,
 		HasActiveSafetyHold:  student.HasSafetyFlag,
 	}
 
@@ -345,6 +352,218 @@ func (a *AppHandler) HandleAPICoachLiveSession(w http.ResponseWriter, r *http.Re
 	})
 }
 
+// 2b. POST /api/student/check-in
+type StudentCheckInItemData struct {
+	Session         *models.TrainingSession
+	StudentID       uuid.UUID
+	IsCheckedIn     bool
+	HasSafetyHold   bool
+	FeedbackMessage string
+	IsSuccess       bool
+}
+
+func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		if isJSONRequest(r) && !isHTMXRequest(r) {
+			writeJSONResponse(w, http.StatusUnauthorized, map[string]interface{}{
+				"error":   "unauthorized",
+				"message": "Authentication required",
+			})
+			return
+		}
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	var sessionID uuid.UUID
+	var studentID uuid.UUID
+
+	if isJSONRequest(r) && !isHTMXRequest(r) {
+		var req struct {
+			SessionID uuid.UUID `json:"session_id"`
+			StudentID uuid.UUID `json:"student_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
+				"error": "Invalid JSON body",
+			})
+			return
+		}
+		sessionID = req.SessionID
+		studentID = req.StudentID
+	} else {
+		_ = r.ParseForm()
+		sessionID, _ = uuid.Parse(r.FormValue("session_id"))
+		studentID, _ = uuid.Parse(r.FormValue("student_id"))
+	}
+
+	// For student role, strictly enforce self check-in
+	if user.Role == models.RoleStudent {
+		if user.StudentID == nil || *user.StudentID == uuid.Nil {
+			if isHTMXRequest(r) {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, `<div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">⚠️ No student profile is linked to your account.</div>`)
+				return
+			}
+			writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
+				"error": "No student profile linked to your account",
+			})
+			return
+		}
+		studentID = *user.StudentID
+	} else if studentID == uuid.Nil && user.StudentID != nil {
+		studentID = *user.StudentID
+	}
+
+	if sessionID == uuid.Nil || studentID == uuid.Nil {
+		if isHTMXRequest(r) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `<div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">⚠️ session_id and student_id are required.</div>`)
+			return
+		}
+		writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "session_id and student_id required",
+		})
+		return
+	}
+
+	session, err := a.store.GetSessionByID(sessionID)
+	if err != nil || session == nil {
+		if isHTMXRequest(r) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `<div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">⚠️ Scheduled class not found.</div>`)
+			return
+		}
+		writeJSONResponse(w, http.StatusNotFound, map[string]interface{}{
+			"error": "Session not found",
+		})
+		return
+	}
+
+	student, err := a.store.GetStudentByID(studentID)
+	if err != nil || student == nil {
+		if isHTMXRequest(r) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `<div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">⚠️ Student profile not found.</div>`)
+			return
+		}
+		writeJSONResponse(w, http.StatusNotFound, map[string]interface{}{
+			"error": "Student not found",
+		})
+		return
+	}
+
+	itemData := StudentCheckInItemData{
+		Session:       session,
+		StudentID:     studentID,
+		IsCheckedIn:   false,
+		HasSafetyHold: student.HasSafetyFlag,
+	}
+
+	if session.IsCancelled {
+		itemData.FeedbackMessage = "Check-in rejected: This class has been cancelled."
+		itemData.IsSuccess = false
+		if isHTMXRequest(r) {
+			a.RenderPartial(w, "student_session_item.html", itemData)
+			return
+		}
+		writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "Session is cancelled",
+		})
+		return
+	}
+
+	if student.HasSafetyFlag {
+		itemData.FeedbackMessage = "Mat Safety Hold Active: First aid clearance required by coach before stepping on the mat."
+		itemData.IsSuccess = false
+		if isHTMXRequest(r) {
+			a.RenderPartial(w, "student_session_item.html", itemData)
+			return
+		}
+		writeJSONResponse(w, http.StatusForbidden, map[string]interface{}{
+			"error": "Safety hold active",
+		})
+		return
+	}
+
+	// Check if already checked in
+	atts, _ := a.store.GetStudentAttendances(studentID)
+	for _, att := range atts {
+		if att.SessionID == sessionID {
+			itemData.IsCheckedIn = true
+			itemData.FeedbackMessage = "You are already checked in to this class."
+			itemData.IsSuccess = true
+			if isHTMXRequest(r) {
+				w.Header().Set("HX-Trigger", "attendanceUpdated")
+				a.RenderPartial(w, "student_session_item.html", itemData)
+				return
+			}
+			writeJSONResponse(w, http.StatusOK, map[string]interface{}{
+				"status":     "already_checked_in",
+				"attendance": att,
+			})
+			return
+		}
+	}
+
+	// Process package deduction
+	pkgs, _ := a.store.GetStudentPackages(studentID)
+	usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
+	if err != nil {
+		itemData.FeedbackMessage = fmt.Sprintf("Check-in rejected: %v. Please see front desk for membership renewal.", err)
+		itemData.IsSuccess = false
+		if isHTMXRequest(r) {
+			a.RenderPartial(w, "student_session_item.html", itemData)
+			return
+		}
+		writeJSONResponse(w, http.StatusPaymentRequired, map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	var pkgID *uuid.UUID
+	if usedPkg != nil {
+		pkgID = &usedPkg.ID
+		_ = a.store.UpdateStudentPackage(usedPkg)
+	}
+
+	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID)
+	if err != nil {
+		itemData.FeedbackMessage = fmt.Sprintf("Check-in failed: %v", err)
+		itemData.IsSuccess = false
+		if isHTMXRequest(r) {
+			a.RenderPartial(w, "student_session_item.html", itemData)
+			return
+		}
+		writeJSONResponse(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("HX-Trigger", "attendanceUpdated")
+
+	if isHTMXRequest(r) {
+		itemData.IsCheckedIn = true
+		itemData.IsSuccess = true
+		itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s - %s). 1 class credit deducted.", session.TrainingType, session.StartTime, session.EndTime)
+		a.RenderPartial(w, "student_session_item.html", itemData)
+		return
+	}
+
+	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
+		"status":     "checked_in",
+		"attendance": att,
+		"package":    usedPkg,
+	})
+}
+
 // 3. POST /api/coach/check-in
 type CoachCheckInRequest struct {
 	SessionID uuid.UUID `json:"session_id"`
@@ -352,6 +571,12 @@ type CoachCheckInRequest struct {
 }
 
 func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.Role == models.RoleStudent {
+		a.HandleAPIStudentCheckIn(w, r)
+		return
+	}
+
 	var req CoachCheckInRequest
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -391,7 +616,23 @@ func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Reques
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
-		a.RenderPartial(w, "checkin_row.html", att)
+		st, _ := a.store.GetStudentByID(req.StudentID)
+		allSessions, _ := a.store.GetAllSessions()
+		allSessionsMap := make(map[string]*models.TrainingSession, len(allSessions))
+		for _, s := range allSessions {
+			allSessionsMap[s.ID.String()] = s
+		}
+		latestEval, _ := a.store.GetLatestEvaluation(req.StudentID)
+		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
+		data := struct {
+			Attendance *models.Attendance
+			Readiness  services.PromotionReadiness
+		}{
+			Attendance: att,
+			Readiness:  readiness,
+		}
+		w.Header().Set("HX-Trigger", "attendanceUpdated")
+		a.RenderPartial(w, "checkin_row.html", data)
 		return
 	}
 

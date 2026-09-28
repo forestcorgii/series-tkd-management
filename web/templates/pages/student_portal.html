@@ -25,7 +25,7 @@
     {{end}}
 
     <!-- Top Practitioner Header & Belt Ribbon -->
-    <div class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+    <div id="student-header" class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#student-header" hx-target="#student-header" hx-swap="outerHTML">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div class="flex items-center space-x-4">
                 <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
@@ -73,7 +73,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Readiness Progress HUD (2 cols) -->
         <div class="lg:col-span-2 space-y-6">
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <div id="readiness-hud" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#readiness-hud" hx-target="#readiness-hud" hx-swap="outerHTML">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
@@ -154,7 +154,7 @@
             </div>
 
             <!-- Package Balance & Auto-Deduction Wallet -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <div id="wallet-ledger-card" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#wallet-ledger-card" hx-target="#wallet-ledger-card" hx-swap="outerHTML">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
@@ -291,32 +291,15 @@
             </div>
 
             <!-- Today's Floor Schedule & Self Check-In -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <div id="today-classes-card" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
                 <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-3">
                     Today's Scheduled Classes
                 </h2>
                 <div class="space-y-3">
                     {{range .UpcomingSessions}}
-                    <div class="p-3 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/80 flex items-center justify-between gap-3">
-                        <div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-xs font-bold text-black dark:text-white">{{.TrainingType}}</span>
-                                <span class="text-[10px] px-1.5 py-0.2 rounded bg-neutral-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">{{.StartTime}} - {{.EndTime}}</span>
-                            </div>
-                            <span class="text-[11px] text-slate-500 block mt-0.5">Lead: {{.CoachName}}</span>
-                        </div>
-
-                        <!-- Mat Check-In Trigger -->
-                        <button hx-post="/api/coach/check-in"
-                                hx-vals='{"session_id": "{{.ID}}", "student_id": "{{$.Student.ID}}"}'
-                                hx-target="#checkin-feedback-{{.ID}}"
-                                class="btn btn-primary btn-xs">
-                            Class Check-In
-                        </button>
-                    </div>
-                    <div id="checkin-feedback-{{.ID}}"></div>
+                        {{template "student_session_item.html" (dict "Session" . "StudentID" $.Student.ID "IsCheckedIn" (index $.CheckedInSessions .ID.String) "HasSafetyHold" $.HasActiveSafetyHold "FeedbackMessage" "" "IsSuccess" false)}}
                     {{else}}
-                    <p class="text-xs text-slate-500 text-center py-4">No scheduled classes today.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No scheduled classes today.</p>
                     {{end}}
                 </div>
             </div>

@@ -101,8 +101,9 @@ func main() {
 
 	// Section 4 Role Guarded APIs
 	mux.HandleFunc("GET /api/student/readiness", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleAPIStudentReadiness))
+	mux.HandleFunc("POST /api/student/check-in", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleAPIStudentCheckIn))
 	mux.HandleFunc("GET /api/coach/sessions/live", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleAPICoachLiveSession))
-	mux.HandleFunc("POST /api/coach/check-in", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleAPICoachCheckIn))
+	mux.HandleFunc("POST /api/coach/check-in", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleAPICoachCheckIn))
 	mux.HandleFunc("POST /api/coach/evaluate", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleAPICoachEvaluate))
 	mux.HandleFunc("POST /api/safety/flag", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleAPISafetyFlag))
 	mux.HandleFunc("POST /api/safety/resolve", app.RequireRole(models.RoleOperationManager)(app.HandleAPISafetyResolve))

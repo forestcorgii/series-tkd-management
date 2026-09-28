@@ -1,0 +1,51 @@
+{{define "student_session_item.html"}}
+<div id="session-item-{{.Session.ID}}" class="space-y-1.5">
+    <div class="p-3 rounded-xl border {{if .IsCheckedIn}}border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/20{{else}}border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/80{{end}} flex items-center justify-between gap-3 transition">
+        <div>
+            <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-black dark:text-white">{{.Session.TrainingType}}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400 font-semibold">{{.Session.StartTime}} - {{.Session.EndTime}}</span>
+            </div>
+            <span class="text-[11px] text-slate-600 dark:text-slate-400 block mt-0.5">Lead: {{.Session.CoachName}}</span>
+        </div>
+
+        {{if .IsCheckedIn}}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+            Checked In
+        </span>
+        {{else if .Session.IsCancelled}}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400 border border-neutral-300 dark:border-neutral-700">
+            Cancelled
+        </span>
+        {{else if .HasSafetyHold}}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30" title="Mat Safety Hold: Clearance required by coach">
+            Safety Hold
+        </span>
+        {{else}}
+        <!-- Mat Check-In Trigger -->
+        <form hx-post="/api/student/check-in"
+              hx-target="#session-item-{{.Session.ID}}"
+              hx-swap="outerHTML"
+              class="m-0 p-0 inline">
+            <input type="hidden" name="session_id" value="{{.Session.ID}}">
+            <input type="hidden" name="student_id" value="{{.StudentID}}">
+            <button type="submit" class="btn btn-primary btn-xs">
+                Class Check-In
+            </button>
+        </form>
+        {{end}}
+    </div>
+    {{if .FeedbackMessage}}
+    <div class="p-2.5 rounded-xl {{if .IsSuccess}}bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300{{else}}bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300{{end}} text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>{{if .IsSuccess}}✅{{else}}⚠️{{end}}</span>
+            <span>{{.FeedbackMessage}}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="{{if .IsSuccess}}text-emerald-700 dark:text-emerald-400{{else}}text-rose-700 dark:text-rose-400{{end}} hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+</div>
+{{end}}

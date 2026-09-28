@@ -131,3 +131,23 @@
   2. **Template & Script Isolation (`login.html`)**:
      - Both the quick demo button group and the client-side `fillDemo(...)` script containing hardcoded credentials are gated behind `{{if .ShowDemoLogin}}`. In production, no demo HTML elements or credentials scripts are rendered to the client browser.
 
+### Context: Student Self Check-In & Reactive Scheduled Classes Floor Sync (`/api/student/check-in`)
+
+* **Problem**:
+  1. The "Class Check-In" action in the Practitioner Portal (`student_portal.html`) triggered `POST /api/coach/check-in`, which was guarded strictly by `RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)`. Authenticated `STUDENT` users received HTTP 403 Forbidden, preventing floor check-in.
+  2. The schedule card had no state awareness for classes the practitioner was already admitted to, repeatedly showing an active check-in button even after admission.
+  3. Successful admittance did not sync other attendance-dependent widgets (Readiness HUD progress bar, Remaining Classes in Prepaid Wallet, or Recent Attendance Log) without a full manual page refresh.
+* **Enforced Solution**:
+  1. **Dedicated Self Check-In Endpoint (`POST /api/student/check-in`)**:
+     - Protected by `RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)`.
+     - **Identity Lock**: For `STUDENT` users, the admitted `student_id` is strictly derived from the authenticated session context (`user.StudentID`), preventing practitioners from checking in other accounts.
+     - **Safety & Membership Verification**: Blocks check-in if an active safety hold is present (`HasSafetyFlag == true`), if the class is cancelled, or if the student has no active valid membership credits.
+     - **Idempotency**: Detects prior admittance to the same session and confirms check-in status cleanly without double deduction.
+  2. **Partial Swapping & UI State (`student_session_item.html`)**:
+     - Renders an emerald `✓ Checked In` pill when `IsCheckedIn == true`, `Cancelled` pill when `IsCancelled == true`, `Safety Hold` pill when flagged, or primary button `Class Check-In`.
+     - Targets `#session-item-{{.Session.ID}}` with `hx-swap="outerHTML"`, replacing the card and displaying a dismissible feedback banner on check-in.
+  3. **Event-Driven Multi-Widget Sync (`attendanceUpdated`)**:
+     - Check-in emits header `HX-Trigger: attendanceUpdated`.
+     - `#student-header`, `#readiness-hud`, and `#wallet-ledger-card` in `student_portal.html` declare `hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="..." hx-target="..." hx-swap="outerHTML"`, automatically updating attended class counts, readiness percentage bars, and wallet balances in real time.
+
+
