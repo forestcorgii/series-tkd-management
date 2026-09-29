@@ -90,130 +90,304 @@
         </div>
     </div>
 
-    <!-- Coach Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {{range .Coaches}}
-        <div class="glass-panel p-6 rounded-2xl border {{if .Coach.IsActive}}border-slate-200/80 dark:border-slate-800{{else if .IsPendingApproval}}border-amber-300 dark:border-amber-700/60 bg-amber-500/[0.02]{{else}}border-rose-200 dark:border-rose-900/50 bg-rose-500/[0.02]{{end}} space-y-4 relative overflow-hidden shadow-sm flex flex-col justify-between">
-            <!-- First Aid Warning Banner if flagged -->
-            {{if .Payroll.FirstAidWarningFlag}}
-            <div class="bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border-b border-amber-300 dark:border-amber-800 -mx-6 -mt-6 p-2.5 text-center text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
-                ⚠️ {{.Payroll.WarningMessage}}
+    <!-- Coach List View -->
+    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden space-y-3 p-4 sm:p-5">
+        <!-- Search and Filter Bar -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+            <div class="relative flex-1 max-w-md">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">🔍</span>
+                <input type="search" id="coach-search" placeholder="Search by instructor name, belt, phone, email, or specialty..."
+                       oninput="filterCoachList(this.value)"
+                       class="form-input pl-9 py-2 text-xs w-full">
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 self-end sm:self-center">
+                <span>Click any coach row to view full profile &amp; payout metrics</span>
+            </div>
+        </div>
+
+        <!-- Listview Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse" id="coaches-table">
+                <thead>
+                    <tr class="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-neutral-900/40">
+                        <th class="py-3 px-4">Instructor</th>
+                        <th class="py-3 px-4">Rank &amp; Specialties</th>
+                        <th class="py-3 px-4">First Aid Status</th>
+                        <th class="py-3 px-4">Rate &amp; Payout</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                    {{range .Coaches}}
+                    <tr class="hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition cursor-pointer group coach-row"
+                        onclick="openCoachModal('coach-modal-{{.Coach.ID}}')"
+                        title="Click to view coach details">
+                        <!-- Instructor Info -->
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-3">
+                                <div class="h-10 w-10 rounded-xl {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else if .IsPendingApproval}}bg-amber-500 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center font-display font-extrabold text-[10px] leading-tight text-center px-1 shadow-sm flex-shrink-0">
+                                    {{.Coach.FullName}}
+                                </div>
+                                <div>
+                                    <div class="font-display font-bold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                                        <span>{{.Coach.FullName}}</span>
+                                        <span class="text-[10px] text-indigo-500 font-normal opacity-0 group-hover:opacity-100 transition-opacity">👁️ View</span>
+                                    </div>
+                                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{{.Coach.Phone}} &bull; {{.Coach.Email}}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Rank & Specialties -->
+                        <td class="py-3.5 px-4">
+                            <span class="badge-belt font-bold text-xs">{{.Coach.BeltRank}}</span>
+                            <div class="flex flex-wrap gap-1 mt-1 max-w-[220px]">
+                                {{range .Coach.Specialties}}
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-slate-800 dark:text-indigo-300 dark:border-slate-700">
+                                    {{.}}
+                                </span>
+                                {{end}}
+                            </div>
+                        </td>
+
+                        <!-- First Aid Status -->
+                        <td class="py-3.5 px-4">
+                            {{if .Coach.IsFirstAidValid}}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                🛡️ Certified
+                            </span>
+                            {{else}}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                🚨 Unverified / Expired
+                            </span>
+                            {{end}}
+                            {{if .Payroll.FirstAidWarningFlag}}
+                            <div class="text-[10px] text-amber-700 dark:text-amber-400 font-semibold mt-0.5">⚠️ Expired Credentials</div>
+                            {{end}}
+                        </td>
+
+                        <!-- Rate & Period Payout -->
+                        <td class="py-3.5 px-4">
+                            <div class="font-bold text-slate-900 dark:text-white">₱{{printf "%.2f" .Coach.RatePerSession}} <span class="text-[10px] text-slate-500 font-normal">/ class</span></div>
+                            <div class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">₱{{printf "%.2f" .Payroll.CalculatedPayout}} <span class="text-[10px] text-slate-500 font-normal">({{.Payroll.TotalSessionsLed}} classes)</span></div>
+                        </td>
+
+                        <!-- Status -->
+                        <td class="py-3.5 px-4">
+                            {{if .Coach.IsActive}}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active
+                            </span>
+                            {{else if .IsPendingApproval}}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span> Pending Approval
+                            </span>
+                            {{else}}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                ⛔ Deactivated
+                            </span>
+                            {{end}}
+                        </td>
+
+                        <!-- Actions Column -->
+                        <td class="py-3.5 px-4 text-right" onclick="event.stopPropagation()">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <button type="button" onclick="openCoachModal('coach-modal-{{.Coach.ID}}')"
+                                        class="btn btn-secondary btn-xs py-1 px-2.5 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                                        title="View Full Coach Info">
+                                    👁️ Info
+                                </button>
+                                {{if .Coach.IsActive}}
+                                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="inline" onsubmit="return confirm('Deactivate coach {{.Coach.FullName}}?');">
+                                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50" title="Deactivate Coach">
+                                        Deactivate
+                                    </button>
+                                </form>
+                                {{else if .IsPendingApproval}}
+                                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="inline">
+                                    <button type="submit" class="btn btn-success btn-xs py-1 px-2 text-xs" title="Approve Coach">
+                                        Approve
+                                    </button>
+                                </form>
+                                {{else}}
+                                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="inline" onsubmit="return confirm('Reactivate coach {{.Coach.FullName}}?');">
+                                    <button type="submit" class="btn btn-primary btn-xs py-1 px-2 text-xs" title="Reactivate Coach">
+                                        Reactivate
+                                    </button>
+                                </form>
+                                {{end}}
+                                <form action="/coaches/{{.Coach.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete coach {{.Coach.FullName}}? This will cascade and delete all associated classes, attendance, evaluations, and login records.');">
+                                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2 text-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50" title="Delete Coach (Cascade)">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modals: Coach Detail Information Popups (View on Click) -->
+{{range .Coaches}}
+<div id="coach-modal-{{.Coach.ID}}" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <div class="flex items-center gap-3">
+                <div class="h-12 w-12 rounded-xl {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else if .IsPendingApproval}}bg-amber-500 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center font-display font-extrabold text-xs text-center px-1 shadow-md">
+                    {{.Coach.FullName}}
+                </div>
+                <div>
+                    <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white leading-tight">{{.Coach.FullName}}</h3>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Coach.BeltRank}}</p>
+                </div>
+            </div>
+            <button onclick="closeCoachModal('coach-modal-{{.Coach.ID}}')" class="modal-close">&times;</button>
+        </div>
+
+        <div class="space-y-4 pt-2">
+            <!-- Status Alert -->
+            {{if .IsPendingApproval}}
+            <div class="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                <span class="text-base">⏳</span>
+                <div>
+                    <strong class="font-semibold">Pending Approval:</strong> This applicant registered online and is waiting for an Operations Manager to review and approve their profile.
+                </div>
+            </div>
+            {{else if not .Coach.IsActive}}
+            <div class="p-3 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <span class="text-base">⛔</span>
+                <div>
+                    <strong class="font-semibold">Deactivated:</strong> This coach profile is suspended. Portal login access and class assignments are blocked.
+                </div>
+            </div>
+            {{else}}
+            <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-900/50 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <span class="text-base">🟢</span>
+                <div>
+                    <strong class="font-semibold">Active Instructor:</strong> Cleared for floor sessions, attendance management, and student athletic evaluations.
+                </div>
             </div>
             {{end}}
 
-            <div class="space-y-4">
-                <!-- Header: Coach Info & Status Badge -->
-                <div class="flex items-start justify-between gap-3">
-                    <div class="flex items-center space-x-3">
-                        <div class="h-12 w-12 rounded-xl {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else if .IsPendingApproval}}bg-amber-500 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center font-display font-extrabold text-[10px] leading-tight text-center px-1 shadow-md flex-shrink-0 overflow-hidden break-words line-clamp-2" title="{{.Coach.FullName}}">
-                            {{.Coach.FullName}}
-                        </div>
-                        <div>
-                            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white leading-tight">{{.Coach.FullName}}</h3>
-                            <p class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Coach.BeltRank}}</p>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[160px]">{{.Coach.Email}}</p>
-                        </div>
-                    </div>
-                    <div>
-                        {{if .Coach.IsActive}}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex-shrink-0">
-                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active
-                        </span>
-                        {{else if .IsPendingApproval}}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex-shrink-0">
-                            <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span> Pending Approval
-                        </span>
-                        {{else}}
-                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex-shrink-0">
-                            ⛔ Deactivated
-                        </span>
-                        {{end}}
+            <!-- Period Financial Widget -->
+            <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Monthly Floor Payout</span>
+                    <div class="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
+                        {{.Payroll.TotalSessionsLed}} Classes Led &bull; {{.Payroll.TotalStudentsTaught}} Students Supervised
                     </div>
                 </div>
-
-                {{if .IsPendingApproval}}
-                <div class="p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-2 font-medium">
-                    <span>⏳</span>
-                    <span>New registration &bull; Awaiting manager approval</span>
-                </div>
-                {{else if not .Coach.IsActive}}
-                <div class="p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-900/50 text-[11px] text-rose-700 dark:text-rose-300 flex items-center gap-2 font-medium">
-                    <span>🔒</span>
-                    <span>Account inactive &bull; Portal login access is blocked</span>
-                </div>
-                {{end}}
-
-                <div class="space-y-2 text-xs">
-                    <div class="flex justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
-                        <span class="text-slate-600 dark:text-slate-400 font-medium">First Aid Status:</span>
-                        {{if .Coach.IsFirstAidValid}}
-                        <span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">🛡️ Certified (Valid)</span>
-                        {{else}}
-                        <span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1">🚨 EXPIRED / UNVERIFIED</span>
-                        {{end}}
-                    </div>
-
-                    <div class="flex justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
-                        <span class="text-slate-600 dark:text-slate-400 font-medium">Rate Per Class:</span>
-                        <span class="text-slate-900 dark:text-white font-bold">₱{{printf "%.2f" .Coach.RatePerSession}} / class</span>
-                    </div>
-
-                    <div class="space-y-1 pt-1">
-                        <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Specialties:</span>
-                        <div class="flex flex-wrap gap-1">
-                            {{range .Coach.Specialties}}
-                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-slate-800 dark:text-indigo-300 dark:border-slate-700">
-                                {{.}}
-                            </span>
-                            {{end}}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Payroll Calculation Widget -->
-                <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
-                    <div>
-                        <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Period Payout</span>
-                        <div class="text-xs text-slate-700 dark:text-slate-300">{{.Payroll.TotalSessionsLed}} Classes Led &bull; {{.Payroll.TotalStudentsTaught}} Students</div>
-                    </div>
-                    <div class="font-display font-extrabold text-lg text-emerald-600 dark:text-emerald-400">
+                <div class="text-right">
+                    <div class="font-display font-extrabold text-xl text-emerald-600 dark:text-emerald-400">
                         ₱{{printf "%.2f" .Payroll.CalculatedPayout}}
                     </div>
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400">₱{{printf "%.2f" .Coach.RatePerSession}} / class</div>
                 </div>
             </div>
 
-            <!-- Action Buttons: Toggle Active/Deactivate & Delete -->
-            <div class="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <!-- Profile Info Grid -->
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div class="p-3 rounded-lg bg-slate-50/60 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
+                    <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">Contact Number</span>
+                    <span class="font-mono font-semibold text-slate-900 dark:text-white">{{.Coach.Phone}}</span>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-50/60 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
+                    <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">Email Address</span>
+                    <span class="font-semibold text-slate-900 dark:text-white truncate block" title="{{.Coach.Email}}">{{.Coach.Email}}</span>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-50/60 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
+                    <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">Dan Belt Rank</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">{{.Coach.BeltRank}}</span>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-50/60 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
+                    <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">Safety &amp; First Aid</span>
+                    {{if .Coach.IsFirstAidValid}}
+                    <span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">🛡️ Certified</span>
+                    {{else}}
+                    <span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1">🚨 Expired / None</span>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Specialties List -->
+            <div>
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-1">Coaching Specialties:</span>
+                <div class="flex flex-wrap gap-1.5">
+                    {{range .Coach.Specialties}}
+                    <span class="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-slate-800 dark:text-indigo-300 dark:border-slate-700">
+                        {{.}}
+                    </span>
+                    {{else}}
+                    <span class="text-xs text-slate-500 italic">No specialties tagged</span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer justify-between">
+            <div>
+                <form action="/coaches/{{.Coach.ID}}/delete" method="POST" onsubmit="return confirm('Permanently delete coach {{.Coach.FullName}}? All associated classes, attendance, evaluations, and login records will be cascade deleted.');">
+                    <button type="submit" class="btn btn-secondary btn-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50">
+                        🗑️ Delete Coach
+                    </button>
+                </form>
+            </div>
+            <div class="flex items-center gap-2">
                 {{if .Coach.IsActive}}
-                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="flex-1" onsubmit="return confirm('Are you sure you want to deactivate coach {{.Coach.FullName}}? Their active sessions will be terminated and they will not be allowed to log in.');">
-                    <button type="submit" class="btn btn-secondary btn-sm w-full text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border-rose-200 dark:border-rose-800/60 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5">
-                        ⏸️ Deactivate
+                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" onsubmit="return confirm('Deactivate coach {{.Coach.FullName}}?');">
+                    <button type="submit" class="btn btn-secondary btn-sm text-rose-600 dark:text-rose-400">
+                        Deactivate
                     </button>
                 </form>
                 {{else if .IsPendingApproval}}
-                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="flex-1">
-                    <button type="submit" class="btn btn-success btn-sm w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 shadow-sm">
-                        ✅ Approve Coach
+                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        Approve Coach
                     </button>
                 </form>
                 {{else}}
-                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="flex-1" onsubmit="return confirm('Reactivate coach {{.Coach.FullName}} and restore their portal login access?');">
-                    <button type="submit" class="btn btn-primary btn-sm w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5">
-                        ▶️ Reactivate
+                <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" onsubmit="return confirm('Reactivate coach {{.Coach.FullName}}?');">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        Reactivate Coach
                     </button>
                 </form>
                 {{end}}
-
-                <form action="/coaches/{{.Coach.ID}}/delete" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete/reject coach {{.Coach.FullName}}? If they have historical classes or evaluations, deletion is blocked and you must deactivate them instead.');">
-                    <button type="submit" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors border border-slate-200 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-800" title="{{if .IsPendingApproval}}Reject Application{{else}}Delete Coach{{end}}">
-                        🗑️
-                    </button>
-                </form>
+                <button type="button" onclick="closeCoachModal('coach-modal-{{.Coach.ID}}')" class="btn btn-secondary btn-sm">
+                    Close
+                </button>
             </div>
         </div>
-        {{end}}
     </div>
 </div>
+{{end}}
+
+<script>
+    function openCoachModal(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('hidden');
+        }
+    }
+    function closeCoachModal(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.classList.add('hidden');
+        }
+    }
+    function filterCoachList(query) {
+        var q = query.toLowerCase().trim();
+        var rows = document.querySelectorAll('.coach-row');
+        rows.forEach(function(row) {
+            var text = row.innerText.toLowerCase();
+            row.style.display = text.includes(q) ? '' : 'none';
+        });
+    }
+</script>
 
 <!-- Modal: New Coach Profile -->
 <div id="new-coach-modal" class="modal-backdrop hidden">

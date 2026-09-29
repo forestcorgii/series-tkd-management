@@ -89,16 +89,20 @@
   1. **Dual-Layer Login & Session Guarding**:
      - `AuthService.Login` and `AuthService.ValidateSession` verify both `user.IsActive` and the linked coach's `coach.IsActive`. If either is false, returns `ErrUserInactive` ("Account is inactive. Please contact your dojang administrator").
      - On deactivation (`ToggleCoachActive`), all active user sessions in `user_sessions` for the coach are immediately revoked/deleted, forcing instant logout on their next request.
-  2. **Preservation-First Coach Deletion**:
-     - `DeleteCoach` first queries `training_sessions`, `student_evaluations`, and `safety_incidents` for historical activity.
-     - If records exist, hard deletion is blocked with `ErrCoachHasRecords`, prompting the Operations Manager to deactivate the coach instead to safeguard data integrity.
-     - If zero historical records exist, the coach profile, associated `users` account, and session tokens are cleanly purged.
-  3. **Operational UI & Telemetry (`coaches.html`)**:
-     - Telemetry stats banner: Total Coaches, Active Instructors (live pulse indicator), Deactivated accounts, and First Aid Certified count.
-     - Each coach card features an Active / Inactive status pill, deactivation warning notice, and quick actions:
-       - **Deactivate / Reactivate**: Toggles access with confirmation dialog.
-       - **Delete**: Permanently removes unused coach profiles with confirmation.
-     - Timetable generator, student evaluation, and new session modals filter out deactivated coaches (`{{if .IsActive}}`).
+  2. **Transactional Cascading Coach Deletion**:
+     - `DeleteCoach` performs a transactional cascade:
+       - Purges linked `users` accounts and active `user_sessions`.
+       - Removes `safety_incidents` associated with the coach.
+       - Removes `student_evaluations` authored by the coach.
+       - Nullifies supervising `admin_id` in training sessions.
+       - Cascades and deletes `attendance` records for sessions led by the coach, then removes the sessions.
+       - Finally removes the `coaches` record itself.
+  3. **Operational UI & Interactive Listview (`coaches.html`)**:
+     - Modern responsive **listview table** replacing the legacy card grid for high-density front-desk and manager usability.
+     - Live search filter by instructor name, belt rank, contact number, email, or specialty.
+     - Telemetry stats banner: Total Coaches, Active Instructors, Pending Approval, Deactivated, and First Aid Certified.
+     - **Click-to-View Coach Info Modal**: Clicking any coach row (or the "Info" action button) opens an interactive modal detailing their qualifications, contact information, First Aid status, coaching specialties, session counts, and monthly floor payouts.
+     - Actions: One-click status toggling (`Approve Coach`, `Deactivate`, `Reactivate`) and `🗑️ Delete Coach (Cascade)` with explicit confirmation.
 
 ### Context: Username Authentication & Anti-Enumeration Self-Service Password Recovery
 

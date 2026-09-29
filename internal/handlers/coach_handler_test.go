@@ -146,24 +146,23 @@ func TestCoachHandler_HandleDeleteCoach(t *testing.T) {
 
 	c2ID := uuid.MustParse("22222222-2222-2222-2222-222222222222") // Ji-Woo Park (has sessions)
 
-	// 1. Delete coach with existing sessions -> should be blocked with error redirect
+	// 1. Delete coach with existing sessions -> should cascade and succeed
 	delReq := httptest.NewRequest("POST", "/coaches/"+c2ID.String()+"/delete", nil)
 	delReq.SetPathValue("id", c2ID.String())
 	delRec := httptest.NewRecorder()
 	app.HandleDeleteCoach(delRec, delReq)
 
 	if delRec.Code != http.StatusSeeOther {
-		t.Fatalf("expected 303 redirect on blocked delete, got %d", delRec.Code)
+		t.Fatalf("expected 303 redirect on successful cascade delete, got %d", delRec.Code)
 	}
 	loc := delRec.Header().Get("Location")
-	if !strings.Contains(loc, "error=") || !strings.Contains(loc, "deactivate") {
-		t.Errorf("expected error advising deactivation, got %s", loc)
+	if !strings.Contains(loc, "success=") || !strings.Contains(loc, "deleted") {
+		t.Errorf("expected success notification on cascade delete, got %s", loc)
 	}
 
-	// Coach should still exist
-	coach, err := store.GetCoachByID(c2ID)
-	if err != nil || coach == nil {
-		t.Fatalf("expected coach to still exist in store")
+	// Coach should be deleted
+	if _, err := store.GetCoachByID(c2ID); err == nil {
+		t.Fatalf("expected coach to be cascade deleted from store")
 	}
 
 	// 2. Create fresh coach with no sessions or evaluations

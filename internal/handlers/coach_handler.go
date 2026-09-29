@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	"series-tkd-management/internal/models"
-	"series-tkd-management/internal/repository"
 	"series-tkd-management/internal/services"
 )
 
