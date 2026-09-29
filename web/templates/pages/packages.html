@@ -438,7 +438,7 @@
         <form action="/packages/assign" method="POST" class="space-y-4">
             <div>
                 <label class="form-label">Select Practitioner *</label>
-                <select id="assign-student-select" name="student_id" required class="form-select">
+                <select id="assign-student-select" name="student_id" required class="form-select searchable-select" data-placeholder="Search or choose practitioner...">
                     <option value="">-- Choose Practitioner --</option>
                     {{range .Students}}
                     <option value="{{.ID}}">{{.FullName}} ({{.CurrentBelt}})</option>

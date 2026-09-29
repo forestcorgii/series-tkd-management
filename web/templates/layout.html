@@ -170,6 +170,11 @@
         .radar-grid { stroke-dasharray: 2, 2; }
         html.dark .radar-grid { stroke: rgba(255, 255, 255, 0.15); }
         html:not(.dark) .radar-grid { stroke: rgba(0, 0, 0, 0.12); }
+
+        .searchable-menu::-webkit-scrollbar { width: 6px; }
+        .searchable-menu::-webkit-scrollbar-track { background: transparent; }
+        .searchable-menu::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+        .searchable-menu::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
     </style>
 </head>
 
@@ -397,6 +402,380 @@
             }
         }
         window.addEventListener('DOMContentLoaded', syncThemeUI);
+
+        // --- STMS Searchable Dropdown Engine ---
+        function initSearchableSelect(select) {
+            if (!select || select.dataset.searchableInitialized === 'true') return;
+            select.dataset.searchableInitialized = 'true';
+
+            const isSmall = select.classList.contains('text-xs');
+            const isFlex1 = select.classList.contains('flex-1');
+            const placeholder = select.getAttribute('data-placeholder') ||
+                (select.options[0] && select.options[0].value === '' ? select.options[0].textContent.trim() : 'Search or select...');
+
+            // Container Wrapper
+            const container = document.createElement('div');
+            container.className = `searchable-select-container relative ${isFlex1 ? 'flex-1' : 'w-full'}`;
+
+            // Make native select visually hidden but fully functional for form submission & DOM
+            select.style.position = 'absolute';
+            select.style.opacity = '0';
+            select.style.width = '1px';
+            select.style.height = '1px';
+            select.style.pointerEvents = 'none';
+            select.style.bottom = '0';
+            select.style.left = '0';
+            select.setAttribute('tabindex', '-1');
+
+            select.parentNode.insertBefore(container, select);
+            container.appendChild(select);
+
+            // Input wrapper
+            const inputWrapper = document.createElement('div');
+            inputWrapper.className = 'relative flex items-center w-full';
+
+            const searchIcon = document.createElement('div');
+            searchIcon.className = 'absolute left-2.5 sm:left-3 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center';
+            searchIcon.innerHTML = `
+                <svg class="${isSmall ? 'w-3.5 h-3.5' : 'w-4 h-4'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            `;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.autocomplete = 'off';
+            input.spellcheck = false;
+            input.placeholder = placeholder;
+            input.className = `searchable-input w-full ${isSmall ? 'text-xs py-2 pl-8 pr-14' : 'text-xs sm:text-sm py-2 pl-9 pr-14'} rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black/60 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm font-sans cursor-pointer`;
+
+            const rightIcons = document.createElement('div');
+            rightIcons.className = 'absolute right-2 sm:right-2.5 flex items-center gap-1';
+
+            const clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.title = 'Clear selection';
+            clearBtn.className = 'clear-btn hidden p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded transition text-xs leading-none';
+            clearBtn.innerHTML = `
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            `;
+
+            const chevron = document.createElement('div');
+            chevron.className = 'chevron-icon pointer-events-none text-slate-400 dark:text-slate-500 transition-transform duration-200';
+            chevron.innerHTML = `
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            `;
+
+            rightIcons.appendChild(clearBtn);
+            rightIcons.appendChild(chevron);
+
+            inputWrapper.appendChild(searchIcon);
+            inputWrapper.appendChild(input);
+            inputWrapper.appendChild(rightIcons);
+            container.appendChild(inputWrapper);
+
+            // Dropdown menu
+            const menu = document.createElement('div');
+            menu.className = 'searchable-menu hidden absolute z-[70] left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-[#111111] shadow-2xl py-1 text-xs sm:text-sm font-sans';
+            container.appendChild(menu);
+
+            let highlightedIndex = -1;
+
+            function buildOptions() {
+                menu.innerHTML = '';
+
+                const noResults = document.createElement('div');
+                noResults.className = 'no-results hidden px-4 py-3 text-center text-xs text-slate-400 dark:text-slate-500 font-medium italic';
+                noResults.textContent = 'No matching results found';
+                menu.appendChild(noResults);
+
+                Array.from(select.options).forEach((opt, idx) => {
+                    const optDiv = document.createElement('div');
+                    optDiv.className = 'searchable-option px-3 py-2 cursor-pointer flex items-center justify-between text-slate-800 dark:text-slate-200 hover:bg-[#F4F1E4] dark:hover:bg-neutral-800 transition-colors';
+                    optDiv.dataset.value = opt.value;
+                    const optText = opt.textContent.trim();
+                    optDiv.dataset.text = optText;
+                    optDiv.dataset.index = idx;
+
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'truncate select-none flex-1';
+                    labelSpan.textContent = optText;
+
+                    const checkmark = document.createElement('span');
+                    checkmark.className = 'checkmark text-[#990303] dark:text-red-400 font-bold ml-2 ' +
+                        (select.value === opt.value && opt.value !== '' ? '' : 'hidden');
+                    checkmark.innerHTML = '✓';
+
+                    optDiv.appendChild(labelSpan);
+                    optDiv.appendChild(checkmark);
+
+                    optDiv.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        chooseOption(opt.value, optText);
+                    });
+
+                    menu.appendChild(optDiv);
+                });
+            }
+
+            buildOptions();
+
+            function getVisibleOptions() {
+                return Array.from(menu.querySelectorAll('.searchable-option:not(.hidden)'));
+            }
+
+            function openDropdown() {
+                menu.classList.remove('hidden');
+                chevron.classList.add('rotate-180');
+                highlightedIndex = -1;
+                scrollToSelected();
+            }
+
+            function closeDropdown() {
+                menu.classList.add('hidden');
+                chevron.classList.remove('rotate-180');
+                highlightedIndex = -1;
+                clearHighlights();
+            }
+
+            function isOpen() {
+                return !menu.classList.contains('hidden');
+            }
+
+            function clearHighlights() {
+                menu.querySelectorAll('.searchable-option').forEach(el => {
+                    el.classList.remove('bg-[#F4F1E4]', 'dark:bg-neutral-800');
+                });
+            }
+
+            function highlightOption(index) {
+                const visible = getVisibleOptions();
+                clearHighlights();
+                if (index >= 0 && index < visible.length) {
+                    highlightedIndex = index;
+                    const target = visible[index];
+                    target.classList.add('bg-[#F4F1E4]', 'dark:bg-neutral-800');
+                    target.scrollIntoView({ block: 'nearest' });
+                } else {
+                    highlightedIndex = -1;
+                }
+            }
+
+            function scrollToSelected() {
+                if (!select.value) return;
+                const safeVal = (window.CSS && CSS.escape) ? CSS.escape(select.value) : select.value;
+                const selectedEl = menu.querySelector(`.searchable-option[data-value="${safeVal}"]`);
+                if (selectedEl) {
+                    selectedEl.scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            function filterOptions(query) {
+                const q = query.toLowerCase().trim();
+                let matchCount = 0;
+                const options = menu.querySelectorAll('.searchable-option');
+                options.forEach(opt => {
+                    const text = (opt.dataset.text || '').toLowerCase();
+                    if (q === '' || text.includes(q)) {
+                        opt.classList.remove('hidden');
+                        matchCount++;
+                    } else {
+                        opt.classList.add('hidden');
+                    }
+                });
+
+                const noRes = menu.querySelector('.no-results');
+                if (noRes) {
+                    if (matchCount === 0) {
+                        noRes.classList.remove('hidden');
+                        noRes.textContent = `No matches found for "${query}"`;
+                    } else {
+                        noRes.classList.add('hidden');
+                    }
+                }
+
+                highlightOption(0);
+            }
+
+            function chooseOption(val, text) {
+                select.value = val;
+                if (val === '' && select.options[0] && select.options[0].value === '') {
+                    input.value = '';
+                    clearBtn.classList.add('hidden');
+                } else {
+                    input.value = text;
+                    clearBtn.classList.remove('hidden');
+                }
+                updateCheckmarks();
+                closeDropdown();
+                validateField();
+
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                select.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            function updateCheckmarks() {
+                menu.querySelectorAll('.searchable-option').forEach(opt => {
+                    const check = opt.querySelector('.checkmark');
+                    if (check) {
+                        if (select.value && opt.dataset.value === select.value) {
+                            check.classList.remove('hidden');
+                            opt.classList.add('font-bold', 'text-[#990303]', 'dark:text-red-400');
+                        } else {
+                            check.classList.add('hidden');
+                            opt.classList.remove('font-bold', 'text-[#990303]', 'dark:text-red-400');
+                        }
+                    }
+                });
+            }
+
+            function syncFromSelect() {
+                const curOpt = select.options[select.selectedIndex];
+                if (curOpt && curOpt.value !== '') {
+                    input.value = curOpt.textContent.trim();
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    input.value = '';
+                    clearBtn.classList.add('hidden');
+                }
+                updateCheckmarks();
+                validateField();
+            }
+
+            function validateField() {
+                if (select.required) {
+                    if (!select.value) {
+                        input.setCustomValidity('Please select an item from the list.');
+                    } else {
+                        input.setCustomValidity('');
+                    }
+                }
+            }
+
+            // User events
+            input.addEventListener('focus', function() {
+                openDropdown();
+                filterOptions('');
+                input.select();
+            });
+
+            input.addEventListener('click', function() {
+                if (!isOpen()) {
+                    openDropdown();
+                    filterOptions('');
+                    input.select();
+                }
+            });
+
+            input.addEventListener('input', function(e) {
+                e.stopPropagation(); // Avoid triggering parent form hx-trigger="input" while searching
+                if (!isOpen()) openDropdown();
+                filterOptions(input.value);
+            });
+
+            input.addEventListener('keydown', function(e) {
+                const visible = getVisibleOptions();
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (!isOpen()) {
+                        openDropdown();
+                        filterOptions('');
+                    } else {
+                        highlightOption(highlightedIndex + 1 >= visible.length ? 0 : highlightedIndex + 1);
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!isOpen()) {
+                        openDropdown();
+                        filterOptions('');
+                    } else {
+                        highlightOption(highlightedIndex - 1 < 0 ? visible.length - 1 : highlightedIndex - 1);
+                    }
+                } else if (e.key === 'Enter') {
+                    if (isOpen()) {
+                        e.preventDefault();
+                        if (highlightedIndex >= 0 && highlightedIndex < visible.length) {
+                            const chosen = visible[highlightedIndex];
+                            chooseOption(chosen.dataset.value, chosen.dataset.text);
+                        } else if (visible.length === 1) {
+                            chooseOption(visible[0].dataset.value, visible[0].dataset.text);
+                        }
+                    }
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeDropdown();
+                    syncFromSelect();
+                } else if (e.key === 'Tab') {
+                    closeDropdown();
+                    syncFromSelect();
+                }
+            });
+
+            clearBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                let emptyVal = '';
+                if (select.options.length > 0 && select.options[0].value === '') {
+                    emptyVal = select.options[0].value;
+                }
+                chooseOption(emptyVal, '');
+                input.focus();
+                openDropdown();
+                filterOptions('');
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!container.contains(e.target)) {
+                    if (isOpen()) {
+                        closeDropdown();
+                        syncFromSelect();
+                    }
+                }
+            });
+
+            // Programmatic update interceptor
+            const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+            try {
+                Object.defineProperty(select, 'value', {
+                    get() {
+                        return originalDescriptor.get.call(this);
+                    },
+                    set(v) {
+                        originalDescriptor.set.call(this, v);
+                        syncFromSelect();
+                    },
+                    configurable: true
+                });
+            } catch (err) {}
+
+            select.addEventListener('change', syncFromSelect);
+
+            if (select.form) {
+                select.form.addEventListener('reset', function() {
+                    setTimeout(syncFromSelect, 10);
+                });
+            }
+
+            const observer = new MutationObserver(function() {
+                buildOptions();
+                syncFromSelect();
+            });
+            observer.observe(select, { childList: true, subtree: true });
+
+            syncFromSelect();
+        }
+
+        function initSearchableSelects(root = document) {
+            const selects = (root || document).querySelectorAll('select.searchable-select, select[data-searchable="true"]');
+            selects.forEach(initSearchableSelect);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => initSearchableSelects(document));
+        document.addEventListener('htmx:afterSwap', (e) => initSearchableSelects(e.detail.target || e.target));
+        document.addEventListener('htmx:afterProcess', (e) => initSearchableSelects(e.detail.target || e.target));
     </script>
 </body>
 

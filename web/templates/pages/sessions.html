@@ -24,7 +24,7 @@
                 <!-- Coach Filter -->
                 <div>
                     <label class="form-label text-[11px]">Filter by Coach</label>
-                    <select name="coach_id" class="form-select text-xs">
+                    <select name="coach_id" class="form-select text-xs searchable-select" data-placeholder="All Coaches">
                         <option value="">All Coaches</option>
                         {{range .Coaches}}
                         <option value="{{.ID}}" {{if eq $.FilterCoachID .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
@@ -47,7 +47,7 @@
                 <!-- Student Filter -->
                 <div>
                     <label class="form-label text-[11px]">Filter by Student</label>
-                    <select name="student_id" class="form-select text-xs">
+                    <select name="student_id" class="form-select text-xs searchable-select" data-placeholder="All Students">
                         <option value="">All Students</option>
                         {{range .Students}}
                         <option value="{{.ID}}" {{if eq $.FilterStudentID .ID.String}}selected{{end}}>{{.FullName}} ({{.CurrentBelt}})</option>
@@ -106,7 +106,8 @@
 
             <div>
                 <label class="form-label">Lead Coach</label>
-                <select name="coach_id" required class="form-select">
+                <select name="coach_id" required class="form-select searchable-select" data-placeholder="Select Lead Coach...">
+                    <option value="">Select Lead Coach...</option>
                     {{range .Coaches}}
                     {{if .IsActive}}
                     <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>

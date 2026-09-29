@@ -261,7 +261,8 @@
                     <div>
                         <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Lead Instructor</label>
                         <select name="coach_id" required
-                                class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-semibold">
+                                class="form-select searchable-select" data-placeholder="Select Lead Instructor...">
+                            <option value="">Select Lead Instructor...</option>
                             {{range .Coaches}}
                             {{if .IsActive}}
                             <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>

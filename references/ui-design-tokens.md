@@ -72,6 +72,13 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   3. **Interactive Slot Scheduling:** Every empty hourly cell on each day serves as an interactive booking target that pre-fills the clicked date and start time into `#new-session-modal`.
   4. **Automated 2-Hour Duration:** Attach an `oninput` handler `calculateEndTime()` to `start_time` that automatically calculates and populates `end_time` to 2 hours later (`(hours + 2) % 24`), preserving minutes and handling 24-hour wrap.
 
+### Context: Universal Searchable Dropdowns for Large Rosters (Coaches & Students)
 
-
+* **Problem:** Standard HTML `<select>` elements become unusable when dojangs scale to hundreds of students and coaches, causing slow, cumbersome scrolling on front-desk workstations and floor tablets. Using external JavaScript libraries introduces brittle styling overrides and breaking conflicts with HTMX forms and browser validation.
+* **Enforced Solution:**
+  1. **Progressive Enhancement Engine:** Enhance any `<select>` with class `searchable-select` or `data-searchable="true"`. The original `<select>` is kept in the DOM (visually hidden with `tabindex="-1"`) ensuring native form submissions, serialized values, and HTMX requests remain 100% intact.
+  2. **Tailored Design System Aesthetic:** The combobox wrapper and dropdown menu match STMS design tokens (`#FFFDF4`, `#000000`, crimson focus ring `#990303` / `#DC2626`, `Outfit`/`Montserrat` typography, dark/light theme, custom scrollbar, search icon, clear button `×`, and active checkmark `✓`).
+  3. **Event Isolation & HTMX Interoperability:** Typing in the search input stops event propagation (`e.stopPropagation()`) to prevent premature trigger of parent forms listening to `hx-trigger="input"`. Selecting an option programmatically updates the `<select>` and fires both `change` and `input` events so HTMX filters trigger correctly.
+  4. **Bidirectional State Synchronization:** The engine intercepts `select.value` assignment via prototype property descriptor and listens to form `reset` events so external script assignments (e.g. grading candidate buttons or filter clearing) instantly update the visible combobox text.
+  5. **Native Keyboard Accessibility & Validation:** Supports `ArrowDown`/`ArrowUp` navigation with auto-scroll, `Enter` selection, `Escape`/`Tab` dismissal, and synchronizes `setCustomValidity` when `required` is present on the native select.
 
