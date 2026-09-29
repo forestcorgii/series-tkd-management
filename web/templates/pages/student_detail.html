@@ -15,6 +15,11 @@
             <button onclick="document.getElementById('edit-student-modal').classList.remove('hidden')" class="btn btn-secondary btn-sm flex items-center gap-1.5 shadow-sm">
                 ✏️ Edit Student Info
             </button>
+            <form action="/students/{{.Student.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete student {{.Student.FullName}}? All associated records (attendance, evaluations, packages, and login credentials) will be permanently deleted. This action cannot be undone.');">
+                <button type="submit" class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40 flex items-center gap-1.5 shadow-sm" title="Permanently Delete Student">
+                    🗑️ Delete Student
+                </button>
+            </form>
             {{end}}
             <span class="badge-belt">
                 Belt: {{.Student.CurrentBelt}}
@@ -401,11 +406,17 @@
                 </div>
             </div>
 
-            <div class="modal-footer">
-                <button type="button" onclick="document.getElementById('edit-student-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+            <div class="modal-footer flex items-center justify-between">
+                <button type="button" onclick="if (confirm('Permanently delete student {{.Student.FullName}}? All associated records will be permanently removed. This action cannot be undone.')) { document.getElementById('delete-student-form-modal').submit(); }" class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40">
+                    🗑️ Delete Student
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="document.getElementById('edit-student-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+                </div>
             </div>
         </form>
+        <form id="delete-student-form-modal" action="/students/{{.Student.ID}}/delete" method="POST" class="hidden"></form>
     </div>
 </div>
 {{end}}

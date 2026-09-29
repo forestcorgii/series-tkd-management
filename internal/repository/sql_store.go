@@ -628,6 +628,73 @@ func (s *SQLStore) UpdateStudent(st *models.Student) error {
 	return nil
 }
 
+func (s *SQLStore) DeleteStudent(studentID uuid.UUID) error {
+	var sid string
+	err := s.db.QueryRow(`SELECT id FROM students WHERE id = $1`, studentID.String()).Scan(&sid)
+	if err == sql.ErrNoRows {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Purge associated user sessions, password reset tokens and user records
+	rows, err := tx.Query(`SELECT id FROM users WHERE student_id = $1`, studentID.String())
+	if err == nil {
+		var uids []string
+		for rows.Next() {
+			var uid string
+			if scanErr := rows.Scan(&uid); scanErr == nil {
+				uids = append(uids, uid)
+			}
+		}
+		rows.Close()
+		for _, uid := range uids {
+			_, _ = tx.Exec(`DELETE FROM password_reset_tokens WHERE user_id = $1`, uid)
+			_, _ = tx.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, uid)
+			_, _ = tx.Exec(`DELETE FROM users WHERE id = $1`, uid)
+		}
+	}
+
+	// 2. Cascade delete safety incidents
+	if _, err := tx.Exec(`DELETE FROM safety_incidents WHERE student_id = $1`, studentID.String()); err != nil {
+		return err
+	}
+
+	// 3. Cascade delete student evaluations
+	if _, err := tx.Exec(`DELETE FROM student_evaluations WHERE student_id = $1`, studentID.String()); err != nil {
+		return err
+	}
+
+	// 4. Cascade delete attendance
+	if _, err := tx.Exec(`DELETE FROM attendance WHERE student_id = $1`, studentID.String()); err != nil {
+		return err
+	}
+
+	// 5. Cascade delete student packages
+	if _, err := tx.Exec(`DELETE FROM student_packages WHERE student_id = $1`, studentID.String()); err != nil {
+		return err
+	}
+
+	// 6. Delete student record
+	res, err := tx.Exec(`DELETE FROM students WHERE id = $1`, studentID.String())
+	if err != nil {
+		return err
+	}
+	rAffected, _ := res.RowsAffected()
+	if rAffected == 0 {
+		return ErrNotFound
+	}
+
+	return tx.Commit()
+}
+
 // Coaches
 func (s *SQLStore) GetAllCoaches() ([]*models.Coach, error) {
 	query := `SELECT id, full_name, email, phone, belt_rank, rate_per_session, first_aid_certified,

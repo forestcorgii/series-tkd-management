@@ -34,6 +34,7 @@ type RepositoryStore interface {
 	SearchStudents(query string) ([]*models.Student, error)
 	CreateStudent(s *models.Student) error
 	UpdateStudent(s *models.Student) error
+	DeleteStudent(studentID uuid.UUID) error
 
 	// Coaches
 	GetAllCoaches() ([]*models.Coach, error)
@@ -198,6 +199,70 @@ func (m *MemoryStore) UpdateStudent(s *models.Student) error {
 		return ErrNotFound
 	}
 	m.students[s.ID] = s
+	return nil
+}
+
+func (m *MemoryStore) DeleteStudent(studentID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	_, exists := m.students[studentID]
+	if !exists {
+		return ErrNotFound
+	}
+
+	// Purge associated user accounts and sessions
+	for uID, user := range m.users {
+		if user.StudentID != nil && *user.StudentID == studentID {
+			for token, rec := range m.sessionTokens {
+				if rec.UserID == user.ID {
+					delete(m.sessionTokens, token)
+				}
+			}
+			for pToken, pRec := range m.passwordResetTokens {
+				if pRec.UserID == user.ID {
+					delete(m.passwordResetTokens, pToken)
+				}
+			}
+			delete(m.usersByEmail, user.Email)
+			delete(m.usersByEmail, strings.ToLower(user.Email))
+			if user.Username != "" {
+				delete(m.usersByUsername, strings.ToLower(user.Username))
+			}
+			delete(m.users, uID)
+		}
+	}
+
+	// Cascade delete safety incidents
+	for id, inc := range m.safetyIncidents {
+		if inc.StudentID == studentID {
+			delete(m.safetyIncidents, id)
+		}
+	}
+
+	// Cascade delete evaluations
+	for id, eval := range m.evaluations {
+		if eval.StudentID == studentID {
+			delete(m.evaluations, id)
+		}
+	}
+
+	// Cascade delete attendance records
+	for id, att := range m.attendances {
+		if att.StudentID == studentID {
+			delete(m.attendances, id)
+		}
+	}
+
+	// Cascade delete student packages
+	for id, pkg := range m.studentPackages {
+		if pkg.StudentID == studentID {
+			delete(m.studentPackages, id)
+		}
+	}
+
+	// Delete student
+	delete(m.students, studentID)
 	return nil
 }
 

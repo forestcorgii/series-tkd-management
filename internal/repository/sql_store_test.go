@@ -1029,5 +1029,192 @@ func TestRemoveAttendance_SQLAndMemory(t *testing.T) {
 	}
 }
 
+func TestStore_DeleteStudent(t *testing.T) {
+	dbFile := filepath.Join(t.TempDir(), "test_delete_student.db")
+	sqlStore, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if s, ok := sqlStore.(*repository.SQLStore); ok {
+			_ = s.Close()
+		}
+	}()
+
+	memStore := repository.NewMemoryStore()
+
+	stores := map[string]repository.RepositoryStore{
+		"SQLStore":    sqlStore,
+		"MemoryStore": memStore,
+	}
+
+	for storeName, store := range stores {
+		t.Run(storeName, func(t *testing.T) {
+			// 1. Delete non-existent student -> ErrNotFound
+			fakeID := uuid.New()
+			if err := store.DeleteStudent(fakeID); err != repository.ErrNotFound {
+				t.Fatalf("expected ErrNotFound for non-existent student, got: %v", err)
+			}
+
+			// 2. Create a student
+			st := &models.Student{
+				ID:                uuid.New(),
+				FullName:          "Kim Possible",
+				DOB:               time.Now().AddDate(-15, 0, 0),
+				Gender:            "Female",
+				Phone:             "09123456789",
+				CurrentBelt:       models.BeltHighYellow,
+				LastPromotionDate: time.Now().AddDate(0, -2, 0),
+				EmergencyName:     "James Possible",
+				EmergencyPhone:    "09987654321",
+				EmergencyRelation: "Father",
+				IsActive:          true,
+				CreatedAt:         time.Now(),
+			}
+			if err := store.CreateStudent(st); err != nil {
+				t.Fatalf("CreateStudent failed: %v", err)
+			}
+
+			// 3. Create linked user account and session
+			user := &models.User{
+				ID:          uuid.New(),
+				Email:       "kim.possible@seriestkd.com",
+				Role:        models.RoleStudent,
+				StudentID:   &st.ID,
+				DisplayName: st.FullName,
+				IsActive:    true,
+			}
+			_ = user.SetPassword("password123")
+			if err := store.CreateUser(user); err != nil {
+				t.Fatalf("CreateUser failed: %v", err)
+			}
+			token := "session_token_" + st.ID.String()
+			if err := store.CreateSessionToken(token, user.ID, time.Now().Add(24*time.Hour)); err != nil {
+				t.Fatalf("CreateSessionToken failed: %v", err)
+			}
+
+			// 4. Create package for student
+			tpl := &models.PackageTemplate{
+				ID:           uuid.New(),
+				Title:        "10-Class Card",
+				ValidityDays: 30,
+				Price:        100,
+				IsActive:     true,
+			}
+			_ = store.CreatePackageTemplate(tpl)
+			rem := 10
+			pkg := &models.StudentPackage{
+				ID:                uuid.New(),
+				StudentID:         st.ID,
+				TemplateID:        tpl.ID,
+				RemainingSessions: &rem,
+				ExpiryDate:        time.Now().AddDate(0, 1, 0),
+				PaymentStatus:     "paid",
+			}
+			if err := store.AssignPackage(pkg); err != nil {
+				t.Fatalf("AssignPackage failed: %v", err)
+			}
+
+			// 5. Create coach and session, and check in student
+			coach := &models.Coach{
+				ID:        uuid.New(),
+				FullName:  "Master Dan",
+				Email:     "master.dan." + storeName + "@seriestkd.com",
+				Phone:     "09112223333",
+				BeltRank:  "4th Dan",
+				IsActive:  true,
+				CreatedAt: time.Now(),
+			}
+			_ = store.CreateCoach(coach)
+			sess := &models.TrainingSession{
+				ID:           uuid.New(),
+				SessionDate:  time.Now(),
+				StartTime:    "18:00",
+				EndTime:      "19:00",
+				CoachID:      coach.ID,
+				TrainingType: models.TrainingPoomsae,
+			}
+			_ = store.CreateSession(sess)
+			_, err = store.CheckInStudent(sess.ID, st.ID, &pkg.ID)
+			if err != nil {
+				t.Fatalf("CheckInStudent failed: %v", err)
+			}
+
+			// 6. Create student evaluation
+			eval := &models.StudentEvaluation{
+				ID:             uuid.New(),
+				StudentID:      st.ID,
+				CoachID:        coach.ID,
+				EvaluationDate: time.Now(),
+				Flexibility:    8,
+				Stamina:        8,
+				Power:          7,
+				Technique:      9,
+				SparringIQ:     8,
+				Discipline:     10,
+				CoachRemarks:   "Great kicks",
+			}
+			if err := store.CreateEvaluation(eval); err != nil {
+				t.Fatalf("CreateEvaluation failed: %v", err)
+			}
+
+			// 7. Create safety incident
+			inc := &models.SafetyIncident{
+				ID:           uuid.New(),
+				StudentID:    st.ID,
+				CoachID:      &coach.ID,
+				IncidentType: "Ankle sprain",
+				Notes:        "Iced and rested",
+				CreatedAt:    time.Now(),
+			}
+			if err := store.CreateSafetyIncident(inc); err != nil {
+				t.Fatalf("CreateSafetyIncident failed: %v", err)
+			}
+
+			// 8. Delete student -> should cascade delete everything associated
+			if err := store.DeleteStudent(st.ID); err != nil {
+				t.Fatalf("DeleteStudent failed: %v", err)
+			}
+
+			// Verify student is gone
+			if _, err := store.GetStudentByID(st.ID); err != repository.ErrNotFound {
+				t.Errorf("expected ErrNotFound for deleted student, got: %v", err)
+			}
+
+			// Verify linked user and session token are purged
+			if _, err := store.GetUserByEmail("kim.possible@seriestkd.com"); err != repository.ErrNotFound {
+				t.Errorf("expected linked user to be deleted, got: %v", err)
+			}
+			if _, err := store.GetUserBySessionToken(token); err != repository.ErrNotFound {
+				t.Errorf("expected user session to be purged, got: %v", err)
+			}
+
+			// Verify student packages are deleted
+			pkgs, _ := store.GetStudentPackages(st.ID)
+			if len(pkgs) != 0 {
+				t.Errorf("expected 0 packages, got %d", len(pkgs))
+			}
+
+			// Verify attendance is deleted
+			atts, _ := store.GetStudentAttendances(st.ID)
+			if len(atts) != 0 {
+				t.Errorf("expected 0 attendances for student, got %d", len(atts))
+			}
+
+			// Verify evaluations are deleted
+			evals, _ := store.GetStudentEvaluations(st.ID)
+			if len(evals) != 0 {
+				t.Errorf("expected 0 evaluations for student, got %d", len(evals))
+			}
+
+			// Verify calling DeleteStudent again returns ErrNotFound
+			if err := store.DeleteStudent(st.ID); err != repository.ErrNotFound {
+				t.Errorf("expected ErrNotFound on second DeleteStudent, got: %v", err)
+			}
+		})
+	}
+}
+
+
 
 

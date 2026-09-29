@@ -193,3 +193,25 @@
      - In **/admins** (Administrator Governance): Inactive accounts with LastLoginAt == nil are tagged with an amber ? Pending Approval badge, offering 1-click ? Approve (POST /admins/{id}/toggle) or ? Reject (POST /admins/{id}/delete).
      - In **/coaches** (Coach Directory): Unapproved coaches display an amber ? Pending Approval pill, card notice, and 1-click ? Approve Coach button.
      - In **/portal/admin** (Master Operations Portal): Displays a dynamic banner when pending staff registrations exist, linking directly to /coaches or /admins for rapid review.
+
+### Context: Student Deletion & Cascading Record Purge Governance (/students/{id}/delete)
+
+* **Problem**:
+  1. Front-desk administrators and operations managers lacked an interface and endpoints to delete obsolete, erroneous, or inactive student profiles.
+  2. Deleting a student naively leaves orphaned attendance logs, active student packages, athletic evaluations, open safety incident tickets, and portal login credentials with session cookies.
+* **Enforced Solution**:
+  1. **Transactional Cascading Storage (`DeleteStudent`)**:
+     - Both `MemoryStore.DeleteStudent` and `SQLStore.DeleteStudent` execute an atomic cascade:
+       - Purges linked `users` account (`student_id = $1`), active `user_sessions`, and `password_reset_tokens`.
+       - Purges `safety_incidents` (`student_id = $1`).
+       - Purges `student_evaluations` (`student_id = $1`).
+       - Purges `attendance` floor logs (`student_id = $1`).
+       - Purges `student_packages` credit passes (`student_id = $1`).
+       - Purges the `students` profile record.
+  2. **Multi-Role RBAC Route Guarding**:
+     - `POST /students/{id}/delete`, `DELETE /students/{id}`, and `DELETE /api/students/{id}` are strictly guarded by `RequireRole(models.RoleAdmin, models.RoleOperationManager)`.
+     - Unauthorized roles (`COACH`, `STUDENT`) are forbidden.
+  3. **Interactive UI & Safe Confirmation**:
+     - **Student Profile View (`student_detail.html`)**: Action button `🗑️ Delete Student` rendered in top action bar and within "Edit Student Info" modal with explicit JavaScript confirmation prompt.
+     - **Student Directory Table (`students.html` / `student_table_rows.html`)**: Quick-action delete button (`🗑️`) rendered in the action column for authorized staff with confirmation.
+     - **Dynamic Feedback**: Flash alert banners rendered at the top of `/students` (`SuccessNotice` / `ErrorNotice`) and `HX-Redirect` support for HTMX consumers.

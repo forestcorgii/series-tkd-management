@@ -64,9 +64,19 @@
         {{end}}
     </td>
     <td class="py-3.5 px-4 text-right">
-        <a href="/students/{{.Student.ID}}" class="btn btn-secondary btn-xs">
-            Profile &amp; Radar &rarr;
-        </a>
+        <div class="flex items-center justify-end gap-1.5">
+            <a href="/students/{{.Student.ID}}" class="btn btn-secondary btn-xs">
+                Profile &amp; Radar &rarr;
+            </a>
+            {{$user := currentUser $}}
+            {{if and $user (or $user.IsAdmin $user.IsOperationManager)}}
+            <form action="/students/{{.Student.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete student {{.Student.FullName}}? All associated records will be deleted.');">
+                <button type="submit" class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40" title="Delete Student">
+                    🗑️
+                </button>
+            </form>
+            {{end}}
+        </div>
     </td>
 </tr>
 {{end}}

@@ -127,6 +127,9 @@ func main() {
 	mux.HandleFunc("POST /students", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateStudent))
 	mux.HandleFunc("POST /students/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
 	mux.HandleFunc("POST /students/{id}/edit", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
+	mux.HandleFunc("POST /students/{id}/delete", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteStudent))
+	mux.HandleFunc("DELETE /students/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteStudent))
+	mux.HandleFunc("DELETE /api/students/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteStudent))
 	mux.HandleFunc("POST /students/{id}/evaluations", app.RequireRole(models.RoleCoach, models.RoleOperationManager)(app.HandleCreateEvaluation))
 
 	// Coaches & Staff Directory / Payroll (Only Operation Manager)

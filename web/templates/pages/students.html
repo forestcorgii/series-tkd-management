@@ -4,6 +4,26 @@
 
 {{define "content"}}
 <div class="space-y-6">
+    <!-- Success/Error Feedback Alerts -->
+    {{if .SuccessNotice}}
+    <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-sm flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>✅</span>
+            <span>{{.SuccessNotice}}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+    {{if .ErrorNotice}}
+    <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-300 text-sm flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{{.ErrorNotice}}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
     <!-- Page Header & Action Bar -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

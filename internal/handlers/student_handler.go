@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -21,9 +24,11 @@ type StudentListItem struct {
 }
 
 type StudentsPageData struct {
-	CurrentUser *models.User
-	Students    []StudentListItem
-	Search      string
+	CurrentUser   *models.User
+	Students      []StudentListItem
+	Search        string
+	SuccessNotice string
+	ErrorNotice   string
 }
 
 func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
@@ -71,9 +76,11 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 
 	user := GetUserFromContext(r.Context())
 	data := StudentsPageData{
-		CurrentUser: user,
-		Students:    items,
-		Search:      query,
+		CurrentUser:   user,
+		Students:      items,
+		Search:        query,
+		SuccessNotice: r.URL.Query().Get("success"),
+		ErrorNotice:   r.URL.Query().Get("error"),
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -309,4 +316,71 @@ func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 
 	http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)
 }
+
+// HandleDeleteStudent permanently removes a student profile, attendance, evaluations, packages, and linked user account
+func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimPrefix(r.URL.Path, "/students/")
+		idStr = strings.TrimSuffix(idStr, "/delete")
+		idStr = strings.TrimPrefix(idStr, "/api/students/")
+	}
+	targetID, err := uuid.Parse(idStr)
+	if err != nil {
+		if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid student ID."})
+			return
+		}
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Invalid student ID."), http.StatusSeeOther)
+		return
+	}
+
+	student, err := a.store.GetStudentByID(targetID)
+	if err != nil || student == nil {
+		if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Student record not found."})
+			return
+		}
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Student record not found."), http.StatusSeeOther)
+		return
+	}
+
+	if err := a.store.DeleteStudent(targetID); err != nil {
+		if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete student: " + err.Error()})
+			return
+		}
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Failed to delete student: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	msg := fmt.Sprintf("Student '%s' and all associated records have been permanently deleted.", student.FullName)
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "message": msg})
+		return
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/students?success="+url.QueryEscape(msg))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	http.Redirect(w, r, "/students?success="+url.QueryEscape(msg), http.StatusSeeOther)
+}
+
 
