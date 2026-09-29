@@ -59,6 +59,8 @@ type RepositoryStore interface {
 	GetSessions(filter SessionFilter) ([]*models.TrainingSession, error)
 	GetSessionByID(id uuid.UUID) (*models.TrainingSession, error)
 	CreateSession(sess *models.TrainingSession) error
+	UpdateSession(sess *models.TrainingSession) error
+	DeleteSession(sessionID uuid.UUID) error
 	CancelSession(sessionID uuid.UUID, reason string, refundCredits bool) error
 	GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error)
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
@@ -510,6 +512,17 @@ func (m *MemoryStore) GetSessionByID(id uuid.UUID) (*models.TrainingSession, err
 	if coach, ok := m.coaches[s.CoachID]; ok {
 		s.CoachName = coach.FullName
 	}
+	if s.AdminID != nil {
+		if u, ok := m.users[*s.AdminID]; ok {
+			if u.DisplayName != "" {
+				s.AdminName = u.DisplayName
+			} else {
+				s.AdminName = u.Email
+			}
+		} else if c, ok := m.coaches[*s.AdminID]; ok {
+			s.AdminName = c.FullName
+		}
+	}
 	return s, nil
 }
 
@@ -553,6 +566,17 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 		}
 		if coach, ok := m.coaches[s.CoachID]; ok {
 			s.CoachName = coach.FullName
+		}
+		if s.AdminID != nil {
+			if u, ok := m.users[*s.AdminID]; ok {
+				if u.DisplayName != "" {
+					s.AdminName = u.DisplayName
+				} else {
+					s.AdminName = u.Email
+				}
+			} else if c, ok := m.coaches[*s.AdminID]; ok {
+				s.AdminName = c.FullName
+			}
 		}
 		result = append(result, s)
 	}
@@ -604,6 +628,49 @@ func (m *MemoryStore) CreateSession(sess *models.TrainingSession) error {
 	}
 	sess.CreatedAt = time.Now()
 	m.sessions[sess.ID] = sess
+	return nil
+}
+
+func (m *MemoryStore) UpdateSession(sess *models.TrainingSession) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.sessions[sess.ID]
+	if !ok {
+		return ErrNotFound
+	}
+	existing.SessionDate = sess.SessionDate
+	existing.StartTime = sess.StartTime
+	existing.EndTime = sess.EndTime
+	existing.CoachID = sess.CoachID
+	existing.AdminID = sess.AdminID
+	existing.TrainingType = sess.TrainingType
+	existing.Notes = sess.Notes
+	return nil
+}
+
+func (m *MemoryStore) DeleteSession(sessionID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.sessions[sessionID]; !ok {
+		return ErrNotFound
+	}
+	// Refund credits for any attendances in this session
+	for _, att := range m.attendances {
+		if att.SessionID == sessionID && att.StudentPackageID != nil {
+			if pkg, exists := m.studentPackages[*att.StudentPackageID]; exists && pkg.RemainingSessions != nil {
+				*pkg.RemainingSessions++
+			}
+		}
+	}
+	// Clear attendances for this session
+	for id, att := range m.attendances {
+		if att.SessionID == sessionID {
+			delete(m.attendances, id)
+		}
+	}
+	delete(m.sessions, sessionID)
 	return nil
 }
 

@@ -15,14 +15,30 @@
     </td>
     <td class="py-3.5 px-4 text-xs font-medium">
         {{if .ActivePackage}}
-            <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
+            <div class="flex items-center justify-between gap-1.5">
+                <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
+                {{$user := currentUser $}}
+                {{if or (not $user) $user.IsOperationManager $user.IsAdmin}}
+                <button type="button" onclick="openAssignModalForStudent('{{.Student.ID}}')" class="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 text-[10px] font-bold py-0.5 px-1 rounded transition" title="Assign or renew membership">
+                    + Renew
+                </button>
+                {{end}}
+            </div>
             {{if .ActivePackage.RemainingSessions}}
             <div class="text-[11px] text-slate-600 dark:text-slate-400">{{.ActivePackage.RemainingSessions}} / {{.ActivePackage.TotalSessions}} classes remaining</div>
             {{else}}
             <div class="text-[11px] text-teal-600 dark:text-teal-300 font-semibold">Unlimited Membership ♾️</div>
             {{end}}
         {{else}}
-            <span class="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">⚠️ No Active Membership</span>
+            <div class="flex items-center justify-between gap-1.5 flex-wrap">
+                <span class="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">⚠️ No Active Membership</span>
+                {{$user := currentUser $}}
+                {{if or (not $user) $user.IsOperationManager $user.IsAdmin}}
+                <button type="button" onclick="openAssignModalForStudent('{{.Student.ID}}')" class="btn btn-outline btn-xs py-0.5 px-2 text-[10px]" title="Assign Membership to {{.Student.FullName}}">
+                    + Assign
+                </button>
+                {{end}}
+            </div>
         {{end}}
     </td>
     <td class="py-3.5 px-4 text-xs">

@@ -1215,6 +1215,188 @@ func TestStore_DeleteStudent(t *testing.T) {
 	}
 }
 
+func TestStore_UpdateAndDeleteSession(t *testing.T) {
+	dbFile := filepath.Join(t.TempDir(), "test_update_delete_session.db")
+	sqlStore, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if s, ok := sqlStore.(*repository.SQLStore); ok {
+			_ = s.Close()
+		}
+	}()
+
+	memStore := repository.NewMemoryStore()
+
+	stores := map[string]repository.RepositoryStore{
+		"SQLStore":    sqlStore,
+		"MemoryStore": memStore,
+	}
+
+	intPtr := func(i int) *int { return &i }
+
+	for storeName, store := range stores {
+		t.Run(storeName, func(t *testing.T) {
+			// 1. Create coach 1 and coach 2
+			coach1 := &models.Coach{
+				ID:        uuid.New(),
+				FullName:  "Coach Alpha",
+				Email:     "alpha." + storeName + "@seriestkd.com",
+				Phone:     "09110001111",
+				BeltRank:  "3rd Dan",
+				IsActive:  true,
+				CreatedAt: time.Now(),
+			}
+			coach2 := &models.Coach{
+				ID:        uuid.New(),
+				FullName:  "Coach Beta",
+				Email:     "beta." + storeName + "@seriestkd.com",
+				Phone:     "09110002222",
+				BeltRank:  "4th Dan",
+				IsActive:  true,
+				CreatedAt: time.Now(),
+			}
+			_ = store.CreateCoach(coach1)
+			_ = store.CreateCoach(coach2)
+
+			// 2. Create admin user
+			adminUser := &models.User{
+				ID:          uuid.New(),
+				Email:       "admin." + storeName + "@seriestkd.com",
+				Role:        models.RoleAdmin,
+				DisplayName: "Admin Sarah",
+				IsActive:    true,
+				CreatedAt:   time.Now(),
+			}
+			_ = store.CreateUser(adminUser)
+
+			// 3. Create a session
+			sess := &models.TrainingSession{
+				ID:           uuid.New(),
+				SessionDate:  time.Now(),
+				StartTime:    "14:00",
+				EndTime:      "15:30",
+				CoachID:      coach1.ID,
+				TrainingType: models.TrainingSparring,
+				Notes:        "Sparring drills",
+				CreatedAt:    time.Now(),
+			}
+			if err := store.CreateSession(sess); err != nil {
+				t.Fatalf("CreateSession failed: %v", err)
+			}
+
+			// Verify created session
+			loaded, err := store.GetSessionByID(sess.ID)
+			if err != nil {
+				t.Fatalf("GetSessionByID failed: %v", err)
+			}
+			if loaded.CoachName != "Coach Alpha" {
+				t.Errorf("expected Coach Alpha, got %s", loaded.CoachName)
+			}
+			if loaded.AdminName != "" {
+				t.Errorf("expected empty AdminName initially, got %s", loaded.AdminName)
+			}
+
+			// 4. Update session: switch to coach 2, assign admin, edit time to 16:00 - 18:00
+			loaded.CoachID = coach2.ID
+			loaded.AdminID = &adminUser.ID
+			loaded.StartTime = "16:00"
+			loaded.EndTime = "18:00"
+			loaded.TrainingType = models.TrainingPoomsae
+			loaded.Notes = "Updated poomsae class"
+			if err := store.UpdateSession(loaded); err != nil {
+				t.Fatalf("UpdateSession failed: %v", err)
+			}
+
+			// Verify updated session
+			updated, err := store.GetSessionByID(sess.ID)
+			if err != nil {
+				t.Fatalf("GetSessionByID failed after update: %v", err)
+			}
+			if updated.CoachName != "Coach Beta" {
+				t.Errorf("expected Coach Beta, got %s", updated.CoachName)
+			}
+			if updated.AdminName != "Admin Sarah" {
+				t.Errorf("expected Admin Sarah, got %s", updated.AdminName)
+			}
+			if updated.StartTime != "16:00" || updated.EndTime != "18:00" {
+				t.Errorf("expected 16:00 - 18:00, got %s - %s", updated.StartTime, updated.EndTime)
+			}
+			if updated.TrainingType != models.TrainingPoomsae {
+				t.Errorf("expected Poomsae, got %s", updated.TrainingType)
+			}
+
+			// 5. Test deletion with package refund
+			// Create student with package
+			st := &models.Student{
+				ID:          uuid.New(),
+				FullName:    "Timmy Test",
+				DOB:         time.Now().AddDate(-12, 0, 0),
+				CurrentBelt: "Yellow",
+				IsActive:    true,
+				CreatedAt:   time.Now(),
+			}
+			_ = store.CreateStudent(st)
+			tpl := &models.PackageTemplate{
+				ID:           uuid.New(),
+				Title:        "10 Pass",
+				SessionCount: intPtr(10),
+				ValidityDays: 60,
+				Price:        1000,
+				IsActive:     true,
+			}
+			_ = store.CreatePackageTemplate(tpl)
+			sp := &models.StudentPackage{
+				ID:                uuid.New(),
+				StudentID:         st.ID,
+				TemplateID:        tpl.ID,
+				TotalSessions:     intPtr(10),
+				RemainingSessions: intPtr(9), // 1 credit deducted
+				ExpiryDate:        time.Now().AddDate(0, 1, 0),
+				PaymentStatus:     "paid",
+			}
+			_ = store.AssignPackage(sp)
+
+			// Record attendance for this session
+			att, err := store.CheckInStudent(sess.ID, st.ID, &sp.ID)
+			if err != nil {
+				t.Fatalf("CheckInStudent failed: %v", err)
+			}
+			if att == nil {
+				t.Fatalf("expected attendance record")
+			}
+
+			// 6. Delete session -> should refund the credit and purge attendance
+			if err := store.DeleteSession(sess.ID); err != nil {
+				t.Fatalf("DeleteSession failed: %v", err)
+			}
+
+			// Verify session is deleted
+			if _, err := store.GetSessionByID(sess.ID); err != repository.ErrNotFound {
+				t.Errorf("expected ErrNotFound for deleted session, got: %v", err)
+			}
+
+			// Verify credit is refunded from 9 back to 10
+			pkgs, _ := store.GetStudentPackages(st.ID)
+			if len(pkgs) == 0 || *pkgs[0].RemainingSessions != 10 {
+				t.Errorf("expected remaining sessions refunded to 10, got: %v", pkgs)
+			}
+
+			// Verify attendance records are gone
+			sAtts, _ := store.GetSessionAttendances(sess.ID)
+			if len(sAtts) != 0 {
+				t.Errorf("expected 0 attendances for deleted session, got: %d", len(sAtts))
+			}
+
+			// Verify deleting again returns ErrNotFound
+			if err := store.DeleteSession(sess.ID); err != repository.ErrNotFound {
+				t.Errorf("expected ErrNotFound on second DeleteSession, got: %v", err)
+			}
+		})
+	}
+}
+
 
 
 

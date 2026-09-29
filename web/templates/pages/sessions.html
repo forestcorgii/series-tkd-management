@@ -12,66 +12,66 @@
         </div>
     </div>
 
-    <!-- Filter Bar: Coach, Category, Day -->
-    <div class="glass-panel p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <form id="session-filter-form"
-              hx-get="/sessions"
-              hx-target="#classes-container"
-              hx-trigger="change, input delay:250ms"
-              class="space-y-3 sm:space-y-0">
-            <input type="hidden" name="view" value="{{.ViewMode}}">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-                <!-- Coach Filter -->
-                <div>
-                    <label class="form-label text-[11px]">Filter by Coach</label>
-                    <select name="coach_id" class="form-select text-xs searchable-select" data-placeholder="All Coaches">
-                        <option value="">All Coaches</option>
-                        {{range .Coaches}}
-                        <option value="{{.ID}}" {{if eq $.FilterCoachID .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
-                        {{end}}
-                    </select>
-                </div>
-
-                <!-- Category Filter -->
-                <div>
-                    <label class="form-label text-[11px]">Filter by Category</label>
-                    <select name="category" class="form-select text-xs">
-                        <option value="">All Categories</option>
-                        <option value="Sparring" {{if eq .FilterCategory "Sparring"}}selected{{end}}>Sparring (Kyorugi)</option>
-                        <option value="Poomsae" {{if eq .FilterCategory "Poomsae"}}selected{{end}}>Forms (Poomsae)</option>
-                        <option value="Conditioning" {{if eq .FilterCategory "Conditioning"}}selected{{end}}>Conditioning / Impact</option>
-                        <option value="Promotion Prep" {{if eq .FilterCategory "Promotion Prep"}}selected{{end}}>Promotion Testing Prep</option>
-                    </select>
-                </div>
-
-                <!-- Student Filter -->
-                <div>
-                    <label class="form-label text-[11px]">Filter by Student</label>
-                    <select name="student_id" class="form-select text-xs searchable-select" data-placeholder="All Students">
-                        <option value="">All Students</option>
-                        {{range .Students}}
-                        <option value="{{.ID}}" {{if eq $.FilterStudentID .ID.String}}selected{{end}}>{{.FullName}} ({{.CurrentBelt}})</option>
-                        {{end}}
-                    </select>
-                </div>
-
-                <!-- Reset Action -->
-                <div class="flex items-center gap-2">
-                    <button type="button"
-                            onclick="clearFilters()"
-                            class="btn btn-secondary btn-sm w-full py-2 flex items-center justify-center gap-1.5 text-xs">
-                        <span>↺</span> Clear Filters
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
-
     <!-- Classes List & Calendar Container -->
     <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 space-y-4 shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
             <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Dojang 7-Day Class Calendar</h2>
             <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">Weekly Schedule &amp; Live Status</span>
+        </div>
+
+        <!-- Attendance & Class Filter Bar -->
+        <div class="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800">
+            <form id="session-filter-form"
+                  hx-get="/sessions"
+                  hx-target="#classes-container"
+                  hx-trigger="change, input delay:250ms"
+                  class="space-y-3 sm:space-y-0">
+                <input type="hidden" name="view" value="{{.ViewMode}}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                    <!-- Coach Filter -->
+                    <div>
+                        <label class="form-label text-[11px]">Filter by Coach</label>
+                        <select name="coach_id" class="form-select text-xs searchable-select" data-placeholder="All Coaches">
+                            <option value="">All Coaches</option>
+                            {{range .Coaches}}
+                            <option value="{{.ID}}" {{if eq $.FilterCoachID .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div>
+                        <label class="form-label text-[11px]">Filter by Category</label>
+                        <select name="category" class="form-select text-xs">
+                            <option value="">All Categories</option>
+                            <option value="Sparring" {{if eq .FilterCategory "Sparring"}}selected{{end}}>Sparring (Kyorugi)</option>
+                            <option value="Poomsae" {{if eq .FilterCategory "Poomsae"}}selected{{end}}>Forms (Poomsae)</option>
+                            <option value="Conditioning" {{if eq .FilterCategory "Conditioning"}}selected{{end}}>Conditioning / Impact</option>
+                            <option value="Promotion Prep" {{if eq .FilterCategory "Promotion Prep"}}selected{{end}}>Promotion Testing Prep</option>
+                        </select>
+                    </div>
+
+                    <!-- Student Filter -->
+                    <div>
+                        <label class="form-label text-[11px]">Filter by Student</label>
+                        <select name="student_id" class="form-select text-xs searchable-select" data-placeholder="All Students">
+                            <option value="">All Students</option>
+                            {{range .Students}}
+                            <option value="{{.ID}}" {{if eq $.FilterStudentID .ID.String}}selected{{end}}>{{.FullName}} ({{.CurrentBelt}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <!-- Reset Action -->
+                    <div class="flex items-center gap-2">
+                        <button type="button"
+                                onclick="clearFilters()"
+                                class="btn btn-secondary btn-sm w-full py-2 flex items-center justify-center gap-1.5 text-xs">
+                            <span>↺</span> Clear Filters
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
 
         <div id="classes-container">
@@ -117,6 +117,16 @@
             </div>
 
             <div>
+                <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                    <option value="">None / Unassigned</option>
+                    {{range .Admins}}
+                    <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div>
                 <label class="form-label">Training Category</label>
                 <select name="training_type" class="form-select">
                     <option value="Sparring">Sparring (Kyorugi)</option>
@@ -134,6 +144,111 @@
             <div class="modal-footer">
                 <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary btn-sm">Schedule &amp; Launch Attendance</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Training Class (Date, Start Time, End Time, Coach, Admin, Category, Remarks) -->
+<div id="edit-session-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <span>✏️</span> Edit Training Class
+            </h3>
+            <button type="button" onclick="closeEditModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="edit-session-form" method="POST" action="" class="space-y-4">
+            <input type="hidden" name="redirect_url" id="edit-redirect-url" value="/sessions">
+            <!-- Date, Start Time, and End Time on ONE line -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="form-label">Class Date</label>
+                    <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm">
+                </div>
+                <div>
+                    <label class="form-label">Start Time</label>
+                    <input type="time" id="edit-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
+                </div>
+                <div>
+                    <label class="form-label">End Time</label>
+                    <input type="time" id="edit-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
+                </div>
+            </div>
+
+            <!-- Lead Coach Dropdown -->
+            <div>
+                <label class="form-label">Lead Coach</label>
+                <select id="edit-coach-id" name="coach_id" required class="form-select searchable-select" data-placeholder="Select Lead Coach...">
+                    <option value="">Select Lead Coach...</option>
+                    {{range .Coaches}}
+                    {{if .IsActive}}
+                    <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                    {{end}}
+                    {{end}}
+                </select>
+            </div>
+
+            <!-- Supervising Admin Dropdown -->
+            <div>
+                <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                    <option value="">None / Unassigned</option>
+                    {{range .Admins}}
+                    <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Training Category</label>
+                <select id="edit-training-type" name="training_type" class="form-select">
+                    <option value="Sparring">Sparring (Kyorugi)</option>
+                    <option value="Poomsae">Forms (Poomsae)</option>
+                    <option value="Conditioning">Conditioning / Impact</option>
+                    <option value="Promotion Prep">Promotion Testing Prep</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Class Remarks / Agenda</label>
+                <textarea id="edit-notes" name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea"></textarea>
+            </div>
+
+            <div class="modal-footer flex items-center justify-between">
+                <button type="button" id="edit-modal-delete-btn" class="btn btn-ghost btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold flex items-center gap-1">
+                    <span>🗑️</span> Delete Class
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Delete Session Confirmation -->
+<div id="delete-session-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <span>🗑️</span> Delete Training Class
+            </h3>
+            <button type="button" onclick="closeDeleteModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="delete-session-form" method="POST" action="" class="space-y-4">
+            <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
+                <p id="delete-modal-title" class="font-bold text-sm text-slate-900 dark:text-white"></p>
+                <p id="delete-modal-meta" class="text-xs text-slate-600 dark:text-slate-400"></p>
+                <p class="text-xs text-rose-700 dark:text-rose-300 font-medium pt-1 border-t border-rose-200/60 dark:border-rose-900/60">
+                    ⚠️ Deleting this open class will permanently purge the attendance roster and restore any deducted student membership credits.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeDeleteModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-danger btn-sm">Confirm Deletion</button>
             </div>
         </form>
     </div>
@@ -209,6 +324,24 @@ function calculateEndTime() {
     }
 }
 
+function calculateEditEndTime() {
+    const startInput = document.getElementById('edit-start-time');
+    const endInput = document.getElementById('edit-end-time');
+    if (!startInput || !endInput) return;
+    const val = startInput.value;
+    if (!val) return;
+    
+    const parts = val.split(':');
+    if (parts.length >= 2) {
+        let hours = parseInt(parts[0], 10);
+        let mins = parts[1];
+        if (isNaN(hours)) return;
+        let endHours = (hours + 2) % 24;
+        let padHours = endHours < 10 ? '0' + endHours : '' + endHours;
+        endInput.value = padHours + ':' + mins;
+    }
+}
+
 function openNewSessionModal(dateStr, timeStr) {
     const modal = document.getElementById('new-session-modal');
     const dateInput = document.getElementById('modal-session-date');
@@ -238,6 +371,68 @@ function openNewSessionModal(dateStr, timeStr) {
     }
     
     modal.classList.remove('hidden');
+}
+
+function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen) {
+    const form = document.getElementById('edit-session-form');
+    form.action = '/sessions/' + id + '/edit';
+    
+    document.getElementById('edit-session-date').value = dateStr || '';
+    document.getElementById('edit-start-time').value = startTime || '';
+    document.getElementById('edit-end-time').value = endTime || '';
+    
+    const coachSelect = document.getElementById('edit-coach-id');
+    if (coachSelect) {
+        coachSelect.value = coachID || '';
+        coachSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    const adminSelect = document.getElementById('edit-admin-id');
+    if (adminSelect) {
+        adminSelect.value = adminID || '';
+        adminSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    const typeSelect = document.getElementById('edit-training-type');
+    if (typeSelect) {
+        typeSelect.value = trainingType || 'Sparring';
+    }
+    
+    const notesArea = document.getElementById('edit-notes');
+    if (notesArea) {
+        notesArea.value = notes || '';
+    }
+    
+    const deleteBtn = document.getElementById('edit-modal-delete-btn');
+    if (deleteBtn) {
+        if (isOpen) {
+            deleteBtn.classList.remove('hidden');
+            deleteBtn.onclick = function() {
+                closeEditModal();
+                openDeleteSessionModal(id, trainingType, dateStr, startTime + ' - ' + endTime);
+            };
+        } else {
+            deleteBtn.classList.add('hidden');
+        }
+    }
+    
+    document.getElementById('edit-session-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-session-modal').classList.add('hidden');
+}
+
+function openDeleteSessionModal(id, category, date, time) {
+    const form = document.getElementById('delete-session-form');
+    form.action = '/sessions/' + id + '/delete';
+    document.getElementById('delete-modal-title').textContent = category + ' Class (' + time + ')';
+    document.getElementById('delete-modal-meta').textContent = 'Date: ' + date;
+    document.getElementById('delete-session-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('delete-session-modal').classList.add('hidden');
 }
 
 function openCancelModal(id, category, date, time, coach) {

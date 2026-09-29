@@ -593,5 +593,196 @@ func TestSessionHandler_RosterPagination(t *testing.T) {
 	})
 }
 
+func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	coach1 := &models.Coach{
+		ID:       uuid.New(),
+		FullName: "Coach Mario",
+		BeltRank: "3rd Dan",
+		IsActive: true,
+	}
+	coach2 := &models.Coach{
+		ID:       uuid.New(),
+		FullName: "Coach Luigi",
+		BeltRank: "4th Dan",
+		IsActive: true,
+	}
+	_ = store.CreateCoach(coach1)
+	_ = store.CreateCoach(coach2)
+
+	admin := &models.User{
+		ID:          uuid.New(),
+		Email:       "peach@seriestkd.com",
+		Role:        models.RoleAdmin,
+		DisplayName: "Admin Peach",
+		IsActive:    true,
+	}
+	_ = store.CreateUser(admin)
+
+	var createdSessionID string
+
+	// 1. Create session with coach and admin
+	t.Run("HandleCreateSession with Coach and Admin", func(t *testing.T) {
+		form := url.Values{
+			"session_date":  {"2026-10-20"},
+			"start_time":    {"15:00"},
+			"end_time":      {"17:00"},
+			"coach_id":      {coach1.ID.String()},
+			"admin_id":      {admin.ID.String()},
+			"training_type": {"Sparring"},
+			"notes":         {"Tactical sparring"},
+		}
+		req := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		app.HandleCreateSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d: %s", rec.Code, rec.Body.String())
+		}
+		loc := rec.Header().Get("Location")
+		if !strings.HasPrefix(loc, "/sessions/") || !strings.HasSuffix(loc, "/live") {
+			t.Fatalf("unexpected redirect location: %s", loc)
+		}
+		createdSessionID = strings.TrimSuffix(strings.TrimPrefix(loc, "/sessions/"), "/live")
+
+		sessUUID, _ := uuid.Parse(createdSessionID)
+		sess, err := store.GetSessionByID(sessUUID)
+		if err != nil {
+			t.Fatalf("failed to retrieve created session: %v", err)
+		}
+		if sess.CoachID != coach1.ID {
+			t.Errorf("expected coach %s, got %s", coach1.ID, sess.CoachID)
+		}
+		if sess.AdminID == nil || *sess.AdminID != admin.ID {
+			t.Errorf("expected admin %s, got %v", admin.ID, sess.AdminID)
+		}
+	})
+
+	// 2. Edit session: change coach to coach2, change time to 16:00 - 18:00, update notes
+	t.Run("HandleUpdateSession edits coach, admin, and time", func(t *testing.T) {
+		form := url.Values{
+			"session_date":  {"2026-10-21"},
+			"start_time":    {"16:00"},
+			"end_time":      {"18:00"},
+			"coach_id":      {coach2.ID.String()},
+			"admin_id":      {admin.ID.String()},
+			"training_type": {"Poomsae"},
+			"notes":         {"Updated to Poomsae forms"},
+			"redirect_url":  {"/sessions"},
+		}
+		req := httptest.NewRequest(http.MethodPost, "/sessions/"+createdSessionID+"/edit", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		app.HandleUpdateSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		sessUUID, _ := uuid.Parse(createdSessionID)
+		sess, err := store.GetSessionByID(sessUUID)
+		if err != nil {
+			t.Fatalf("failed to retrieve updated session: %v", err)
+		}
+		if sess.CoachID != coach2.ID {
+			t.Errorf("expected coach %s, got %s", coach2.ID, sess.CoachID)
+		}
+		if sess.CoachName != "Coach Luigi" {
+			t.Errorf("expected Coach Luigi, got %s", sess.CoachName)
+		}
+		if sess.AdminName != "Admin Peach" {
+			t.Errorf("expected Admin Peach, got %s", sess.AdminName)
+		}
+		if sess.StartTime != "16:00" || sess.EndTime != "18:00" {
+			t.Errorf("expected time 16:00 - 18:00, got %s - %s", sess.StartTime, sess.EndTime)
+		}
+		if sess.TrainingType != models.TrainingPoomsae {
+			t.Errorf("expected Poomsae, got %s", sess.TrainingType)
+		}
+	})
+
+	// 3. Verify Sessions Page renders the Admin dropdown and option
+	t.Run("HandleSessions renders Admin dropdown options", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+		rec := httptest.NewRecorder()
+		app.HandleSessions(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK, got %d", rec.Code)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, "Admin Peach") {
+			t.Errorf("expected 'Admin Peach' in rendered session page / dropdown options")
+		}
+		if !strings.Contains(body, "Supervising Admin") {
+			t.Errorf("expected 'Supervising Admin' label in modal")
+		}
+		if !strings.Contains(body, "Edit Training Class") {
+			t.Errorf("expected 'Edit Training Class' modal")
+		}
+	})
+
+	// 4. Delete Open Session
+	t.Run("HandleDeleteSession deletes open session", func(t *testing.T) {
+		// Ensure session is in future / open
+		sessUUID, _ := uuid.Parse(createdSessionID)
+		sess, _ := store.GetSessionByID(sessUUID)
+		sess.SessionDate = time.Now().AddDate(0, 0, 2)
+		_ = store.UpdateSession(sess)
+
+		req := httptest.NewRequest(http.MethodPost, "/sessions/"+createdSessionID+"/delete", nil)
+		rec := httptest.NewRecorder()
+
+		app.HandleDeleteSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d", rec.Code)
+		}
+
+		// Verify session is deleted
+		_, err := store.GetSessionByID(sessUUID)
+		if err != repository.ErrNotFound {
+			t.Errorf("expected ErrNotFound for deleted session, got %v", err)
+		}
+
+		// Attempting to delete again returns 404
+		rec2 := httptest.NewRecorder()
+		app.HandleDeleteSession(rec2, req)
+		if rec2.Code != http.StatusNotFound {
+			t.Errorf("expected 404 NotFound on second delete, got %d", rec2.Code)
+		}
+	})
+
+	// 5. Deleting closed/past session should be rejected
+	t.Run("HandleDeleteSession rejects closed session", func(t *testing.T) {
+		pastSess := &models.TrainingSession{
+			ID:           uuid.New(),
+			SessionDate:  time.Now().AddDate(0, 0, -2), // 2 days ago
+			StartTime:    "09:00",
+			EndTime:      "10:00",
+			CoachID:      coach1.ID,
+			TrainingType: models.TrainingConditioning,
+		}
+		_ = store.CreateSession(pastSess)
+
+		req := httptest.NewRequest(http.MethodPost, "/sessions/"+pastSess.ID.String()+"/delete", nil)
+		rec := httptest.NewRecorder()
+
+		app.HandleDeleteSession(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("expected 400 BadRequest when deleting closed session, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
 
 

@@ -167,6 +167,11 @@
                                         <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium truncate mt-0.5">
                                             Coach: <span class="font-semibold">{{.Session.CoachName}}</span>
                                         </p>
+                                        {{if .Session.AdminName}}
+                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                                            Admin: <span class="font-semibold">{{.Session.AdminName}}</span>
+                                        </p>
+                                        {{end}}
                                         {{if and .Session.Notes (gt .CardHeight 70)}}
                                         <p class="text-[10px] text-slate-500 dark:text-slate-400 italic truncate mt-0.5" title="{{.Session.Notes}}">
                                             "{{.Session.Notes}}"
@@ -178,8 +183,24 @@
                                         <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400">
                                             👥 {{.AttendanceCount}}
                                         </span>
-                                        <div class="flex items-center gap-1.5">
+                                        <div class="flex items-center gap-1">
                                             {{if not .Session.IsCancelled}}
+                                            <button type="button"
+                                                    onclick="openEditSessionModal('{{.Session.ID}}', '{{.Session.SessionDate.Format "2006-01-02"}}', '{{.Session.StartTime}}', '{{.Session.EndTime}}', '{{.Session.CoachID}}', '{{if .Session.AdminID}}{{.Session.AdminID}}{{end}}', '{{.Session.TrainingType}}', '{{.Session.Notes}}', {{if .Session.IsOpen}}true{{else}}false{{end}})"
+                                                    class="text-[10px] text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white font-bold p-0.5"
+                                                    title="Edit Class">
+                                                ✏️
+                                            </button>
+                                            {{end}}
+                                            {{if .Session.IsOpen}}
+                                            <button type="button"
+                                                    onclick="openDeleteSessionModal('{{.Session.ID}}', '{{.Session.TrainingType}}', '{{formatDate .Session.SessionDate}}', '{{.TimeDisplay}}')"
+                                                    class="text-[10px] text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold p-0.5"
+                                                    title="Delete Class">
+                                                🗑️
+                                            </button>
+                                            {{end}}
+                                            {{if not (or .Session.IsCancelled .Session.IsDone)}}
                                             <button type="button"
                                                     onclick="openCancelModal('{{.Session.ID}}', '{{.Session.TrainingType}}', '{{formatDate .Session.SessionDate}}', '{{.TimeDisplay}}', '{{.Session.CoachName}}')"
                                                     class="text-[10px] text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold p-0.5"
@@ -266,11 +287,16 @@
                             </div>
                         </td>
 
-                        <!-- Lead Coach -->
+                        <!-- Lead Coach & Admin -->
                         <td class="py-3 px-4 whitespace-nowrap">
-                            <span class="text-slate-900 dark:text-white font-semibold">
+                            <span class="text-slate-900 dark:text-white font-semibold block">
                                 Coach {{.CoachName}}
                             </span>
+                            {{if .AdminName}}
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                                Admin: {{.AdminName}}
+                            </span>
+                            {{end}}
                         </td>
 
                         <!-- Remarks / Notes -->
@@ -290,13 +316,29 @@
 
                         <!-- Actions -->
                         <td class="py-3 px-4 text-right whitespace-nowrap">
-                            <div class="inline-flex items-center gap-2">
+                            <div class="inline-flex items-center gap-1.5">
+                                {{if not .IsCancelled}}
+                                <button type="button"
+                                        onclick="openEditSessionModal('{{.ID}}', '{{.SessionDate.Format "2006-01-02"}}', '{{.StartTime}}', '{{.EndTime}}', '{{.CoachID}}', '{{if .AdminID}}{{.AdminID}}{{end}}', '{{.TrainingType}}', '{{.Notes}}', {{if .IsOpen}}true{{else}}false{{end}})"
+                                        class="btn btn-ghost btn-xs text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white py-1 px-2 font-medium"
+                                        title="Edit Class">
+                                    <span>✏️</span> Edit
+                                </button>
+                                {{end}}
+                                {{if .IsOpen}}
+                                <button type="button"
+                                        onclick="openDeleteSessionModal('{{.ID}}', '{{.TrainingType}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}')"
+                                        class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 py-1 px-2 font-medium"
+                                        title="Delete Class">
+                                    <span>🗑️</span> Delete
+                                </button>
+                                {{end}}
                                 {{if not (or .IsCancelled .IsDone)}}
                                 <button type="button"
                                         onclick="openCancelModal('{{.ID}}', '{{.TrainingType}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}', '{{.CoachName}}')"
                                         class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 py-1 px-2 font-medium"
                                         title="Cancel Class">
-                                    <span>✖</span> Cancel Class
+                                    <span>✖</span> Cancel
                                 </button>
                                 {{end}}
                                 <a href="/sessions/{{.ID}}/live"

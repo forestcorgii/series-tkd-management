@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -232,3 +233,134 @@ func TestStudentHandler_HandleDeleteStudent_RoleGuarded(t *testing.T) {
 		t.Errorf("coach should not have deleted student 3")
 	}
 }
+
+func TestStudentHandler_HandleCreateStudent_WithMembershipPackage(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	// Create a package template
+	sessCount := 12
+	tpl := &models.PackageTemplate{
+		ID:           uuid.New(),
+		Title:        "12-Class Sparring Pass",
+		SessionCount: &sessCount,
+		ValidityDays: 60,
+		Price:        2500.00,
+		PlanType:     models.PlanTypeStandard,
+		IsActive:     true,
+	}
+	if err := store.CreatePackageTemplate(tpl); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	form := url.Values{}
+	form.Set("full_name", "Daniel LaRusso")
+	form.Set("dob", "2010-05-15")
+	form.Set("gender", "Male")
+	form.Set("phone", "09123456789")
+	form.Set("current_belt", string(models.BeltWhite))
+	form.Set("emergency_name", "Lucille LaRusso")
+	form.Set("emergency_phone", "09123456780")
+	form.Set("emergency_relation", "Mother")
+	form.Set("template_id", tpl.ID.String())
+	form.Set("payment_status", "paid")
+	form.Set("custom_price", "2300.00")
+	form.Set("package_notes", "Summer promotion discount")
+
+	req := httptest.NewRequest(http.MethodPost, "/students", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+
+	app.HandleCreateStudent(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d", rec.Code)
+	}
+	loc := rec.Header().Get("Location")
+	if loc != "/students" {
+		t.Errorf("expected redirect to /students, got %s", loc)
+	}
+
+	// Verify student was created
+	students, err := store.GetAllStudents()
+	if err != nil || len(students) == 0 {
+		t.Fatalf("expected student to be created in store")
+	}
+	var createdStudent *models.Student
+	for _, s := range students {
+		if s.FullName == "Daniel LaRusso" {
+			createdStudent = s
+			break
+		}
+	}
+	if createdStudent == nil {
+		t.Fatalf("expected to find student Daniel LaRusso")
+	}
+
+	// Verify membership package was assigned to createdStudent
+	pkgs, err := store.GetStudentPackages(createdStudent.ID)
+	if err != nil {
+		t.Fatalf("failed to retrieve student packages: %v", err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("expected 1 assigned package, got %d", len(pkgs))
+	}
+	assigned := pkgs[0]
+	if assigned.TemplateID != tpl.ID {
+		t.Errorf("expected template ID %v, got %v", tpl.ID, assigned.TemplateID)
+	}
+	if assigned.RemainingSessions == nil || *assigned.RemainingSessions != 12 {
+		t.Errorf("expected 12 remaining sessions, got %v", assigned.RemainingSessions)
+	}
+	if assigned.CustomPrice == nil || *assigned.CustomPrice != 2300.00 {
+		t.Errorf("expected custom price 2300.00, got %v", assigned.CustomPrice)
+	}
+	if assigned.Notes != "Summer promotion discount" {
+		t.Errorf("expected notes 'Summer promotion discount', got %q", assigned.Notes)
+	}
+	if assigned.PaymentStatus != "paid" {
+		t.Errorf("expected payment status 'paid', got %q", assigned.PaymentStatus)
+	}
+}
+
+func TestStudentHandler_HandleCreateStudent_WithoutPackage(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	form := url.Values{}
+	form.Set("full_name", "Johnny Lawrence")
+	form.Set("dob", "2010-06-20")
+	form.Set("gender", "Male")
+	form.Set("phone", "09987654321")
+	form.Set("current_belt", string(models.BeltWhite))
+	form.Set("emergency_name", "Laura Lawrence")
+	form.Set("emergency_phone", "09987654320")
+	form.Set("emergency_relation", "Mother")
+	form.Set("template_id", "")
+
+	req := httptest.NewRequest(http.MethodPost, "/students", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+
+	app.HandleCreateStudent(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d", rec.Code)
+	}
+
+	students, _ := store.GetAllStudents()
+	var createdStudent *models.Student
+	for _, s := range students {
+		if s.FullName == "Johnny Lawrence" {
+			createdStudent = s
+			break
+		}
+	}
+	if createdStudent == nil {
+		t.Fatalf("expected to find student Johnny Lawrence")
+	}
+
+	pkgs, _ := store.GetStudentPackages(createdStudent.ID)
+	if len(pkgs) != 0 {
+		t.Errorf("expected 0 packages assigned, got %d", len(pkgs))
+	}
+}
+

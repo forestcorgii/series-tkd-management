@@ -144,6 +144,7 @@ type SessionsPageData struct {
 	CurrentUser        *models.User
 	Sessions           []*models.TrainingSession
 	Coaches            []*models.Coach
+	Admins             []*models.User
 	Students           []*models.Student
 	FilterCoachID      string
 	FilterStudentID    string
@@ -169,6 +170,8 @@ type LiveCheckInPageData struct {
 	Session          *models.TrainingSession
 	Attendances      []*models.Attendance
 	Students         []*models.Student
+	Coaches          []*models.Coach
+	Admins           []*models.User
 	ReadinessMap     map[string]services.PromotionReadiness
 	PackageStatusMap map[string]string
 }
@@ -531,6 +534,29 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	students, _ := a.store.GetAllStudents()
 	user := GetUserFromContext(r.Context())
 
+	// Fetch active Administrators and Operation Managers for Supervising Admin field
+	adminUsers, _ := a.store.GetUsersByRole(models.RoleAdmin)
+	managerUsers, _ := a.store.GetUsersByRole(models.RoleOperationManager)
+	var activeAdmins []*models.User
+	seenAdmins := make(map[uuid.UUID]bool)
+	for _, u := range append(adminUsers, managerUsers...) {
+		if u.IsActive && !seenAdmins[u.ID] {
+			seenAdmins[u.ID] = true
+			activeAdmins = append(activeAdmins, u)
+		}
+	}
+	sort.Slice(activeAdmins, func(i, j int) bool {
+		nameI := activeAdmins[i].DisplayName
+		if nameI == "" {
+			nameI = activeAdmins[i].Email
+		}
+		nameJ := activeAdmins[j].DisplayName
+		if nameJ == "" {
+			nameJ = activeAdmins[j].Email
+		}
+		return strings.ToLower(nameI) < strings.ToLower(nameJ)
+	})
+
 	// Sort Class Rosters & Quick Operations items by the more recent (newest first)
 	rosterSessions := make([]*models.TrainingSession, len(allMatching))
 	copy(rosterSessions, allMatching)
@@ -604,6 +630,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		CurrentUser:        user,
 		Sessions:           pagedSessions,
 		Coaches:            coaches,
+		Admins:             activeAdmins,
 		Students:           students,
 		FilterCoachID:      coachIDStr,
 		FilterStudentID:    studentIDStr,
@@ -645,11 +672,19 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		sessDate = time.Now()
 	}
 
+	var adminIDPtr *uuid.UUID
+	if adminIDStr := strings.TrimSpace(r.FormValue("admin_id")); adminIDStr != "" {
+		if aID, err := uuid.Parse(adminIDStr); err == nil && aID != uuid.Nil {
+			adminIDPtr = &aID
+		}
+	}
+
 	sess := &models.TrainingSession{
 		SessionDate:  sessDate,
 		StartTime:    r.FormValue("start_time"),
 		EndTime:      r.FormValue("end_time"),
 		CoachID:      coachID,
+		AdminID:      adminIDPtr,
 		TrainingType: models.TrainingType(r.FormValue("training_type")),
 		Notes:        r.FormValue("notes"),
 	}
@@ -660,6 +695,115 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 	}
 
 	http.Redirect(w, r, "/sessions/"+sess.ID.String()+"/live", http.StatusSeeOther)
+}
+
+func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/sessions/")
+	path = strings.TrimSuffix(path, "/edit")
+	sessionID, err := uuid.Parse(path)
+	if err != nil {
+		http.Error(w, "Invalid session ID", http.StatusBadRequest)
+		return
+	}
+
+	sess, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+
+	coachID, err := uuid.Parse(r.FormValue("coach_id"))
+	if err != nil || coachID == uuid.Nil {
+		http.Error(w, "Invalid or missing coach", http.StatusBadRequest)
+		return
+	}
+
+	dateStr := strings.TrimSpace(r.FormValue("session_date"))
+	sessDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		sessDate = sess.SessionDate
+	}
+
+	var adminIDPtr *uuid.UUID
+	if adminIDStr := strings.TrimSpace(r.FormValue("admin_id")); adminIDStr != "" {
+		if aID, err := uuid.Parse(adminIDStr); err == nil && aID != uuid.Nil {
+			adminIDPtr = &aID
+		}
+	}
+
+	startTime := strings.TrimSpace(r.FormValue("start_time"))
+	if startTime == "" {
+		startTime = sess.StartTime
+	}
+	endTime := strings.TrimSpace(r.FormValue("end_time"))
+	if endTime == "" {
+		endTime = sess.EndTime
+	}
+
+	sess.SessionDate = sessDate
+	sess.StartTime = startTime
+	sess.EndTime = endTime
+	sess.CoachID = coachID
+	sess.AdminID = adminIDPtr
+	if tType := strings.TrimSpace(r.FormValue("training_type")); tType != "" {
+		sess.TrainingType = models.TrainingType(tType)
+	}
+	sess.Notes = strings.TrimSpace(r.FormValue("notes"))
+
+	if err := a.store.UpdateSession(sess); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	redirectURL := r.FormValue("redirect_url")
+	if redirectURL == "" {
+		redirectURL = "/sessions"
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+func (a *AppHandler) HandleDeleteSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/sessions/")
+	path = strings.TrimSuffix(path, "/delete")
+	sessionID, err := uuid.Parse(path)
+	if err != nil {
+		http.Error(w, "Invalid session ID", http.StatusBadRequest)
+		return
+	}
+
+	sess, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+
+	if !sess.IsOpen() {
+		http.Error(w, "Only open attendance classes can be deleted", http.StatusBadRequest)
+		return
+	}
+
+	if err := a.store.DeleteSession(sessionID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/sessions")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
 
 func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
@@ -713,12 +857,37 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	coaches, _ := a.store.GetAllCoaches()
+	adminUsers, _ := a.store.GetUsersByRole(models.RoleAdmin)
+	managerUsers, _ := a.store.GetUsersByRole(models.RoleOperationManager)
+	var activeAdmins []*models.User
+	seenAdmins := make(map[uuid.UUID]bool)
+	for _, u := range append(adminUsers, managerUsers...) {
+		if u.IsActive && !seenAdmins[u.ID] {
+			seenAdmins[u.ID] = true
+			activeAdmins = append(activeAdmins, u)
+		}
+	}
+	sort.Slice(activeAdmins, func(i, j int) bool {
+		nameI := activeAdmins[i].DisplayName
+		if nameI == "" {
+			nameI = activeAdmins[i].Email
+		}
+		nameJ := activeAdmins[j].DisplayName
+		if nameJ == "" {
+			nameJ = activeAdmins[j].Email
+		}
+		return strings.ToLower(nameI) < strings.ToLower(nameJ)
+	})
+
 	user := GetUserFromContext(r.Context())
 	data := LiveCheckInPageData{
 		CurrentUser:      user,
 		Session:          session,
 		Attendances:      attendances,
 		Students:         allStudents,
+		Coaches:          coaches,
+		Admins:           activeAdmins,
 		ReadinessMap:     readinessMap,
 		PackageStatusMap: pkgStatusMap,
 	}

@@ -32,9 +32,14 @@
         </div>
         {{$user := currentUser .}}
         {{if or (not $user) $user.IsOperationManager $user.IsAdmin}}
-        <button onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
-            ➕ Register New Student
-        </button>
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <button type="button" onclick="openAssignModal()" class="btn btn-secondary btn-md shadow-sm">
+                💳 Assign Membership
+            </button>
+            <button type="button" onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-md shadow-sm">
+                ➕ Register New Student
+            </button>
+        </div>
         {{end}}
     </div>
 
@@ -156,6 +161,61 @@
                 <p class="text-[11px] text-slate-500 dark:text-slate-400">Emergency phone: 11 digits starting with 09 (e.g. 09626914130)</p>
                 <textarea name="medical_notes" rows="2" placeholder="Medical clearance flags, allergies, injury logs..." class="form-textarea"></textarea>
             </div>
+
+            <!-- Membership Plan Enrollment (Optional) -->
+            <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs uppercase font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <span>💳</span> Initial Membership Plan <span class="text-[10px] text-slate-500 font-normal lowercase">(optional)</span>
+                    </span>
+                    <span id="reg-plan-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        Selected
+                    </span>
+                </div>
+
+                <div>
+                    <label class="form-label text-[11px]">Select Membership Plan</label>
+                    <select name="template_id" id="reg-template-select" onchange="onRegTemplateChange(this)" class="form-select text-xs">
+                        <option value="">-- No Membership Plan (Register Student Only) --</option>
+                        {{range .Templates}}
+                        {{if .IsActive}}
+                        <option value="{{.ID}}"
+                                data-price="{{printf "%.2f" .Price}}"
+                                data-days="{{.ValidityDays}}"
+                                data-sessions="{{if .SessionCount}}{{.SessionCount}}{{else}}unlimited{{end}}"
+                                data-type="{{.PlanType}}"
+                                data-cadence="{{.WeeklyCadence}}"
+                                data-unlimited="{{if .IsUnlimited}}true{{else}}false{{end}}">
+                            {{.Title}} &bull; ₱{{printf "%.2f" .Price}} {{if .IsFourWeek}}({{.SessionCount}} classes &bull; {{.WeeklyCadence}}x/wk &bull; 4 Weeks){{else if .IsUnlimited}}(Unlimited Pass){{else}}({{.SessionCount}} classes){{end}}
+                        </option>
+                        {{end}}
+                        {{end}}
+                    </select>
+                </div>
+
+                <!-- Optional Details for Selected Plan -->
+                <div id="reg-plan-details" class="hidden space-y-3 pt-1 border-t border-slate-200/80 dark:border-slate-800">
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                            <label class="form-label text-[11px]">Payment Status</label>
+                            <select name="payment_status" class="form-select text-xs">
+                                <option value="paid" selected>PAID ✓</option>
+                                <option value="pending">PENDING</option>
+                                <option value="unpaid">UNPAID</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label text-[11px]">Custom / Discount Price (₱)</label>
+                            <input type="number" id="reg-custom-price" name="custom_price" step="0.01" min="0" placeholder="Default price" class="form-input text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label text-[11px]">Enrollment Remarks</label>
+                        <input type="text" name="package_notes" placeholder="e.g. Welcome promo, paid in cash at front desk" class="form-input text-xs">
+                    </div>
+                </div>
+            </div>
+
             <div class="modal-footer">
                 <button type="button" onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary btn-sm">Save Student</button>
@@ -163,4 +223,172 @@
         </form>
     </div>
 </div>
+
+<!-- Modal: Assign Membership to Student with Overrides -->
+<div id="assign-pass-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <div>
+                <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase">Assign Membership to Student</h3>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Select a plan and customize credits, validity, or discounted rates on the fly.</p>
+            </div>
+            <button type="button" onclick="closeAssignModal()" class="modal-close">&times;</button>
+        </div>
+        <form action="/packages/assign" method="POST" class="space-y-4">
+            <input type="hidden" name="redirect_url" value="/students">
+            <div>
+                <label class="form-label">Select Practitioner *</label>
+                <select id="assign-student-select" name="student_id" required class="form-select searchable-select" data-placeholder="Search or choose practitioner...">
+                    <option value="">-- Choose Practitioner --</option>
+                    {{range .Students}}
+                    <option value="{{.Student.ID}}">{{.Student.FullName}} ({{.Student.CurrentBelt}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Base Membership Plan Template *</label>
+                <select id="assign-template-select" name="template_id" required onchange="onTemplateSelectChange(this)" class="form-select text-xs">
+                    <option value="">-- Select Membership Plan --</option>
+                    {{range .Templates}}
+                    {{if .IsActive}}
+                    <option value="{{.ID}}"
+                            data-price="{{printf "%.2f" .Price}}"
+                            data-days="{{.ValidityDays}}"
+                            data-sessions="{{if .SessionCount}}{{.SessionCount}}{{else}}unlimited{{end}}"
+                            data-type="{{.PlanType}}"
+                            data-cadence="{{.WeeklyCadence}}"
+                            data-unlimited="{{if .IsUnlimited}}true{{else}}false{{end}}">
+                        {{.Title}} &bull; ₱{{printf "%.2f" .Price}} {{if .IsFourWeek}}({{.SessionCount}} classes &bull; {{.WeeklyCadence}}x/wk &bull; 4 Weeks){{else if .IsUnlimited}}(Unlimited Pass){{else}}({{.SessionCount}} classes){{end}}
+                    </option>
+                    {{end}}
+                    {{end}}
+                </select>
+            </div>
+
+            <!-- Customization & Overrides Card -->
+            <div id="assign-overrides-box" class="p-4 bg-slate-50 dark:bg-neutral-900/90 rounded-xl border border-slate-200 dark:border-neutral-800 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-neutral-800 pb-2">
+                    <span class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                        ⚙️ Checkout Overrides (Optional)
+                    </span>
+                    <span class="text-[10px] text-slate-500">Auto-filled from template</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="form-label text-[11px]">Class Credits</label>
+                        <input type="number" id="override-sessions" name="override_sessions" placeholder="Auto" min="1" class="form-input text-xs">
+                        <span id="unlimited-label" class="text-[11px] text-teal-600 dark:text-teal-400 font-semibold hidden mt-1 block">Unlimited Pass ♾️</span>
+                        <span id="four-week-assign-label" class="text-[11px] text-purple-700 dark:text-purple-400 font-semibold hidden mt-1 block"></span>
+                    </div>
+                    <div>
+                        <label class="form-label text-[11px]">Validity (Days)</label>
+                        <input type="number" id="override-validity-days" name="override_validity_days" placeholder="90" min="1" class="form-input text-xs">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="form-label text-[11px]">Custom Price (₱)</label>
+                        <input type="number" id="override-custom-price" name="custom_price" step="0.01" min="0" placeholder="e.g. 120.00" class="form-input text-xs">
+                    </div>
+                    <div>
+                        <label class="form-label text-[11px]">Payment Status</label>
+                        <select name="payment_status" class="form-select text-xs">
+                            <option value="paid" selected>PAID ✓</option>
+                            <option value="pending">PENDING</option>
+                            <option value="unpaid">UNPAID</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label text-[11px]">Enrollment Notes / Discount Remarks</label>
+                    <input type="text" name="notes" placeholder="e.g. +2 bonus classes promotion, sibling discount" class="form-input text-xs">
+                </div>
+            </div>
+
+            <div class="modal-footer pt-4">
+                <button type="button" onclick="closeAssignModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Confirm &amp; Assign</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAssignModal() {
+        document.getElementById('assign-pass-modal').classList.remove('hidden');
+    }
+
+    function closeAssignModal() {
+        document.getElementById('assign-pass-modal').classList.add('hidden');
+    }
+
+    function openAssignModalForStudent(studentId) {
+        openAssignModal();
+        const select = document.getElementById('assign-student-select');
+        if (select) {
+            select.value = studentId;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
+    function onTemplateSelectChange(select) {
+        const selectedOpt = select.options[select.selectedIndex];
+        if (!selectedOpt || !selectedOpt.value) return;
+
+        const price = selectedOpt.getAttribute('data-price');
+        const days = selectedOpt.getAttribute('data-days');
+        const sessions = selectedOpt.getAttribute('data-sessions');
+        const planType = selectedOpt.getAttribute('data-type');
+        const cadence = selectedOpt.getAttribute('data-cadence');
+        const isUnlimited = selectedOpt.getAttribute('data-unlimited') === 'true';
+
+        const sessionsInput = document.getElementById('override-sessions');
+        const unlimitedLabel = document.getElementById('unlimited-label');
+        const fourWeekLabel = document.getElementById('four-week-assign-label');
+
+        if (isUnlimited) {
+            sessionsInput.value = '';
+            sessionsInput.classList.add('hidden');
+            unlimitedLabel.classList.remove('hidden');
+            fourWeekLabel.classList.add('hidden');
+        } else {
+            sessionsInput.classList.remove('hidden');
+            sessionsInput.value = sessions;
+            unlimitedLabel.classList.add('hidden');
+
+            if (planType === 'four_week') {
+                fourWeekLabel.textContent = `⏱️ 4-Week Plan: ${cadence || 1} class(es) / week`;
+                fourWeekLabel.classList.remove('hidden');
+            } else {
+                fourWeekLabel.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('override-validity-days').value = days;
+        document.getElementById('override-custom-price').value = price;
+    }
+
+    function onRegTemplateChange(select) {
+        const details = document.getElementById('reg-plan-details');
+        const badge = document.getElementById('reg-plan-badge');
+        const customPriceInput = document.getElementById('reg-custom-price');
+        if (!select.value) {
+            details.classList.add('hidden');
+            badge.classList.add('hidden');
+            if (customPriceInput) customPriceInput.value = '';
+            return;
+        }
+        details.classList.remove('hidden');
+        badge.classList.remove('hidden');
+        const opt = select.options[select.selectedIndex];
+        const price = opt.getAttribute('data-price');
+        if (customPriceInput && price) {
+            customPriceInput.value = price;
+        }
+    }
+</script>
 {{end}}

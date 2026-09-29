@@ -22,10 +22,25 @@
             </h1>
             <p class="text-xs text-slate-600 dark:text-slate-400">
                 Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span>
+                {{if .Session.AdminName}} &bull; Supervising Admin: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.AdminName}}</span>{{end}}
             </p>
         </div>
 
-        <div class="flex items-center gap-3 self-start md:self-auto">
+        <div class="flex items-center gap-2 self-start md:self-auto flex-wrap">
+            {{if not .Session.IsCancelled}}
+            <button type="button"
+                    onclick="openEditSessionModal()"
+                    class="btn btn-secondary btn-sm flex items-center gap-1.5">
+                <span>✏️</span> Edit Class
+            </button>
+            {{end}}
+            {{if .Session.IsOpen}}
+            <button type="button"
+                    onclick="openDeleteSessionModal()"
+                    class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
+                <span>🗑️</span> Delete Class
+            </button>
+            {{end}}
             {{if and (not .Session.IsCancelled) (not .Session.IsDone)}}
             <button type="button"
                     onclick="document.getElementById('cancel-session-modal').classList.remove('hidden')"
@@ -195,5 +210,150 @@
         </form>
     </div>
 </div>
+
+<!-- Modal: Edit Training Class -->
+<div id="edit-session-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <span>✏️</span> Edit Training Class
+            </h3>
+            <button type="button" onclick="closeEditModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="edit-session-form" method="POST" action="/sessions/{{.Session.ID}}/edit" class="space-y-4">
+            <input type="hidden" name="redirect_url" value="/sessions/{{.Session.ID}}/live">
+            <!-- Date, Start Time, and End Time on ONE line -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="form-label">Class Date</label>
+                    <input type="date" id="edit-session-date" name="session_date" value="{{.Session.SessionDate.Format "2006-01-02"}}" required class="form-input text-xs sm:text-sm">
+                </div>
+                <div>
+                    <label class="form-label">Start Time</label>
+                    <input type="time" id="edit-start-time" name="start_time" value="{{.Session.StartTime}}" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
+                </div>
+                <div>
+                    <label class="form-label">End Time</label>
+                    <input type="time" id="edit-end-time" name="end_time" value="{{.Session.EndTime}}" required class="form-input text-xs sm:text-sm">
+                </div>
+            </div>
+
+            <!-- Lead Coach Dropdown -->
+            <div>
+                <label class="form-label">Lead Coach</label>
+                <select id="edit-coach-id" name="coach_id" required class="form-select searchable-select" data-placeholder="Select Lead Coach...">
+                    <option value="">Select Lead Coach...</option>
+                    {{range .Coaches}}
+                    {{if .IsActive}}
+                    <option value="{{.ID}}" {{if eq $.Session.CoachID.String .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
+                    {{end}}
+                    {{end}}
+                </select>
+            </div>
+
+            <!-- Supervising Admin Dropdown -->
+            <div>
+                <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                    <option value="">None / Unassigned</option>
+                    {{range .Admins}}
+                    <option value="{{.ID}}" {{if and $.Session.AdminID (eq $.Session.AdminID.String .ID.String)}}selected{{end}}>{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Training Category</label>
+                <select id="edit-training-type" name="training_type" class="form-select">
+                    <option value="Sparring" {{if eq .Session.TrainingType "Sparring"}}selected{{end}}>Sparring (Kyorugi)</option>
+                    <option value="Poomsae" {{if eq .Session.TrainingType "Poomsae"}}selected{{end}}>Forms (Poomsae)</option>
+                    <option value="Conditioning" {{if eq .Session.TrainingType "Conditioning"}}selected{{end}}>Conditioning / Impact</option>
+                    <option value="Promotion Prep" {{if eq .Session.TrainingType "Promotion Prep"}}selected{{end}}>Promotion Testing Prep</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Class Remarks / Agenda</label>
+                <textarea id="edit-notes" name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea">{{.Session.Notes}}</textarea>
+            </div>
+
+            <div class="modal-footer flex items-center justify-between">
+                {{if .Session.IsOpen}}
+                <button type="button" onclick="closeEditModal(); openDeleteSessionModal();" class="btn btn-ghost btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold flex items-center gap-1">
+                    <span>🗑️</span> Delete Class
+                </button>
+                {{else}}
+                <div></div>
+                {{end}}
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Delete Session Confirmation -->
+<div id="delete-session-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <span>🗑️</span> Delete Training Class
+            </h3>
+            <button type="button" onclick="closeDeleteModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="delete-session-form" method="POST" action="/sessions/{{.Session.ID}}/delete" class="space-y-4">
+            <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
+                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{.Session.CoachName}}</p>
+                <p class="text-xs text-rose-700 dark:text-rose-300 font-medium pt-1 border-t border-rose-200/60 dark:border-rose-900/60">
+                    ⚠️ Deleting this open class will permanently purge the attendance roster and restore any deducted student membership credits.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeDeleteModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-danger btn-sm">Confirm Deletion</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function calculateEditEndTime() {
+    const startInput = document.getElementById('edit-start-time');
+    const endInput = document.getElementById('edit-end-time');
+    if (!startInput || !endInput) return;
+    const val = startInput.value;
+    if (!val) return;
+    
+    const parts = val.split(':');
+    if (parts.length >= 2) {
+        let hours = parseInt(parts[0], 10);
+        let mins = parts[1];
+        if (isNaN(hours)) return;
+        let endHours = (hours + 2) % 24;
+        let padHours = endHours < 10 ? '0' + endHours : '' + endHours;
+        endInput.value = padHours + ':' + mins;
+    }
+}
+
+function openEditSessionModal() {
+    document.getElementById('edit-session-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-session-modal').classList.add('hidden');
+}
+
+function openDeleteSessionModal() {
+    document.getElementById('delete-session-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('delete-session-modal').classList.add('hidden');
+}
+</script>
 {{end}}
 {{end}}

@@ -275,16 +275,21 @@ func (a *AppHandler) HandleTogglePackageTemplateStatus(w http.ResponseWriter, r 
 	http.Redirect(w, r, "/packages", http.StatusSeeOther)
 }
 
-func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+// AssignPackageFromForm parses membership assignment parameters from form values and records the package in store.
+func (a *AppHandler) AssignPackageFromForm(r *http.Request, studentID uuid.UUID) (*models.StudentPackage, error) {
+	templateIDStr := strings.TrimSpace(r.FormValue("template_id"))
+	if templateIDStr == "" {
+		return nil, fmt.Errorf("membership template is required")
+	}
+	templateID, err := uuid.Parse(templateIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid template ID: %w", err)
 	}
 
-	studentID, _ := uuid.Parse(r.FormValue("student_id"))
-	templateID, _ := uuid.Parse(r.FormValue("template_id"))
-
-	templates, _ := a.store.GetPackageTemplates()
+	templates, err := a.store.GetPackageTemplates()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve templates: %w", err)
+	}
 	var selectedTpl *models.PackageTemplate
 	for _, t := range templates {
 		if t.ID == templateID {
@@ -294,8 +299,7 @@ func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request)
 	}
 
 	if selectedTpl == nil {
-		http.Error(w, "Invalid template", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("invalid template")
 	}
 
 	now := time.Now()
@@ -344,13 +348,17 @@ func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request)
 	}
 
 	var customPrice *float64
-	if customPriceStr := strings.TrimSpace(r.FormValue("custom_price")); customPriceStr != "" {
+	priceVal := r.FormValue("custom_price")
+	if customPriceStr := strings.TrimSpace(priceVal); customPriceStr != "" {
 		if cp, err := strconv.ParseFloat(customPriceStr, 64); err == nil && cp >= 0 {
 			customPrice = &cp
 		}
 	}
 
 	notes := strings.TrimSpace(r.FormValue("notes"))
+	if notes == "" {
+		notes = strings.TrimSpace(r.FormValue("package_notes"))
+	}
 
 	var sessionsPerWeek *int
 	if selectedTpl.IsFourWeek() {
@@ -382,7 +390,26 @@ func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := a.store.AssignPackage(sp); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return nil, err
+	}
+
+	return sp, nil
+}
+
+func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	studentID, _ := uuid.Parse(r.FormValue("student_id"))
+	if studentID == uuid.Nil {
+		http.Error(w, "Student ID is required", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := a.AssignPackageFromForm(r, studentID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

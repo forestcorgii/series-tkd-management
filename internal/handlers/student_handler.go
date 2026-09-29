@@ -26,6 +26,7 @@ type StudentListItem struct {
 type StudentsPageData struct {
 	CurrentUser   *models.User
 	Students      []StudentListItem
+	Templates     []*models.PackageTemplate
 	Search        string
 	SuccessNotice string
 	ErrorNotice   string
@@ -74,10 +75,13 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	templates, _ := a.store.GetPackageTemplates()
+
 	user := GetUserFromContext(r.Context())
 	data := StudentsPageData{
 		CurrentUser:   user,
 		Students:      items,
+		Templates:     templates,
 		Search:        query,
 		SuccessNotice: r.URL.Query().Get("success"),
 		ErrorNotice:   r.URL.Query().Get("error"),
@@ -194,6 +198,10 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 			password = "student123"
 		}
 		_, _ = a.authSvc.RegisterUser(email, password, models.RoleStudent, &s.ID, nil)
+	}
+
+	if templateIDStr := strings.TrimSpace(r.FormValue("template_id")); templateIDStr != "" {
+		_, _ = a.AssignPackageFromForm(r, s.ID)
 	}
 
 	http.Redirect(w, r, "/students", http.StatusSeeOther)
