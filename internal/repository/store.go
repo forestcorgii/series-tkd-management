@@ -20,8 +20,11 @@ var (
 
 type SessionFilter struct {
 	CoachID      *uuid.UUID
+	StudentID    *uuid.UUID
 	TrainingType string
 	Date         string // "YYYY-MM-DD"
+	StartDate    string // "YYYY-MM-DD"
+	EndDate      string // "YYYY-MM-DD"
 }
 
 type RepositoryStore interface {
@@ -445,12 +448,32 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 		if filter.CoachID != nil && s.CoachID != *filter.CoachID {
 			continue
 		}
+		if filter.StudentID != nil {
+			hasAtt := false
+			for _, att := range m.attendances {
+				if att.SessionID == s.ID && att.StudentID == *filter.StudentID {
+					hasAtt = true
+					break
+				}
+			}
+			if !hasAtt {
+				continue
+			}
+		}
 		if filter.TrainingType != "" && string(s.TrainingType) != filter.TrainingType {
 			continue
 		}
 		if filter.Date != "" {
 			dateStr := s.SessionDate.Format("2006-01-02")
 			if dateStr != filter.Date {
+				continue
+			}
+		} else {
+			dateStr := s.SessionDate.Format("2006-01-02")
+			if filter.StartDate != "" && dateStr < filter.StartDate {
+				continue
+			}
+			if filter.EndDate != "" && dateStr > filter.EndDate {
 				continue
 			}
 		}

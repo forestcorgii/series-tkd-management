@@ -1,83 +1,381 @@
 {{define "session_cards.html"}}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    {{range .Sessions}}
-    <div class="p-5 rounded-xl border flex flex-col justify-between gap-4 shadow-sm transition-all {{if .IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/60{{else}}bg-slate-50 dark:bg-slate-900/90 border-slate-200 dark:border-slate-800{{end}}">
-        <div class="space-y-1.5">
-            <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                    <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold {{if .IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
-                        {{if .IsCancelled}}🚫 CANCELLED{{else if .IsDone}}🔒 CLOSED{{else}}{{.TrainingType}}{{end}}
-                    </span>
-                    {{if or .IsCancelled .IsDone}}
-                    <span class="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
-                        {{.TrainingType}}
-                    </span>
-                    {{end}}
-                </div>
-                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    {{formatDate .SessionDate}}
+<div class="space-y-6">
+    <!-- Week Navigation Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800">
+        <!-- Week Controls -->
+        <div class="flex items-center gap-2 flex-wrap">
+            <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900 p-0.5 shadow-sm">
+                <button type="button"
+                        hx-get="/sessions?date={{.Calendar.PrevWeekStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        class="btn btn-ghost btn-xs px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300"
+                        title="Previous Week">
+                    &larr; Prev
+                </button>
+                <button type="button"
+                        hx-get="/sessions?date={{.Calendar.TodayStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        class="btn btn-ghost btn-xs px-2.5 py-1.5 text-xs font-bold text-[#990303] dark:text-[#DC2626]"
+                        title="Jump to Current Week">
+                    Today
+                </button>
+                <button type="button"
+                        hx-get="/sessions?date={{.Calendar.NextWeekStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        class="btn btn-ghost btn-xs px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300"
+                        title="Next Week">
+                    Next &rarr;
+                </button>
+            </div>
+
+            <!-- Week Date Heading -->
+            <div class="flex items-center gap-2 pl-2">
+                <span class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white tracking-wide">
+                    {{.Calendar.Title}}
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                    {{.Calendar.TotalSessions}} Classes This Week
                 </span>
             </div>
+        </div>
 
-            <h3 class="font-display font-bold text-lg {{if .IsCancelled}}text-slate-500 dark:text-slate-400 line-through{{else}}text-slate-900 dark:text-white{{end}}">
-                {{.StartTime}} - {{.EndTime}}
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                💡 Click any time slot to schedule a class
+            </span>
+        </div>
+    </div>
+
+    <!-- 7-DAY GOOGLE-CALENDAR-STYLE TIME GRID -->
+    <div class="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-neutral-950 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <div class="min-w-[960px]">
+                <!-- Day Column Headers (Sticky Top) -->
+                <div class="grid grid-cols-[72px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 sticky top-0 z-20 backdrop-blur">
+                    <!-- Top-Left Corner: Timezone / Icon -->
+                    <div class="p-3 text-center border-r border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">GMT+8</span>
+                    </div>
+
+                    <!-- 7 Day Headers -->
+                    {{range .Calendar.Days}}
+                    <div class="p-2 sm:p-2.5 text-center border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 transition-colors {{if .IsToday}}bg-rose-50/40 dark:bg-rose-950/20{{end}}">
+                        <span class="text-[11px] font-bold uppercase tracking-wider block {{if .IsToday}}text-[#990303] dark:text-[#DC2626]{{else}}text-slate-500 dark:text-slate-400{{end}}">
+                            {{.DayShort}}
+                        </span>
+                        <div class="mt-1 flex items-center justify-center">
+                            {{if .IsToday}}
+                            <span class="w-9 h-9 rounded-full bg-[#990303] dark:bg-[#DC2626] text-white flex items-center justify-center font-display font-extrabold text-base shadow-sm">
+                                {{.DayNumber}}
+                            </span>
+                            {{else}}
+                            <span class="w-9 h-9 rounded-full text-slate-800 dark:text-slate-100 flex items-center justify-center font-display font-extrabold text-base hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors">
+                                {{.DayNumber}}
+                            </span>
+                            {{end}}
+                        </div>
+                        <div class="mt-1 flex items-center justify-center">
+                            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                                {{len .Sessions}} {{if eq (len .Sessions) 1}}class{{else}}classes{{end}}
+                            </span>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+
+                <!-- Scrollable Body with Time Gutter + 7 Day Timeline Columns -->
+                <div class="relative max-h-[720px] overflow-y-auto">
+                    <div class="grid grid-cols-[72px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
+                        
+                        <!-- Left Time Gutter -->
+                        <div class="border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 relative select-none">
+                            {{range $h := .Calendar.Hours}}
+                            <div class="h-[60px] border-b border-transparent relative pr-2 text-right">
+                                <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400 relative -top-2.5 block leading-none">
+                                    {{$h.TimeLabel}}
+                                </span>
+                            </div>
+                            {{end}}
+
+                            <!-- Current Time Pill on Left Gutter -->
+                            {{if .Calendar.ShowNowLine}}
+                            <div class="absolute right-1 z-30 pointer-events-none -translate-y-1/2" style="top: {{.Calendar.NowOffset}}px;">
+                                <span class="bg-red-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                    {{.Calendar.CurrentTimeLabel}}
+                                </span>
+                            </div>
+                            {{end}}
+                        </div>
+
+                        <!-- 7 Day Columns -->
+                        {{$calendar := .Calendar}}
+                        {{range $day := $calendar.Days}}
+                        <div class="border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 relative {{if $day.IsToday}}bg-rose-50/10 dark:bg-rose-950/5{{end}}">
+                            <!-- Background Time Grid for this Day -->
+                            <div class="absolute inset-0 z-0 flex flex-col pointer-events-auto">
+                                {{range $h := $calendar.Hours}}
+                                <div class="h-[60px] border-b border-slate-200/70 dark:border-slate-800/80 relative flex flex-col">
+                                    <!-- Top Half (:00 slot) -->
+                                    <button type="button"
+                                            onclick="openNewSessionModal('{{$day.DateString}}', '{{$h.Time24}}')"
+                                            class="h-[30px] w-full border-b border-dashed border-slate-100/90 dark:border-slate-800/40 hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
+                                            title="Schedule at {{$h.Time24}} on {{$day.DayName}}">
+                                        <span class="text-[10px] font-mono font-medium group-hover/slot:text-[#990303] dark:group-hover/slot:text-[#DC2626]">
+                                            + {{$h.Time24}}
+                                        </span>
+                                        <span class="text-[9px] opacity-0 group-hover/slot:opacity-100 text-slate-400 font-sans">
+                                            click to add
+                                        </span>
+                                    </button>
+
+                                    <!-- Bottom Half (:30 slot) -->
+                                    <button type="button"
+                                            onclick="openNewSessionModal('{{$day.DateString}}', '{{printf "%02d:30" $h.Hour}}')"
+                                            class="h-[30px] w-full hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
+                                            title="Schedule at {{printf "%02d:30" $h.Hour}} on {{$day.DayName}}">
+                                        <span class="text-[10px] font-mono font-medium group-hover/slot:text-[#990303] dark:group-hover/slot:text-[#DC2626]">
+                                            + {{printf "%02d:30" $h.Hour}}
+                                        </span>
+                                        <span class="text-[9px] opacity-0 group-hover/slot:opacity-100 text-slate-400 font-sans">
+                                            click to add
+                                        </span>
+                                    </button>
+                                </div>
+                                {{end}}
+                            </div>
+
+                            <!-- Plotted Session Cards (Google Calendar Spanning Cards) -->
+                            <div class="absolute inset-0 z-10 pointer-events-none">
+                                {{range $day.Sessions}}
+                                <div class="absolute rounded-lg border shadow-xs transition-all hover:shadow-lg hover:z-30 cursor-pointer overflow-hidden flex flex-col justify-between p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed{{else if eq .Session.TrainingType "Sparring"}}bg-red-50/95 dark:bg-red-950/40 border-red-200 dark:border-red-900/60 border-l-4 border-l-[#990303] dark:border-l-[#DC2626]{{else if eq .Session.TrainingType "Poomsae"}}bg-indigo-50/95 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/60 border-l-4 border-l-indigo-600{{else if eq .Session.TrainingType "Conditioning"}}bg-amber-50/95 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60 border-l-4 border-l-amber-500{{else}}bg-purple-50/95 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900/60 border-l-4 border-l-purple-600{{end}}"
+                                     style="top: {{.TopOffset}}px; height: {{.CardHeight}}px; left: calc({{.LeftPercent}}% + 2px); width: calc({{.WidthPercent}}% - 4px);">
+                                    <div>
+                                        <div class="flex items-center justify-between gap-1 mb-0.5">
+                                            <span class="inline-block px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200{{else if eq .Session.TrainingType "Sparring"}}bg-red-100 text-red-800 dark:bg-red-900/80 dark:text-red-200{{else if eq .Session.TrainingType "Poomsae"}}bg-indigo-100 text-indigo-800 dark:bg-indigo-900/80 dark:text-indigo-200{{else if eq .Session.TrainingType "Conditioning"}}bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200{{else}}bg-purple-100 text-purple-800 dark:bg-purple-900/80 dark:text-purple-200{{end}}">
+                                                {{.Session.TrainingType}}
+                                            </span>
+                                            <span class="text-[9px] px-1 py-0.2 rounded font-bold uppercase {{.StatusBadge}}">
+                                                {{.StatusLabel}}
+                                            </span>
+                                        </div>
+                                        <h4 class="font-display font-bold text-xs leading-tight truncate {{if .Session.IsCancelled}}text-slate-400 line-through{{else}}text-slate-900 dark:text-white{{end}}">
+                                            {{.TimeDisplay}}
+                                        </h4>
+                                        <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium truncate mt-0.5">
+                                            Coach: <span class="font-semibold">{{.Session.CoachName}}</span>
+                                        </p>
+                                        {{if and .Session.Notes (gt .CardHeight 70)}}
+                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 italic truncate mt-0.5" title="{{.Session.Notes}}">
+                                            "{{.Session.Notes}}"
+                                        </p>
+                                        {{end}}
+                                    </div>
+
+                                    <div class="pt-1 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between gap-1 mt-auto" onclick="event.stopPropagation()">
+                                        <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                                            👥 {{.AttendanceCount}}
+                                        </span>
+                                        <div class="flex items-center gap-1.5">
+                                            {{if not .Session.IsCancelled}}
+                                            <button type="button"
+                                                    onclick="openCancelModal('{{.Session.ID}}', '{{.Session.TrainingType}}', '{{formatDate .Session.SessionDate}}', '{{.TimeDisplay}}', '{{.Session.CoachName}}')"
+                                                    class="text-[10px] text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold p-0.5"
+                                                    title="Cancel Class">
+                                                ✖
+                                            </button>
+                                            {{end}}
+                                            <a href="/sessions/{{.Session.ID}}/live"
+                                               class="btn btn-xs py-0.5 px-2 text-[10px] {{if .Session.IsCancelled}}btn-secondary opacity-70{{else if .Session.IsDone}}btn-secondary{{else}}btn-primary{{end}}">
+                                                {{if .Session.IsCancelled}}Roster{{else if .Session.IsDone}}Roster{{else}}⚡ Live{{end}}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{end}}
+                            </div>
+
+                            <!-- Red Line Indicator for Current Time ("Now" line on Today) -->
+                            {{if and $calendar.ShowNowLine $day.IsToday}}
+                            <div class="absolute left-0 right-0 z-20 pointer-events-none flex items-center" style="top: {{$calendar.NowOffset}}px;">
+                                <div class="w-3 h-3 rounded-full bg-red-600 -ml-1.5 shadow-sm ring-2 ring-white dark:ring-slate-900"></div>
+                                <div class="flex-1 h-[2px] bg-red-600 shadow-sm"></div>
+                            </div>
+                            {{end}}
+                        </div>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLASS ROSTER & DETAIL CARDS -->
+    <div class="space-y-3 pt-2">
+        <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2">
+            <h3 class="font-display font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                Class Rosters &amp; Quick Operations
             </h3>
-
-            <p class="text-xs text-slate-600 dark:text-slate-400">
-                Lead Coach: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.CoachName}}</span>
-            </p>
-
-            {{if .Notes}}
-            <p class="text-xs text-slate-600 dark:text-slate-400 italic">"{{.Notes}}"</p>
-            {{end}}
-
-            {{if .IsCancelled}}
-            <div class="mt-3 p-2.5 bg-rose-100/70 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-lg text-xs space-y-1">
-                <p class="font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1">
-                    <span>⚠️</span> Cancellation Reason:
-                </p>
-                <p class="text-rose-800 dark:text-rose-200 pl-4">
-                    {{if .CancellationReason}}{{.CancellationReason}}{{else}}Cancelled by floor staff{{end}}
-                </p>
-                {{if .CancelledAt}}
-                <p class="text-[10px] text-rose-700 dark:text-rose-400 pl-4">
-                    Logged on {{formatDate .CancelledAt}}
-                </p>
-                {{end}}
-            </div>
-            {{end}}
-        </div>
-
-        <div class="flex items-center justify-between pt-3 border-t border-slate-200/80 dark:border-slate-800/80 gap-2">
-            <div>
-                {{if .IsCancelled}}
-                <span class="text-[11px] text-rose-700 dark:text-rose-400 font-medium">Check-in closed</span>
-                {{else if .IsDone}}
-                <span class="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Attendance closed</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                {{if gt .TotalMatchingCount 0}}
+                Showing {{.DisplayStart}}–{{.DisplayEnd}} of {{.TotalMatchingCount}} matching
                 {{else}}
-                <button type="button"
-                        onclick="openCancelModal('{{.ID}}', '{{.TrainingType}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}', '{{.CoachName}}')"
-                        class="text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition-colors inline-flex items-center gap-1">
-                    <span>✖</span> Cancel Class
-                </button>
+                0 matching
                 {{end}}
+            </span>
+        </div>
+
+        {{if .Sessions}}
+        <div class="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-neutral-900 shadow-xs">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-[11px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider font-display">
+                        <th class="py-3 px-4">Date &amp; Time</th>
+                        <th class="py-3 px-4">Category / Status</th>
+                        <th class="py-3 px-4">Lead Coach</th>
+                        <th class="py-3 px-4">Remarks / Focus</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                    {{range .Sessions}}
+                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors {{if .IsCancelled}}bg-rose-50/20 dark:bg-rose-950/10{{end}}">
+                        <!-- Date & Time -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <div class="font-bold text-slate-900 dark:text-white font-mono text-xs sm:text-sm {{if .IsCancelled}}line-through text-slate-400{{end}}">
+                                {{.StartTime}} - {{.EndTime}}
+                            </div>
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {{formatDate .SessionDate}}
+                            </div>
+                        </td>
+
+                        <!-- Category & Status -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold {{if .IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
+                                    {{if .IsCancelled}}🚫 CANCELLED{{else if .IsDone}}🔒 CLOSED{{else}}{{.TrainingType}}{{end}}
+                                </span>
+                                {{if or .IsCancelled .IsDone}}
+                                <span class="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
+                                    {{.TrainingType}}
+                                </span>
+                                {{end}}
+                            </div>
+                        </td>
+
+                        <!-- Lead Coach -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <span class="text-slate-900 dark:text-white font-semibold">
+                                Coach {{.CoachName}}
+                            </span>
+                        </td>
+
+                        <!-- Remarks / Notes -->
+                        <td class="py-3 px-4 max-w-xs">
+                            {{if .IsCancelled}}
+                            <div class="text-rose-700 dark:text-rose-400 text-[11px]">
+                                <span class="font-bold">Cancelled:</span> {{if .CancellationReason}}{{.CancellationReason}}{{else}}Cancelled by floor staff{{end}}
+                            </div>
+                            {{else if .Notes}}
+                            <p class="text-slate-600 dark:text-slate-400 italic truncate" title="{{.Notes}}">
+                                "{{.Notes}}"
+                            </p>
+                            {{else}}
+                            <span class="text-slate-400 dark:text-slate-600">—</span>
+                            {{end}}
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="py-3 px-4 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center gap-2">
+                                {{if not (or .IsCancelled .IsDone)}}
+                                <button type="button"
+                                        onclick="openCancelModal('{{.ID}}', '{{.TrainingType}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}', '{{.CoachName}}')"
+                                        class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 py-1 px-2 font-medium"
+                                        title="Cancel Class">
+                                    <span>✖</span> Cancel Class
+                                </button>
+                                {{end}}
+                                <a href="/sessions/{{.ID}}/live"
+                                   class="{{if .IsCancelled}}btn btn-secondary btn-xs py-1 px-2.5 opacity-80{{else if .IsDone}}btn btn-secondary btn-xs py-1 px-2.5{{else}}btn btn-primary btn-xs py-1 px-2.5{{end}}">
+                                    {{if .IsCancelled}}View Cancelled Roster &rarr;{{else if .IsDone}}Manage Roster &rarr;{{else}}⚡ Live Tablet Attendance &rarr;{{end}}
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+
+            <!-- Pagination Controls (10 per page) -->
+            {{if gt .TotalPages 1}}
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-xs">
+                <div class="text-slate-500 dark:text-slate-400 font-medium text-[11px] sm:text-xs">
+                    Showing <span class="font-bold text-slate-800 dark:text-slate-200">{{.DisplayStart}}</span> to <span class="font-bold text-slate-800 dark:text-slate-200">{{.DisplayEnd}}</span> of <span class="font-bold text-slate-800 dark:text-slate-200">{{.TotalMatchingCount}}</span> classes (Page {{.Page}} of {{.TotalPages}})
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <!-- Prev Button -->
+                    <button type="button"
+                            {{if .HasPrevPage}}
+                            hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&page={{$.PrevPage}}"
+                            hx-target="#classes-container"
+                            hx-push-url="true"
+                            class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-700 dark:text-slate-300"
+                            {{else}}
+                            disabled
+                            class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                            {{end}}
+                            title="Previous Page">
+                        &larr; Prev
+                    </button>
+                    
+                    <!-- Page Numbers -->
+                    <div class="inline-flex items-center gap-1">
+                        {{range .PageNumbers}}
+                        <button type="button"
+                                hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&page={{.}}"
+                                hx-target="#classes-container"
+                                hx-push-url="true"
+                                class="btn btn-xs px-2.5 py-1 {{if eq . $.Page}}bg-[#990303] text-white hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C]{{else}}btn-ghost text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800{{end}} font-bold font-mono">
+                            {{.}}
+                        </button>
+                        {{end}}
+                    </div>
+                    
+                    <!-- Next Button -->
+                    <button type="button"
+                            {{if .HasNextPage}}
+                            hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&page={{$.NextPage}}"
+                            hx-target="#classes-container"
+                            hx-push-url="true"
+                            class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-700 dark:text-slate-300"
+                            {{else}}
+                            disabled
+                            class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                            {{end}}
+                            title="Next Page">
+                        Next &rarr;
+                    </button>
+                </div>
             </div>
-            <a href="/sessions/{{.ID}}/live" class="{{if .IsCancelled}}btn btn-secondary btn-sm opacity-80{{else if .IsDone}}btn btn-secondary btn-sm{{else}}btn btn-primary btn-sm{{end}}">
-                {{if .IsCancelled}}View Cancelled Roster &rarr;{{else if .IsDone}}Manage Roster &rarr;{{else}}⚡ Live Tablet Attendance &rarr;{{end}}
-            </a>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="p-10 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 space-y-3">
+            <div class="text-3xl">🥋</div>
+            <h4 class="font-display font-bold text-base text-slate-800 dark:text-slate-200">No Training Classes Found</h4>
+            <p class="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
+                No dojang classes match the selected filter criteria. Try adjusting the lead coach, category, or date filters.
+            </p>
+            <button type="button" onclick="clearFilters()" class="btn btn-secondary btn-xs py-1.5 px-3">
+                Clear Filters
+            </button>
+        </div>
+        {{end}}
         </div>
     </div>
-    {{else}}
-    <div class="col-span-full p-10 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 space-y-3">
-        <div class="text-3xl">🥋</div>
-        <h4 class="font-display font-bold text-base text-slate-800 dark:text-slate-200">No Training Classes Found</h4>
-        <p class="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
-            No dojang classes match the selected filter criteria. Try adjusting the lead coach, category, or day filters.
-        </p>
-        <button type="button" onclick="clearFilters()" class="btn btn-secondary btn-xs py-1.5 px-3">
-            Clear Filters
-        </button>
-    </div>
-    {{end}}
 </div>
 {{end}}

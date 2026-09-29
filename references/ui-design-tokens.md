@@ -63,5 +63,15 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
 | `.modal-close` | Subtle close button with hover state | `&times;` dismissal |
 | `.modal-footer` | Flex justify-end with top border | Action buttons bar |
 
+### Context: 7-Day Time-Grid Calendar & Dynamic Class Plotting
+
+* **Problem:** Presenting floor classes in static 2-column card lists makes it difficult for coaches and front-desk staff to visualize daily mat occupancy, find open time slots, or schedule without time overlap. Manual entry of class end times frequently leads to mismatched class durations.
+* **Enforced Solution:**
+  1. **7-Day Grid Matrix:** Standardize on an 8-column layout (1 time label column + 7 day columns Monday through Sunday) with hourly time rows spanning operational hours (08:00 AM to 09:00 PM).
+  2. **Plotted Class Cards:** Plot classes in their starting hour cells with category-coded left borders (Sparring: Crimson `#990303`, Poomsae: Indigo, Conditioning: Amber, Promotion Prep: Purple), attendance counters, live indicators, and quick action links.
+  3. **Interactive Slot Scheduling:** Every empty hourly cell on each day serves as an interactive booking target that pre-fills the clicked date and start time into `#new-session-modal`.
+  4. **Automated 2-Hour Duration:** Attach an `oninput` handler `calculateEndTime()` to `start_time` that automatically calculates and populates `end_time` to 2 hours later (`(hours + 2) % 24`), preserving minutes and handling 24-hour wrap.
+
+
 
 

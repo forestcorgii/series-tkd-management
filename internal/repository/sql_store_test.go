@@ -683,6 +683,29 @@ func TestSQLStore_FilterSessions(t *testing.T) {
 	if len(combined) != 1 || combined[0].ID != s1.ID {
 		t.Errorf("expected s1, got %d sessions", len(combined))
 	}
+
+	// 5. Date Range: StartDate & EndDate
+	rangeSessions, err := store.GetSessions(repository.SessionFilter{
+		StartDate: "2026-10-01",
+		EndDate:   "2026-10-02",
+	})
+	if err != nil {
+		t.Fatalf("Date range filter failed: %v", err)
+	}
+	if len(rangeSessions) != 3 {
+		t.Errorf("expected 3 sessions in range 2026-10-01 to 2026-10-02, got %d", len(rangeSessions))
+	}
+
+	rangeDay1, err := store.GetSessions(repository.SessionFilter{
+		StartDate: "2026-10-01",
+		EndDate:   "2026-10-01",
+	})
+	if err != nil {
+		t.Fatalf("Single day range filter failed: %v", err)
+	}
+	if len(rangeDay1) != 2 {
+		t.Errorf("expected 2 sessions on 2026-10-01, got %d", len(rangeDay1))
+	}
 }
 
 func TestSQLStore_AdminsManagement(t *testing.T) {

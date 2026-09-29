@@ -8,11 +8,8 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Training Classes &amp; Floor Attendance Log</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Schedule dojang classes, filter by coach or date, and manage floor attendance screens.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Schedule dojang classes on the 7-day calendar, filter by coach or date, and manage floor attendance screens.</p>
         </div>
-        <button type="button" onclick="document.getElementById('new-session-modal').classList.remove('hidden')" class="btn btn-primary btn-md flex items-center gap-1.5 self-start sm:self-auto shadow-sm">
-            <span>➕</span> Schedule New Class
-        </button>
     </div>
 
     <!-- Filter Bar: Coach, Category, Day -->
@@ -22,6 +19,7 @@
               hx-target="#classes-container"
               hx-trigger="change, input delay:250ms"
               class="space-y-3 sm:space-y-0">
+            <input type="hidden" name="view" value="{{.ViewMode}}">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
                 <!-- Coach Filter -->
                 <div>
@@ -46,22 +44,15 @@
                     </select>
                 </div>
 
-                <!-- Day Filter -->
+                <!-- Student Filter -->
                 <div>
-                    <label class="form-label text-[11px]">Filter by Day</label>
-                    <div class="flex items-center gap-1.5">
-                        <input type="date"
-                               id="filter-day-input"
-                               name="day"
-                               value="{{.FilterDay}}"
-                               class="form-input text-xs" />
-                        <button type="button"
-                                onclick="setFilterToday()"
-                                class="btn btn-secondary btn-xs py-2 px-2.5 whitespace-nowrap text-[11px]"
-                                title="Set filter to Today">
-                            Today
-                        </button>
-                    </div>
+                    <label class="form-label text-[11px]">Filter by Student</label>
+                    <select name="student_id" class="form-select text-xs">
+                        <option value="">All Students</option>
+                        {{range .Students}}
+                        <option value="{{.ID}}" {{if eq $.FilterStudentID .ID.String}}selected{{end}}>{{.FullName}} ({{.CurrentBelt}})</option>
+                        {{end}}
+                    </select>
                 </div>
 
                 <!-- Reset Action -->
@@ -76,11 +67,11 @@
         </form>
     </div>
 
-    <!-- Classes List Container -->
+    <!-- Classes List & Calendar Container -->
     <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 space-y-4 shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
-            <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Dojang Class Log</h2>
-            <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">Floor Schedule &amp; Status</span>
+            <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Dojang 7-Day Class Calendar</h2>
+            <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">Weekly Schedule &amp; Live Status</span>
         </div>
 
         <div id="classes-container">
@@ -89,7 +80,7 @@
     </div>
 </div>
 
-<!-- Modal: New Session (Date, Start Time, and End Time in one line) -->
+<!-- Modal: New Session (Date, Start Time, and End Time with auto 2-hour calculation) -->
 <div id="new-session-modal" class="modal-backdrop hidden">
     <div class="modal-dialog max-w-lg">
         <div class="modal-header">
@@ -101,15 +92,15 @@
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                     <label class="form-label">Class Date</label>
-                    <input type="date" name="session_date" required class="form-input text-xs sm:text-sm">
+                    <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm">
                 </div>
                 <div>
                     <label class="form-label">Start Time</label>
-                    <input type="time" name="start_time" required class="form-input text-xs sm:text-sm">
+                    <input type="time" id="modal-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEndTime()">
                 </div>
                 <div>
-                    <label class="form-label">End Time</label>
-                    <input type="time" name="end_time" required class="form-input text-xs sm:text-sm">
+                    <label class="form-label">End Time <span class="text-[10px] text-slate-400 font-normal">(+2h)</span></label>
+                    <input type="time" id="modal-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
                 </div>
             </div>
 
@@ -197,6 +188,57 @@
 </div>
 
 <script>
+let currentSelectedDate = '{{.SelectedDate}}' || new Date().toISOString().split('T')[0];
+
+function calculateEndTime() {
+    const startInput = document.getElementById('modal-start-time');
+    const endInput = document.getElementById('modal-end-time');
+    if (!startInput || !endInput) return;
+    const val = startInput.value;
+    if (!val) return;
+    
+    const parts = val.split(':');
+    if (parts.length >= 2) {
+        let hours = parseInt(parts[0], 10);
+        let mins = parts[1];
+        if (isNaN(hours)) return;
+        let endHours = (hours + 2) % 24;
+        let padHours = endHours < 10 ? '0' + endHours : '' + endHours;
+        endInput.value = padHours + ':' + mins;
+    }
+}
+
+function openNewSessionModal(dateStr, timeStr) {
+    const modal = document.getElementById('new-session-modal');
+    const dateInput = document.getElementById('modal-session-date');
+    const startInput = document.getElementById('modal-start-time');
+    
+    if (dateInput) {
+        if (dateStr) {
+            dateInput.value = dateStr;
+            currentSelectedDate = dateStr;
+        } else if (currentSelectedDate) {
+            dateInput.value = currentSelectedDate;
+        } else {
+            dateInput.value = new Date().toISOString().split('T')[0];
+        }
+    }
+    
+    if (startInput) {
+        if (timeStr) {
+            startInput.value = timeStr;
+            calculateEndTime();
+        } else if (!startInput.value) {
+            startInput.value = '16:00';
+            calculateEndTime();
+        } else {
+            calculateEndTime();
+        }
+    }
+    
+    modal.classList.remove('hidden');
+}
+
 function openCancelModal(id, category, date, time, coach) {
     var form = document.getElementById('cancel-session-form');
     form.action = '/sessions/' + id + '/cancel';
@@ -209,17 +251,9 @@ function closeCancelModal() {
     document.getElementById('cancel-session-modal').classList.add('hidden');
 }
 
-function setFilterToday() {
-    var today = new Date().toISOString().split('T')[0];
-    var input = document.getElementById('filter-day-input');
-    input.value = today;
-    htmx.trigger(document.getElementById('session-filter-form'), 'change');
-}
-
 function clearFilters() {
     var form = document.getElementById('session-filter-form');
-    form.reset();
-    document.getElementById('filter-day-input').value = '';
+    if (form) form.reset();
     htmx.ajax('GET', '/sessions', {target: '#classes-container', swap: 'innerHTML'});
 }
 </script>

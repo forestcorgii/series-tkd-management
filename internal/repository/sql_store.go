@@ -1133,6 +1133,11 @@ func (s *SQLStore) GetSessions(filter SessionFilter) ([]*models.TrainingSession,
 		args = append(args, filter.CoachID.String())
 		idx++
 	}
+	if filter.StudentID != nil {
+		query += fmt.Sprintf(" AND ts.id IN (SELECT session_id FROM attendance WHERE student_id = $%d)", idx)
+		args = append(args, filter.StudentID.String())
+		idx++
+	}
 	if filter.TrainingType != "" {
 		query += fmt.Sprintf(" AND ts.training_type = $%d", idx)
 		args = append(args, filter.TrainingType)
@@ -1146,9 +1151,28 @@ func (s *SQLStore) GetSessions(filter SessionFilter) ([]*models.TrainingSession,
 		}
 		args = append(args, filter.Date)
 		idx++
+	} else {
+		if filter.StartDate != "" {
+			if s.driver == "sqlite" {
+				query += fmt.Sprintf(" AND (DATE(ts.session_date) >= $%d OR substr(ts.session_date, 1, 10) >= $%d)", idx, idx)
+			} else {
+				query += fmt.Sprintf(" AND DATE(ts.session_date) >= $%d::date", idx)
+			}
+			args = append(args, filter.StartDate)
+			idx++
+		}
+		if filter.EndDate != "" {
+			if s.driver == "sqlite" {
+				query += fmt.Sprintf(" AND (DATE(ts.session_date) <= $%d OR substr(ts.session_date, 1, 10) <= $%d)", idx, idx)
+			} else {
+				query += fmt.Sprintf(" AND DATE(ts.session_date) <= $%d::date", idx)
+			}
+			args = append(args, filter.EndDate)
+			idx++
+		}
 	}
 
-	query += " ORDER BY ts.session_date DESC, ts.start_time DESC"
+	query += " ORDER BY ts.session_date ASC, ts.start_time ASC"
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
