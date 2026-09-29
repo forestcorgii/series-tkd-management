@@ -17,14 +17,16 @@ import (
 )
 
 type CoachListItem struct {
-	Coach   *models.Coach
-	Payroll services.CoachPayrollSummary
+	Coach             *models.Coach
+	Payroll           services.CoachPayrollSummary
+	IsPendingApproval bool
 }
 
 type CoachesPageData struct {
 	Coaches          []CoachListItem
 	TotalCoaches     int
 	ActiveCoaches    int
+	PendingCoaches   int
 	InactiveCoaches  int
 	CertifiedCoaches int
 	StartDate        string
@@ -54,22 +56,31 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 
 	total := len(coaches)
 	active := 0
+	pending := 0
 	inactive := 0
 	certified := 0
 	items := make([]CoachListItem, 0, len(coaches))
 	for _, c := range coaches {
+		isPending := false
 		if c.IsActive {
 			active++
 		} else {
-			inactive++
+			u, _ := a.store.GetUserByEmail(c.Email)
+			if u != nil && u.LastLoginAt == nil {
+				isPending = true
+				pending++
+			} else {
+				inactive++
+			}
 		}
 		if c.IsFirstAidValid() {
 			certified++
 		}
 		summary := a.payrollSvc.CalculateCoachPayroll(c, sessions, allAttendances, start, end)
 		items = append(items, CoachListItem{
-			Coach:   c,
-			Payroll: summary,
+			Coach:             c,
+			Payroll:           summary,
+			IsPendingApproval: isPending,
 		})
 	}
 
@@ -78,6 +89,7 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 		Coaches:          items,
 		TotalCoaches:     total,
 		ActiveCoaches:    active,
+		PendingCoaches:   pending,
 		InactiveCoaches:  inactive,
 		CertifiedCoaches: certified,
 		StartDate:        start.Format("2006-01-02"),
@@ -169,7 +181,10 @@ func (a *AppHandler) HandleToggleCoachStatus(w http.ResponseWriter, r *http.Requ
 	}
 
 	statusMsg := "activated and can now log in"
-	if !newStatus {
+	u, _ := a.store.GetUserByEmail(coach.Email)
+	if u != nil && u.LastLoginAt == nil && newStatus {
+		statusMsg = "approved and activated. They can now log in and lead classes"
+	} else if !newStatus {
 		statusMsg = "deactivated. Their active sessions have been terminated and login access is blocked"
 	}
 

@@ -1954,6 +1954,20 @@ func (s *SQLStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
 	return nil
 }
 
+func (s *SQLStore) DeleteUser(userID uuid.UUID) error {
+	_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, userID.String())
+	_, _ = s.db.Exec(`DELETE FROM password_reset_tokens WHERE user_id = $1`, userID.String())
+	res, err := s.db.Exec(`DELETE FROM users WHERE id = $1`, userID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *SQLStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
 	query := userSelectFields + ` WHERE u.role = $1 ORDER BY u.created_at DESC`
 	rows, err := s.db.Query(query, string(role))

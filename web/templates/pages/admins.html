@@ -41,7 +41,7 @@
     {{end}}
 
     <!-- Telemetry & Security Scope Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Metric: Total Admins -->
         <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
             <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Administrators</span>
@@ -62,21 +62,26 @@
             <p class="text-[10px] text-slate-500 dark:text-slate-400">Can log in &amp; manage floor</p>
         </div>
 
+        <!-- Metric: Pending Approvals -->
+        <div class="glass-panel p-4 rounded-xl border {{if gt .PendingAdmins 0}}border-amber-400 dark:border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10{{else}}border-slate-200/80 dark:border-slate-800{{end}} space-y-1">
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] uppercase font-bold {{if gt .PendingAdmins 0}}text-amber-700 dark:text-amber-400{{else}}text-slate-500 dark:text-slate-400{{end}} tracking-wider">Pending Approval</span>
+                {{if gt .PendingAdmins 0}}
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                {{end}}
+            </div>
+            <div class="font-display text-2xl font-bold {{if gt .PendingAdmins 0}}text-amber-600 dark:text-amber-400{{else}}text-slate-900 dark:text-white{{end}}">{{.PendingAdmins}}</div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Awaiting manager review</p>
+        </div>
+
         <!-- Metric: Inactive / Suspended -->
         <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1">
             <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Inactive Accounts</span>
             <div class="font-display text-2xl font-bold text-slate-600 dark:text-slate-400">{{.InactiveAdmins}}</div>
             <p class="text-[10px] text-slate-500 dark:text-slate-400">Access suspended</p>
-        </div>
-
-        <!-- Security Scope Summary -->
-        <div class="glass-panel p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 space-y-1">
-            <span class="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 tracking-wider flex items-center gap-1">
-                🛡️ Front-Desk Scope
-            </span>
-            <p class="text-[11px] text-slate-700 dark:text-slate-300 leading-snug">
-                Admins manage <strong>Attendance</strong>, <strong>Memberships</strong>, and <strong>Student Contact Info</strong>. Belt rankings &amp; promotions remain locked.
-            </p>
         </div>
     </div>
 
@@ -144,6 +149,10 @@
                             <span class="badge-ready">
                                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Active
                             </span>
+                            {{else if not .LastLoginAt}}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-500/10 text-amber-700 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300">
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span> Pending Approval
+                            </span>
                             {{else}}
                             <span class="badge-developing">
                                 <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span> Inactive / Locked
@@ -155,6 +164,8 @@
                         <td class="py-4 px-4 text-xs font-mono">
                             {{if .LastLoginAt}}
                                 <span class="text-slate-700 dark:text-slate-300">{{formatDate .LastLoginAt}}</span>
+                            {{else if not .IsActive}}
+                                <span class="text-amber-600 dark:text-amber-400 font-semibold italic">Awaiting Approval</span>
                             {{else}}
                                 <span class="text-slate-400 italic">Never logged in</span>
                             {{end}}
@@ -168,6 +179,27 @@
                         <!-- Actions Column -->
                         <td class="py-4 px-6 text-right">
                             <div class="flex items-center justify-end gap-2">
+                                {{if and (not .IsActive) (not .LastLoginAt)}}
+                                <!-- 1-Click Approve Action -->
+                                <form action="/admins/{{.ID}}/toggle" method="POST" class="inline">
+                                    <button type="submit"
+                                            class="btn btn-success btn-xs flex items-center gap-1 shadow-sm"
+                                            title="Approve and activate this administrator">
+                                        <span>✅</span>
+                                        <span>Approve</span>
+                                    </button>
+                                </form>
+                                <!-- Reject/Delete Registration Action -->
+                                <form action="/admins/{{.ID}}/delete" method="POST" class="inline"
+                                      onsubmit="return confirm('Are you sure you want to reject and delete this registration for {{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}?')">
+                                    <button type="submit"
+                                            class="btn btn-ghost btn-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                            title="Reject this administrator registration">
+                                        <span>❌</span>
+                                        <span>Reject</span>
+                                    </button>
+                                </form>
+                                {{else}}
                                 <!-- Reset Password Trigger -->
                                 <button type="button"
                                         onclick="openResetPasswordModal('{{.ID}}', '{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}')"
@@ -193,6 +225,7 @@
                                     </button>
                                     {{end}}
                                 </form>
+                                {{end}}
                             </div>
                         </td>
                     </tr>

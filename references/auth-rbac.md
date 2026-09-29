@@ -168,3 +168,24 @@
      - `#student-header`, `#readiness-hud`, and `#wallet-ledger-card` in `student_portal.html` declare `hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="..." hx-target="..." hx-swap="outerHTML"`, automatically updating attended class counts, readiness percentage bars, and wallet balances in real time.
 
 
+
+### Context: Coach & Admin Self-Registration & Manager Approval Governance (/register)
+
+* **Problem**:
+  1. Instructor and front-desk administrator onboarding previously required an Operations Manager to manually provision all accounts in the database or administrative modals.
+  2. Public sign-up was disabled on /register, redirecting to /login.
+  3. When staff accounts are created, they must not have immediate access to sensitive student directories, payroll, or live attendance check-ins without explicit operational vetting and approval by the Operations Manager.
+* **Enforced Solution**:
+  1. **Public Staff Registration Flow (GET /register & POST /register)**:
+     - Dynamic role switcher between **Coach / Instructor** (COACH) and **Dojang Administrator** (ADMIN).
+     - Gathers account credentials (Full Name, Email, Username, Password with 6-char minimum and confirmation match) alongside role-specific qualifications (Phone, Dan Belt Rank, Teaching Specialties, and First Aid Certification for Coaches).
+     - Persists new records with is_active = false (and for coaches, both coaches.is_active = false and users.is_active = false).
+     - Redirects user to /login with an informational notice: *Registration submitted successfully! Your account is pending manager approval. You can log in once approved.*
+  2. **Pending Approval Login Gating (ErrAccountPendingApproval)**:
+     - AuthService.Login checks credentials and detects if !user.IsActive (or coach != nil && !coach.IsActive).
+     - If user.LastLoginAt == nil, the account is recognized as an unapproved applicant and returns ErrAccountPendingApproval.
+     - HandleLoginSubmit presents a dedicated notice: *Your account is pending manager approval. Please wait for an Operations Manager to review and approve your registration.*
+  3. **Manager Approval & Rejection Controls**:
+     - In **/admins** (Administrator Governance): Inactive accounts with LastLoginAt == nil are tagged with an amber ? Pending Approval badge, offering 1-click ? Approve (POST /admins/{id}/toggle) or ? Reject (POST /admins/{id}/delete).
+     - In **/coaches** (Coach Directory): Unapproved coaches display an amber ? Pending Approval pill, card notice, and 1-click ? Approve Coach button.
+     - In **/portal/admin** (Master Operations Portal): Displays a dynamic banner when pending staff registrations exist, linking directly to /coaches or /admins for rapid review.

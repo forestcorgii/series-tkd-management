@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"errors"
 	"testing"
 
 	"series-tkd-management/internal/models"
@@ -253,5 +254,117 @@ func TestAuthService_ForgotPasswordAndReset(t *testing.T) {
 		t.Errorf("expected ErrInvalidResetToken on token reuse, got %v", err)
 	}
 }
+
+func TestAuthService_CoachRegistrationAndApproval(t *testing.T) {
+	store := repository.NewMemoryStore()
+	authSvc := services.NewAuthService(store)
+
+	// 1. Register pending coach
+	coach, user, err := authSvc.RegisterPendingCoach(
+		"Master Dae-Hyun Kim",
+		"daehyun.kim@seriestkd.com",
+		"daehyun.kim",
+		"blackbelt2026",
+		"+63 917 555 1234",
+		"5th Dan Master",
+		[]string{"Poomsae", "Sparring"},
+		true,
+	)
+	if err != nil {
+		t.Fatalf("expected coach registration to succeed, got %v", err)
+	}
+	if coach.IsActive || user.IsActive {
+		t.Fatalf("expected newly registered coach and user to be inactive pending approval")
+	}
+	if user.Role != models.RoleCoach {
+		t.Errorf("expected RoleCoach, got %s", user.Role)
+	}
+
+	// 2. Coach login attempt before approval must be blocked with ErrAccountPendingApproval
+	_, _, err = authSvc.Login("daehyun.kim", "blackbelt2026")
+	if !errors.Is(err, services.ErrAccountPendingApproval) {
+		t.Fatalf("expected ErrAccountPendingApproval before approval, got: %v", err)
+	}
+
+	// Also check login by email
+	_, _, err = authSvc.Login("daehyun.kim@seriestkd.com", "blackbelt2026")
+	if !errors.Is(err, services.ErrAccountPendingApproval) {
+		t.Fatalf("expected ErrAccountPendingApproval by email before approval, got: %v", err)
+	}
+
+	// 3. Manager approves coach via ToggleCoachActive
+	if err := store.ToggleCoachActive(coach.ID, true); err != nil {
+		t.Fatalf("failed to approve coach: %v", err)
+	}
+
+	// Verify status after approval
+	approvedCoach, _ := store.GetCoachByID(coach.ID)
+	approvedUser, _ := store.GetUserByID(user.ID)
+	if !approvedCoach.IsActive || !approvedUser.IsActive {
+		t.Fatalf("expected coach and user to both be active after manager approval")
+	}
+
+	// 4. Coach logs in successfully after manager approval
+	loginUser, token, err := authSvc.Login("daehyun.kim", "blackbelt2026")
+	if err != nil {
+		t.Fatalf("expected successful login after manager approval, got: %v", err)
+	}
+	if loginUser.ID != user.ID || token == "" {
+		t.Errorf("invalid login response after approval")
+	}
+}
+
+func TestAuthService_AdminRegistrationAndApproval(t *testing.T) {
+	store := repository.NewMemoryStore()
+	authSvc := services.NewAuthService(store)
+
+	// 1. Register pending administrator
+	user, err := authSvc.RegisterPendingAdmin(
+		"Sarah Frontdesk",
+		"sarah.desk@seriestkd.com",
+		"sarah.desk",
+		"deskpass2026",
+	)
+	if err != nil {
+		t.Fatalf("expected admin registration to succeed, got %v", err)
+	}
+	if user.IsActive {
+		t.Fatalf("expected newly registered admin to be inactive pending approval")
+	}
+	if user.Role != models.RoleAdmin {
+		t.Errorf("expected RoleAdmin, got %s", user.Role)
+	}
+
+	// 2. Admin login attempt before approval must be blocked with ErrAccountPendingApproval
+	_, _, err = authSvc.Login("sarah.desk", "deskpass2026")
+	if !errors.Is(err, services.ErrAccountPendingApproval) {
+		t.Fatalf("expected ErrAccountPendingApproval before approval, got: %v", err)
+	}
+
+	// 3. Duplicate email or username registration must be rejected
+	_, err = authSvc.RegisterPendingAdmin("Duplicate", "sarah.desk@seriestkd.com", "otheruser", "password123")
+	if !errors.Is(err, services.ErrEmailAlreadyExists) {
+		t.Errorf("expected ErrEmailAlreadyExists, got %v", err)
+	}
+	_, err = authSvc.RegisterPendingAdmin("Duplicate", "other@seriestkd.com", "sarah.desk", "password123")
+	if !errors.Is(err, services.ErrUsernameAlreadyExists) {
+		t.Errorf("expected ErrUsernameAlreadyExists, got %v", err)
+	}
+
+	// 4. Manager approves admin via ToggleUserActive
+	if err := store.ToggleUserActive(user.ID, true); err != nil {
+		t.Fatalf("failed to approve admin: %v", err)
+	}
+
+	// 5. Admin logs in successfully after manager approval
+	loginUser, token, err := authSvc.Login("sarah.desk", "deskpass2026")
+	if err != nil {
+		t.Fatalf("expected successful login after manager approval, got: %v", err)
+	}
+	if loginUser.ID != user.ID || token == "" {
+		t.Errorf("invalid login response after approval")
+	}
+}
+
 
 

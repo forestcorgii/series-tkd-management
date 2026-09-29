@@ -49,6 +49,8 @@ type AdminPortalData struct {
 	TotalSessionsCount   int
 	ActiveCoachesCount   int
 	OpenIncidentsCount   int
+	PendingCoachesCount  int
+	PendingAdminsCount   int
 	StudentsWithReadiness []StudentReadinessSummary
 	SafetyIncidents      []*models.SafetyIncident
 	Coaches              []*models.Coach
@@ -263,12 +265,32 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	pendingCoaches := 0
+	for _, c := range coaches {
+		if !c.IsActive {
+			u, _ := a.store.GetUserByEmail(c.Email)
+			if u != nil && u.LastLoginAt == nil {
+				pendingCoaches++
+			}
+		}
+	}
+
+	pendingAdmins := 0
+	admins, _ := a.store.GetUsersByRole(models.RoleAdmin)
+	for _, adm := range admins {
+		if !adm.IsActive && adm.LastLoginAt == nil {
+			pendingAdmins++
+		}
+	}
+
 	data := AdminPortalData{
 		CurrentUser:           user,
 		ActiveStudentsCount:   len(students),
 		TotalSessionsCount:    len(sessions),
 		ActiveCoachesCount:    len(coaches),
 		OpenIncidentsCount:    openCount,
+		PendingCoachesCount:   pendingCoaches,
+		PendingAdminsCount:    pendingAdmins,
 		StudentsWithReadiness: readinessList,
 		SafetyIncidents:       incidents,
 		Coaches:               coaches,

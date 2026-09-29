@@ -78,6 +78,7 @@ type RepositoryStore interface {
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
 	ToggleUserActive(userID uuid.UUID, isActive bool) error
+	DeleteUser(userID uuid.UUID) error
 	UpdateUserLastLogin(id uuid.UUID) error
 	CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error
 	GetUserBySessionToken(token string) (*models.User, error)
@@ -837,6 +838,25 @@ func (m *MemoryStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (m *MemoryStore) DeleteUser(userID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, exists := m.users[userID]
+	if !exists {
+		return ErrNotFound
+	}
+
+	for token, rec := range m.sessionTokens {
+		if rec.UserID == userID {
+			delete(m.sessionTokens, token)
+		}
+	}
+	delete(m.usersByEmail, user.Email)
+	delete(m.users, userID)
 	return nil
 }
 

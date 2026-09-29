@@ -37,3 +37,7 @@ func (c *Coach) DaysUntilFirstAidExpiry() int {
 	duration := time.Until(*c.FirstAidExpiry)
 	return int(duration.Hours() / 24)
 }
+
+func (c *Coach) IsPendingApproval() bool {
+	return !c.IsActive
+}

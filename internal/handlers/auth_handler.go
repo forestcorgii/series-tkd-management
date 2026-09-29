@@ -218,7 +218,9 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	user, token, err := a.authSvc.Login(identifier, password)
 	if err != nil {
 		msg := "Invalid email or password"
-		if errors.Is(err, services.ErrUserInactive) {
+		if errors.Is(err, services.ErrAccountPendingApproval) {
+			msg = "Your account is pending manager approval. Please wait for an Operations Manager to review and approve your registration."
+		} else if errors.Is(err, services.ErrUserInactive) {
 			msg = "Account is inactive. Please contact your dojang administrator."
 		}
 		http.Redirect(w, r, "/login?error="+url.QueryEscape(msg), http.StatusSeeOther)
@@ -410,6 +412,175 @@ func (a *AppHandler) HandleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		"status": "created",
 		"user":   user,
 	})
+}
+
+type RegisterPageData struct {
+	CurrentUser  *models.User
+	Error        string
+	Success      string
+	SelectedRole string
+}
+
+func (a *AppHandler) HandleRegisterPage(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	if user != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	role := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("role")))
+	if role != "ADMIN" {
+		role = "COACH"
+	}
+
+	data := RegisterPageData{
+		CurrentUser:  nil,
+		Error:        r.URL.Query().Get("error"),
+		Success:      r.URL.Query().Get("success"),
+		SelectedRole: role,
+	}
+
+	a.RenderPage(w, "register.html", data)
+}
+
+func (a *AppHandler) HandleRegisterSubmit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	isJSON := strings.Contains(r.Header.Get("Accept"), "application/json") ||
+		strings.Contains(r.Header.Get("Content-Type"), "application/json") ||
+		strings.HasPrefix(r.URL.Path, "/api/")
+
+	var role, fullName, email, username, password, confirmPassword, phone, beltRank, specialtiesStr string
+	var firstAid bool
+
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			Role              string   `json:"role"`
+			FullName          string   `json:"full_name"`
+			Email             string   `json:"email"`
+			Username          string   `json:"username"`
+			Password          string   `json:"password"`
+			ConfirmPassword   string   `json:"confirm_password"`
+			Phone             string   `json:"phone"`
+			BeltRank          string   `json:"belt_rank"`
+			Specialties       []string `json:"specialties"`
+			FirstAidCertified bool     `json:"first_aid_certified"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if isJSON {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body: " + err.Error()})
+				return
+			}
+			http.Redirect(w, r, "/register?error="+url.QueryEscape("Invalid request payload"), http.StatusSeeOther)
+			return
+		}
+		role = req.Role
+		fullName = req.FullName
+		email = req.Email
+		username = req.Username
+		password = req.Password
+		confirmPassword = req.ConfirmPassword
+		phone = req.Phone
+		beltRank = req.BeltRank
+		firstAid = req.FirstAidCertified
+		specialtiesStr = strings.Join(req.Specialties, ",")
+	} else {
+		if err := r.ParseForm(); err != nil {
+			http.Redirect(w, r, "/register?error="+url.QueryEscape("Invalid form submission"), http.StatusSeeOther)
+			return
+		}
+		role = r.FormValue("role")
+		fullName = r.FormValue("full_name")
+		email = r.FormValue("email")
+		username = r.FormValue("username")
+		password = r.FormValue("password")
+		confirmPassword = r.FormValue("confirm_password")
+		phone = r.FormValue("phone")
+		beltRank = r.FormValue("belt_rank")
+		specialtiesStr = r.FormValue("specialties")
+		firstAid = r.FormValue("first_aid_certified") == "on" || r.FormValue("first_aid_certified") == "true"
+	}
+
+	role = strings.ToUpper(strings.TrimSpace(role))
+	if role != "COACH" && role != "ADMIN" {
+		role = "COACH"
+	}
+
+	fail := func(msg string) {
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+			return
+		}
+		http.Redirect(w, r, "/register?error="+url.QueryEscape(msg)+"&role="+url.QueryEscape(role), http.StatusSeeOther)
+	}
+
+	if strings.TrimSpace(fullName) == "" {
+		fail("Full name is required.")
+		return
+	}
+	if strings.TrimSpace(email) == "" || !strings.Contains(email, "@") {
+		fail("A valid email address is required.")
+		return
+	}
+	if len(password) < 6 {
+		fail("Password must be at least 6 characters long.")
+		return
+	}
+	if confirmPassword != "" && password != confirmPassword {
+		fail("Passwords do not match.")
+		return
+	}
+
+	var specialties []string
+	if specialtiesStr != "" {
+		for _, s := range strings.Split(specialtiesStr, ",") {
+			if trimmed := strings.TrimSpace(s); trimmed != "" {
+				specialties = append(specialties, trimmed)
+			}
+		}
+	}
+
+	if role == "COACH" {
+		if strings.TrimSpace(phone) == "" {
+			fail("Phone number is required for coach registration.")
+			return
+		}
+		if strings.TrimSpace(beltRank) == "" {
+			beltRank = "1st Dan Black Belt"
+		}
+		_, _, err := a.authSvc.RegisterPendingCoach(fullName, email, username, password, phone, beltRank, specialties, firstAid)
+		if err != nil {
+			fail(err.Error())
+			return
+		}
+	} else if role == "ADMIN" {
+		_, err := a.authSvc.RegisterPendingAdmin(fullName, email, username, password)
+		if err != nil {
+			fail(err.Error())
+			return
+		}
+	}
+
+	successMsg := "Registration submitted successfully! Your account is pending manager approval. You can log in once approved."
+	if isJSON {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "pending_approval",
+			"message": successMsg,
+			"role":    role,
+		})
+		return
+	}
+
+	http.Redirect(w, r, "/login?success="+url.QueryEscape(successMsg), http.StatusSeeOther)
 }
 
 // Forgot Password & Reset Password Web Views and APIs

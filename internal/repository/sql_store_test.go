@@ -783,6 +783,15 @@ func TestSQLStore_AdminsManagement(t *testing.T) {
 	if !reactivated.IsActive {
 		t.Errorf("expected admin to be active again")
 	}
+
+	// Delete user
+	if err := store.DeleteUser(newAdmin.ID); err != nil {
+		t.Fatalf("DeleteUser failed: %v", err)
+	}
+	deletedAdmin, err := store.GetUserByID(newAdmin.ID)
+	if err == nil || deletedAdmin != nil {
+		t.Errorf("expected user to be deleted, got: %v", deletedAdmin)
+	}
 }
 
 func TestSQLStore_CoachToggleAndDeletion(t *testing.T) {

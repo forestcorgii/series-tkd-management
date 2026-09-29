@@ -18,6 +18,7 @@ type AdminsPageData struct {
 	Admins         []*models.User
 	TotalAdmins    int
 	ActiveAdmins   int
+	PendingAdmins  int
 	InactiveAdmins int
 	SuccessNotice  string
 	ErrorMessage   string
@@ -81,10 +82,13 @@ func (a *AppHandler) HandleAdmins(w http.ResponseWriter, r *http.Request) {
 
 	total := len(admins)
 	active := 0
+	pending := 0
 	inactive := 0
 	for _, adm := range admins {
 		if adm.IsActive {
 			active++
+		} else if adm.LastLoginAt == nil {
+			pending++
 		} else {
 			inactive++
 		}
@@ -95,6 +99,7 @@ func (a *AppHandler) HandleAdmins(w http.ResponseWriter, r *http.Request) {
 			"status":   "success",
 			"total":    total,
 			"active":   active,
+			"pending":  pending,
 			"inactive": inactive,
 			"admins":   admins,
 		})
@@ -106,6 +111,7 @@ func (a *AppHandler) HandleAdmins(w http.ResponseWriter, r *http.Request) {
 		Admins:         admins,
 		TotalAdmins:    total,
 		ActiveAdmins:   active,
+		PendingAdmins:  pending,
 		InactiveAdmins: inactive,
 		SuccessNotice:  r.URL.Query().Get("success"),
 		ErrorMessage:   r.URL.Query().Get("error"),
@@ -280,8 +286,10 @@ func (a *AppHandler) HandleToggleAdminStatus(w http.ResponseWriter, r *http.Requ
 	}
 
 	statusMsg := "activated"
-	if !newStatus {
-		statusMsg = "deactivated"
+	if targetUser.LastLoginAt == nil && newStatus {
+		statusMsg = "approved and activated. They can now log in"
+	} else if !newStatus {
+		statusMsg = "deactivated. Login access is now blocked"
 	}
 
 	name := targetUser.DisplayName
@@ -296,6 +304,100 @@ func (a *AppHandler) HandleToggleAdminStatus(w http.ResponseWriter, r *http.Requ
 			"id":        targetID,
 			"is_active": newStatus,
 			"message":   msg,
+		})
+		return
+	}
+	if isHTMXRequest(r) {
+		renderHTMXBanner(w, http.StatusOK, true, msg)
+		return
+	}
+
+	http.Redirect(w, r, "/admins?success="+url.QueryEscape(msg), http.StatusSeeOther)
+}
+
+// HandleDeleteAdmin removes or rejects an administrator account
+func (a *AppHandler) HandleDeleteAdmin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		if isJSONRequest(r) {
+			writeJSONResponse(w, http.StatusMethodNotAllowed, map[string]interface{}{
+				"error": "Method not allowed",
+			})
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	targetID, err := uuid.Parse(idStr)
+	if err != nil {
+		if isJSONRequest(r) {
+			writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
+				"error": "Invalid administrator ID",
+			})
+			return
+		}
+		http.Redirect(w, r, "/admins?error="+url.QueryEscape("Invalid administrator ID."), http.StatusSeeOther)
+		return
+	}
+
+	currentUser := GetUserFromContext(r.Context())
+	if currentUser != nil && currentUser.ID == targetID {
+		if isJSONRequest(r) {
+			writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
+				"error": "Cannot delete your own administrator account",
+			})
+			return
+		}
+		http.Redirect(w, r, "/admins?error="+url.QueryEscape("Cannot delete your own administrator account."), http.StatusSeeOther)
+		return
+	}
+
+	targetUser, err := a.store.GetUserByID(targetID)
+	if err != nil || targetUser == nil {
+		if isJSONRequest(r) {
+			writeJSONResponse(w, http.StatusNotFound, map[string]interface{}{
+				"error": "Administrator account not found",
+			})
+			return
+		}
+		http.Redirect(w, r, "/admins?error="+url.QueryEscape("Administrator account not found."), http.StatusSeeOther)
+		return
+	}
+
+	if targetUser.Role != models.RoleAdmin {
+		if isJSONRequest(r) {
+			writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
+				"error": "Only front-desk administrator accounts can be deleted from this view",
+			})
+			return
+		}
+		http.Redirect(w, r, "/admins?error="+url.QueryEscape("Only front-desk administrator accounts can be deleted from this view."), http.StatusSeeOther)
+		return
+	}
+
+	if err := a.store.DeleteUser(targetID); err != nil {
+		if isJSONRequest(r) {
+			writeJSONResponse(w, http.StatusInternalServerError, map[string]interface{}{
+				"error": "Failed to delete administrator: " + err.Error(),
+			})
+			return
+		}
+		http.Redirect(w, r, "/admins?error="+url.QueryEscape("Failed to delete administrator: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	name := targetUser.DisplayName
+	if name == "" {
+		name = targetUser.Email
+	}
+
+	msg := fmt.Sprintf("Administrator account for '%s' has been removed.", name)
+	if isJSONRequest(r) {
+		writeJSONResponse(w, http.StatusOK, map[string]interface{}{
+			"status":  "success",
+			"id":      targetID,
+			"message": msg,
 		})
 		return
 	}

@@ -1009,5 +1009,200 @@ func TestAuthHandler_APIForgotAndResetPassword(t *testing.T) {
 	}
 }
 
+func TestAuthHandler_CoachAndAdminRegistrationFlow(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	// 1. GET /register returns 200 OK with registration view
+	req := httptest.NewRequest("GET", "/register", nil)
+	rec := httptest.NewRecorder()
+	app.HandleRegisterPage(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on GET /register, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "REGISTRATION") || !strings.Contains(body, "Coach / Instructor") {
+		t.Errorf("registration page missing expected branding or role buttons")
+	}
+
+	// 2. POST /register for Coach
+	coachForm := url.Values{
+		"role":             {"COACH"},
+		"full_name":        {"Coach Min-Soo Kang"},
+		"email":            {"minsoo.kang@seriestkd.com"},
+		"username":         {"minsoo.kang"},
+		"password":         {"coachPassword123"},
+		"confirm_password": {"coachPassword123"},
+		"phone":            {"+63 917 111 2222"},
+		"belt_rank":        {"3rd Dan Black Belt"},
+		"specialties":      {"Sparring, Conditioning"},
+	}
+	req = httptest.NewRequest("POST", "/register", strings.NewReader(coachForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleRegisterSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on coach registration, got %d: %s", rec.Code, rec.Body.String())
+	}
+	loc := rec.Header().Get("Location")
+	if !strings.Contains(loc, "/login") || !strings.Contains(loc, "pending+manager+approval") {
+		t.Errorf("expected redirect to /login with pending approval notice, got: %s", loc)
+	}
+
+	// Verify coach and user stored with IsActive = false
+	coachUser, err := store.GetUserByEmail("minsoo.kang@seriestkd.com")
+	if err != nil || coachUser == nil {
+		t.Fatalf("expected coach user record in store, got: %v", err)
+	}
+	if coachUser.IsActive {
+		t.Errorf("expected coach user to be inactive pending approval")
+	}
+	if coachUser.CoachID == nil {
+		t.Fatalf("expected coachUser to have linked CoachID")
+	}
+	coachRec, err := store.GetCoachByID(*coachUser.CoachID)
+	if err != nil || coachRec == nil {
+		t.Fatalf("expected coach record in store, got: %v", err)
+	}
+	if coachRec.IsActive {
+		t.Errorf("expected coach record to be inactive pending approval")
+	}
+
+	// 3. Unapproved coach tries to login -> must be blocked with pending approval notice
+	loginForm := url.Values{
+		"identifier": {"minsoo.kang"},
+		"password":   {"coachPassword123"},
+	}
+	req = httptest.NewRequest("POST", "/login", strings.NewReader(loginForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleLoginSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 on login attempt, got %d", rec.Code)
+	}
+	loc = rec.Header().Get("Location")
+	if !strings.Contains(loc, "pending+manager+approval") {
+		t.Errorf("expected redirect with pending manager approval error, got: %s", loc)
+	}
+
+	// 4. Operations Manager approves coach via ToggleCoachActive
+	if err := store.ToggleCoachActive(coachRec.ID, true); err != nil {
+		t.Fatalf("failed to approve coach: %v", err)
+	}
+
+	// 5. Approved coach logs in successfully
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/login", strings.NewReader(loginForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	app.HandleLoginSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 after approved login, got %d", rec.Code)
+	}
+	loc = rec.Header().Get("Location")
+	if loc != "/students" {
+		t.Errorf("expected redirect to /students for coach, got: %s", loc)
+	}
+	cookie := rec.Header().Get("Set-Cookie")
+	if !strings.Contains(cookie, "stms_session=") {
+		t.Errorf("expected stms_session cookie on approved coach login")
+	}
+
+	// 6. POST /register for Administrator
+	adminForm := url.Values{
+		"role":             {"ADMIN"},
+		"full_name":        {"Admin Clara Oswald"},
+		"email":            {"clara@seriestkd.com"},
+		"username":         {"clara.oswald"},
+		"password":         {"adminPassword123"},
+		"confirm_password": {"adminPassword123"},
+	}
+	req = httptest.NewRequest("POST", "/register", strings.NewReader(adminForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleRegisterSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on admin registration, got %d", rec.Code)
+	}
+	loc = rec.Header().Get("Location")
+	if !strings.Contains(loc, "/login") || !strings.Contains(loc, "pending+manager+approval") {
+		t.Errorf("expected redirect to /login with pending approval notice, got: %s", loc)
+	}
+
+	adminUser, err := store.GetUserByEmail("clara@seriestkd.com")
+	if err != nil || adminUser == nil {
+		t.Fatalf("expected admin user in store, got: %v", err)
+	}
+	if adminUser.IsActive {
+		t.Errorf("expected admin user to be inactive pending approval")
+	}
+
+	// 7. Unapproved admin tries to login -> must be blocked
+	adminLoginForm := url.Values{
+		"identifier": {"clara.oswald"},
+		"password":   {"adminPassword123"},
+	}
+	req = httptest.NewRequest("POST", "/login", strings.NewReader(adminLoginForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleLoginSubmit(rec, req)
+	loc = rec.Header().Get("Location")
+	if !strings.Contains(loc, "pending+manager+approval") {
+		t.Errorf("expected redirect with pending manager approval error, got: %s", loc)
+	}
+
+	// 8. Operations Manager approves admin via ToggleUserActive
+	if err := store.ToggleUserActive(adminUser.ID, true); err != nil {
+		t.Fatalf("failed to approve admin: %v", err)
+	}
+
+	// 9. Approved admin logs in successfully
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/login", strings.NewReader(adminLoginForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	app.HandleLoginSubmit(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 after approved login, got %d", rec.Code)
+	}
+	loc = rec.Header().Get("Location")
+	if loc != "/packages" {
+		t.Errorf("expected redirect to /packages for admin, got: %s", loc)
+	}
+	cookie = rec.Header().Get("Set-Cookie")
+	if !strings.Contains(cookie, "stms_session=") {
+		t.Errorf("expected stms_session cookie on approved admin login")
+	}
+
+	// 10. Manager can reject/delete an unapproved registration
+	rejectForm := url.Values{
+		"role":             {"ADMIN"},
+		"full_name":        {"Rejected Admin"},
+		"email":            {"rejected@seriestkd.com"},
+		"username":         {"rejected.admin"},
+		"password":         {"pass123456"},
+		"confirm_password": {"pass123456"},
+	}
+	req = httptest.NewRequest("POST", "/register", strings.NewReader(rejectForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	app.HandleRegisterSubmit(rec, req)
+	rejUser, _ := store.GetUserByEmail("rejected@seriestkd.com")
+	if rejUser == nil {
+		t.Fatalf("expected rejected user to be initially registered")
+	}
+
+	// Call HandleDeleteAdmin with mux path value
+	delReq := httptest.NewRequest("POST", "/admins/"+rejUser.ID.String()+"/delete", nil)
+	delReq.SetPathValue("id", rejUser.ID.String())
+	delRec := httptest.NewRecorder()
+	app.HandleDeleteAdmin(delRec, delReq)
+	if delRec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after deleting admin, got %d", delRec.Code)
+	}
+	deletedCheck, _ := store.GetUserByID(rejUser.ID)
+	if deletedCheck != nil {
+		t.Errorf("expected user to be completely deleted after rejection")
+	}
+}
+
+
 
 

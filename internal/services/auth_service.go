@@ -16,11 +16,12 @@ import (
 )
 
 var (
-	ErrInvalidCredentials    = errors.New("invalid email or password")
-	ErrUserInactive          = errors.New("user account is inactive")
-	ErrEmailAlreadyExists    = errors.New("a user with this email already exists")
-	ErrUsernameAlreadyExists = models.ErrUsernameAlreadyExists
-	ErrInvalidResetToken     = models.ErrInvalidResetToken
+	ErrInvalidCredentials     = errors.New("invalid email or password")
+	ErrUserInactive           = errors.New("user account is inactive")
+	ErrAccountPendingApproval = models.ErrAccountPendingApproval
+	ErrEmailAlreadyExists     = errors.New("a user with this email already exists")
+	ErrUsernameAlreadyExists  = models.ErrUsernameAlreadyExists
+	ErrInvalidResetToken      = models.ErrInvalidResetToken
 )
 
 type AuthService struct {
@@ -55,7 +56,14 @@ func (s *AuthService) Login(identifier, password string) (*models.User, string, 
 		return nil, "", err
 	}
 
+	if !user.CheckPassword(password) {
+		return nil, "", ErrInvalidCredentials
+	}
+
 	if !user.IsActive {
+		if user.LastLoginAt == nil {
+			return nil, "", ErrAccountPendingApproval
+		}
 		return nil, "", ErrUserInactive
 	}
 
@@ -73,12 +81,11 @@ func (s *AuthService) Login(identifier, password string) (*models.User, string, 
 			}
 		}
 		if coach != nil && !coach.IsActive {
+			if user.LastLoginAt == nil {
+				return nil, "", ErrAccountPendingApproval
+			}
 			return nil, "", ErrUserInactive
 		}
-	}
-
-	if !user.CheckPassword(password) {
-		return nil, "", ErrInvalidCredentials
 	}
 
 	token, err := s.GenerateSecureToken()
@@ -174,6 +181,142 @@ func (s *AuthService) RegisterUser(email, password string, role models.UserRole,
 	}
 
 	return u, nil
+}
+
+// RegisterPendingCoach registers a new coach applicant with IsActive = false pending manager approval.
+func (s *AuthService) RegisterPendingCoach(fullName, email, username, password, phone, beltRank string, specialties []string, firstAid bool) (*models.Coach, *models.User, error) {
+	normEmail := strings.ToLower(strings.TrimSpace(email))
+	trimmedName := strings.TrimSpace(fullName)
+	trimmedPhone := strings.TrimSpace(phone)
+	trimmedRank := strings.TrimSpace(beltRank)
+
+	if trimmedName == "" {
+		return nil, nil, errors.New("full name is required")
+	}
+	if normEmail == "" || !strings.Contains(normEmail, "@") {
+		return nil, nil, errors.New("a valid email address is required")
+	}
+	if len(password) < 6 {
+		return nil, nil, errors.New("password must be at least 6 characters long")
+	}
+	if trimmedPhone == "" {
+		return nil, nil, errors.New("phone number is required for coach registration")
+	}
+	if trimmedRank == "" {
+		trimmedRank = "1st Dan Black Belt"
+	}
+
+	// Check if email already exists in users
+	if existing, _ := s.store.GetUserByEmail(normEmail); existing != nil {
+		return nil, nil, ErrEmailAlreadyExists
+	}
+	// Check if email exists in coaches
+	if coaches, err := s.store.GetAllCoaches(); err == nil {
+		for _, c := range coaches {
+			if strings.EqualFold(c.Email, normEmail) {
+				return nil, nil, ErrEmailAlreadyExists
+			}
+		}
+	}
+
+	var normUsername string
+	if username != "" {
+		normUsername = strings.ToLower(strings.TrimSpace(username))
+		if existing, _ := s.store.GetUserByUsername(normUsername); existing != nil {
+			return nil, nil, ErrUsernameAlreadyExists
+		}
+	}
+
+	coach := &models.Coach{
+		ID:                uuid.New(),
+		FullName:          trimmedName,
+		Email:             normEmail,
+		Phone:             trimmedPhone,
+		BeltRank:          trimmedRank,
+		Specialties:       specialties,
+		FirstAidCertified: firstAid,
+		RatePerSession:    0.0,
+		IsActive:          false, // Pending manager approval
+		CreatedAt:         time.Now(),
+	}
+
+	if err := s.store.CreateCoach(coach); err != nil {
+		return nil, nil, fmt.Errorf("failed to save coach profile: %w", err)
+	}
+
+	user := &models.User{
+		ID:          uuid.New(),
+		Email:       normEmail,
+		Username:    normUsername,
+		Role:        models.RoleCoach,
+		DisplayName: trimmedName,
+		CoachID:     &coach.ID,
+		IsActive:    false, // Pending manager approval
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := user.SetPassword(password); err != nil {
+		_ = s.store.DeleteCoach(coach.ID)
+		return nil, nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.store.CreateUser(user); err != nil {
+		_ = s.store.DeleteCoach(coach.ID)
+		return nil, nil, fmt.Errorf("failed to create user account: %w", err)
+	}
+
+	return coach, user, nil
+}
+
+// RegisterPendingAdmin registers a new administrator applicant with IsActive = false pending manager approval.
+func (s *AuthService) RegisterPendingAdmin(fullName, email, username, password string) (*models.User, error) {
+	normEmail := strings.ToLower(strings.TrimSpace(email))
+	trimmedName := strings.TrimSpace(fullName)
+
+	if trimmedName == "" {
+		return nil, errors.New("full name is required")
+	}
+	if normEmail == "" || !strings.Contains(normEmail, "@") {
+		return nil, errors.New("a valid email address is required")
+	}
+	if len(password) < 6 {
+		return nil, errors.New("password must be at least 6 characters long")
+	}
+
+	// Check if email already exists
+	if existing, _ := s.store.GetUserByEmail(normEmail); existing != nil {
+		return nil, ErrEmailAlreadyExists
+	}
+
+	var normUsername string
+	if username != "" {
+		normUsername = strings.ToLower(strings.TrimSpace(username))
+		if existing, _ := s.store.GetUserByUsername(normUsername); existing != nil {
+			return nil, ErrUsernameAlreadyExists
+		}
+	}
+
+	user := &models.User{
+		ID:          uuid.New(),
+		Email:       normEmail,
+		Username:    normUsername,
+		Role:        models.RoleAdmin,
+		DisplayName: trimmedName,
+		IsActive:    false, // Pending manager approval
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := user.SetPassword(password); err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.store.CreateUser(user); err != nil {
+		return nil, fmt.Errorf("failed to create user record: %w", err)
+	}
+
+	return user, nil
 }
 
 func (s *AuthService) RequestPasswordReset(identifier string) (*models.PasswordResetToken, error) {

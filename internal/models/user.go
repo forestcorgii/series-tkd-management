@@ -24,6 +24,7 @@ var (
 	ErrForbidden             = errors.New("forbidden: insufficient permissions")
 	ErrInvalidResetToken     = errors.New("invalid or expired password reset token")
 	ErrUsernameAlreadyExists = errors.New("a user with this username already exists")
+	ErrAccountPendingApproval = errors.New("account is pending manager approval")
 )
 
 type User struct {
@@ -93,4 +94,8 @@ func (u *User) IsCoach() bool {
 
 func (u *User) IsStudent() bool {
 	return u.Role == RoleStudent
+}
+
+func (u *User) IsPendingApproval() bool {
+	return !u.IsActive && u.LastLoginAt == nil
 }

@@ -63,14 +63,48 @@
         </div>
     </div>
 
+    <!-- Pending Staff Approvals Alert Banner -->
+    {{if or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}}
+    <div class="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+        <div class="flex items-center gap-3.5">
+            <div class="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg font-bold flex-shrink-0 shadow-md">
+                ⏳
+            </div>
+            <div>
+                <h3 class="font-display font-bold text-sm uppercase tracking-wide text-amber-900 dark:text-amber-300">
+                    Pending Staff Registrations Awaiting Approval
+                </h3>
+                <p class="text-xs text-amber-800 dark:text-amber-400 mt-0.5">
+                    {{if gt .PendingCoachesCount 0}}<strong>{{.PendingCoachesCount}}</strong> Coach{{if gt .PendingCoachesCount 1}}es{{end}}{{end}}
+                    {{if and (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}} &bull; {{end}}
+                    {{if gt .PendingAdminsCount 0}}<strong>{{.PendingAdminsCount}}</strong> Administrator{{if gt .PendingAdminsCount 1}}s{{end}}{{end}}
+                    applied for staff credentials and require review before login access is activated.
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            {{if gt .PendingCoachesCount 0}}
+            <a href="/coaches" class="btn btn-warning btn-sm flex items-center gap-1 shadow-sm">
+                <span>🥋 Review Coaches ({{.PendingCoachesCount}})</span>
+            </a>
+            {{end}}
+            {{if gt .PendingAdminsCount 0}}
+            <a href="/admins" class="btn btn-secondary btn-sm flex items-center gap-1 shadow-sm">
+                <span>🛡️ Review Admins ({{.PendingAdminsCount}})</span>
+            </a>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
     <!-- Admin Quick Provisioning Bar -->
     <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h2 class="font-display font-bold text-sm uppercase text-black dark:text-[#FFFDF4]">
-                Administration Provisioning Hub
+                Administration &amp; Onboarding Hub
             </h2>
             <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                Public registration is disabled. Only Admins can onboard new coaches, practitioners, and issue credentials.
+                Staff can self-register at <a href="/register" class="underline font-semibold text-[#990303] dark:text-red-400">/register</a>. You can also directly provision credentials below.
             </p>
         </div>
         <div class="flex items-center gap-3">
