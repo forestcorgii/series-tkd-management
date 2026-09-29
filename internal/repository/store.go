@@ -282,23 +282,6 @@ func (m *MemoryStore) DeleteCoach(coachID uuid.UUID) error {
 		return ErrNotFound
 	}
 
-	// Verify no historical records exist
-	for _, sess := range m.sessions {
-		if sess.CoachID == coachID || (sess.AdminID != nil && *sess.AdminID == coachID) {
-			return ErrCoachHasRecords
-		}
-	}
-	for _, eval := range m.evaluations {
-		if eval.CoachID == coachID {
-			return ErrCoachHasRecords
-		}
-	}
-	for _, inc := range m.safetyIncidents {
-		if inc.CoachID != nil && *inc.CoachID == coachID {
-			return ErrCoachHasRecords
-		}
-	}
-
 	// Purge associated user accounts and sessions
 	for uID, user := range m.users {
 		if (user.CoachID != nil && *user.CoachID == coachID) || (user.Role == models.RoleCoach && strings.EqualFold(user.Email, coach.Email)) {
@@ -309,6 +292,31 @@ func (m *MemoryStore) DeleteCoach(coachID uuid.UUID) error {
 			}
 			delete(m.usersByEmail, user.Email)
 			delete(m.users, uID)
+		}
+	}
+
+	// Cascade delete safety incidents
+	for id, inc := range m.safetyIncidents {
+		if inc.CoachID != nil && *inc.CoachID == coachID {
+			delete(m.safetyIncidents, id)
+		}
+	}
+
+	// Cascade delete evaluations
+	for id, eval := range m.evaluations {
+		if eval.CoachID == coachID {
+			delete(m.evaluations, id)
+		}
+	}
+
+	// Cascade delete training sessions and their attendances
+	for sID, sess := range m.sessions {
+		if sess.AdminID != nil && *sess.AdminID == coachID {
+			sess.AdminID = nil
+		}
+		if sess.CoachID == coachID {
+			delete(m.attendances, sID)
+			delete(m.sessions, sID)
 		}
 	}
 

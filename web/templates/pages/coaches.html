@@ -233,8 +233,16 @@
                     <input type="email" name="email" required placeholder="coach@seriestkd.com" class="form-input">
                 </div>
                 <div>
-                    <label class="form-label">Phone</label>
-                    <input type="text" name="phone" required placeholder="+1 (555) 000-0000" class="form-input">
+                    <label class="form-label">Contact Number *</label>
+                    <input type="tel" name="phone" required
+                           placeholder="09626914130"
+                           pattern="09[0-9]{9}"
+                           maxlength="11"
+                           inputmode="numeric"
+                           oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
+                           title="11-digit mobile number starting with 09 (e.g. 09626914130)"
+                           class="form-input">
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">11 digits starting with 09 (e.g. 09626914130)</p>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">

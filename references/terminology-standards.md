@@ -85,4 +85,28 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
   - **Handler Filter**: [HandleDashboard](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/dashboard_handler.go) populates `RecentSessions` strictly with sessions satisfying `s.IsOpen()`.
   - **UI Representation**: [web/templates/pages/dashboard.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/dashboard.html) badges each item as `Open`, updates the header telemetry to `N Open`, and provides an empty-state card ("No open classes right now") when the floor has no pending or live classes.
 
+---
+
+## 6. Contact Number Format Standards
+
+### Context: 11-Digit Mobile Format
+- **Problem**: Forms previously used inconsistent, legacy international placeholder formats (e.g. `+1 (555) 000-0000`, `+1-555-0100`) and allowed free-form text input that complicated quick front-desk and floor safety communications.
+- **Enforced Solution**:
+  - **Standard Format**: 11-digit mobile number starting with `09` (e.g., `09626914130`).
+  - **Input Attributes**:
+    - `type="tel"`
+    - `name="phone"` / `name="emergency_phone"`
+    - `placeholder="09626914130"`
+    - `pattern="09[0-9]{9}"`
+    - `maxlength="11"`
+    - `inputmode="numeric"`
+    - `oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"`
+    - Helper microcopy: `11 digits starting with 09 (e.g. 09626914130)`
+  - **Applied Screens**:
+    - Coach Public Registration (`/register`)
+    - Coach Directory Modal (`/coaches`)
+    - Student Enrollment Modal (`/students`)
+    - Student Profile & Emergency Contact Edit Modal (`/students/{id}`)
+    - Student & Coach Personal Profile Settings (`/profile`)
+
 

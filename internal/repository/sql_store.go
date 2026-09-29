@@ -782,37 +782,15 @@ func (s *SQLStore) DeleteCoach(coachID uuid.UUID) error {
 		return err
 	}
 
-	// Check if coach has sessions
-	var sessionCount int
-	err = s.db.QueryRow(`SELECT COUNT(*) FROM training_sessions WHERE coach_id = $1 OR admin_id = $1`, coachID.String()).Scan(&sessionCount)
+	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
-	if sessionCount > 0 {
-		return ErrCoachHasRecords
-	}
+	defer tx.Rollback()
 
-	// Check if coach has evaluations
-	var evalCount int
-	err = s.db.QueryRow(`SELECT COUNT(*) FROM student_evaluations WHERE coach_id = $1`, coachID.String()).Scan(&evalCount)
-	if err != nil {
-		return err
-	}
-	if evalCount > 0 {
-		return ErrCoachHasRecords
-	}
-
-	// Check if coach has safety incidents
-	var incCount int
-	err = s.db.QueryRow(`SELECT COUNT(*) FROM safety_incidents WHERE coach_id = $1`, coachID.String()).Scan(&incCount)
-	if err == nil && incCount > 0 {
-		return ErrCoachHasRecords
-	}
-
-	// Purge associated user sessions and user records
-	rows, err := s.db.Query(`SELECT id FROM users WHERE coach_id = $1 OR (role = 'COACH' AND LOWER(email) = LOWER($2))`, coachID.String(), coachEmail)
+	// 1. Purge associated user sessions and user records
+	rows, err := tx.Query(`SELECT id FROM users WHERE coach_id = $1 OR (role = 'COACH' AND LOWER(email) = LOWER($2))`, coachID.String(), coachEmail)
 	if err == nil {
-		defer rows.Close()
 		var uids []string
 		for rows.Next() {
 			var uid string
@@ -820,14 +798,28 @@ func (s *SQLStore) DeleteCoach(coachID uuid.UUID) error {
 				uids = append(uids, uid)
 			}
 		}
+		rows.Close()
 		for _, uid := range uids {
-			_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, uid)
-			_, _ = s.db.Exec(`DELETE FROM users WHERE id = $1`, uid)
+			_, _ = tx.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, uid)
+			_, _ = tx.Exec(`DELETE FROM users WHERE id = $1`, uid)
 		}
 	}
 
-	// Delete coach record
-	res, err := s.db.Exec(`DELETE FROM coaches WHERE id = $1`, coachID.String())
+	// 2. Cascade delete safety incidents logged by or assigned to this coach
+	_, _ = tx.Exec(`DELETE FROM safety_incidents WHERE coach_id = $1`, coachID.String())
+
+	// 3. Cascade delete student evaluations authored by this coach
+	_, _ = tx.Exec(`DELETE FROM student_evaluations WHERE coach_id = $1`, coachID.String())
+
+	// 4. Nullify supervising admin reference in training sessions
+	_, _ = tx.Exec(`UPDATE training_sessions SET admin_id = NULL WHERE admin_id = $1`, coachID.String())
+
+	// 5. Cascade delete attendance for sessions led by this coach, then delete the sessions
+	_, _ = tx.Exec(`DELETE FROM attendance WHERE session_id IN (SELECT id FROM training_sessions WHERE coach_id = $1)`, coachID.String())
+	_, _ = tx.Exec(`DELETE FROM training_sessions WHERE coach_id = $1`, coachID.String())
+
+	// 6. Delete coach record
+	res, err := tx.Exec(`DELETE FROM coaches WHERE id = $1`, coachID.String())
 	if err != nil {
 		return err
 	}
@@ -836,7 +828,7 @@ func (s *SQLStore) DeleteCoach(coachID uuid.UUID) error {
 		return ErrNotFound
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 

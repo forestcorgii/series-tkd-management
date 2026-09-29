@@ -806,13 +806,7 @@ func TestSQLStore_CoachToggleAndDeletion(t *testing.T) {
 
 	c2ID := uuid.MustParse("22222222-2222-2222-2222-222222222222") // Coach Ji-Woo Park (has sessions)
 
-	// 1. Ji-Woo Park has sessions, so DeleteCoach must fail with ErrCoachHasRecords
-	err = store.DeleteCoach(c2ID)
-	if err != repository.ErrCoachHasRecords {
-		t.Errorf("expected ErrCoachHasRecords deleting coach with sessions, got: %v", err)
-	}
-
-	// 2. Toggle active to false
+	// 1. Toggle active to false
 	if err := store.ToggleCoachActive(c2ID, false); err != nil {
 		t.Fatalf("ToggleCoachActive(false) failed: %v", err)
 	}
@@ -825,7 +819,7 @@ func TestSQLStore_CoachToggleAndDeletion(t *testing.T) {
 		t.Errorf("expected linked user to be inactive, got active=%v, err=%v", coachUser.IsActive, err)
 	}
 
-	// 3. Toggle active back to true
+	// 2. Toggle active back to true
 	if err := store.ToggleCoachActive(c2ID, true); err != nil {
 		t.Fatalf("ToggleCoachActive(true) failed: %v", err)
 	}
@@ -836,6 +830,17 @@ func TestSQLStore_CoachToggleAndDeletion(t *testing.T) {
 	coachUser, err = store.GetUserByEmail("jiwoo.park@seriestkd.com")
 	if err != nil || !coachUser.IsActive {
 		t.Errorf("expected linked user to be active, got active=%v, err=%v", coachUser.IsActive, err)
+	}
+
+	// 3. Ji-Woo Park has sessions and evaluations: DeleteCoach must cascade and succeed
+	if err := store.DeleteCoach(c2ID); err != nil {
+		t.Fatalf("expected successful cascade DeleteCoach, got: %v", err)
+	}
+	if _, err := store.GetCoachByID(c2ID); err != repository.ErrNotFound {
+		t.Errorf("expected ErrNotFound for deleted coach, got: %v", err)
+	}
+	if _, err := store.GetUserByEmail("jiwoo.park@seriestkd.com"); err != repository.ErrNotFound {
+		t.Errorf("expected linked user to be cascade deleted, got: %v", err)
 	}
 
 	// 4. Create a fresh coach with no sessions or evaluations

@@ -212,14 +212,10 @@ func (a *AppHandler) HandleDeleteCoach(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.store.DeleteCoach(targetID); err != nil {
-		if errors.Is(err, repository.ErrCoachHasRecords) {
-			http.Redirect(w, r, "/coaches?error="+url.QueryEscape(fmt.Sprintf("Cannot delete coach '%s' because they have existing training classes, evaluations, or incident logs. Please deactivate the coach instead to preserve historical records.", coach.FullName)), http.StatusSeeOther)
-			return
-		}
 		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Failed to delete coach: "+err.Error()), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, "/coaches?success="+url.QueryEscape(fmt.Sprintf("Coach '%s' and linked account have been permanently deleted.", coach.FullName)), http.StatusSeeOther)
+	http.Redirect(w, r, "/coaches?success="+url.QueryEscape(fmt.Sprintf("Coach '%s' and all associated records have been permanently deleted.", coach.FullName)), http.StatusSeeOther)
 }
 
