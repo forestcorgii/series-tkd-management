@@ -26,7 +26,7 @@ func TestAppHandler_ParseTemplates(t *testing.T) {
 	}{
 		{
 			path:            "/",
-			expectedContent: "Dojang Floor &amp; Operations Dashboard",
+			expectedContent: "Active Classes",
 			handlerFunc:     app.HandleDashboard,
 		},
 		{
