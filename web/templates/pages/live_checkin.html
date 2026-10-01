@@ -27,8 +27,13 @@
                 </span>
                 {{end}}
             </div>
-            <h1 class="font-display font-extrabold text-2xl {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}} mt-1">
-                {{.Session.TrainingType}} Class
+            <h1 class="font-display font-extrabold text-2xl {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}} mt-1 flex items-center gap-2 flex-wrap">
+                <span>{{.Session.TrainingType}} Class</span>
+                {{if .Session.HasFixedRate}}
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                    🏫 Fixed Rate: ₱{{formatCurrency .Session.SessionRate}}
+                </span>
+                {{end}}
             </h1>
             <p class="text-xs text-slate-600 dark:text-slate-400">
                 Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 dark:text-slate-500 font-normal italic">None / Unassigned</span>{{end}}</span>
@@ -275,10 +280,10 @@
             <!-- Training Location Dropdown -->
             <div>
                 <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)...">
-                    <option value="">None / Unassigned</option>
+                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onLiveEditLocationChange()">
+                    <option value="" data-fixed-rate="">None / Unassigned</option>
                     {{range .Locations}}
-                    <option value="{{.ID}}" {{if and $.Session.LocationID (eq $.Session.LocationID.String .ID.String)}}selected{{end}}>{{.Name}}</option>
+                    <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}" {{if and $.Session.LocationID (eq $.Session.LocationID.String .ID.String)}}selected{{end}}>{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
                     {{end}}
                 </select>
             </div>
@@ -291,6 +296,14 @@
                     <option value="Conditioning" {{if eq .Session.TrainingType "Conditioning"}}selected{{end}}>Conditioning / Impact</option>
                     <option value="Promotion Prep" {{if eq .Session.TrainingType "Promotion Prep"}}selected{{end}}>Promotion Testing Prep</option>
                 </select>
+            </div>
+
+            <div>
+                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Applies fixed rate on check-in, skips package deduction)</span></label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
+                    <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" value="{{if .Session.SessionRate}}{{printf "%.2f" .Session.SessionRateVal}}{{end}}" class="form-input pl-7 text-xs sm:text-sm">
+                </div>
             </div>
 
             <div>
@@ -362,6 +375,16 @@ function calculateEditEndTime() {
 
 function openEditSessionModal() {
     document.getElementById('edit-session-modal').classList.remove('hidden');
+}
+
+function onLiveEditLocationChange() {
+    const locSelect = document.getElementById('edit-location-id');
+    const rateInput = document.getElementById('edit-session-rate');
+    if (!locSelect || !rateInput) return;
+    const opt = locSelect.options[locSelect.selectedIndex];
+    if (opt && opt.dataset.fixedRate) {
+        rateInput.value = opt.dataset.fixedRate;
+    }
 }
 
 function closeEditModal() {

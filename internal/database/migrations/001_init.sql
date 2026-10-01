@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(150) NOT NULL,
     pin TEXT NOT NULL,
+    fixed_rate NUMERIC(10, 2),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS training_sessions (
     coach_id UUID REFERENCES coaches(id),
     admin_id UUID REFERENCES coaches(id),
     location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
+    session_rate NUMERIC(10, 2),
     training_type VARCHAR(50) NOT NULL, -- 'Poomsae', 'Sparring', 'Conditioning', etc.
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -92,7 +94,8 @@ CREATE TABLE IF NOT EXISTS attendance (
 
 -- Student Ability Evaluations (Radar Chart Source)
 CREATE TABLE IF NOT EXISTS student_evaluations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PR
+    IMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     coach_id UUID NOT NULL REFERENCES coaches(id),
     evaluation_date DATE NOT NULL DEFAULT CURRENT_DATE,

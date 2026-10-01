@@ -12,6 +12,7 @@ type Location struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
 	Pin       string    `json:"pin"` // Google Maps link / share URL
+	FixedRate *float64  `json:"fixed_rate,omitempty"` // Default session rate pre-filled for classes at this location
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -31,3 +32,17 @@ func (l *Location) DisplayPin() string {
 	}
 	return strings.TrimSpace(l.Pin)
 }
+
+// FixedRateVal returns the fixed rate value if present, or 0.0 if not.
+func (l *Location) FixedRateVal() float64 {
+	if l != nil && l.FixedRate != nil {
+		return *l.FixedRate
+	}
+	return 0.0
+}
+
+// HasFixedRate returns true if a fixed rate is specified and greater than zero.
+func (l *Location) HasFixedRate() bool {
+	return l != nil && l.FixedRate != nil && *l.FixedRate > 0
+}
+

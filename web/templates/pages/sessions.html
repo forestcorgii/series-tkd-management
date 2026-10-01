@@ -139,10 +139,10 @@
 
             <div>
                 <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)...">
-                    <option value="">None / Unassigned</option>
+                <select id="modal-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onModalLocationChange()">
+                    <option value="" data-fixed-rate="">None / Unassigned</option>
                     {{range .Locations}}
-                    <option value="{{.ID}}">{{.Name}}</option>
+                    <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}">{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
                     {{end}}
                 </select>
             </div>
@@ -155,6 +155,14 @@
                     <option value="Conditioning">Conditioning / Impact</option>
                     <option value="Promotion Prep">Promotion Testing Prep</option>
                 </select>
+            </div>
+
+            <div>
+                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Pre-filled from location if set; check-ins inherit this rate and do not deduct student package credits)</span></label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
+                    <input type="number" id="modal-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">
+                </div>
             </div>
 
             <div>
@@ -224,10 +232,10 @@
             <!-- Location Dropdown -->
             <div>
                 <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)...">
-                    <option value="">None / Unassigned</option>
+                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onEditLocationChange()">
+                    <option value="" data-fixed-rate="">None / Unassigned</option>
                     {{range .Locations}}
-                    <option value="{{.ID}}">{{.Name}}</option>
+                    <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}">{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
                     {{end}}
                 </select>
             </div>
@@ -240,6 +248,14 @@
                     <option value="Conditioning">Conditioning / Impact</option>
                     <option value="Promotion Prep">Promotion Testing Prep</option>
                 </select>
+            </div>
+
+            <div>
+                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Applies fixed rate on check-in, skips package deduction)</span></label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
+                    <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">
+                </div>
             </div>
 
             <div>
@@ -402,10 +418,33 @@ function openNewSessionModal(dateStr, timeStr) {
         }
     }
     
+    onModalLocationChange();
     modal.classList.remove('hidden');
 }
 
-function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen, locationID) {
+function onModalLocationChange() {
+    const locSelect = document.getElementById('modal-location-id');
+    const rateInput = document.getElementById('modal-session-rate');
+    if (!locSelect || !rateInput) return;
+    const opt = locSelect.options[locSelect.selectedIndex];
+    if (opt && opt.dataset.fixedRate) {
+        rateInput.value = opt.dataset.fixedRate;
+    } else if (opt && opt.value === "") {
+        rateInput.value = "";
+    }
+}
+
+function onEditLocationChange() {
+    const locSelect = document.getElementById('edit-location-id');
+    const rateInput = document.getElementById('edit-session-rate');
+    if (!locSelect || !rateInput) return;
+    const opt = locSelect.options[locSelect.selectedIndex];
+    if (opt && opt.dataset.fixedRate) {
+        rateInput.value = opt.dataset.fixedRate;
+    }
+}
+
+function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen, locationID, sessionRate) {
     const form = document.getElementById('edit-session-form');
     form.action = '/sessions/' + id + '/edit';
     
@@ -413,6 +452,11 @@ function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID,
     document.getElementById('edit-start-time').value = startTime || '';
     document.getElementById('edit-end-time').value = endTime || '';
     
+    const rateInput = document.getElementById('edit-session-rate');
+    if (rateInput) {
+        rateInput.value = sessionRate || '';
+    }
+
     const coachSelect = document.getElementById('edit-coach-id');
     if (coachSelect) {
         coachSelect.value = coachID || '';

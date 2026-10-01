@@ -992,5 +992,203 @@ func TestHandleCheckIn_SessionRate_NoPackageCreditDeduction(t *testing.T) {
 	}
 }
 
+func TestHandleCheckIn_ClassFixedRateAutoAppliesAndBypassesCreditDeduction(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("NewAppHandler failed: %v", err)
+	}
+
+	fixedClassRate := 250.0
+	classSession := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "17:00",
+		EndTime:      "18:30",
+		TrainingType: models.TrainingSparring,
+		Notes:        "School Sparring Clinic",
+		SessionRate:  &fixedClassRate,
+	}
+	_ = store.CreateSession(classSession)
+
+	// Student with active 8-session membership
+	student := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "School Sparring Athlete",
+		DOB:               time.Now().AddDate(-13, 0, 0),
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Parent S",
+		EmergencyPhone:    "09171112222",
+		EmergencyRelation: "Father",
+		IsActive:          true,
+		CreatedAt:         time.Now(),
+	}
+	_ = store.CreateStudent(student)
+
+	remSessions := 8
+	pkg := &models.StudentPackage{
+		ID:                uuid.New(),
+		StudentID:         student.ID,
+		TemplateID:        uuid.New(),
+		TotalSessions:     &remSessions,
+		RemainingSessions: &remSessions,
+		PurchaseDate:      time.Now(),
+		ExpiryDate:        time.Now().AddDate(0, 1, 0),
+		PaymentStatus:     "paid",
+		CreatedAt:         time.Now(),
+	}
+	_ = store.AssignPackage(pkg)
+
+	// Check-in without submitting any per-student rate:
+	// The class fixed rate should be automatically applied!
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin/%s", classSession.ID, student.ID), nil)
+	rec := httptest.NewRecorder()
+	app.HandleCheckIn(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for checkin on class with fixed rate, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Fix Rate: ₱250.00") {
+		t.Errorf("expected response to show inherited class fixed rate 'Fix Rate: ₱250.00', got: %s", body)
+	}
+
+	// Verify student's package session credit was NOT deducted!
+	pkgs, _ := store.GetStudentPackages(student.ID)
+	if len(pkgs) == 0 || pkgs[0].RemainingSessions == nil || *pkgs[0].RemainingSessions != 8 {
+		t.Fatalf("expected student's package credits to remain 8, got %v", pkgs[0].RemainingSessions)
+	}
+
+	// Verify attendance record in store has the inherited rate
+	atts, _ := store.GetSessionAttendances(classSession.ID)
+	if len(atts) != 1 {
+		t.Fatalf("expected 1 attendance record, got %d", len(atts))
+	}
+	if atts[0].SessionRate == nil || *atts[0].SessionRate != 250.0 {
+		t.Errorf("expected attendance session_rate to be 250.00, got %v", atts[0].SessionRate)
+	}
+
+	// Verify HandleSearchStudent exposes the class fixed rate
+	searchReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/search-student", classSession.ID), strings.NewReader("query=School"))
+	searchReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	searchRec := httptest.NewRecorder()
+	app.HandleSearchStudent(searchRec, searchReq)
+
+	if searchRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for search-student, got %d", searchRec.Code)
+	}
+	searchBody := searchRec.Body.String()
+	if !strings.Contains(searchBody, "Class Fixed Rate: ₱250.00") {
+		t.Errorf("expected search results to display 'Class Fixed Rate: ₱250.00', got: %s", searchBody)
+	}
+}
+
+func TestHandleCreateSession_LocationFixedRatePreFill(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	locRate := 350.0
+	loc := &models.Location{
+		ID:        uuid.New(),
+		Name:      "San Agustin Academy",
+		Pin:       "https://maps.google.com/?q=San+Agustin",
+		FixedRate: &locRate,
+		CreatedAt: time.Now(),
+	}
+	_ = store.CreateLocation(loc)
+
+	// 1. Create session via HandleCreateSession with location_id and NO session_rate:
+	// Should auto-fill session_rate from location's FixedRate
+	form1 := url.Values{
+		"session_date":  {"2026-10-25"},
+		"start_time":    {"16:00"},
+		"end_time":      {"17:30"},
+		"training_type": {"Sparring"},
+		"location_id":   {loc.ID.String()},
+	}
+	req1 := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form1.Encode()))
+	req1.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec1 := httptest.NewRecorder()
+	app.HandleCreateSession(rec1, req1)
+
+	if rec1.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 SeeOther, got %d: %s", rec1.Code, rec1.Body.String())
+	}
+	locURL1 := rec1.Header().Get("Location")
+	sessID1 := strings.TrimSuffix(strings.TrimPrefix(locURL1, "/sessions/"), "/live")
+	sessUUID1, _ := uuid.Parse(sessID1)
+	sess1, err := store.GetSessionByID(sessUUID1)
+	if err != nil {
+		t.Fatalf("failed to retrieve session 1: %v", err)
+	}
+	if sess1.SessionRate == nil || *sess1.SessionRate != 350.0 {
+		t.Errorf("expected session rate 350.0 inherited from location, got %v", sess1.SessionRate)
+	}
+
+	// 2. Create session via HandleCreateSession with location_id AND explicit session_rate override
+	form2 := url.Values{
+		"session_date":  {"2026-10-26"},
+		"start_time":    {"16:00"},
+		"end_time":      {"17:30"},
+		"training_type": {"Poomsae"},
+		"location_id":   {loc.ID.String()},
+		"session_rate":  {"450.00"},
+	}
+	req2 := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form2.Encode()))
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec2 := httptest.NewRecorder()
+	app.HandleCreateSession(rec2, req2)
+
+	if rec2.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 SeeOther, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+	locURL2 := rec2.Header().Get("Location")
+	sessID2 := strings.TrimSuffix(strings.TrimPrefix(locURL2, "/sessions/"), "/live")
+	sessUUID2, _ := uuid.Parse(sessID2)
+	sess2, err := store.GetSessionByID(sessUUID2)
+	if err != nil {
+		t.Fatalf("failed to retrieve session 2: %v", err)
+	}
+	if sess2.SessionRate == nil || *sess2.SessionRate != 450.0 {
+		t.Errorf("expected overridden session rate 450.0, got %v", sess2.SessionRate)
+	}
+
+	// 3. Create session via HandleAPIAdminSchedule with location_id and NO session_rate
+	form3 := url.Values{
+		"session_date": {"2026-10-27"},
+		"start_time":   {"17:00"},
+		"end_time":     {"18:30"},
+		"discipline":   {"Sparring"},
+		"location_id":  {loc.ID.String()},
+	}
+	req3 := httptest.NewRequest(http.MethodPost, "/api/admin/schedule", strings.NewReader(form3.Encode()))
+	req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec3 := httptest.NewRecorder()
+	app.HandleAPIAdminSchedule(rec3, req3)
+
+	if rec3.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created from HandleAPIAdminSchedule, got %d: %s", rec3.Code, rec3.Body.String())
+	}
+	sessions, _ := store.GetAllSessions()
+	var adminSess *models.TrainingSession
+	for _, s := range sessions {
+		if s.SessionDate.Format("2006-01-02") == "2026-10-27" {
+			adminSess = s
+			break
+		}
+	}
+	if adminSess == nil {
+		t.Fatalf("expected to find session generated by HandleAPIAdminSchedule")
+	}
+	if adminSess.SessionRate == nil || *adminSess.SessionRate != 350.0 {
+		t.Errorf("expected admin schedule session rate 350.0 from location, got %v", adminSess.SessionRate)
+	}
+}
+
 
 

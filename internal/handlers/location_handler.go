@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,10 +99,22 @@ func (a *AppHandler) HandleCreateLocation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var fixedRate *float64
+	rateStr := strings.TrimSpace(r.FormValue("fixed_rate"))
+	if rateStr == "" {
+		rateStr = strings.TrimSpace(r.FormValue("fix_rate"))
+	}
+	if rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			fixedRate = &val
+		}
+	}
+
 	loc := &models.Location{
 		ID:        uuid.New(),
 		Name:      name,
 		Pin:       pin,
+		FixedRate: fixedRate,
 		CreatedAt: time.Now(),
 	}
 
@@ -140,10 +153,22 @@ func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var fixedRate *float64
+	rateStr := strings.TrimSpace(r.FormValue("fixed_rate"))
+	if rateStr == "" {
+		rateStr = strings.TrimSpace(r.FormValue("fix_rate"))
+	}
+	if rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			fixedRate = &val
+		}
+	}
+
 	loc := &models.Location{
-		ID:   locID,
-		Name: name,
-		Pin:  pin,
+		ID:        locID,
+		Name:      name,
+		Pin:       pin,
+		FixedRate: fixedRate,
 	}
 
 	if err := a.store.UpdateLocation(loc); err != nil {

@@ -19,8 +19,12 @@
                 {{end}}
             </div>
 
-            <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                {{if .ActivePackage}}
+            <div class="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                {{if .SessionRate}}
+                    <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60">
+                        🏫 Class Fixed Rate: ₱{{formatCurrency .SessionRate}} (Package credits untouched)
+                    </span>
+                {{else if .ActivePackage}}
                     Membership: <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
                     {{if .ActivePackage.IsFourWeek}}
                         ({{.ActivePackage.RemainingSessions}} classes left &bull; {{.ActivePackage.WeeklyCadence}}x/wk &bull; 4 Weeks)
@@ -57,51 +61,33 @@
             </div>
             {{else}}
             <div class="flex items-center gap-2">
-                {{if .ActivePackage}}
+                {{if .SessionRate}}
+                <!-- Single-click Admit under Class Fixed Rate, no individual input required -->
                 <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
                         hx-target="#attendance-roster"
                         hx-swap="afterbegin"
-                        class="btn btn-primary btn-sm">
-                    Admit Student
+                        class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
+                        title="Admit student under class fixed rate: ₱{{formatCurrency .SessionRate}}">
+                    <span>Admit Student</span>
+                    <span class="text-xs opacity-90 font-normal bg-black/15 px-1.5 py-0.5 rounded">₱{{formatCurrency .SessionRate}}</span>
                 </button>
                 {{else}}
-                <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}?override=true"
-                        hx-target="#attendance-roster"
-                        hx-swap="afterbegin"
-                        class="btn btn-warning btn-sm">
-                    Override &amp; Admit
-                </button>
+                    {{if .ActivePackage}}
+                    <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
+                            hx-target="#attendance-roster"
+                            hx-swap="afterbegin"
+                            class="btn btn-primary btn-sm">
+                        Admit Student
+                    </button>
+                    {{else}}
+                    <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}?override=true"
+                            hx-target="#attendance-roster"
+                            hx-swap="afterbegin"
+                            class="btn btn-warning btn-sm">
+                        Override &amp; Admit
+                    </button>
+                    {{end}}
                 {{end}}
-
-                <details class="relative">
-                    <summary class="btn btn-secondary btn-sm cursor-pointer list-none flex items-center gap-1 text-xs select-none" title="Admit as School / Fix Rate Student">
-                        <span>🏫 Fix Rate</span>
-                    </summary>
-                    <form hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
-                          hx-target="#attendance-roster"
-                          hx-swap="afterbegin"
-                          class="absolute right-0 top-full mt-1.5 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 w-64 space-y-2 text-left">
-                        <div class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                            <span>🏫</span> School / Fix Rate
-                        </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                            Admit student without deducting package class credit.
-                        </p>
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-xs font-bold text-slate-500">₱</span>
-                            <input type="number"
-                                   name="session_rate"
-                                   step="0.01"
-                                   min="0"
-                                   placeholder="0.00"
-                                   required
-                                   class="form-input text-xs py-1.5 px-2 flex-1 rounded-lg">
-                            <button type="submit" class="btn btn-primary btn-xs py-1.5 px-2.5 whitespace-nowrap">
-                                Admit
-                            </button>
-                        </div>
-                    </form>
-                </details>
             </div>
             {{end}}
         </div>

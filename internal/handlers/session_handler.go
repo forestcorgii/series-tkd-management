@@ -186,6 +186,7 @@ type StudentSearchResultItem struct {
 	ActivePackage    *models.StudentPackage
 	IsAlreadyChecked bool
 	WarningMessage   string
+	SessionRate      *float64
 }
 
 func parseTimeHM(timeStr string) (int, int) {
@@ -704,6 +705,17 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	var sessionRate *float64
+	if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			sessionRate = &val
+		}
+	} else if locationIDPtr != nil {
+		if loc, err := a.store.GetLocationByID(*locationIDPtr); err == nil && loc != nil && loc.FixedRate != nil {
+			sessionRate = loc.FixedRate
+		}
+	}
+
 	sess := &models.TrainingSession{
 		SessionDate:  sessDate,
 		StartTime:    r.FormValue("start_time"),
@@ -713,6 +725,7 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		LocationID:   locationIDPtr,
 		TrainingType: models.TrainingType(r.FormValue("training_type")),
 		Notes:        r.FormValue("notes"),
+		SessionRate:  sessionRate,
 	}
 
 	if err := a.store.CreateSession(sess); err != nil {
@@ -782,6 +795,13 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 		endTime = sess.EndTime
 	}
 
+	var sessionRate *float64
+	if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			sessionRate = &val
+		}
+	}
+
 	sess.SessionDate = sessDate
 	sess.StartTime = startTime
 	sess.EndTime = endTime
@@ -792,6 +812,7 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 		sess.TrainingType = models.TrainingType(tType)
 	}
 	sess.Notes = strings.TrimSpace(r.FormValue("notes"))
+	sess.SessionRate = sessionRate
 
 	if err := a.store.UpdateSession(sess); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -959,6 +980,12 @@ func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request)
 		allSessionsMap[s.ID.String()] = s
 	}
 
+	session, _ := a.store.GetSessionByID(sessionID)
+	var classSessionRate *float64
+	if session != nil {
+		classSessionRate = session.SessionRate
+	}
+
 	results := []StudentSearchResultItem{}
 	for _, st := range students {
 		atts, _ := a.store.GetStudentAttendances(st.ID)
@@ -980,6 +1007,7 @@ func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request)
 			ActivePackage:    validPkg,
 			IsAlreadyChecked: checkedMap[st.ID.String()],
 			WarningMessage:   warning,
+			SessionRate:      classSessionRate,
 		})
 	}
 
@@ -1072,6 +1100,8 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
 			sessionRate = &val
 		}
+	} else if session != nil && session.SessionRate != nil {
+		sessionRate = session.SessionRate
 	}
 
 	var pkgID *uuid.UUID

@@ -30,6 +30,7 @@ type TrainingSession struct {
 	LocationID         *uuid.UUID   `json:"location_id,omitempty"`
 	LocationName       string       `json:"location_name,omitempty"`
 	LocationPin        string       `json:"location_pin,omitempty"`
+	SessionRate        *float64     `json:"session_rate,omitempty"`
 	Notes              string       `json:"notes"`
 	IsCancelled        bool         `json:"is_cancelled"`
 	CancelledAt        *time.Time   `json:"cancelled_at,omitempty"`
@@ -43,6 +44,19 @@ func (s *TrainingSession) CoachIDString() string {
 		return ""
 	}
 	return s.CoachID.String()
+}
+
+// SessionRateVal returns the dereferenced session rate or 0.
+func (s *TrainingSession) SessionRateVal() float64 {
+	if s.SessionRate != nil {
+		return *s.SessionRate
+	}
+	return 0
+}
+
+// HasFixedRate returns true if the session has a fixed rate configured.
+func (s *TrainingSession) HasFixedRate() bool {
+	return s.SessionRate != nil && *s.SessionRate >= 0
 }
 
 // IsDone returns true if the session is not cancelled and has completed its scheduled end time.

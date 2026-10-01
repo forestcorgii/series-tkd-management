@@ -54,6 +54,7 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	form := url.Values{}
 	form.Set("name", "Ortigas Training Center")
 	form.Set("pin", "https://maps.google.com/?q=Ortigas+Center")
+	form.Set("fixed_rate", "300.00")
 
 	req := httptest.NewRequest("POST", "/locations", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -85,11 +86,15 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	if createdLoc.Pin != "https://maps.google.com/?q=Ortigas+Center" {
 		t.Errorf("expected pin to match, got %s", createdLoc.Pin)
 	}
+	if createdLoc.FixedRate == nil || *createdLoc.FixedRate != 300.00 {
+		t.Errorf("expected fixed_rate to be 300.00, got %v", createdLoc.FixedRate)
+	}
 
 	// 2. Update Location
 	editForm := url.Values{}
 	editForm.Set("name", "Ortigas Grand Dojang")
 	editForm.Set("pin", "https://maps.google.com/?q=Ortigas+Grand")
+	editForm.Set("fixed_rate", "375.50")
 
 	reqEdit := httptest.NewRequest("POST", "/locations/"+createdLoc.ID.String()+"/edit", strings.NewReader(editForm.Encode()))
 	reqEdit.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -105,6 +110,9 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	updated, _ := store.GetLocationByID(createdLoc.ID)
 	if updated.Name != "Ortigas Grand Dojang" {
 		t.Errorf("expected updated name 'Ortigas Grand Dojang', got %s", updated.Name)
+	}
+	if updated.FixedRate == nil || *updated.FixedRate != 375.50 {
+		t.Errorf("expected updated fixed_rate to be 375.50, got %v", updated.FixedRate)
 	}
 
 	// 3. Delete Location

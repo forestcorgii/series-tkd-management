@@ -1277,6 +1277,7 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 			_ = store.CreateUser(adminUser)
 
 			// 3. Create a session
+			initialRate := 350.0
 			sess := &models.TrainingSession{
 				ID:           uuid.New(),
 				SessionDate:  time.Now(),
@@ -1285,6 +1286,7 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 				CoachID:      &coach1.ID,
 				TrainingType: models.TrainingSparring,
 				Notes:        "Sparring drills",
+				SessionRate:  &initialRate,
 				CreatedAt:    time.Now(),
 			}
 			if err := store.CreateSession(sess); err != nil {
@@ -1302,14 +1304,19 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 			if loaded.AdminName != "" {
 				t.Errorf("expected empty AdminName initially, got %s", loaded.AdminName)
 			}
+			if loaded.SessionRate == nil || *loaded.SessionRate != 350.0 {
+				t.Errorf("expected SessionRate 350.0, got %v", loaded.SessionRate)
+			}
 
-			// 4. Update session: switch to coach 2, assign admin, edit time to 16:00 - 18:00
+			// 4. Update session: switch to coach 2, assign admin, edit time to 16:00 - 18:00, update session rate
+			updatedRate := 400.0
 			loaded.CoachID = &coach2.ID
 			loaded.AdminID = &adminUser.ID
 			loaded.StartTime = "16:00"
 			loaded.EndTime = "18:00"
 			loaded.TrainingType = models.TrainingPoomsae
 			loaded.Notes = "Updated poomsae class"
+			loaded.SessionRate = &updatedRate
 			if err := store.UpdateSession(loaded); err != nil {
 				t.Fatalf("UpdateSession failed: %v", err)
 			}
@@ -1330,6 +1337,9 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 			}
 			if updated.TrainingType != models.TrainingPoomsae {
 				t.Errorf("expected Poomsae, got %s", updated.TrainingType)
+			}
+			if updated.SessionRate == nil || *updated.SessionRate != 400.0 {
+				t.Errorf("expected SessionRate 400.0, got %v", updated.SessionRate)
 			}
 
 			// 5. Test deletion with package refund
@@ -1413,10 +1423,12 @@ func TestSQLStore_Locations(t *testing.T) {
 	}
 
 	// 1. Create Location
+	initialRate := 275.50
 	loc := &models.Location{
 		ID:        uuid.New(),
 		Name:      "BGC Branch",
 		Pin:       "https://maps.google.com/?q=BGC+Branch",
+		FixedRate: &initialRate,
 		CreatedAt: time.Now(),
 	}
 	if err := store.CreateLocation(loc); err != nil {
@@ -1431,6 +1443,9 @@ func TestSQLStore_Locations(t *testing.T) {
 	if fetched.Name != "BGC Branch" || fetched.Pin != loc.Pin {
 		t.Errorf("expected fetched location to match, got name: %s, pin: %s", fetched.Name, fetched.Pin)
 	}
+	if fetched.FixedRate == nil || *fetched.FixedRate != 275.50 {
+		t.Errorf("expected fetched location fixed_rate 275.50, got %v", fetched.FixedRate)
+	}
 
 	// 3. GetAllLocations
 	locs, err := store.GetAllLocations()
@@ -1441,6 +1456,9 @@ func TestSQLStore_Locations(t *testing.T) {
 	for _, l := range locs {
 		if l.ID == loc.ID {
 			found = true
+			if l.FixedRate == nil || *l.FixedRate != 275.50 {
+				t.Errorf("expected GetAllLocations item fixed_rate 275.50, got %v", l.FixedRate)
+			}
 			break
 		}
 	}
@@ -1449,14 +1467,19 @@ func TestSQLStore_Locations(t *testing.T) {
 	}
 
 	// 4. Update Location
+	updatedRate := 320.00
 	loc.Name = "BGC High Street Dojang"
 	loc.Pin = "https://maps.google.com/?q=BGC+High+Street"
+	loc.FixedRate = &updatedRate
 	if err := store.UpdateLocation(loc); err != nil {
 		t.Fatalf("UpdateLocation failed: %v", err)
 	}
 	updated, _ := store.GetLocationByID(loc.ID)
 	if updated.Name != "BGC High Street Dojang" {
 		t.Errorf("expected updated name 'BGC High Street Dojang', got: %s", updated.Name)
+	}
+	if updated.FixedRate == nil || *updated.FixedRate != 320.00 {
+		t.Errorf("expected updated location fixed_rate 320.00, got %v", updated.FixedRate)
 	}
 
 	// 5. Link Session to Location

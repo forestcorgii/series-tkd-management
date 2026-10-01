@@ -56,6 +56,7 @@ type AdminPortalData struct {
 	Coaches              []*models.Coach
 	PackageTemplates     []*models.PackageTemplate
 	Sessions             []*models.TrainingSession
+	Locations            []*models.Location
 }
 
 func (a *AppHandler) HandleStudentPortal(w http.ResponseWriter, r *http.Request) {
@@ -283,6 +284,8 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	locations, _ := a.store.GetAllLocations()
+
 	data := AdminPortalData{
 		CurrentUser:           user,
 		ActiveStudentsCount:   len(students),
@@ -296,6 +299,7 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		Coaches:               coaches,
 		PackageTemplates:      pkgTemplates,
 		Sessions:              sessions,
+		Locations:             locations,
 	}
 
 	a.RenderPage(w, "admin_portal.html", data)
@@ -474,6 +478,10 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if sessionRate == nil && session != nil && session.SessionRate != nil {
+		sessionRate = session.SessionRate
+	}
+
 	student, err := a.store.GetStudentByID(studentID)
 	if err != nil || student == nil {
 		if isHTMXRequest(r) {
@@ -639,6 +647,12 @@ func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Reques
 	if req.SessionID == uuid.Nil || req.StudentID == uuid.Nil {
 		http.Error(w, "session_id and student_id required", http.StatusBadRequest)
 		return
+	}
+
+	if req.SessionRate == nil {
+		if sess, _ := a.store.GetSessionByID(req.SessionID); sess != nil && sess.SessionRate != nil {
+			req.SessionRate = sess.SessionRate
+		}
 	}
 
 	atts, _ := a.store.GetStudentAttendances(req.StudentID)
@@ -908,14 +922,34 @@ func (a *AppHandler) HandleAPIAdminSchedule(w http.ResponseWriter, r *http.Reque
 		sessionDate = parsed
 	}
 
+	var locationIDPtr *uuid.UUID
+	if locIDStr := strings.TrimSpace(r.FormValue("location_id")); locIDStr != "" {
+		if lID, err := uuid.Parse(locIDStr); err == nil && lID != uuid.Nil {
+			locationIDPtr = &lID
+		}
+	}
+
+	var sessionRate *float64
+	if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			sessionRate = &val
+		}
+	} else if locationIDPtr != nil {
+		if loc, err := a.store.GetLocationByID(*locationIDPtr); err == nil && loc != nil && loc.FixedRate != nil {
+			sessionRate = loc.FixedRate
+		}
+	}
+
 	sess := &models.TrainingSession{
 		ID:           uuid.New(),
 		SessionDate:  sessionDate,
 		StartTime:    r.FormValue("start_time"),
 		EndTime:      r.FormValue("end_time"),
 		CoachID:      coachIDPtr,
+		LocationID:   locationIDPtr,
 		TrainingType: models.TrainingType(r.FormValue("discipline")),
 		Notes:        strings.TrimSpace(r.FormValue("notes")),
+		SessionRate:  sessionRate,
 		CreatedAt:    time.Now(),
 	}
 

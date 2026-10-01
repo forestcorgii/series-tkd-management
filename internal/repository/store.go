@@ -689,6 +689,7 @@ func (m *MemoryStore) UpdateSession(sess *models.TrainingSession) error {
 	existing.LocationID = sess.LocationID
 	existing.TrainingType = sess.TrainingType
 	existing.Notes = sess.Notes
+	existing.SessionRate = sess.SessionRate
 	return nil
 }
 
@@ -1315,6 +1316,7 @@ func (m *MemoryStore) UpdateLocation(loc *models.Location) error {
 	}
 	existing.Name = loc.Name
 	existing.Pin = loc.Pin
+	existing.FixedRate = loc.FixedRate
 	return nil
 }
 
