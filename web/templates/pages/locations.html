@@ -1,0 +1,320 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Locations &amp; Dojangs - STMS{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Top Header & Actions -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>📍</span> Training Locations &amp; Branch Dojangs
+            </h1>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Manage branch venues, pin Google Maps directions, and review class attendance per location.
+            </p>
+        </div>
+        <div>
+            <button type="button"
+                    onclick="openNewLocationModal()"
+                    class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm">
+                <span>+</span> Add New Location
+            </button>
+        </div>
+    </div>
+
+    <!-- Flash Alert Notices -->
+    {{if .SuccessNotice}}
+    <div class="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>✅</span>
+            <span class="font-semibold">{{.SuccessNotice}}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900">&times;</button>
+    </div>
+    {{end}}
+    {{if .ErrorMessage}}
+    <div class="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span class="font-semibold">{{.ErrorMessage}}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:text-rose-900">&times;</button>
+    </div>
+    {{end}}
+
+    <!-- High-Level Metrics Banner -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-lg flex-shrink-0">
+                🏢
+            </div>
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Locations</p>
+                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalLocations}}</p>
+            </div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center text-lg flex-shrink-0">
+                🥋
+            </div>
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Classes Conducted</p>
+                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalSessions}}</p>
+            </div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-lg flex-shrink-0">
+                ✅
+            </div>
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Check-Ins Logged</p>
+                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalAttendance}}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Locations List Table & Cards Container -->
+    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div class="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+            <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Venues &amp; Dojangs</h2>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">{{.TotalLocations}} venues registered</span>
+        </div>
+
+        {{if .Locations}}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                    <tr class="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
+                        <th class="py-3 px-4 sm:px-6">Location / Branch Name</th>
+                        <th class="py-3 px-4 sm:px-6">Google Maps Pin</th>
+                        <th class="py-3 px-4 sm:px-6 text-center">Classes Hosted</th>
+                        <th class="py-3 px-4 sm:px-6 text-center">Attendance Logged</th>
+                        <th class="py-3 px-4 sm:px-6 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-neutral-900">
+                    {{range .Locations}}
+                    <tr class="hover:bg-slate-50/60 dark:hover:bg-neutral-900/40 transition">
+                        <!-- Location Name -->
+                        <td class="py-3.5 px-4 sm:px-6">
+                            <div class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <span class="h-2 w-2 rounded-full bg-[#990303]"></span>
+                                {{.Location.Name}}
+                            </div>
+                            <div class="text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
+                                ID: {{.Location.ID}}
+                            </div>
+                        </td>
+
+                        <!-- Google Maps Pin -->
+                        <td class="py-3.5 px-4 sm:px-6">
+                            {{if .Location.HasValidPin}}
+                            <a href="{{.Location.Pin}}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60 dark:hover:bg-blue-900/50 transition">
+                                <span>📍</span>
+                                <span>Open Google Maps</span>
+                                <span class="text-[10px]">↗</span>
+                            </a>
+                            {{else if .Location.Pin}}
+                            <span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-mono">
+                                <span>📍</span> {{.Location.Pin}}
+                            </span>
+                            {{else}}
+                            <span class="text-xs text-slate-400 dark:text-slate-500 italic">No pin link set</span>
+                            {{end}}
+                        </td>
+
+                        <!-- Classes Hosted -->
+                        <td class="py-3.5 px-4 sm:px-6 text-center">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800 dark:bg-neutral-800 dark:text-slate-300 border border-slate-200 dark:border-neutral-700">
+                                {{.SessionsCount}} Classes
+                            </span>
+                        </td>
+
+                        <!-- Attendance Logged -->
+                        <td class="py-3.5 px-4 sm:px-6 text-center">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                {{.AttendanceCount}} Check-ins
+                            </span>
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="py-3.5 px-4 sm:px-6 text-right">
+                            <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                                <a href="/sessions?location_id={{.Location.ID}}"
+                                   class="btn btn-secondary btn-xs flex items-center gap-1"
+                                   title="Filter attendance & classes for this location">
+                                    <span>📅</span> Classes
+                                </a>
+                                <button type="button"
+                                        onclick="openEditLocationModal('{{.Location.ID}}', '{{.Location.Name}}', '{{.Location.Pin}}')"
+                                        class="btn btn-secondary btn-xs flex items-center gap-1">
+                                    <span>✏️</span> Edit
+                                </button>
+                                <button type="button"
+                                        onclick="openDeleteLocationModal('{{.Location.ID}}', '{{.Location.Name}}', {{.SessionsCount}}, {{.AttendanceCount}})"
+                                        class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900 flex items-center gap-1">
+                                    <span>🗑️</span> Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="p-12 text-center space-y-3">
+            <span class="text-4xl">📍</span>
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">No locations registered yet</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                Add branch dojangs or venue facilities to start scheduling classes and tracking floor check-ins per location.
+            </p>
+            <button type="button" onclick="openNewLocationModal()" class="btn btn-primary btn-sm mt-2">
+                + Register First Location
+            </button>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<!-- Modal: Add New Location -->
+<div id="new-location-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <span>📍</span> Add Training Location
+            </h3>
+            <button type="button" onclick="closeNewLocationModal()" class="modal-close">&times;</button>
+        </div>
+        <form action="/locations" method="POST" class="space-y-4">
+            <div>
+                <label class="form-label">Location / Branch Name <span class="text-rose-500">*</span></label>
+                <input type="text"
+                       name="name"
+                       required
+                       placeholder="e.g. Makati Central Dojang (HQ)"
+                       class="form-input text-sm">
+            </div>
+
+            <div>
+                <label class="form-label">Google Maps Pin Link</label>
+                <input type="url"
+                       name="pin"
+                       placeholder="https://maps.app.goo.gl/... or https://maps.google.com/?q=..."
+                       class="form-input text-sm">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                    Paste the share link from Google Maps for easy one-click directions.
+                </span>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeNewLocationModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Location</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Location -->
+<div id="edit-location-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <span>✏️</span> Edit Training Location
+            </h3>
+            <button type="button" onclick="closeEditLocationModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="edit-location-form" method="POST" action="" class="space-y-4">
+            <div>
+                <label class="form-label">Location / Branch Name <span class="text-rose-500">*</span></label>
+                <input type="text"
+                       id="edit-location-name"
+                       name="name"
+                       required
+                       class="form-input text-sm">
+            </div>
+
+            <div>
+                <label class="form-label">Google Maps Pin Link</label>
+                <input type="url"
+                       id="edit-location-pin"
+                       name="pin"
+                       placeholder="https://maps.app.goo.gl/..."
+                       class="form-input text-sm">
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                    Paste Google Maps URL so students and instructors can navigate directly to the mats.
+                </span>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeEditLocationModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Delete Location Confirmation -->
+<div id="delete-location-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <span>⚠️</span> Delete Location
+            </h3>
+            <button type="button" onclick="closeDeleteLocationModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="delete-location-form" method="POST" action="" class="space-y-4">
+            <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
+                <p id="delete-location-title" class="font-bold text-sm text-slate-900 dark:text-white"></p>
+                <p id="delete-location-meta" class="text-xs text-slate-600 dark:text-slate-400"></p>
+                <p class="text-xs text-rose-700 dark:text-rose-300 font-medium pt-1 border-t border-rose-200/60 dark:border-rose-900/60">
+                    Are you sure you want to remove this location record? Classes scheduled here will have their location unassigned.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeDeleteLocationModal()" class="btn btn-secondary btn-sm">Dismiss</button>
+                <button type="submit" class="btn btn-danger btn-sm">Confirm Deletion</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openNewLocationModal() {
+    document.getElementById('new-location-modal').classList.remove('hidden');
+}
+
+function closeNewLocationModal() {
+    document.getElementById('new-location-modal').classList.add('hidden');
+}
+
+function openEditLocationModal(id, name, pin) {
+    var form = document.getElementById('edit-location-form');
+    form.action = '/locations/' + id + '/edit';
+    document.getElementById('edit-location-name').value = name || '';
+    document.getElementById('edit-location-pin').value = pin || '';
+    document.getElementById('edit-location-modal').classList.remove('hidden');
+}
+
+function closeEditLocationModal() {
+    document.getElementById('edit-location-modal').classList.add('hidden');
+}
+
+function openDeleteLocationModal(id, name, sessionsCount, attendanceCount) {
+    var form = document.getElementById('delete-location-form');
+    form.action = '/locations/' + id + '/delete';
+    document.getElementById('delete-location-title').textContent = name;
+    document.getElementById('delete-location-meta').textContent = sessionsCount + ' classes scheduled • ' + attendanceCount + ' attendances logged';
+    document.getElementById('delete-location-modal').classList.remove('hidden');
+}
+
+function closeDeleteLocationModal() {
+    document.getElementById('delete-location-modal').classList.add('hidden');
+}
+</script>
+{{end}}

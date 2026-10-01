@@ -56,6 +56,14 @@ CREATE TABLE IF NOT EXISTS student_packages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Locations (Training facilities & branch dojangs)
+CREATE TABLE IF NOT EXISTS locations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(150) NOT NULL,
+    pin TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Training Sessions (Floor Log)
 CREATE TABLE IF NOT EXISTS training_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -64,6 +72,7 @@ CREATE TABLE IF NOT EXISTS training_sessions (
     end_time VARCHAR(20) NOT NULL,
     coach_id UUID NOT NULL REFERENCES coaches(id),
     admin_id UUID REFERENCES coaches(id),
+    location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
     training_type VARCHAR(50) NOT NULL, -- 'Poomsae', 'Sparring', 'Conditioning', etc.
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -75,6 +84,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     session_id UUID NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     student_package_id UUID REFERENCES student_packages(id),
+    location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
     checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_student_session UNIQUE (session_id, student_id)
 );

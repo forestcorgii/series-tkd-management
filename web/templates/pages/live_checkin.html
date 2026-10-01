@@ -16,6 +16,16 @@
                     {{.Session.StartTime}} - {{.Session.EndTime}}
                 </span>
                 <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">&bull; {{formatDate .Session.SessionDate}}</span>
+                {{if .Session.LocationName}}
+                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold flex items-center gap-1">
+                    &bull; <span>📍</span>
+                    {{if .Session.LocationPin}}
+                    <a href="{{.Session.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold" title="View in Google Maps">{{.Session.LocationName}}</a>
+                    {{else}}
+                    <span>{{.Session.LocationName}}</span>
+                    {{end}}
+                </span>
+                {{end}}
             </div>
             <h1 class="font-display font-extrabold text-2xl {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}} mt-1">
                 {{.Session.TrainingType}} Class
@@ -258,6 +268,17 @@
                     <option value="">None / Unassigned</option>
                     {{range .Admins}}
                     <option value="{{.ID}}" {{if and $.Session.AdminID (eq $.Session.AdminID.String .ID.String)}}selected{{end}}>{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <!-- Training Location Dropdown -->
+            <div>
+                <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)...">
+                    <option value="">None / Unassigned</option>
+                    {{range .Locations}}
+                    <option value="{{.ID}}" {{if and $.Session.LocationID (eq $.Session.LocationID.String .ID.String)}}selected{{end}}>{{.Name}}</option>
                     {{end}}
                 </select>
             </div>

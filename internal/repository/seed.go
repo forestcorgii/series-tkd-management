@@ -283,7 +283,26 @@ func (m *MemoryStore) seedData() {
 	m.studentPackages[sp3.ID] = sp3
 	m.studentPackages[sp4.ID] = sp4
 
-	// 5. Training Sessions
+	// 5. Locations
+	loc1ID := uuid.MustParse("d1111111-1111-1111-1111-111111111111")
+	loc2ID := uuid.MustParse("d2222222-2222-2222-2222-222222222222")
+
+	loc1 := &models.Location{
+		ID:        loc1ID,
+		Name:      "Makati Central Dojang (HQ)",
+		Pin:       "https://maps.google.com/?q=Makati+Central+Dojang",
+		CreatedAt: now.AddDate(-1, 0, 0),
+	}
+	loc2 := &models.Location{
+		ID:        loc2ID,
+		Name:      "BGC High Street Training Hall",
+		Pin:       "https://maps.google.com/?q=BGC+High+Street+Training+Hall",
+		CreatedAt: now.AddDate(0, -6, 0),
+	}
+	m.locations[loc1ID] = loc1
+	m.locations[loc2ID] = loc2
+
+	// 6. Training Sessions
 	sess1ID := uuid.MustParse("c1111111-1111-1111-1111-111111111111")
 	sess2ID := uuid.MustParse("c2222222-2222-2222-2222-222222222222")
 
@@ -296,6 +315,9 @@ func (m *MemoryStore) seedData() {
 		CoachName:    c1.FullName,
 		AdminID:      &c1ID,
 		AdminName:    c1.FullName,
+		LocationID:   &loc1ID,
+		LocationName: loc1.Name,
+		LocationPin:  loc1.Pin,
 		TrainingType: models.TrainingSparring,
 		Notes:        "High intensity floor drills, electronic scoring pad practice",
 		CreatedAt:    now.Add(-2 * time.Hour),
@@ -310,6 +332,9 @@ func (m *MemoryStore) seedData() {
 		CoachName:    c2.FullName,
 		AdminID:      &c1ID,
 		AdminName:    c1.FullName,
+		LocationID:   &loc2ID,
+		LocationName: loc2.Name,
+		LocationPin:  loc2.Pin,
 		TrainingType: models.TrainingPoomsae,
 		Notes:        "Taegeuk 1 through 8 refinement & stance balance auditing",
 		CreatedAt:    now.AddDate(0, 0, -1),

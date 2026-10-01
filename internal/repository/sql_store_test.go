@@ -597,6 +597,11 @@ func TestSQLStore_FilterSessions(t *testing.T) {
 		t.Fatalf("InitDatabase failed: %v", err)
 	}
 
+	if sqlStore, ok := store.(*repository.SQLStore); ok {
+		_, _ = sqlStore.DB().Exec("DELETE FROM attendance")
+		_, _ = sqlStore.DB().Exec("DELETE FROM training_sessions")
+	}
+
 	coaches, _ := store.GetAllCoaches()
 	if len(coaches) < 2 {
 		t.Fatalf("expected at least 2 coaches")
@@ -1396,6 +1401,144 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 		})
 	}
 }
+
+func TestSQLStore_Locations(t *testing.T) {
+	dbFile := "test_locations.db"
+	_ = os.Remove(dbFile)
+	defer os.Remove(dbFile)
+
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+
+	// 1. Create Location
+	loc := &models.Location{
+		ID:        uuid.New(),
+		Name:      "BGC Branch",
+		Pin:       "https://maps.google.com/?q=BGC+Branch",
+		CreatedAt: time.Now(),
+	}
+	if err := store.CreateLocation(loc); err != nil {
+		t.Fatalf("CreateLocation failed: %v", err)
+	}
+
+	// 2. Get Location By ID
+	fetched, err := store.GetLocationByID(loc.ID)
+	if err != nil {
+		t.Fatalf("GetLocationByID failed: %v", err)
+	}
+	if fetched.Name != "BGC Branch" || fetched.Pin != loc.Pin {
+		t.Errorf("expected fetched location to match, got name: %s, pin: %s", fetched.Name, fetched.Pin)
+	}
+
+	// 3. GetAllLocations
+	locs, err := store.GetAllLocations()
+	if err != nil {
+		t.Fatalf("GetAllLocations failed: %v", err)
+	}
+	found := false
+	for _, l := range locs {
+		if l.ID == loc.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected to find created location in GetAllLocations")
+	}
+
+	// 4. Update Location
+	loc.Name = "BGC High Street Dojang"
+	loc.Pin = "https://maps.google.com/?q=BGC+High+Street"
+	if err := store.UpdateLocation(loc); err != nil {
+		t.Fatalf("UpdateLocation failed: %v", err)
+	}
+	updated, _ := store.GetLocationByID(loc.ID)
+	if updated.Name != "BGC High Street Dojang" {
+		t.Errorf("expected updated name 'BGC High Street Dojang', got: %s", updated.Name)
+	}
+
+	// 5. Link Session to Location
+	coaches, _ := store.GetAllCoaches()
+	if len(coaches) == 0 {
+		t.Fatalf("expected at least 1 coach")
+	}
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "18:00",
+		EndTime:      "19:30",
+		CoachID:      coaches[0].ID,
+		LocationID:   &loc.ID,
+		TrainingType: models.TrainingSparring,
+		Notes:        "Sparring at BGC",
+	}
+	if err := store.CreateSession(sess); err != nil {
+		t.Fatalf("CreateSession with location failed: %v", err)
+	}
+
+	// Verify session retrieves location name and pin
+	sessFetched, err := store.GetSessionByID(sess.ID)
+	if err != nil {
+		t.Fatalf("GetSessionByID failed: %v", err)
+	}
+	if sessFetched.LocationID == nil || *sessFetched.LocationID != loc.ID {
+		t.Errorf("expected session location ID %v, got %v", loc.ID, sessFetched.LocationID)
+	}
+	if sessFetched.LocationName != "BGC High Street Dojang" {
+		t.Errorf("expected session location name 'BGC High Street Dojang', got: %s", sessFetched.LocationName)
+	}
+
+	// 6. Filter Sessions by Location
+	filtered, err := store.GetSessions(repository.SessionFilter{LocationID: &loc.ID})
+	if err != nil {
+		t.Fatalf("GetSessions by LocationID failed: %v", err)
+	}
+	if len(filtered) != 1 || filtered[0].ID != sess.ID {
+		t.Errorf("expected 1 session for location %v, got %d", loc.ID, len(filtered))
+	}
+
+	// 7. Check-in Student and verify attendance is linked to Location
+	students, _ := store.GetAllStudents()
+	if len(students) == 0 {
+		t.Fatalf("expected at least 1 student")
+	}
+	att, err := store.CheckInStudent(sess.ID, students[0].ID, nil)
+	if err != nil {
+		t.Fatalf("CheckInStudent failed: %v", err)
+	}
+	if att.LocationID == nil || *att.LocationID != loc.ID {
+		t.Errorf("expected attendance location ID %v, got %v", loc.ID, att.LocationID)
+	}
+	if att.LocationName != "BGC High Street Dojang" {
+		t.Errorf("expected attendance location name 'BGC High Street Dojang', got: %s", att.LocationName)
+	}
+
+	// Verify GetSessionAttendances returns location
+	sessionAtts, err := store.GetSessionAttendances(sess.ID)
+	if err != nil || len(sessionAtts) == 0 {
+		t.Fatalf("GetSessionAttendances failed: %v", err)
+	}
+	if sessionAtts[0].LocationName != "BGC High Street Dojang" {
+		t.Errorf("expected session attendance location name 'BGC High Street Dojang', got: %s", sessionAtts[0].LocationName)
+	}
+
+	// 8. Delete Location
+	otherLoc := &models.Location{
+		ID:   uuid.New(),
+		Name: "Temporary Venue",
+		Pin:  "https://maps.google.com",
+	}
+	_ = store.CreateLocation(otherLoc)
+	if err := store.DeleteLocation(otherLoc.ID); err != nil {
+		t.Fatalf("DeleteLocation failed: %v", err)
+	}
+	if _, err := store.GetLocationByID(otherLoc.ID); err != repository.ErrNotFound {
+		t.Errorf("expected ErrNotFound after DeleteLocation, got: %v", err)
+	}
+}
+
 
 
 

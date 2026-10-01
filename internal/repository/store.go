@@ -21,6 +21,7 @@ var (
 type SessionFilter struct {
 	CoachID      *uuid.UUID
 	StudentID    *uuid.UUID
+	LocationID   *uuid.UUID
 	TrainingType string
 	Date         string // "YYYY-MM-DD"
 	StartDate    string // "YYYY-MM-DD"
@@ -28,6 +29,13 @@ type SessionFilter struct {
 }
 
 type RepositoryStore interface {
+	// Locations
+	GetAllLocations() ([]*models.Location, error)
+	GetLocationByID(id uuid.UUID) (*models.Location, error)
+	CreateLocation(loc *models.Location) error
+	UpdateLocation(loc *models.Location) error
+	DeleteLocation(id uuid.UUID) error
+
 	// Students
 	GetAllStudents() ([]*models.Student, error)
 	GetStudentByID(id uuid.UUID) (*models.Student, error)
@@ -123,6 +131,7 @@ type MemoryStore struct {
 	sessionTokens       map[string]SessionTokenRecord
 	passwordResetTokens map[string]*models.PasswordResetToken
 	safetyIncidents     map[uuid.UUID]*models.SafetyIncident
+	locations           map[uuid.UUID]*models.Location
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -140,6 +149,7 @@ func NewMemoryStore() *MemoryStore {
 		sessionTokens:       make(map[string]SessionTokenRecord),
 		passwordResetTokens: make(map[string]*models.PasswordResetToken),
 		safetyIncidents:     make(map[uuid.UUID]*models.SafetyIncident),
+		locations:           make(map[uuid.UUID]*models.Location),
 	}
 	m.seedData()
 	return m
@@ -535,6 +545,11 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 		if filter.CoachID != nil && s.CoachID != *filter.CoachID {
 			continue
 		}
+		if filter.LocationID != nil {
+			if s.LocationID == nil || *s.LocationID != *filter.LocationID {
+				continue
+			}
+		}
 		if filter.StudentID != nil {
 			hasAtt := false
 			for _, att := range m.attendances {
@@ -566,6 +581,12 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 		}
 		if coach, ok := m.coaches[s.CoachID]; ok {
 			s.CoachName = coach.FullName
+		}
+		if s.LocationID != nil {
+			if loc, ok := m.locations[*s.LocationID]; ok {
+				s.LocationName = loc.Name
+				s.LocationPin = loc.Pin
+			}
 		}
 		if s.AdminID != nil {
 			if u, ok := m.users[*s.AdminID]; ok {
@@ -644,6 +665,7 @@ func (m *MemoryStore) UpdateSession(sess *models.TrainingSession) error {
 	existing.EndTime = sess.EndTime
 	existing.CoachID = sess.CoachID
 	existing.AdminID = sess.AdminID
+	existing.LocationID = sess.LocationID
 	existing.TrainingType = sess.TrainingType
 	existing.Notes = sess.Notes
 	return nil
@@ -692,6 +714,18 @@ func (m *MemoryStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Atte
 					}
 				}
 			}
+			if a.LocationID != nil {
+				if loc, ok := m.locations[*a.LocationID]; ok {
+					a.LocationName = loc.Name
+					a.LocationPin = loc.Pin
+				}
+			} else if sess, ok := m.sessions[a.SessionID]; ok && sess.LocationID != nil {
+				a.LocationID = sess.LocationID
+				if loc, ok := m.locations[*sess.LocationID]; ok {
+					a.LocationName = loc.Name
+					a.LocationPin = loc.Pin
+				}
+			}
 			result = append(result, a)
 		}
 	}
@@ -705,6 +739,18 @@ func (m *MemoryStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Atte
 	result := []*models.Attendance{}
 	for _, a := range m.attendances {
 		if a.StudentID == studentID {
+			if a.LocationID != nil {
+				if loc, ok := m.locations[*a.LocationID]; ok {
+					a.LocationName = loc.Name
+					a.LocationPin = loc.Pin
+				}
+			} else if sess, ok := m.sessions[a.SessionID]; ok && sess.LocationID != nil {
+				a.LocationID = sess.LocationID
+				if loc, ok := m.locations[*sess.LocationID]; ok {
+					a.LocationName = loc.Name
+					a.LocationPin = loc.Pin
+				}
+			}
 			result = append(result, a)
 		}
 	}
@@ -728,6 +774,14 @@ func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *
 		StudentID:        studentID,
 		StudentPackageID: packageID,
 		CheckedInAt:      time.Now(),
+	}
+
+	if sess, ok := m.sessions[sessionID]; ok && sess.LocationID != nil {
+		att.LocationID = sess.LocationID
+		if loc, okLoc := m.locations[*sess.LocationID]; okLoc {
+			att.LocationName = loc.Name
+			att.LocationPin = loc.Pin
+		}
 	}
 
 	if st, ok := m.students[studentID]; ok {
@@ -1189,3 +1243,67 @@ func (m *MemoryStore) PromoteStudent(studentID uuid.UUID, newBelt models.BeltRan
 	st.LastPromotionDate = time.Now()
 	return nil
 }
+
+func (m *MemoryStore) GetAllLocations() ([]*models.Location, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make([]*models.Location, 0, len(m.locations))
+	for _, l := range m.locations {
+		result = append(result, l)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
+	})
+	return result, nil
+}
+
+func (m *MemoryStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	l, ok := m.locations[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return l, nil
+}
+
+func (m *MemoryStore) CreateLocation(loc *models.Location) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if loc.ID == uuid.Nil {
+		loc.ID = uuid.New()
+	}
+	if loc.CreatedAt.IsZero() {
+		loc.CreatedAt = time.Now()
+	}
+	m.locations[loc.ID] = loc
+	return nil
+}
+
+func (m *MemoryStore) UpdateLocation(loc *models.Location) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.locations[loc.ID]
+	if !ok {
+		return ErrNotFound
+	}
+	existing.Name = loc.Name
+	existing.Pin = loc.Pin
+	return nil
+}
+
+func (m *MemoryStore) DeleteLocation(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.locations[id]; !ok {
+		return ErrNotFound
+	}
+	delete(m.locations, id)
+	return nil
+}
+

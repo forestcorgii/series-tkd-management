@@ -27,6 +27,9 @@ type TrainingSession struct {
 	AdminID            *uuid.UUID   `json:"admin_id,omitempty"`
 	AdminName          string       `json:"admin_name,omitempty"`
 	TrainingType       TrainingType `json:"training_type"`
+	LocationID         *uuid.UUID   `json:"location_id,omitempty"`
+	LocationName       string       `json:"location_name,omitempty"`
+	LocationPin        string       `json:"location_pin,omitempty"`
 	Notes              string       `json:"notes"`
 	IsCancelled        bool         `json:"is_cancelled"`
 	CancelledAt        *time.Time   `json:"cancelled_at,omitempty"`
@@ -115,6 +118,9 @@ type Attendance struct {
 	StudentBelt      BeltRank   `json:"student_belt,omitempty"`
 	StudentPackageID *uuid.UUID `json:"student_package_id,omitempty"`
 	PackageTitle     string     `json:"package_title,omitempty"`
+	LocationID       *uuid.UUID `json:"location_id,omitempty"`
+	LocationName     string     `json:"location_name,omitempty"`
+	LocationPin      string     `json:"location_pin,omitempty"`
 	CheckedInAt      time.Time  `json:"checked_in_at"`
 }
 

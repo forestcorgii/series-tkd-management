@@ -6,7 +6,7 @@
         <div class="flex items-center gap-2 flex-wrap">
             <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900 p-0.5 shadow-sm">
                 <button type="button"
-                        hx-get="/sessions?date={{.Calendar.PrevWeekStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}"
+                        hx-get="/sessions?date={{.Calendar.PrevWeekStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}&location_id={{.FilterLocationID}}"
                         hx-target="#classes-container"
                         hx-push-url="true"
                         class="btn btn-ghost btn-xs px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300"
@@ -14,7 +14,7 @@
                     &larr; Prev
                 </button>
                 <button type="button"
-                        hx-get="/sessions?date={{.Calendar.TodayStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}"
+                        hx-get="/sessions?date={{.Calendar.TodayStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}&location_id={{.FilterLocationID}}"
                         hx-target="#classes-container"
                         hx-push-url="true"
                         class="btn btn-ghost btn-xs px-2.5 py-1.5 text-xs font-bold text-[#990303] dark:text-[#DC2626]"
@@ -22,7 +22,7 @@
                     Today
                 </button>
                 <button type="button"
-                        hx-get="/sessions?date={{.Calendar.NextWeekStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}"
+                        hx-get="/sessions?date={{.Calendar.NextWeekStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}&location_id={{.FilterLocationID}}"
                         hx-target="#classes-container"
                         hx-push-url="true"
                         class="btn btn-ghost btn-xs px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300"
@@ -172,6 +172,18 @@
                                             Admin: <span class="font-semibold">{{.Session.AdminName}}</span>
                                         </p>
                                         {{end}}
+                                        {{if .Session.LocationName}}
+                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center gap-1">
+                                            <span>📍</span>
+                                            {{if .Session.LocationPin}}
+                                            <a href="{{.Session.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold truncate" title="View in Google Maps">
+                                                {{.Session.LocationName}}
+                                            </a>
+                                            {{else}}
+                                            <span class="font-semibold truncate">{{.Session.LocationName}}</span>
+                                            {{end}}
+                                        </p>
+                                        {{end}}
                                         {{if and .Session.Notes (gt .CardHeight 70)}}
                                         <p class="text-[10px] text-slate-500 dark:text-slate-400 italic truncate mt-0.5" title="{{.Session.Notes}}">
                                             "{{.Session.Notes}}"
@@ -186,7 +198,7 @@
                                         <div class="flex items-center gap-1">
                                             {{if not .Session.IsCancelled}}
                                             <button type="button"
-                                                    onclick="openEditSessionModal('{{.Session.ID}}', '{{.Session.SessionDate.Format "2006-01-02"}}', '{{.Session.StartTime}}', '{{.Session.EndTime}}', '{{.Session.CoachID}}', '{{if .Session.AdminID}}{{.Session.AdminID}}{{end}}', '{{.Session.TrainingType}}', '{{.Session.Notes}}', {{if .Session.IsOpen}}true{{else}}false{{end}})"
+                                                    onclick="openEditSessionModal('{{.Session.ID}}', '{{.Session.SessionDate.Format "2006-01-02"}}', '{{.Session.StartTime}}', '{{.Session.EndTime}}', '{{.Session.CoachID}}', '{{if .Session.AdminID}}{{.Session.AdminID}}{{end}}', '{{.Session.TrainingType}}', '{{.Session.Notes}}', {{if .Session.IsOpen}}true{{else}}false{{end}}, '{{if .Session.LocationID}}{{.Session.LocationID}}{{end}}')"
                                                     class="text-[10px] text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white font-bold p-0.5"
                                                     title="Edit Class">
                                                 ✏️
@@ -297,6 +309,16 @@
                                 Admin: {{.AdminName}}
                             </span>
                             {{end}}
+                            {{if .LocationName}}
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5 flex items-center gap-1">
+                                <span>📍</span>
+                                {{if .LocationPin}}
+                                <a href="{{.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold" title="View in Google Maps">{{.LocationName}}</a>
+                                {{else}}
+                                <span>{{.LocationName}}</span>
+                                {{end}}
+                            </span>
+                            {{end}}
                         </td>
 
                         <!-- Remarks / Notes -->
@@ -319,7 +341,7 @@
                             <div class="inline-flex items-center gap-1.5">
                                 {{if not .IsCancelled}}
                                 <button type="button"
-                                        onclick="openEditSessionModal('{{.ID}}', '{{.SessionDate.Format "2006-01-02"}}', '{{.StartTime}}', '{{.EndTime}}', '{{.CoachID}}', '{{if .AdminID}}{{.AdminID}}{{end}}', '{{.TrainingType}}', '{{.Notes}}', {{if .IsOpen}}true{{else}}false{{end}})"
+                                        onclick="openEditSessionModal('{{.ID}}', '{{.SessionDate.Format "2006-01-02"}}', '{{.StartTime}}', '{{.EndTime}}', '{{.CoachID}}', '{{if .AdminID}}{{.AdminID}}{{end}}', '{{.TrainingType}}', '{{.Notes}}', {{if .IsOpen}}true{{else}}false{{end}}, '{{if .LocationID}}{{.LocationID}}{{end}}')"
                                         class="btn btn-ghost btn-xs text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white py-1 px-2 font-medium"
                                         title="Edit Class">
                                     <span>✏️</span> Edit
@@ -362,7 +384,7 @@
                     <!-- Prev Button -->
                     <button type="button"
                             {{if .HasPrevPage}}
-                            hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&page={{$.PrevPage}}"
+                            hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&location_id={{$.FilterLocationID}}&page={{$.PrevPage}}"
                             hx-target="#classes-container"
                             hx-push-url="true"
                             class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-700 dark:text-slate-300"
@@ -378,7 +400,7 @@
                     <div class="inline-flex items-center gap-1">
                         {{range .PageNumbers}}
                         <button type="button"
-                                hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&page={{.}}"
+                                hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&location_id={{$.FilterLocationID}}&page={{.}}"
                                 hx-target="#classes-container"
                                 hx-push-url="true"
                                 class="btn btn-xs px-2.5 py-1 {{if eq . $.Page}}bg-[#990303] text-white hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C]{{else}}btn-ghost text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800{{end}} font-bold font-mono">
@@ -390,7 +412,7 @@
                     <!-- Next Button -->
                     <button type="button"
                             {{if .HasNextPage}}
-                            hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&page={{$.NextPage}}"
+                            hx-get="/sessions?date={{$.SelectedDate}}&coach_id={{$.FilterCoachID}}&category={{$.FilterCategory}}&student_id={{$.FilterStudentID}}&location_id={{$.FilterLocationID}}&page={{$.NextPage}}"
                             hx-target="#classes-container"
                             hx-push-url="true"
                             class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-700 dark:text-slate-300"

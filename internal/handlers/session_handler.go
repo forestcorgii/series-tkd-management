@@ -146,8 +146,10 @@ type SessionsPageData struct {
 	Coaches            []*models.Coach
 	Admins             []*models.User
 	Students           []*models.Student
+	Locations          []*models.Location
 	FilterCoachID      string
 	FilterStudentID    string
+	FilterLocationID   string
 	FilterCategory     string
 	FilterDay          string
 	Calendar           CalendarWeek
@@ -172,6 +174,7 @@ type LiveCheckInPageData struct {
 	Students         []*models.Student
 	Coaches          []*models.Coach
 	Admins           []*models.User
+	Locations        []*models.Location
 	ReadinessMap     map[string]services.PromotionReadiness
 	PackageStatusMap map[string]string
 }
@@ -222,6 +225,7 @@ func formatHourLabel(h int) string {
 func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
 	studentIDStr := strings.TrimSpace(r.URL.Query().Get("student_id"))
+	locationIDStr := strings.TrimSpace(r.URL.Query().Get("location_id"))
 	category := strings.TrimSpace(r.URL.Query().Get("category"))
 	viewMode := strings.TrimSpace(r.URL.Query().Get("view"))
 	if viewMode == "" {
@@ -240,7 +244,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	todayStr := today.Format("2006-01-02")
 	refDate := today
 
-	// Pre-filter by coach, student, and category
+	// Pre-filter by coach, student, location, and category
 	baseFilter := repository.SessionFilter{
 		TrainingType: category,
 	}
@@ -252,6 +256,11 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	if studentIDStr != "" {
 		if sID, err := uuid.Parse(studentIDStr); err == nil {
 			baseFilter.StudentID = &sID
+		}
+	}
+	if locationIDStr != "" {
+		if lID, err := uuid.Parse(locationIDStr); err == nil {
+			baseFilter.LocationID = &lID
 		}
 	}
 
@@ -626,14 +635,18 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		pageNumbers = append(pageNumbers, i)
 	}
 
+	locations, _ := a.store.GetAllLocations()
+
 	data := SessionsPageData{
 		CurrentUser:        user,
 		Sessions:           pagedSessions,
 		Coaches:            coaches,
 		Admins:             activeAdmins,
 		Students:           students,
+		Locations:          locations,
 		FilterCoachID:      coachIDStr,
 		FilterStudentID:    studentIDStr,
+		FilterLocationID:   locationIDStr,
 		FilterCategory:     category,
 		FilterDay:          dateParam,
 		Calendar:           calWeek,
@@ -679,12 +692,20 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	var locationIDPtr *uuid.UUID
+	if locIDStr := strings.TrimSpace(r.FormValue("location_id")); locIDStr != "" {
+		if lID, err := uuid.Parse(locIDStr); err == nil && lID != uuid.Nil {
+			locationIDPtr = &lID
+		}
+	}
+
 	sess := &models.TrainingSession{
 		SessionDate:  sessDate,
 		StartTime:    r.FormValue("start_time"),
 		EndTime:      r.FormValue("end_time"),
 		CoachID:      coachID,
 		AdminID:      adminIDPtr,
+		LocationID:   locationIDPtr,
 		TrainingType: models.TrainingType(r.FormValue("training_type")),
 		Notes:        r.FormValue("notes"),
 	}
@@ -736,6 +757,13 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	var locationIDPtr *uuid.UUID
+	if locIDStr := strings.TrimSpace(r.FormValue("location_id")); locIDStr != "" {
+		if lID, err := uuid.Parse(locIDStr); err == nil && lID != uuid.Nil {
+			locationIDPtr = &lID
+		}
+	}
+
 	startTime := strings.TrimSpace(r.FormValue("start_time"))
 	if startTime == "" {
 		startTime = sess.StartTime
@@ -750,6 +778,7 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 	sess.EndTime = endTime
 	sess.CoachID = coachID
 	sess.AdminID = adminIDPtr
+	sess.LocationID = locationIDPtr
 	if tType := strings.TrimSpace(r.FormValue("training_type")); tType != "" {
 		sess.TrainingType = models.TrainingType(tType)
 	}
@@ -880,6 +909,7 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 		return strings.ToLower(nameI) < strings.ToLower(nameJ)
 	})
 
+	locations, _ := a.store.GetAllLocations()
 	user := GetUserFromContext(r.Context())
 	data := LiveCheckInPageData{
 		CurrentUser:      user,
@@ -888,6 +918,7 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 		Students:         allStudents,
 		Coaches:          coaches,
 		Admins:           activeAdmins,
+		Locations:        locations,
 		ReadinessMap:     readinessMap,
 		PackageStatusMap: pkgStatusMap,
 	}

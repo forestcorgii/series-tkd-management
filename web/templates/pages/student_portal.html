@@ -198,14 +198,24 @@
                 <div class="max-h-48 overflow-y-auto divide-y divide-[#E5E3D8] dark:divide-neutral-800 text-xs">
                     {{range .RecentAttendances}}
                     <div class="py-2.5 flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
                             <span class="font-semibold text-slate-800 dark:text-slate-200">Class Attended</span>
+                            {{if .LocationName}}
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                                <span>📍</span>
+                                {{if .LocationPin}}
+                                <a href="{{.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline font-semibold" title="View Location in Google Maps">{{.LocationName}}</a>
+                                {{else}}
+                                <span>{{.LocationName}}</span>
+                                {{end}}
+                            </span>
+                            {{end}}
                             {{if .PackageTitle}}
                             <span class="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">{{.PackageTitle}}</span>
                             {{end}}
                         </div>
-                        <span class="text-slate-500 dark:text-slate-400">{{formatDate .CheckedInAt}}</span>
+                        <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">{{formatDate .CheckedInAt}}</span>
                     </div>
                     {{else}}
                     <p class="text-xs text-slate-500 py-3 text-center">No past attendance logs found.</p>

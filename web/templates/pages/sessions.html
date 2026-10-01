@@ -27,7 +27,7 @@
                   hx-trigger="change, input delay:250ms"
                   class="space-y-3 sm:space-y-0">
                 <input type="hidden" name="view" value="{{.ViewMode}}">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
                     <!-- Coach Filter -->
                     <div>
                         <label class="form-label text-[11px]">Filter by Coach</label>
@@ -48,6 +48,17 @@
                             <option value="Poomsae" {{if eq .FilterCategory "Poomsae"}}selected{{end}}>Forms (Poomsae)</option>
                             <option value="Conditioning" {{if eq .FilterCategory "Conditioning"}}selected{{end}}>Conditioning / Impact</option>
                             <option value="Promotion Prep" {{if eq .FilterCategory "Promotion Prep"}}selected{{end}}>Promotion Testing Prep</option>
+                        </select>
+                    </div>
+
+                    <!-- Location Filter -->
+                    <div>
+                        <label class="form-label text-[11px]">Filter by Location</label>
+                        <select name="location_id" class="form-select text-xs searchable-select" data-placeholder="All Locations">
+                            <option value="">All Locations</option>
+                            {{range .Locations}}
+                            <option value="{{.ID}}" {{if eq $.FilterLocationID .ID.String}}selected{{end}}>{{.Name}}</option>
+                            {{end}}
                         </select>
                     </div>
 
@@ -127,6 +138,16 @@
             </div>
 
             <div>
+                <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)...">
+                    <option value="">None / Unassigned</option>
+                    {{range .Locations}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div>
                 <label class="form-label">Training Category</label>
                 <select name="training_type" class="form-select">
                     <option value="Sparring">Sparring (Kyorugi)</option>
@@ -196,6 +217,17 @@
                     <option value="">None / Unassigned</option>
                     {{range .Admins}}
                     <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <!-- Location Dropdown -->
+            <div>
+                <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)...">
+                    <option value="">None / Unassigned</option>
+                    {{range .Locations}}
+                    <option value="{{.ID}}">{{.Name}}</option>
                     {{end}}
                 </select>
             </div>
@@ -373,7 +405,7 @@ function openNewSessionModal(dateStr, timeStr) {
     modal.classList.remove('hidden');
 }
 
-function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen) {
+function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen, locationID) {
     const form = document.getElementById('edit-session-form');
     form.action = '/sessions/' + id + '/edit';
     
@@ -391,6 +423,12 @@ function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID,
     if (adminSelect) {
         adminSelect.value = adminID || '';
         adminSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const locationSelect = document.getElementById('edit-location-id');
+    if (locationSelect) {
+        locationSelect.value = locationID || '';
+        locationSelect.dispatchEvent(new Event('change', { bubbles: true }));
     }
     
     const typeSelect = document.getElementById('edit-training-type');
