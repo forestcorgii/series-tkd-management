@@ -391,7 +391,7 @@ func (m *MemoryStore) DeleteCoach(coachID uuid.UUID) error {
 		if sess.AdminID != nil && *sess.AdminID == coachID {
 			sess.AdminID = nil
 		}
-		if sess.CoachID == coachID {
+		if sess.CoachID != nil && *sess.CoachID == coachID {
 			delete(m.attendances, sID)
 			delete(m.sessions, sID)
 		}
@@ -503,8 +503,14 @@ func (m *MemoryStore) GetAllSessions() ([]*models.TrainingSession, error) {
 
 	result := make([]*models.TrainingSession, 0, len(m.sessions))
 	for _, s := range m.sessions {
-		if coach, ok := m.coaches[s.CoachID]; ok {
-			s.CoachName = coach.FullName
+		if s.CoachID != nil {
+			if coach, ok := m.coaches[*s.CoachID]; ok {
+				s.CoachName = coach.FullName
+			} else {
+				s.CoachName = ""
+			}
+		} else {
+			s.CoachName = ""
 		}
 		result = append(result, s)
 	}
@@ -519,8 +525,14 @@ func (m *MemoryStore) GetSessionByID(id uuid.UUID) (*models.TrainingSession, err
 	if !ok {
 		return nil, ErrNotFound
 	}
-	if coach, ok := m.coaches[s.CoachID]; ok {
-		s.CoachName = coach.FullName
+	if s.CoachID != nil {
+		if coach, ok := m.coaches[*s.CoachID]; ok {
+			s.CoachName = coach.FullName
+		} else {
+			s.CoachName = ""
+		}
+	} else {
+		s.CoachName = ""
 	}
 	if s.AdminID != nil {
 		if u, ok := m.users[*s.AdminID]; ok {
@@ -542,7 +554,7 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 
 	result := make([]*models.TrainingSession, 0, len(m.sessions))
 	for _, s := range m.sessions {
-		if filter.CoachID != nil && s.CoachID != *filter.CoachID {
+		if filter.CoachID != nil && (s.CoachID == nil || *s.CoachID != *filter.CoachID) {
 			continue
 		}
 		if filter.LocationID != nil {
@@ -579,8 +591,14 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 				continue
 			}
 		}
-		if coach, ok := m.coaches[s.CoachID]; ok {
-			s.CoachName = coach.FullName
+		if s.CoachID != nil {
+			if coach, ok := m.coaches[*s.CoachID]; ok {
+				s.CoachName = coach.FullName
+			} else {
+				s.CoachName = ""
+			}
+		} else {
+			s.CoachName = ""
 		}
 		if s.LocationID != nil {
 			if loc, ok := m.locations[*s.LocationID]; ok {
@@ -664,6 +682,9 @@ func (m *MemoryStore) UpdateSession(sess *models.TrainingSession) error {
 	existing.StartTime = sess.StartTime
 	existing.EndTime = sess.EndTime
 	existing.CoachID = sess.CoachID
+	if sess.CoachID == nil {
+		existing.CoachName = ""
+	}
 	existing.AdminID = sess.AdminID
 	existing.LocationID = sess.LocationID
 	existing.TrainingType = sess.TrainingType

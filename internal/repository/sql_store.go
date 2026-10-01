@@ -153,7 +153,7 @@ func (s *SQLStore) runMigrations() error {
 			session_date TEXT NOT NULL,
 			start_time TEXT NOT NULL,
 			end_time TEXT NOT NULL,
-			coach_id TEXT NOT NULL REFERENCES coaches(id),
+			coach_id TEXT REFERENCES coaches(id),
 			admin_id TEXT REFERENCES coaches(id),
 			location_id TEXT REFERENCES locations(id),
 			training_type TEXT NOT NULL,
@@ -304,7 +304,7 @@ func (s *SQLStore) runMigrations() error {
 			session_date DATE NOT NULL DEFAULT CURRENT_DATE,
 			start_time VARCHAR(20) NOT NULL,
 			end_time VARCHAR(20) NOT NULL,
-			coach_id UUID NOT NULL REFERENCES coaches(id),
+			coach_id UUID REFERENCES coaches(id),
 			admin_id UUID REFERENCES coaches(id),
 			location_id UUID REFERENCES locations(id),
 			training_type VARCHAR(50) NOT NULL,
@@ -422,6 +422,47 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN session_rate REAL`)
+
+		// Drop NOT NULL on coach_id in training_sessions if table was previously created with NOT NULL
+		if rows, err := s.db.Query(`PRAGMA table_info(training_sessions)`); err == nil {
+			needsCoachNullable := false
+			for rows.Next() {
+				var cid, notnull, pk int
+				var name, colType string
+				var dfltValue sql.NullString
+				if err := rows.Scan(&cid, &name, &colType, &notnull, &dfltValue, &pk); err == nil {
+					if name == "coach_id" && notnull == 1 {
+						needsCoachNullable = true
+					}
+				}
+			}
+			rows.Close()
+			if needsCoachNullable {
+				migrationSQL := `
+					PRAGMA foreign_keys=OFF;
+					CREATE TABLE training_sessions_dg_tmp (
+						id TEXT PRIMARY KEY,
+						session_date TEXT NOT NULL,
+						start_time TEXT NOT NULL,
+						end_time TEXT NOT NULL,
+						coach_id TEXT REFERENCES coaches(id),
+						admin_id TEXT REFERENCES coaches(id),
+						location_id TEXT REFERENCES locations(id),
+						training_type TEXT NOT NULL,
+						notes TEXT,
+						is_cancelled INTEGER NOT NULL DEFAULT 0,
+						cancellation_reason TEXT DEFAULT '',
+						cancelled_at TEXT,
+						created_at TEXT NOT NULL
+					);
+					INSERT INTO training_sessions_dg_tmp SELECT id, session_date, start_time, end_time, coach_id, admin_id, location_id, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, created_at FROM training_sessions;
+					DROP TABLE training_sessions;
+					ALTER TABLE training_sessions_dg_tmp RENAME TO training_sessions;
+					PRAGMA foreign_keys=ON;
+				`
+				_, _ = s.db.Exec(migrationSQL)
+			}
+		}
 	} else {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(120) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(80) UNIQUE`)
@@ -453,6 +494,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`)
 	}
 
 	return nil
@@ -1252,8 +1294,8 @@ func (s *SQLStore) UpdateStudentPackage(pkg *models.StudentPackage) error {
 
 // Training Sessions
 func (s *SQLStore) scanSession(scan func(...interface{}) error) (*models.TrainingSession, error) {
-	var idStr, coachIDStr, sessDateStr, createdStr string
-	var coachName, adminIDStr, notes, cancelReason, cancelledAtStr, adminName sql.NullString
+	var idStr, sessDateStr, createdStr string
+	var coachIDStr, coachName, adminIDStr, notes, cancelReason, cancelledAtStr, adminName sql.NullString
 	var locationIDStr, locationName, locationPin sql.NullString
 	var isCancelled sql.NullBool
 	ts := &models.TrainingSession{}
@@ -1267,7 +1309,12 @@ func (s *SQLStore) scanSession(scan func(...interface{}) error) (*models.Trainin
 		return nil, err
 	}
 	ts.ID = uuid.Must(uuid.Parse(idStr))
-	ts.CoachID = uuid.Must(uuid.Parse(coachIDStr))
+	if coachIDStr.Valid && coachIDStr.String != "" {
+		cid, err := uuid.Parse(coachIDStr.String)
+		if err == nil && cid != uuid.Nil {
+			ts.CoachID = &cid
+		}
+	}
 	ts.SessionDate, _ = parseTimeFlex(sessDateStr)
 	ts.CreatedAt, _ = parseTimeFlex(createdStr)
 	if coachName.Valid {
@@ -1425,6 +1472,10 @@ func (s *SQLStore) CreateSession(sess *models.TrainingSession) error {
 	if sess.CreatedAt.IsZero() {
 		sess.CreatedAt = time.Now()
 	}
+	var coachIDVal interface{}
+	if sess.CoachID != nil && *sess.CoachID != uuid.Nil {
+		coachIDVal = sess.CoachID.String()
+	}
 	var adminIDVal interface{}
 	if sess.AdminID != nil && *sess.AdminID != uuid.Nil {
 		adminIDVal = sess.AdminID.String()
@@ -1442,13 +1493,17 @@ func (s *SQLStore) CreateSession(sess *models.TrainingSession) error {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 	_, err := s.db.Exec(query,
 		sess.ID.String(), formatDateForDB(sess.SessionDate), sess.StartTime, sess.EndTime,
-		sess.CoachID.String(), adminIDVal, locationIDVal, string(sess.TrainingType), sess.Notes,
+		coachIDVal, adminIDVal, locationIDVal, string(sess.TrainingType), sess.Notes,
 		sess.IsCancelled, sess.CancellationReason, cancelledAtVal, formatTimeForDB(sess.CreatedAt),
 	)
 	return err
 }
 
 func (s *SQLStore) UpdateSession(sess *models.TrainingSession) error {
+	var coachIDVal interface{}
+	if sess.CoachID != nil && *sess.CoachID != uuid.Nil {
+		coachIDVal = sess.CoachID.String()
+	}
 	var adminIDVal interface{}
 	if sess.AdminID != nil && *sess.AdminID != uuid.Nil {
 		adminIDVal = sess.AdminID.String()
@@ -1463,7 +1518,7 @@ func (s *SQLStore) UpdateSession(sess *models.TrainingSession) error {
 		WHERE id = $9`
 	res, err := s.db.Exec(query,
 		formatDateForDB(sess.SessionDate), sess.StartTime, sess.EndTime,
-		sess.CoachID.String(), adminIDVal, locationIDVal, string(sess.TrainingType), sess.Notes,
+		coachIDVal, adminIDVal, locationIDVal, string(sess.TrainingType), sess.Notes,
 		sess.ID.String(),
 	)
 	if err != nil {
@@ -2083,12 +2138,12 @@ func (s *SQLStore) SeedDefaultData() error {
 	sess2ID := uuid.MustParse("c2222222-2222-2222-2222-222222222222")
 
 	_ = s.CreateSession(&models.TrainingSession{
-		ID: sess1ID, SessionDate: now, StartTime: "17:00", EndTime: "18:30", CoachID: c1ID, CoachName: "Master Dae-Hyun Kim",
+		ID: sess1ID, SessionDate: now, StartTime: "17:00", EndTime: "18:30", CoachID: &c1ID, CoachName: "Master Dae-Hyun Kim",
 		AdminID: &c1ID, LocationID: &loc1ID, TrainingType: models.TrainingSparring, Notes: "High intensity floor drills, electronic scoring pad practice",
 		CreatedAt: now.Add(-2 * time.Hour),
 	})
 	_ = s.CreateSession(&models.TrainingSession{
-		ID: sess2ID, SessionDate: now.AddDate(0, 0, -1), StartTime: "18:30", EndTime: "20:00", CoachID: c2ID, CoachName: "Coach Ji-Woo Park",
+		ID: sess2ID, SessionDate: now.AddDate(0, 0, -1), StartTime: "18:30", EndTime: "20:00", CoachID: &c2ID, CoachName: "Coach Ji-Woo Park",
 		AdminID: &c1ID, LocationID: &loc2ID, TrainingType: models.TrainingPoomsae, Notes: "Taegeuk 1 through 8 refinement & stance balance auditing",
 		CreatedAt: now.AddDate(0, 0, -1),
 	})
@@ -2102,7 +2157,7 @@ func (s *SQLStore) SeedDefaultData() error {
 		}
 		_ = s.CreateSession(&models.TrainingSession{
 			ID: dummyID, SessionDate: now.AddDate(0, 0, -i*2), StartTime: "17:00", EndTime: "18:15",
-			CoachID: c1ID, TrainingType: tType, Notes: "Regular class attendance log",
+			CoachID: &c1ID, TrainingType: tType, Notes: "Regular class attendance log",
 		})
 		_, _ = s.CheckInStudent(dummyID, s1ID, &sp1ID, nil)
 	}
@@ -2114,7 +2169,7 @@ func (s *SQLStore) SeedDefaultData() error {
 		dummyID := uuid.New()
 		_ = s.CreateSession(&models.TrainingSession{
 			ID: dummyID, SessionDate: now.AddDate(0, 0, -i*2), StartTime: "18:30", EndTime: "19:45",
-			CoachID: c2ID, TrainingType: models.TrainingPoomsae, Notes: "Regular class",
+			CoachID: &c2ID, TrainingType: models.TrainingPoomsae, Notes: "Regular class",
 		})
 		_, _ = s.CheckInStudent(dummyID, s2ID, &sp2ID, nil)
 	}

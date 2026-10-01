@@ -43,7 +43,7 @@ func (ps *PayrollService) CalculateCoachPayroll(
 		if sess.IsCancelled {
 			continue
 		}
-		if sess.CoachID == coach.ID {
+		if sess.CoachID != nil && *sess.CoachID == coach.ID {
 			if !sess.SessionDate.Before(startDate) && !sess.SessionDate.After(endDate) {
 				sessionsLed++
 			}
@@ -55,7 +55,7 @@ func (ps *PayrollService) CalculateCoachPayroll(
 			if sess.IsCancelled {
 				continue
 			}
-			if sess.ID == att.SessionID && sess.CoachID == coach.ID {
+			if sess.ID == att.SessionID && sess.CoachID != nil && *sess.CoachID == coach.ID {
 				if !sess.SessionDate.Before(startDate) && !sess.SessionDate.After(endDate) {
 					studentsCountMap[att.StudentID.String()] = true
 				}

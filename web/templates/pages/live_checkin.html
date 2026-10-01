@@ -31,7 +31,7 @@
                 {{.Session.TrainingType}} Class
             </h1>
             <p class="text-xs text-slate-600 dark:text-slate-400">
-                Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.CoachName}}</span>
+                Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 dark:text-slate-500 font-normal italic">None / Unassigned</span>{{end}}</span>
                 {{if .Session.AdminName}} &bull; Supervising Admin: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.AdminName}}</span>{{end}}
             </p>
         </div>
@@ -184,7 +184,7 @@
         <form action="/sessions/{{.Session.ID}}/cancel" method="POST" class="space-y-4">
             <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1">
                 <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
-                <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{.Session.CoachName}}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{if .Session.CoachName}}{{.Session.CoachName}}{{else}}None / Unassigned{{end}}</p>
             </div>
 
             <div>
@@ -250,12 +250,12 @@
 
             <!-- Lead Coach Dropdown -->
             <div>
-                <label class="form-label">Lead Coach</label>
-                <select id="edit-coach-id" name="coach_id" required class="form-select searchable-select" data-placeholder="Select Lead Coach...">
-                    <option value="">Select Lead Coach...</option>
+                <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                    <option value="">None / Unassigned</option>
                     {{range .Coaches}}
                     {{if .IsActive}}
-                    <option value="{{.ID}}" {{if eq $.Session.CoachID.String .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
+                    <option value="{{.ID}}" {{if eq $.Session.CoachIDString .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
                     {{end}}
                     {{end}}
                 </select>
@@ -327,7 +327,7 @@
         <form id="delete-session-form" method="POST" action="/sessions/{{.Session.ID}}/delete" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
                 <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
-                <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{.Session.CoachName}}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{if .Session.CoachName}}{{.Session.CoachName}}{{else}}None / Unassigned{{end}}</p>
                 <p class="text-xs text-rose-700 dark:text-rose-300 font-medium pt-1 border-t border-rose-200/60 dark:border-rose-900/60">
                     ⚠️ Deleting this open class will permanently purge the attendance roster and restore any deducted student membership credits.
                 </p>

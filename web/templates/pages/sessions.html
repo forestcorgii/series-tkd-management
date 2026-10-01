@@ -116,9 +116,9 @@
             </div>
 
             <div>
-                <label class="form-label">Lead Coach</label>
-                <select name="coach_id" required class="form-select searchable-select" data-placeholder="Select Lead Coach...">
-                    <option value="">Select Lead Coach...</option>
+                <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                    <option value="">None / Unassigned</option>
                     {{range .Coaches}}
                     {{if .IsActive}}
                     <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
@@ -199,9 +199,9 @@
 
             <!-- Lead Coach Dropdown -->
             <div>
-                <label class="form-label">Lead Coach</label>
-                <select id="edit-coach-id" name="coach_id" required class="form-select searchable-select" data-placeholder="Select Lead Coach...">
-                    <option value="">Select Lead Coach...</option>
+                <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                    <option value="">None / Unassigned</option>
                     {{range .Coaches}}
                     {{if .IsActive}}
                     <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>

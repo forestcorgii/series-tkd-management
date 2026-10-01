@@ -42,7 +42,7 @@ func TestDashboard_ActiveClassesOnlyShowsOpenClasses(t *testing.T) {
 		SessionDate:  now.AddDate(0, 0, 1),
 		StartTime:    "10:00",
 		EndTime:      "11:30",
-		CoachID:      coachID,
+		CoachID:      &coachID,
 		TrainingType: models.TrainingSparring,
 		Notes:        "Future Open Sparring Session",
 	}
@@ -56,7 +56,7 @@ func TestDashboard_ActiveClassesOnlyShowsOpenClasses(t *testing.T) {
 		SessionDate:  now.AddDate(0, 0, -1),
 		StartTime:    "10:00",
 		EndTime:      "11:30",
-		CoachID:      coachID,
+		CoachID:      &coachID,
 		TrainingType: models.TrainingPoomsae,
 		Notes:        "Yesterday Closed Poomsae Session",
 	}
@@ -70,7 +70,7 @@ func TestDashboard_ActiveClassesOnlyShowsOpenClasses(t *testing.T) {
 		SessionDate:  now.AddDate(0, 0, 1),
 		StartTime:    "14:00",
 		EndTime:      "15:30",
-		CoachID:      coachID,
+		CoachID:      &coachID,
 		TrainingType: models.TrainingConditioning,
 		Notes:        "Cancelled Conditioning Session",
 	}

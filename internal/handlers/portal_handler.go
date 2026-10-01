@@ -895,10 +895,11 @@ func (a *AppHandler) HandleAPIAdminPromote(w http.ResponseWriter, r *http.Reques
 func (a *AppHandler) HandleAPIAdminSchedule(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 
-	coachID, err := uuid.Parse(r.FormValue("coach_id"))
-	if err != nil {
-		http.Error(w, "Invalid coach_id", http.StatusBadRequest)
-		return
+	var coachIDPtr *uuid.UUID
+	if cidStr := strings.TrimSpace(r.FormValue("coach_id")); cidStr != "" {
+		if cID, err := uuid.Parse(cidStr); err == nil && cID != uuid.Nil {
+			coachIDPtr = &cID
+		}
 	}
 
 	dateStr := r.FormValue("session_date")
@@ -912,7 +913,7 @@ func (a *AppHandler) HandleAPIAdminSchedule(w http.ResponseWriter, r *http.Reque
 		SessionDate:  sessionDate,
 		StartTime:    r.FormValue("start_time"),
 		EndTime:      r.FormValue("end_time"),
-		CoachID:      coachID,
+		CoachID:      coachIDPtr,
 		TrainingType: models.TrainingType(r.FormValue("discipline")),
 		Notes:        strings.TrimSpace(r.FormValue("notes")),
 		CreatedAt:    time.Now(),

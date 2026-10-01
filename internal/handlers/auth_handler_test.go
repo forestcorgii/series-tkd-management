@@ -258,7 +258,7 @@ func TestAuthHandler_RESTAPI_Lifecycle(t *testing.T) {
 			SessionDate:  time.Now(),
 			StartTime:    "18:00",
 			EndTime:      "19:00",
-			CoachID:      coaches[0].ID,
+			CoachID:      &coaches[0].ID,
 			TrainingType: "Poomsae",
 			CreatedAt:    time.Now(),
 		}

@@ -22,7 +22,7 @@ type TrainingSession struct {
 	SessionDate        time.Time    `json:"session_date"`
 	StartTime          string       `json:"start_time"`
 	EndTime            string       `json:"end_time"`
-	CoachID            uuid.UUID    `json:"coach_id"`
+	CoachID            *uuid.UUID   `json:"coach_id,omitempty"`
 	CoachName          string       `json:"coach_name,omitempty"`
 	AdminID            *uuid.UUID   `json:"admin_id,omitempty"`
 	AdminName          string       `json:"admin_name,omitempty"`
@@ -35,6 +35,14 @@ type TrainingSession struct {
 	CancelledAt        *time.Time   `json:"cancelled_at,omitempty"`
 	CancellationReason string       `json:"cancellation_reason,omitempty"`
 	CreatedAt          time.Time    `json:"created_at"`
+}
+
+// CoachIDString returns the coach ID string, or empty string if unassigned.
+func (s *TrainingSession) CoachIDString() string {
+	if s.CoachID == nil {
+		return ""
+	}
+	return s.CoachID.String()
 }
 
 // IsDone returns true if the session is not cancelled and has completed its scheduled end time.

@@ -36,7 +36,7 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 		SessionDate:  sessDate,
 		StartTime:    "17:00",
 		EndTime:      "18:30",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingSparring,
 		Notes:        "Sparring strategy",
 	}
@@ -154,7 +154,7 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 			SessionDate:  yesterday,
 			StartTime:    "10:00",
 			EndTime:      "11:30",
-			CoachID:      coach.ID,
+			CoachID:      &coach.ID,
 			TrainingType: models.TrainingPoomsae,
 		}
 		_ = store.CreateSession(doneSess)
@@ -285,7 +285,7 @@ func TestSessionHandler_CalendarMultiHourAndHalfHour(t *testing.T) {
 		SessionDate:  sessDate,
 		StartTime:    "09:00",
 		EndTime:      "11:00",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingSparring,
 		Notes:        "Morning Sparring Camp",
 	}
@@ -298,7 +298,7 @@ func TestSessionHandler_CalendarMultiHourAndHalfHour(t *testing.T) {
 		SessionDate:  thursDate,
 		StartTime:    "09:30",
 		EndTime:      "11:30",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingPoomsae,
 		Notes:        "Half-hour Poomsae",
 	}
@@ -370,7 +370,7 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 		SessionDate:  d1,
 		StartTime:    "10:00",
 		EndTime:      "12:00",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingPoomsae,
 		Notes:        "Old Poomsae Class",
 		CreatedAt:    time.Now().Add(-48 * time.Hour),
@@ -384,7 +384,7 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 		SessionDate:  d2,
 		StartTime:    "09:00",
 		EndTime:      "11:00",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingSparring,
 		Notes:        "Morning Sparring Class",
 		CreatedAt:    time.Now().Add(-24 * time.Hour),
@@ -397,7 +397,7 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 		SessionDate:  d2,
 		StartTime:    "16:00",
 		EndTime:      "18:00",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingConditioning,
 		Notes:        "Afternoon Conditioning Class",
 		CreatedAt:    time.Now(),
@@ -505,7 +505,7 @@ func TestSessionHandler_RosterPagination(t *testing.T) {
 			SessionDate:  sDate,
 			StartTime:    "10:00",
 			EndTime:      "12:00",
-			CoachID:      coach.ID,
+			CoachID:      &coach.ID,
 			TrainingType: models.TrainingSparring,
 			Notes:        fmt.Sprintf("Sess-Note-%02d", i),
 		}
@@ -657,8 +657,8 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to retrieve created session: %v", err)
 		}
-		if sess.CoachID != coach1.ID {
-			t.Errorf("expected coach %s, got %s", coach1.ID, sess.CoachID)
+		if sess.CoachID == nil || *sess.CoachID != coach1.ID {
+			t.Errorf("expected coach %s, got %v", coach1.ID, sess.CoachID)
 		}
 		if sess.AdminID == nil || *sess.AdminID != admin.ID {
 			t.Errorf("expected admin %s, got %v", admin.ID, sess.AdminID)
@@ -692,8 +692,8 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to retrieve updated session: %v", err)
 		}
-		if sess.CoachID != coach2.ID {
-			t.Errorf("expected coach %s, got %s", coach2.ID, sess.CoachID)
+		if sess.CoachID == nil || *sess.CoachID != coach2.ID {
+			t.Errorf("expected coach %s, got %v", coach2.ID, sess.CoachID)
 		}
 		if sess.CoachName != "Coach Luigi" {
 			t.Errorf("expected Coach Luigi, got %s", sess.CoachName)
@@ -706,6 +706,61 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 		}
 		if sess.TrainingType != models.TrainingPoomsae {
 			t.Errorf("expected Poomsae, got %s", sess.TrainingType)
+		}
+	})
+
+	// 2b. Create session without lead coach (optional lead coach)
+	t.Run("HandleCreateSession without Coach succeeds", func(t *testing.T) {
+		form := url.Values{
+			"session_date":  {"2026-10-22"},
+			"start_time":    {"17:00"},
+			"end_time":      {"19:00"},
+			"coach_id":      {""}, // Empty / unassigned
+			"admin_id":      {admin.ID.String()},
+			"training_type": {"Conditioning"},
+			"notes":         {"Coach unassigned class"},
+		}
+		req := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		app.HandleCreateSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d: %s", rec.Code, rec.Body.String())
+		}
+		loc := rec.Header().Get("Location")
+		noCoachSessionID := strings.TrimSuffix(strings.TrimPrefix(loc, "/sessions/"), "/live")
+		sessUUID, _ := uuid.Parse(noCoachSessionID)
+		sess, err := store.GetSessionByID(sessUUID)
+		if err != nil {
+			t.Fatalf("failed to retrieve created session: %v", err)
+		}
+		if sess.CoachID != nil {
+			t.Errorf("expected nil CoachID, got %v", sess.CoachID)
+		}
+		if sess.CoachName != "" {
+			t.Errorf("expected empty CoachName, got %s", sess.CoachName)
+		}
+
+		// Edit session to remove coach
+		editForm := url.Values{
+			"session_date":  {"2026-10-22"},
+			"start_time":    {"17:00"},
+			"end_time":      {"19:00"},
+			"coach_id":      {""}, // Keep/make unassigned
+			"training_type": {"Conditioning"},
+		}
+		editReq := httptest.NewRequest(http.MethodPost, "/sessions/"+noCoachSessionID+"/edit", strings.NewReader(editForm.Encode()))
+		editReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		editRec := httptest.NewRecorder()
+		app.HandleUpdateSession(editRec, editReq)
+		if editRec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther on edit to no coach, got %d", editRec.Code)
+		}
+		updatedSess, _ := store.GetSessionByID(sessUUID)
+		if updatedSess.CoachID != nil {
+			t.Errorf("expected nil CoachID after edit, got %v", updatedSess.CoachID)
 		}
 	})
 
@@ -768,7 +823,7 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 			SessionDate:  time.Now().AddDate(0, 0, -2), // 2 days ago
 			StartTime:    "09:00",
 			EndTime:      "10:00",
-			CoachID:      coach1.ID,
+			CoachID:      &coach1.ID,
 			TrainingType: models.TrainingConditioning,
 		}
 		_ = store.CreateSession(pastSess)
@@ -807,7 +862,7 @@ func TestHandleCheckIn_SessionRate_NoPackageCreditDeduction(t *testing.T) {
 		SessionDate:  time.Now(),
 		StartTime:    "17:00",
 		EndTime:      "18:30",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingSparring,
 	}
 	_ = store.CreateSession(session)

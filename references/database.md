@@ -44,4 +44,13 @@
   * **Safe Removal & Cancellation**: Since `student_package_id` is null on fix-rate attendances, roster removal and class cancellation never grant spurious package credits.
   * **UI Display**: Admitted fix-rate students show a distinct `🏫 Fix Rate: ₱X.XX` badge in floor rosters, and search results provide an inline School/Fix Rate check-in option.
 
+### Context: Optional Lead Coach & Floor Session Architecture
+
+* **Problem**: Training sessions initially enforced a non-nullable `coach_id` constraint across database tables, domain structs, and UI check-in/scheduling modals. However, classes often need to be scheduled or floor attendance opened when a lead coach has not yet been designated or is unavailable.
+* **Enforced Solution**:
+  * **Domain Models ([TrainingSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go))**: `CoachID` transitioned from `uuid.UUID` to `*uuid.UUID` (`omitempty`), matching optional foreign keys like `AdminID` and `LocationID`. Added [CoachIDString()](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) for safe template rendering without nil dereference panics.
+  * **Database DDL & Evolution**: Removed `NOT NULL` on `training_sessions.coach_id` in PostgreSQL DDL and SQLite schema. In `SQLStore.Init()`, PostgreSQL executes `ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`, and SQLite performs table recreation if `PRAGMA table_info` reports `notnull == 1`.
+  * **Repository & Query Layer**: `scanSession` utilizes `sql.NullString` for `coach_id`, creating nil pointers when unassigned. `CreateSession` and `UpdateSession` bind `nil` when `CoachID` is nil. `MemoryStore` ensures `CoachName` is cleanly emptied when unassigned.
+  * **Floor Attendance & UI Modals**: Modals in [sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html), and [admin_portal.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/admin_portal.html) label the input as `Lead Coach (Optional)` and provide a `<option value="">None / Unassigned</option>` option. Cards and check-in rosters gracefully display `Unassigned` instead of blank values.
+
 

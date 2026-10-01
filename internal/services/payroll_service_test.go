@@ -27,8 +27,8 @@ func TestPayrollService_CalculateCoachPayroll(t *testing.T) {
 		sess1 := uuid.New()
 		sess2 := uuid.New()
 		sessions := []*models.TrainingSession{
-			{ID: sess1, CoachID: coachID, SessionDate: time.Now()},
-			{ID: sess2, CoachID: coachID, SessionDate: time.Now()},
+			{ID: sess1, CoachID: &coachID, SessionDate: time.Now()},
+			{ID: sess2, CoachID: &coachID, SessionDate: time.Now()},
 		}
 
 		student1 := uuid.New()
@@ -70,8 +70,8 @@ func TestPayrollService_CalculateCoachPayroll(t *testing.T) {
 		sessActive := uuid.New()
 		sessCancelled := uuid.New()
 		sessions := []*models.TrainingSession{
-			{ID: sessActive, CoachID: coachID, SessionDate: time.Now(), IsCancelled: false},
-			{ID: sessCancelled, CoachID: coachID, SessionDate: time.Now(), IsCancelled: true, CancellationReason: "Typhoon"},
+			{ID: sessActive, CoachID: &coachID, SessionDate: time.Now(), IsCancelled: false},
+			{ID: sessCancelled, CoachID: &coachID, SessionDate: time.Now(), IsCancelled: true, CancellationReason: "Typhoon"},
 		}
 
 		student1 := uuid.New()

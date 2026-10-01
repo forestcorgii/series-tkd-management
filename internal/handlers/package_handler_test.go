@@ -285,7 +285,7 @@ func TestHandleFourWeekPlan_CreationAndCheckIn(t *testing.T) {
 		SessionDate:  time.Now(),
 		StartTime:    "10:00",
 		EndTime:      "11:00",
-		CoachID:      cID,
+		CoachID:      &cID,
 		TrainingType: models.TrainingSparring,
 	}
 	sess2 := &models.TrainingSession{
@@ -293,7 +293,7 @@ func TestHandleFourWeekPlan_CreationAndCheckIn(t *testing.T) {
 		SessionDate:  time.Now(),
 		StartTime:    "14:00",
 		EndTime:      "15:00",
-		CoachID:      cID,
+		CoachID:      &cID,
 		TrainingType: models.TrainingPoomsae,
 	}
 	_ = store.CreateSession(sess1)

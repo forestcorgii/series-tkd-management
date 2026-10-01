@@ -75,7 +75,7 @@ func TestSQLStore_SQLitePersistence(t *testing.T) {
 		SessionDate:  time.Now(),
 		StartTime:    "19:00",
 		EndTime:      "20:00",
-		CoachID:      uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		CoachID:      func() *uuid.UUID { id := uuid.MustParse("11111111-1111-1111-1111-111111111111"); return &id }(),
 		TrainingType: models.TrainingSparring,
 	}
 	if err := store.CreateSession(targetSession); err != nil {
@@ -490,7 +490,7 @@ func TestSQLStore_CancelSession(t *testing.T) {
 		SessionDate:  time.Now(),
 		StartTime:    "17:00",
 		EndTime:      "18:30",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingSparring,
 		Notes:        "Sparring fundamentals",
 	}
@@ -563,7 +563,7 @@ func TestSQLStore_CancelSession(t *testing.T) {
 		SessionDate:  time.Now(),
 		StartTime:    "19:00",
 		EndTime:      "20:30",
-		CoachID:      coach.ID,
+		CoachID:      &coach.ID,
 		TrainingType: models.TrainingPoomsae,
 	}
 	if err := store.CreateSession(sess2); err != nil {
@@ -618,7 +618,7 @@ func TestSQLStore_FilterSessions(t *testing.T) {
 		SessionDate:  date1,
 		StartTime:    "10:00",
 		EndTime:      "11:00",
-		CoachID:      coachA.ID,
+		CoachID:      &coachA.ID,
 		TrainingType: models.TrainingSparring,
 	}
 	s2 := &models.TrainingSession{
@@ -626,7 +626,7 @@ func TestSQLStore_FilterSessions(t *testing.T) {
 		SessionDate:  date1,
 		StartTime:    "14:00",
 		EndTime:      "15:00",
-		CoachID:      coachB.ID,
+		CoachID:      &coachB.ID,
 		TrainingType: models.TrainingPoomsae,
 	}
 	s3 := &models.TrainingSession{
@@ -634,7 +634,7 @@ func TestSQLStore_FilterSessions(t *testing.T) {
 		SessionDate:  date2,
 		StartTime:    "16:00",
 		EndTime:      "17:00",
-		CoachID:      coachA.ID,
+		CoachID:      &coachA.ID,
 		TrainingType: models.TrainingConditioning,
 	}
 
@@ -650,7 +650,7 @@ func TestSQLStore_FilterSessions(t *testing.T) {
 		t.Fatalf("Filter by coach failed: %v", err)
 	}
 	for _, s := range byCoachA {
-		if s.CoachID != coachA.ID {
+		if s.CoachID == nil || *s.CoachID != coachA.ID {
 			t.Errorf("expected session coach %v, got %v", coachA.ID, s.CoachID)
 		}
 	}
@@ -928,7 +928,7 @@ func TestRemoveAttendance_SQLAndMemory(t *testing.T) {
 				SessionDate:  time.Now(),
 				StartTime:    "17:00",
 				EndTime:      "18:30",
-				CoachID:      coaches[0].ID,
+				CoachID:      &coaches[0].ID,
 				TrainingType: models.TrainingSparring,
 			}
 			if err := store.CreateSession(session); err != nil {
@@ -1136,7 +1136,7 @@ func TestStore_DeleteStudent(t *testing.T) {
 				SessionDate:  time.Now(),
 				StartTime:    "18:00",
 				EndTime:      "19:00",
-				CoachID:      coach.ID,
+				CoachID:      &coach.ID,
 				TrainingType: models.TrainingPoomsae,
 			}
 			_ = store.CreateSession(sess)
@@ -1282,7 +1282,7 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 				SessionDate:  time.Now(),
 				StartTime:    "14:00",
 				EndTime:      "15:30",
-				CoachID:      coach1.ID,
+				CoachID:      &coach1.ID,
 				TrainingType: models.TrainingSparring,
 				Notes:        "Sparring drills",
 				CreatedAt:    time.Now(),
@@ -1304,7 +1304,7 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 			}
 
 			// 4. Update session: switch to coach 2, assign admin, edit time to 16:00 - 18:00
-			loaded.CoachID = coach2.ID
+			loaded.CoachID = &coach2.ID
 			loaded.AdminID = &adminUser.ID
 			loaded.StartTime = "16:00"
 			loaded.EndTime = "18:00"
@@ -1469,7 +1469,7 @@ func TestSQLStore_Locations(t *testing.T) {
 		SessionDate:  time.Now(),
 		StartTime:    "18:00",
 		EndTime:      "19:30",
-		CoachID:      coaches[0].ID,
+		CoachID:      &coaches[0].ID,
 		LocationID:   &loc.ID,
 		TrainingType: models.TrainingSparring,
 		Notes:        "Sparring at BGC",
@@ -1588,7 +1588,7 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 				SessionDate:  time.Now(),
 				StartTime:    "16:00",
 				EndTime:      "17:30",
-				CoachID:      coach.ID,
+				CoachID:      &coach.ID,
 				TrainingType: models.TrainingPoomsae,
 			}
 			_ = store.CreateSession(sess)
@@ -1621,6 +1621,107 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 			}
 			if stAtts[0].SessionRate == nil || *stAtts[0].SessionRate != 200.00 {
 				t.Errorf("expected GetStudentAttendances to retain SessionRate 200.00, got %v", stAtts[0].SessionRate)
+			}
+		})
+	}
+}
+
+func TestSQLStore_OptionalCoachID(t *testing.T) {
+	stores := map[string]repository.RepositoryStore{}
+	stores["MemoryStore"] = repository.NewMemoryStore()
+
+	dbFile := filepath.Join(t.TempDir(), "test_optional_coach.db")
+	sqlStore, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if s, ok := sqlStore.(*repository.SQLStore); ok {
+			_ = s.Close()
+		}
+	}()
+	stores["SQLStore"] = sqlStore
+
+	for name, store := range stores {
+		t.Run(name, func(t *testing.T) {
+			coach := &models.Coach{
+				ID:        uuid.New(),
+				FullName:  "Coach Optional " + name,
+				Email:     "coach.optional." + name + "@seriestkd.com",
+				Phone:     "09179998888",
+				BeltRank:  "3rd Dan Black",
+				IsActive:  true,
+				CreatedAt: time.Now(),
+			}
+			_ = store.CreateCoach(coach)
+
+			// 1. Create session without lead coach (CoachID: nil)
+			sess := &models.TrainingSession{
+				ID:           uuid.New(),
+				SessionDate:  time.Now(),
+				StartTime:    "10:00",
+				EndTime:      "11:30",
+				CoachID:      nil,
+				TrainingType: models.TrainingSparring,
+				Notes:        "Session without an assigned coach",
+			}
+			if err := store.CreateSession(sess); err != nil {
+				t.Fatalf("CreateSession with nil CoachID failed: %v", err)
+			}
+
+			// 2. Load session: CoachID should be nil, CoachName should be empty
+			loaded, err := store.GetSessionByID(sess.ID)
+			if err != nil {
+				t.Fatalf("GetSessionByID failed: %v", err)
+			}
+			if loaded.CoachID != nil {
+				t.Errorf("expected nil CoachID, got %v", loaded.CoachID)
+			}
+			if loaded.CoachName != "" {
+				t.Errorf("expected empty CoachName, got %s", loaded.CoachName)
+			}
+
+			// 3. Filter with coach must not include it
+			filteredByCoach, err := store.GetSessions(repository.SessionFilter{CoachID: &coach.ID})
+			if err != nil {
+				t.Fatalf("GetSessions with CoachID filter failed: %v", err)
+			}
+			for _, s := range filteredByCoach {
+				if s.ID == sess.ID {
+					t.Errorf("unassigned session should not appear when filtered by coach")
+				}
+			}
+
+			// 4. Update session to assign a coach
+			loaded.CoachID = &coach.ID
+			if err := store.UpdateSession(loaded); err != nil {
+				t.Fatalf("UpdateSession assigning coach failed: %v", err)
+			}
+			updatedWithCoach, err := store.GetSessionByID(sess.ID)
+			if err != nil {
+				t.Fatalf("GetSessionByID after assigning coach failed: %v", err)
+			}
+			if updatedWithCoach.CoachID == nil || *updatedWithCoach.CoachID != coach.ID {
+				t.Errorf("expected CoachID %v, got %v", coach.ID, updatedWithCoach.CoachID)
+			}
+			if updatedWithCoach.CoachName != coach.FullName {
+				t.Errorf("expected CoachName %s, got %s", coach.FullName, updatedWithCoach.CoachName)
+			}
+
+			// 5. Update session back to unassigned coach (nil)
+			updatedWithCoach.CoachID = nil
+			if err := store.UpdateSession(updatedWithCoach); err != nil {
+				t.Fatalf("UpdateSession unassigning coach failed: %v", err)
+			}
+			clearedSess, err := store.GetSessionByID(sess.ID)
+			if err != nil {
+				t.Fatalf("GetSessionByID after unassigning coach failed: %v", err)
+			}
+			if clearedSess.CoachID != nil {
+				t.Errorf("expected nil CoachID after unassigning, got %v", clearedSess.CoachID)
+			}
+			if clearedSess.CoachName != "" {
+				t.Errorf("expected empty CoachName after unassigning, got %s", clearedSess.CoachName)
 			}
 		})
 	}

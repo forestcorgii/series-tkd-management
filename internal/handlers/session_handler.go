@@ -678,7 +678,12 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	coachID, _ := uuid.Parse(r.FormValue("coach_id"))
+	var coachIDPtr *uuid.UUID
+	if cidStr := strings.TrimSpace(r.FormValue("coach_id")); cidStr != "" {
+		if cID, err := uuid.Parse(cidStr); err == nil && cID != uuid.Nil {
+			coachIDPtr = &cID
+		}
+	}
 	dateStr := r.FormValue("session_date")
 	sessDate, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -703,7 +708,7 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		SessionDate:  sessDate,
 		StartTime:    r.FormValue("start_time"),
 		EndTime:      r.FormValue("end_time"),
-		CoachID:      coachID,
+		CoachID:      coachIDPtr,
 		AdminID:      adminIDPtr,
 		LocationID:   locationIDPtr,
 		TrainingType: models.TrainingType(r.FormValue("training_type")),
@@ -738,10 +743,14 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	coachID, err := uuid.Parse(r.FormValue("coach_id"))
-	if err != nil || coachID == uuid.Nil {
-		http.Error(w, "Invalid or missing coach", http.StatusBadRequest)
-		return
+	var coachIDPtr *uuid.UUID
+	if cidStr := strings.TrimSpace(r.FormValue("coach_id")); cidStr != "" {
+		cID, err := uuid.Parse(cidStr)
+		if err != nil || cID == uuid.Nil {
+			http.Error(w, "Invalid coach ID", http.StatusBadRequest)
+			return
+		}
+		coachIDPtr = &cID
 	}
 
 	dateStr := strings.TrimSpace(r.FormValue("session_date"))
@@ -776,7 +785,7 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 	sess.SessionDate = sessDate
 	sess.StartTime = startTime
 	sess.EndTime = endTime
-	sess.CoachID = coachID
+	sess.CoachID = coachIDPtr
 	sess.AdminID = adminIDPtr
 	sess.LocationID = locationIDPtr
 	if tType := strings.TrimSpace(r.FormValue("training_type")); tType != "" {

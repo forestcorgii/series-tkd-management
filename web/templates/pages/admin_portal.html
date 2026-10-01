@@ -293,10 +293,10 @@
                     </div>
 
                     <div>
-                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Lead Instructor</label>
-                        <select name="coach_id" required
-                                class="form-select searchable-select" data-placeholder="Select Lead Instructor...">
-                            <option value="">Select Lead Instructor...</option>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Lead Instructor <span class="text-[10px] text-slate-400 font-normal lowercase">(optional)</span></label>
+                        <select name="coach_id"
+                                class="form-select searchable-select" data-placeholder="Select Lead Instructor (Optional)...">
+                            <option value="">None / Unassigned</option>
                             {{range .Coaches}}
                             {{if .IsActive}}
                             <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
