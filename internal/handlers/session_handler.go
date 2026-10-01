@@ -1057,34 +1057,47 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkgs, _ := a.store.GetStudentPackages(studentID)
-	atts, _ := a.store.GetStudentAttendances(studentID)
-	override := r.FormValue("override") == "true"
+	_ = r.ParseForm()
+	var sessionRate *float64
+	if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			sessionRate = &val
+		}
+	}
 
-	usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
 	var pkgID *uuid.UUID
-	if err == nil && usedPkg != nil {
-		pkgID = &usedPkg.ID
-		_ = a.store.UpdateStudentPackage(usedPkg)
-	} else if !override {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusPaymentRequired)
-		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-rose-950 border border-rose-800 text-rose-300 rounded-lg text-sm">
-			❌ Check-in rejected: %v. <button hx-post="/sessions/%s/checkin/%s?override=true" hx-target="#attendance-roster" hx-swap="afterbegin" class="underline font-bold ml-2">Manual Override</button>
-		</div>`, err, sessionID, studentID)))
-		return
-	} else if override {
-		for _, p := range pkgs {
-			if p.IsValidAt(time.Now()) {
-				_ = p.DeductSession(time.Now())
-				pkgID = &p.ID
-				_ = a.store.UpdateStudentPackage(p)
-				break
+
+	if sessionRate != nil {
+		// School / Fix-Rate attendance: do not deduct or change student's package session credit!
+	} else {
+		pkgs, _ := a.store.GetStudentPackages(studentID)
+		atts, _ := a.store.GetStudentAttendances(studentID)
+		override := r.FormValue("override") == "true"
+
+		usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
+		if err == nil && usedPkg != nil {
+			pkgID = &usedPkg.ID
+			_ = a.store.UpdateStudentPackage(usedPkg)
+		} else if !override {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusPaymentRequired)
+			w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-rose-950 border border-rose-800 text-rose-300 rounded-lg text-sm">
+				❌ Check-in rejected: %v. <button hx-post="/sessions/%s/checkin/%s?override=true" hx-target="#attendance-roster" hx-swap="afterbegin" class="underline font-bold ml-2">Manual Override</button>
+			</div>`, err, sessionID, studentID)))
+			return
+		} else if override {
+			for _, p := range pkgs {
+				if p.IsValidAt(time.Now()) {
+					_ = p.DeductSession(time.Now())
+					pkgID = &p.ID
+					_ = a.store.UpdateStudentPackage(p)
+					break
+				}
 			}
 		}
 	}
 
-	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID)
+	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID, sessionRate)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusConflict)
@@ -1099,7 +1112,7 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		allSessionsMap[s.ID.String()] = s
 	}
 
-	atts, _ = a.store.GetStudentAttendances(studentID)
+	atts, _ := a.store.GetStudentAttendances(studentID)
 	latestEval, _ := a.store.GetLatestEvaluation(studentID)
 	readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 

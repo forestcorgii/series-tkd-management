@@ -34,3 +34,14 @@
   * **Transactional Student Removal (`RemoveAttendance`)**: Implemented in both [SQLStore.RemoveAttendance](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/sql_store.go) and [MemoryStore.RemoveAttendance](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/store.go). Deletes the attendance record and automatically restores (`+1`) the deducted package class credit for limited passes.
   * **Reactive HTMX Roster Sync**: Attendance modifications dispatch `HX-Trigger: attendanceUpdated`, keeping live rosters and search admittance buttons instantly in sync across floor tablets.
 
+### Context: School Fixed-Rate Attendance & Package Credit Exemption
+
+* **Problem**: In addition to gym students with memberships/packages, school students pay a fixed session rate per class. Checking in school students must record the session rate on attendance and must NOT deduct or modify the student's package session credits.
+* **Enforced Solution**:
+  * **Database Evolution**: Added `session_rate NUMERIC(10, 2)` (PostgreSQL) and `session_rate REAL` (SQLite) to `attendance` table with runtime `ALTER TABLE` execution.
+  * **Domain & Model**: Added `SessionRate *float64` and `SessionRateVal() float64` to [Attendance](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go).
+  * **Credit Exemption**: When `session_rate` is specified in check-in requests, package deduction logic (`ProcessCheckInDeduction`) is completely bypassed. `student_package_id` is left null, and `RemainingSessions` remains untouched.
+  * **Safe Removal & Cancellation**: Since `student_package_id` is null on fix-rate attendances, roster removal and class cancellation never grant spurious package credits.
+  * **UI Display**: Admitted fix-rate students show a distinct `🏫 Fix Rate: ₱X.XX` badge in floor rosters, and search results provide an inline School/Fix Rate check-in option.
+
+

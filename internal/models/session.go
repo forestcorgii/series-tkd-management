@@ -118,9 +118,17 @@ type Attendance struct {
 	StudentBelt      BeltRank   `json:"student_belt,omitempty"`
 	StudentPackageID *uuid.UUID `json:"student_package_id,omitempty"`
 	PackageTitle     string     `json:"package_title,omitempty"`
+	SessionRate      *float64   `json:"session_rate,omitempty"`
 	LocationID       *uuid.UUID `json:"location_id,omitempty"`
 	LocationName     string     `json:"location_name,omitempty"`
 	LocationPin      string     `json:"location_pin,omitempty"`
 	CheckedInAt      time.Time  `json:"checked_in_at"`
+}
+
+func (a *Attendance) SessionRateVal() float64 {
+	if a.SessionRate != nil {
+		return *a.SessionRate
+	}
+	return 0
 }
 

@@ -400,11 +400,13 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 
 	var sessionID uuid.UUID
 	var studentID uuid.UUID
+	var sessionRate *float64
 
 	if isJSONRequest(r) && !isHTMXRequest(r) {
 		var req struct {
-			SessionID uuid.UUID `json:"session_id"`
-			StudentID uuid.UUID `json:"student_id"`
+			SessionID   uuid.UUID `json:"session_id"`
+			StudentID   uuid.UUID `json:"student_id"`
+			SessionRate *float64  `json:"session_rate,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
@@ -414,10 +416,16 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 		}
 		sessionID = req.SessionID
 		studentID = req.StudentID
+		sessionRate = req.SessionRate
 	} else {
 		_ = r.ParseForm()
 		sessionID, _ = uuid.Parse(r.FormValue("session_id"))
 		studentID, _ = uuid.Parse(r.FormValue("student_id"))
+		if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+			if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+				sessionRate = &val
+			}
+		}
 	}
 
 	// For student role, strictly enforce self check-in
@@ -533,29 +541,36 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// Process package deduction
-	pkgs, _ := a.store.GetStudentPackages(studentID)
-	usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
-	if err != nil {
-		itemData.FeedbackMessage = fmt.Sprintf("Check-in rejected: %v. Please see front desk for membership renewal.", err)
-		itemData.IsSuccess = false
-		if isHTMXRequest(r) {
-			a.RenderPartial(w, "student_session_item.html", itemData)
+	var pkgID *uuid.UUID
+	var usedPkg *models.StudentPackage
+
+	if sessionRate != nil {
+		// School / Fix-Rate check-in: do not deduct or change package session credit
+	} else {
+		// Process package deduction
+		pkgs, _ := a.store.GetStudentPackages(studentID)
+		var err error
+		usedPkg, err = a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
+		if err != nil {
+			itemData.FeedbackMessage = fmt.Sprintf("Check-in rejected: %v. Please see front desk for membership renewal.", err)
+			itemData.IsSuccess = false
+			if isHTMXRequest(r) {
+				a.RenderPartial(w, "student_session_item.html", itemData)
+				return
+			}
+			writeJSONResponse(w, http.StatusPaymentRequired, map[string]interface{}{
+				"error": err.Error(),
+			})
 			return
 		}
-		writeJSONResponse(w, http.StatusPaymentRequired, map[string]interface{}{
-			"error": err.Error(),
-		})
-		return
+
+		if usedPkg != nil {
+			pkgID = &usedPkg.ID
+			_ = a.store.UpdateStudentPackage(usedPkg)
+		}
 	}
 
-	var pkgID *uuid.UUID
-	if usedPkg != nil {
-		pkgID = &usedPkg.ID
-		_ = a.store.UpdateStudentPackage(usedPkg)
-	}
-
-	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID)
+	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID, sessionRate)
 	if err != nil {
 		itemData.FeedbackMessage = fmt.Sprintf("Check-in failed: %v", err)
 		itemData.IsSuccess = false
@@ -574,7 +589,11 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 	if isHTMXRequest(r) {
 		itemData.IsCheckedIn = true
 		itemData.IsSuccess = true
-		itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s - %s). 1 class credit deducted.", session.TrainingType, session.StartTime, session.EndTime)
+		if sessionRate != nil {
+			itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s - %s). School / Fix Rate: ₱%.2f.", session.TrainingType, session.StartTime, session.EndTime, *sessionRate)
+		} else {
+			itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s - %s). 1 class credit deducted.", session.TrainingType, session.StartTime, session.EndTime)
+		}
 		a.RenderPartial(w, "student_session_item.html", itemData)
 		return
 	}
@@ -588,8 +607,9 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 
 // 3. POST /api/coach/check-in
 type CoachCheckInRequest struct {
-	SessionID uuid.UUID `json:"session_id"`
-	StudentID uuid.UUID `json:"student_id"`
+	SessionID   uuid.UUID `json:"session_id"`
+	StudentID   uuid.UUID `json:"student_id"`
+	SessionRate *float64  `json:"session_rate,omitempty"`
 }
 
 func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Request) {
@@ -609,6 +629,11 @@ func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Reques
 		_ = r.ParseForm()
 		req.SessionID, _ = uuid.Parse(r.FormValue("session_id"))
 		req.StudentID, _ = uuid.Parse(r.FormValue("student_id"))
+		if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+			if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+				req.SessionRate = &val
+			}
+		}
 	}
 
 	if req.SessionID == uuid.Nil || req.StudentID == uuid.Nil {
@@ -616,22 +641,29 @@ func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Find oldest valid package to decrement respecting weekly cadence
-	pkgs, _ := a.store.GetStudentPackages(req.StudentID)
 	atts, _ := a.store.GetStudentAttendances(req.StudentID)
-	usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	var pkgID *uuid.UUID
-	if usedPkg != nil {
-		pkgID = &usedPkg.ID
-		_ = a.store.UpdateStudentPackage(usedPkg)
+	var usedPkg *models.StudentPackage
+
+	if req.SessionRate != nil {
+		// School / Fix-Rate check-in: do not deduct or change package session credit
+	} else {
+		// Find oldest valid package to decrement respecting weekly cadence
+		pkgs, _ := a.store.GetStudentPackages(req.StudentID)
+		var err error
+		usedPkg, err = a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if usedPkg != nil {
+			pkgID = &usedPkg.ID
+			_ = a.store.UpdateStudentPackage(usedPkg)
+		}
 	}
 
-	att, err := a.store.CheckInStudent(req.SessionID, req.StudentID, pkgID)
+	att, err := a.store.CheckInStudent(req.SessionID, req.StudentID, pkgID, req.SessionRate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

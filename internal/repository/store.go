@@ -72,7 +72,7 @@ type RepositoryStore interface {
 	CancelSession(sessionID uuid.UUID, reason string, refundCredits bool) error
 	GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error)
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
-	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID) (*models.Attendance, error)
+	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
 	RemoveAttendance(sessionID, studentID uuid.UUID) error
 
 	// Evaluations
@@ -757,7 +757,7 @@ func (m *MemoryStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Atte
 	return result, nil
 }
 
-func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID) (*models.Attendance, error) {
+func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -773,6 +773,7 @@ func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *
 		SessionID:        sessionID,
 		StudentID:        studentID,
 		StudentPackageID: packageID,
+		SessionRate:      sessionRate,
 		CheckedInAt:      time.Now(),
 	}
 

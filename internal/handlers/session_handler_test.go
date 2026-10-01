@@ -406,10 +406,10 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 
 	// Attendances:
 	// Alice in s1 and s3
-	_, _ = store.CheckInStudent(s1.ID, studentA.ID, nil)
-	_, _ = store.CheckInStudent(s3.ID, studentA.ID, nil)
+	_, _ = store.CheckInStudent(s1.ID, studentA.ID, nil, nil)
+	_, _ = store.CheckInStudent(s3.ID, studentA.ID, nil, nil)
 	// Bob in s2
-	_, _ = store.CheckInStudent(s2.ID, studentB.ID, nil)
+	_, _ = store.CheckInStudent(s2.ID, studentB.ID, nil, nil)
 
 	// 1. Verify sorting in roster (more recent first: s3 > s2 > s1)
 	t.Run("Class Rosters are sorted by most recent first", func(t *testing.T) {
@@ -782,6 +782,159 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 			t.Errorf("expected 400 BadRequest when deleting closed session, got %d: %s", rec.Code, rec.Body.String())
 		}
 	})
+}
+
+func TestHandleCheckIn_SessionRate_NoPackageCreditDeduction(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("NewAppHandler failed: %v", err)
+	}
+
+	coach := &models.Coach{
+		ID:        uuid.New(),
+		FullName:  "Master Kim",
+		Email:     "kim@seriestkd.com",
+		Phone:     "09171112222",
+		BeltRank:  "5th Dan Black",
+		IsActive:  true,
+		CreatedAt: time.Now(),
+	}
+	_ = store.CreateCoach(coach)
+
+	session := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "17:00",
+		EndTime:      "18:30",
+		CoachID:      coach.ID,
+		TrainingType: models.TrainingSparring,
+	}
+	_ = store.CreateSession(session)
+
+	// 1. Student with active package (5 remaining credits)
+	studentWithPkg := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Gym Student With Package",
+		DOB:               time.Now().AddDate(-10, 0, 0),
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Parent",
+		EmergencyPhone:    "09170001111",
+		EmergencyRelation: "Father",
+		IsActive:          true,
+		CreatedAt:         time.Now(),
+	}
+	_ = store.CreateStudent(studentWithPkg)
+
+	remCredits := 5
+	pkg := &models.StudentPackage{
+		ID:                uuid.New(),
+		StudentID:         studentWithPkg.ID,
+		TemplateID:        uuid.New(),
+		TotalSessions:     &remCredits,
+		RemainingSessions: &remCredits,
+		PurchaseDate:      time.Now(),
+		ExpiryDate:        time.Now().AddDate(0, 1, 0),
+		PaymentStatus:     "paid",
+		CreatedAt:         time.Now(),
+	}
+	_ = store.AssignPackage(pkg)
+
+	// POST /sessions/{sessionID}/checkin/{studentID} with session_rate=175.50
+	form := url.Values{}
+	form.Set("session_rate", "175.50")
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin/%s", session.ID, studentWithPkg.ID), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+
+	app.HandleCheckIn(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for check-in with session_rate, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Fix Rate: ₱175.50") {
+		t.Errorf("expected response to contain Fix Rate badge 'Fix Rate: ₱175.50', got: %s", body)
+	}
+
+	// Verify package credit was NOT deducted/changed!
+	pkgs, _ := store.GetStudentPackages(studentWithPkg.ID)
+	if len(pkgs) == 0 || pkgs[0].RemainingSessions == nil || *pkgs[0].RemainingSessions != 5 {
+		t.Fatalf("expected student's package credits to remain 5, got %v", pkgs[0].RemainingSessions)
+	}
+
+	// 2. Student with NO package checking in with session_rate
+	studentNoPkg := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "School Fix Rate Student",
+		DOB:               time.Now().AddDate(-11, 0, 0),
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Parent B",
+		EmergencyPhone:    "09170002222",
+		EmergencyRelation: "Mother",
+		IsActive:          true,
+		CreatedAt:         time.Now(),
+	}
+	_ = store.CreateStudent(studentNoPkg)
+
+	formNoPkg := url.Values{}
+	formNoPkg.Set("session_rate", "200.00")
+	reqNoPkg := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin/%s", session.ID, studentNoPkg.ID), strings.NewReader(formNoPkg.Encode()))
+	reqNoPkg.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recNoPkg := httptest.NewRecorder()
+
+	app.HandleCheckIn(recNoPkg, reqNoPkg)
+
+	if recNoPkg.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for student with no package when session_rate specified, got %d: %s", recNoPkg.Code, recNoPkg.Body.String())
+	}
+	if !strings.Contains(recNoPkg.Body.String(), "Fix Rate: ₱200.00") {
+		t.Errorf("expected response to contain 'Fix Rate: ₱200.00', got: %s", recNoPkg.Body.String())
+	}
+
+	// 3. Normal check-in WITHOUT session_rate on another student: deducts credit
+	studentNormal := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Gym Normal Member",
+		DOB:               time.Now().AddDate(-12, 0, 0),
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Parent C",
+		EmergencyPhone:    "09170003333",
+		EmergencyRelation: "Guardian",
+		IsActive:          true,
+		CreatedAt:         time.Now(),
+	}
+	_ = store.CreateStudent(studentNormal)
+
+	remNorm := 10
+	pkgNorm := &models.StudentPackage{
+		ID:                uuid.New(),
+		StudentID:         studentNormal.ID,
+		TemplateID:        uuid.New(),
+		TotalSessions:     &remNorm,
+		RemainingSessions: &remNorm,
+		PurchaseDate:      time.Now(),
+		ExpiryDate:        time.Now().AddDate(0, 1, 0),
+		PaymentStatus:     "paid",
+		CreatedAt:         time.Now(),
+	}
+	_ = store.AssignPackage(pkgNorm)
+
+	reqNormal := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin/%s", session.ID, studentNormal.ID), nil)
+	recNormal := httptest.NewRecorder()
+	app.HandleCheckIn(recNormal, reqNormal)
+
+	if recNormal.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for normal package check-in, got %d: %s", recNormal.Code, recNormal.Body.String())
+	}
+	pkgsNorm, _ := store.GetStudentPackages(studentNormal.ID)
+	if len(pkgsNorm) == 0 || pkgsNorm[0].RemainingSessions == nil || *pkgsNorm[0].RemainingSessions != 9 {
+		t.Errorf("expected normal checkin to deduct 1 credit (remaining 9), got %v", pkgsNorm[0].RemainingSessions)
+	}
 }
 
 

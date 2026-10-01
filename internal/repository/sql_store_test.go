@@ -82,7 +82,7 @@ func TestSQLStore_SQLitePersistence(t *testing.T) {
 		t.Fatalf("CreateSession failed: %v", err)
 	}
 
-	att, err := store.CheckInStudent(targetSession.ID, chloe.ID, &pkg.ID)
+	att, err := store.CheckInStudent(targetSession.ID, chloe.ID, &pkg.ID, nil)
 	if err != nil {
 		t.Fatalf("CheckInStudent failed: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestSQLStore_SQLitePersistence(t *testing.T) {
 	}
 
 	// Try checking in Chloe again -> must return ErrAlreadyInRoster
-	_, err = store.CheckInStudent(targetSession.ID, chloe.ID, &pkg.ID)
+	_, err = store.CheckInStudent(targetSession.ID, chloe.ID, &pkg.ID, nil)
 	if err != repository.ErrAlreadyInRoster {
 		t.Errorf("expected ErrAlreadyInRoster, got %v", err)
 	}
@@ -503,7 +503,7 @@ func TestSQLStore_CancelSession(t *testing.T) {
 	if err := store.UpdateStudentPackage(pkg); err != nil {
 		t.Fatalf("UpdateStudentPackage failed: %v", err)
 	}
-	if _, err := store.CheckInStudent(sess1.ID, student.ID, &pkg.ID); err != nil {
+	if _, err := store.CheckInStudent(sess1.ID, student.ID, &pkg.ID, nil); err != nil {
 		t.Fatalf("CheckInStudent failed: %v", err)
 	}
 
@@ -569,7 +569,7 @@ func TestSQLStore_CancelSession(t *testing.T) {
 	if err := store.CreateSession(sess2); err != nil {
 		t.Fatalf("CreateSession failed: %v", err)
 	}
-	if _, err := store.CheckInStudent(sess2.ID, student.ID, nil); err != nil {
+	if _, err := store.CheckInStudent(sess2.ID, student.ID, nil, nil); err != nil {
 		t.Fatalf("CheckInStudent failed: %v", err)
 	}
 
@@ -959,7 +959,7 @@ func TestRemoveAttendance_SQLAndMemory(t *testing.T) {
 			_ = store.UpdateStudentPackage(pkg)
 
 			// Check in student
-			att, err := store.CheckInStudent(session.ID, student.ID, &pkg.ID)
+			att, err := store.CheckInStudent(session.ID, student.ID, &pkg.ID, nil)
 			if err != nil {
 				t.Fatalf("CheckInStudent failed: %v", err)
 			}
@@ -1023,7 +1023,7 @@ func TestRemoveAttendance_SQLAndMemory(t *testing.T) {
 			}
 
 			// Check in again should now succeed because student was removed
-			att2, err := store.CheckInStudent(session.ID, student.ID, &pkg.ID)
+			att2, err := store.CheckInStudent(session.ID, student.ID, &pkg.ID, nil)
 			if err != nil {
 				t.Errorf("expected CheckInStudent to succeed after removal, got: %v", err)
 			}
@@ -1140,7 +1140,7 @@ func TestStore_DeleteStudent(t *testing.T) {
 				TrainingType: models.TrainingPoomsae,
 			}
 			_ = store.CreateSession(sess)
-			_, err = store.CheckInStudent(sess.ID, st.ID, &pkg.ID)
+			_, err = store.CheckInStudent(sess.ID, st.ID, &pkg.ID, nil)
 			if err != nil {
 				t.Fatalf("CheckInStudent failed: %v", err)
 			}
@@ -1364,7 +1364,7 @@ func TestStore_UpdateAndDeleteSession(t *testing.T) {
 			_ = store.AssignPackage(sp)
 
 			// Record attendance for this session
-			att, err := store.CheckInStudent(sess.ID, st.ID, &sp.ID)
+			att, err := store.CheckInStudent(sess.ID, st.ID, &sp.ID, nil)
 			if err != nil {
 				t.Fatalf("CheckInStudent failed: %v", err)
 			}
@@ -1504,7 +1504,7 @@ func TestSQLStore_Locations(t *testing.T) {
 	if len(students) == 0 {
 		t.Fatalf("expected at least 1 student")
 	}
-	att, err := store.CheckInStudent(sess.ID, students[0].ID, nil)
+	att, err := store.CheckInStudent(sess.ID, students[0].ID, nil, nil)
 	if err != nil {
 		t.Fatalf("CheckInStudent failed: %v", err)
 	}
@@ -1536,6 +1536,93 @@ func TestSQLStore_Locations(t *testing.T) {
 	}
 	if _, err := store.GetLocationByID(otherLoc.ID); err != repository.ErrNotFound {
 		t.Errorf("expected ErrNotFound after DeleteLocation, got: %v", err)
+	}
+}
+
+func TestStore_Attendance_SessionRate(t *testing.T) {
+	stores := map[string]repository.RepositoryStore{}
+	memStore := repository.NewMemoryStore()
+	stores["MemoryStore"] = memStore
+
+	dbFile := filepath.Join(t.TempDir(), "test_attendance_rate.db")
+	sqlStore, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if s, ok := sqlStore.(*repository.SQLStore); ok {
+			_ = s.Close()
+		}
+	}()
+	stores["SQLStore"] = sqlStore
+
+	for name, store := range stores {
+		t.Run(name, func(t *testing.T) {
+			student := &models.Student{
+				ID:                uuid.New(),
+				FullName:          "School Student",
+				DOB:               time.Now().AddDate(-12, 0, 0),
+				CurrentBelt:       models.BeltWhite,
+				LastPromotionDate: time.Now(),
+				EmergencyName:     "Parent",
+				EmergencyPhone:    "09171234567",
+				EmergencyRelation: "Mother",
+				IsActive:          true,
+				CreatedAt:         time.Now(),
+			}
+			_ = store.CreateStudent(student)
+
+			coach := &models.Coach{
+				ID:        uuid.New(),
+				FullName:  "Coach Rate",
+				Email:     "coach_" + name + "@example.com",
+				Phone:     "09170001111",
+				BeltRank:  "4th Dan Black",
+				IsActive:  true,
+				CreatedAt: time.Now(),
+			}
+			_ = store.CreateCoach(coach)
+
+			sess := &models.TrainingSession{
+				ID:           uuid.New(),
+				SessionDate:  time.Now(),
+				StartTime:    "16:00",
+				EndTime:      "17:30",
+				CoachID:      coach.ID,
+				TrainingType: models.TrainingPoomsae,
+			}
+			_ = store.CreateSession(sess)
+
+			rate := 200.00
+			att, err := store.CheckInStudent(sess.ID, student.ID, nil, &rate)
+			if err != nil {
+				t.Fatalf("CheckInStudent with sessionRate failed: %v", err)
+			}
+			if att.SessionRate == nil || *att.SessionRate != 200.00 {
+				t.Fatalf("expected SessionRate 200.00, got %v", att.SessionRate)
+			}
+			if att.SessionRateVal() != 200.00 {
+				t.Errorf("expected SessionRateVal() 200.00, got %f", att.SessionRateVal())
+			}
+
+			// Verify GetSessionAttendances returns SessionRate
+			sessAtts, err := store.GetSessionAttendances(sess.ID)
+			if err != nil || len(sessAtts) == 0 {
+				t.Fatalf("GetSessionAttendances failed: %v", err)
+			}
+			if sessAtts[0].SessionRate == nil || *sessAtts[0].SessionRate != 200.00 {
+				t.Errorf("expected GetSessionAttendances to retain SessionRate 200.00, got %v", sessAtts[0].SessionRate)
+			}
+
+			// Verify GetStudentAttendances returns SessionRate
+			stAtts, err := store.GetStudentAttendances(student.ID)
+			if err != nil || len(stAtts) == 0 {
+				t.Fatalf("GetStudentAttendances failed: %v", err)
+			}
+			if stAtts[0].SessionRate == nil || *stAtts[0].SessionRate != 200.00 {
+				t.Errorf("expected GetStudentAttendances to retain SessionRate 200.00, got %v", stAtts[0].SessionRate)
+			}
+		})
 	}
 }
 

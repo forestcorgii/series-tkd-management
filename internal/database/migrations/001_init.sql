@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     student_package_id UUID REFERENCES student_packages(id),
     location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
+    session_rate NUMERIC(10, 2),
     checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_student_session UNIQUE (session_id, student_id)
 );

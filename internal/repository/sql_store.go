@@ -170,6 +170,7 @@ func (s *SQLStore) runMigrations() error {
 			student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
 			student_package_id TEXT REFERENCES student_packages(id),
 			location_id TEXT REFERENCES locations(id),
+			session_rate REAL,
 			checked_in_at TEXT NOT NULL,
 			CONSTRAINT unique_student_session UNIQUE (session_id, student_id)
 		);
@@ -320,6 +321,7 @@ func (s *SQLStore) runMigrations() error {
 			student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
 			student_package_id UUID REFERENCES student_packages(id),
 			location_id UUID REFERENCES locations(id),
+			session_rate NUMERIC(10, 2),
 			checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			CONSTRAINT unique_student_session UNIQUE (session_id, student_id)
 		);
@@ -419,6 +421,7 @@ func (s *SQLStore) runMigrations() error {
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN location_id TEXT`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN session_rate REAL`)
 	} else {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(120) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(80) UNIQUE`)
@@ -449,6 +452,7 @@ func (s *SQLStore) runMigrations() error {
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
 	}
 
 	return nil
@@ -1600,7 +1604,8 @@ func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attenda
 		st.full_name, st.current_belt, pt.title,
 		COALESCE(a.location_id, ts.location_id),
 		COALESCE(loc.name, loc_ts.name, ''),
-		COALESCE(loc.pin, loc_ts.pin, '')
+		COALESCE(loc.pin, loc_ts.pin, ''),
+		a.session_rate
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -1621,11 +1626,13 @@ func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attenda
 		var idStr, sessStr, stStr, checkedStr string
 		var pkgIDStr, stName, belt, pkgTitle sql.NullString
 		var locIDStr, locName, locPin sql.NullString
+		var sessionRateVal sql.NullFloat64
 		att := &models.Attendance{}
 		err := rows.Scan(
 			&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
 			&stName, &belt, &pkgTitle,
 			&locIDStr, &locName, &locPin,
+			&sessionRateVal,
 		)
 		if err != nil {
 			return nil, err
@@ -1637,6 +1644,10 @@ func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attenda
 		if pkgIDStr.Valid && pkgIDStr.String != "" {
 			pID := uuid.Must(uuid.Parse(pkgIDStr.String))
 			att.StudentPackageID = &pID
+		}
+		if sessionRateVal.Valid {
+			r := sessionRateVal.Float64
+			att.SessionRate = &r
 		}
 		if stName.Valid {
 			att.StudentName = stName.String
@@ -1667,7 +1678,8 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 		st.full_name, st.current_belt, pt.title,
 		COALESCE(a.location_id, ts.location_id),
 		COALESCE(loc.name, loc_ts.name, ''),
-		COALESCE(loc.pin, loc_ts.pin, '')
+		COALESCE(loc.pin, loc_ts.pin, ''),
+		a.session_rate
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -1688,11 +1700,13 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 		var idStr, sessStr, stStr, checkedStr string
 		var pkgIDStr, stName, belt, pkgTitle sql.NullString
 		var locIDStr, locName, locPin sql.NullString
+		var sessionRateVal sql.NullFloat64
 		att := &models.Attendance{}
 		err := rows.Scan(
 			&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
 			&stName, &belt, &pkgTitle,
 			&locIDStr, &locName, &locPin,
+			&sessionRateVal,
 		)
 		if err != nil {
 			return nil, err
@@ -1704,6 +1718,10 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 		if pkgIDStr.Valid && pkgIDStr.String != "" {
 			pID := uuid.Must(uuid.Parse(pkgIDStr.String))
 			att.StudentPackageID = &pID
+		}
+		if sessionRateVal.Valid {
+			r := sessionRateVal.Float64
+			att.SessionRate = &r
 		}
 		if stName.Valid {
 			att.StudentName = stName.String
@@ -1729,7 +1747,7 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 	return attendances, nil
 }
 
-func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID) (*models.Attendance, error) {
+func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	// 1. Check duplicate attendance
 	var existingID string
 	err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2",
@@ -1743,12 +1761,18 @@ func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uui
 		SessionID:        sessionID,
 		StudentID:        studentID,
 		StudentPackageID: packageID,
+		SessionRate:      sessionRate,
 		CheckedInAt:      time.Now(),
 	}
 
 	var pkgIDVal interface{}
 	if packageID != nil {
 		pkgIDVal = packageID.String()
+	}
+
+	var sessionRateVal interface{}
+	if sessionRate != nil {
+		sessionRateVal = *sessionRate
 	}
 
 	// Look up session's location
@@ -1764,10 +1788,10 @@ func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uui
 	}
 	att.LocationID = locationID
 
-	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, checked_in_at)
-		VALUES ($1, $2, $3, $4, $5, $6)`
+	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	_, err = s.db.Exec(query,
-		att.ID.String(), att.SessionID.String(), att.StudentID.String(), pkgIDVal, locIDVal, formatTimeForDB(att.CheckedInAt),
+		att.ID.String(), att.SessionID.String(), att.StudentID.String(), pkgIDVal, locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt),
 	)
 	if err != nil {
 		return nil, err
@@ -2080,11 +2104,11 @@ func (s *SQLStore) SeedDefaultData() error {
 			ID: dummyID, SessionDate: now.AddDate(0, 0, -i*2), StartTime: "17:00", EndTime: "18:15",
 			CoachID: c1ID, TrainingType: tType, Notes: "Regular class attendance log",
 		})
-		_, _ = s.CheckInStudent(dummyID, s1ID, &sp1ID)
+		_, _ = s.CheckInStudent(dummyID, s1ID, &sp1ID, nil)
 	}
 
 	// Also check Alex in to current live sess1
-	_, _ = s.CheckInStudent(sess1ID, s1ID, &sp1ID)
+	_, _ = s.CheckInStudent(sess1ID, s1ID, &sp1ID, nil)
 
 	for i := 0; i < 25; i++ {
 		dummyID := uuid.New()
@@ -2092,7 +2116,7 @@ func (s *SQLStore) SeedDefaultData() error {
 			ID: dummyID, SessionDate: now.AddDate(0, 0, -i*2), StartTime: "18:30", EndTime: "19:45",
 			CoachID: c2ID, TrainingType: models.TrainingPoomsae, Notes: "Regular class",
 		})
-		_, _ = s.CheckInStudent(dummyID, s2ID, &sp2ID)
+		_, _ = s.CheckInStudent(dummyID, s2ID, &sp2ID, nil)
 	}
 
 	// 7. Student Evaluation for Alex
