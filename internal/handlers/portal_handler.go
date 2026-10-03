@@ -57,6 +57,7 @@ type AdminPortalData struct {
 	PackageTemplates     []*models.PackageTemplate
 	Sessions             []*models.TrainingSession
 	Locations            []*models.Location
+	TrainingCategories   []*models.TrainingCategory
 }
 
 func (a *AppHandler) HandleStudentPortal(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +286,7 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	locations, _ := a.store.GetAllLocations()
+	categories, _ := a.store.GetAllTrainingCategories()
 
 	data := AdminPortalData{
 		CurrentUser:           user,
@@ -300,6 +302,7 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		PackageTemplates:      pkgTemplates,
 		Sessions:              sessions,
 		Locations:             locations,
+		TrainingCategories:    categories,
 	}
 
 	a.RenderPage(w, "admin_portal.html", data)

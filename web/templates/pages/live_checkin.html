@@ -291,10 +291,9 @@
             <div>
                 <label class="form-label">Training Category</label>
                 <select id="edit-training-type" name="training_type" class="form-select">
-                    <option value="Sparring" {{if eq .Session.TrainingType "Sparring"}}selected{{end}}>Sparring (Kyorugi)</option>
-                    <option value="Poomsae" {{if eq .Session.TrainingType "Poomsae"}}selected{{end}}>Forms (Poomsae)</option>
-                    <option value="Conditioning" {{if eq .Session.TrainingType "Conditioning"}}selected{{end}}>Conditioning / Impact</option>
-                    <option value="Promotion Prep" {{if eq .Session.TrainingType "Promotion Prep"}}selected{{end}}>Promotion Testing Prep</option>
+                    {{range .TrainingCategories}}
+                    <option value="{{.Name}}" {{if eq $.Session.TrainingType .Name}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
                 </select>
             </div>
 

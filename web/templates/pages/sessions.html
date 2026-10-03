@@ -44,10 +44,9 @@
                         <label class="form-label text-[11px]">Filter by Category</label>
                         <select name="category" class="form-select text-xs">
                             <option value="">All Categories</option>
-                            <option value="Sparring" {{if eq .FilterCategory "Sparring"}}selected{{end}}>Sparring (Kyorugi)</option>
-                            <option value="Poomsae" {{if eq .FilterCategory "Poomsae"}}selected{{end}}>Forms (Poomsae)</option>
-                            <option value="Conditioning" {{if eq .FilterCategory "Conditioning"}}selected{{end}}>Conditioning / Impact</option>
-                            <option value="Promotion Prep" {{if eq .FilterCategory "Promotion Prep"}}selected{{end}}>Promotion Testing Prep</option>
+                            {{range .TrainingCategories}}
+                            <option value="{{.Name}}" {{if eq $.FilterCategory .Name}}selected{{end}}>{{.Name}}</option>
+                            {{end}}
                         </select>
                     </div>
 
@@ -150,10 +149,9 @@
             <div>
                 <label class="form-label">Training Category</label>
                 <select name="training_type" class="form-select">
-                    <option value="Sparring">Sparring (Kyorugi)</option>
-                    <option value="Poomsae">Forms (Poomsae)</option>
-                    <option value="Conditioning">Conditioning / Impact</option>
-                    <option value="Promotion Prep">Promotion Testing Prep</option>
+                    {{range .TrainingCategories}}
+                    <option value="{{.Name}}">{{.Name}}</option>
+                    {{end}}
                 </select>
             </div>
 
@@ -243,10 +241,9 @@
             <div>
                 <label class="form-label">Training Category</label>
                 <select id="edit-training-type" name="training_type" class="form-select">
-                    <option value="Sparring">Sparring (Kyorugi)</option>
-                    <option value="Poomsae">Forms (Poomsae)</option>
-                    <option value="Conditioning">Conditioning / Impact</option>
-                    <option value="Promotion Prep">Promotion Testing Prep</option>
+                    {{range .TrainingCategories}}
+                    <option value="{{.Name}}">{{.Name}}</option>
+                    {{end}}
                 </select>
             </div>
 

@@ -94,8 +94,7 @@ CREATE TABLE IF NOT EXISTS attendance (
 
 -- Student Ability Evaluations (Radar Chart Source)
 CREATE TABLE IF NOT EXISTS student_evaluations (
-    id UUID PR
-    IMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     coach_id UUID NOT NULL REFERENCES coaches(id),
     evaluation_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -106,5 +105,13 @@ CREATE TABLE IF NOT EXISTS student_evaluations (
     sparring_iq INT CHECK (sparring_iq BETWEEN 1 AND 10),
     discipline INT CHECK (discipline BETWEEN 1 AND 10),
     coach_remarks TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Training Categories
+CREATE TABLE IF NOT EXISTS training_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    color VARCHAR(30) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

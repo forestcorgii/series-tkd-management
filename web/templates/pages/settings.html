@@ -1,0 +1,399 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Settings &bull; Training Categories &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Top Header & Actions -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-[#990303] dark:text-red-400">Administration &bull; Settings</span>
+            </div>
+            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-0.5">
+                <span>⚙️</span> System Settings &amp; Training Categories
+            </h1>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Configure class disciplines, custom training categories, and visual badge colors for floor timetables and check-ins.
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button"
+                    onclick="openNewCategoryModal()"
+                    class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm">
+                <span>+</span> Add New Category
+            </button>
+        </div>
+    </div>
+
+    <!-- Flash Alert Notices -->
+    {{if .SuccessNotice}}
+    <div class="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>✅</span>
+            <span class="font-semibold">{{.SuccessNotice}}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900">&times;</button>
+    </div>
+    {{end}}
+    {{if .ErrorMessage}}
+    <div class="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span class="font-semibold">{{.ErrorMessage}}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:text-rose-900">&times;</button>
+    </div>
+    {{end}}
+
+    <!-- High-Level Metrics Banner -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-950/60 text-[#990303] dark:text-red-400 flex items-center justify-center text-lg flex-shrink-0">
+                🥋
+            </div>
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Configured Categories</p>
+                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalCategories}}</p>
+            </div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-lg flex-shrink-0">
+                📅
+            </div>
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Classes Conducted</p>
+                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalSessions}}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Training Categories List Card -->
+    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div class="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Training Disciplines &amp; Categories</h2>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    Colors define left borders on timetable cards, live roster tags, and schedule filters.
+                </p>
+            </div>
+            <button type="button"
+                    onclick="openNewCategoryModal()"
+                    class="btn btn-secondary btn-xs flex items-center gap-1.5 self-start sm:self-auto">
+                <span>+</span> Add Category
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 dark:bg-neutral-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
+                    <tr>
+                        <th class="py-3 px-4">Badge Preview</th>
+                        <th class="py-3 px-4">Category Name</th>
+                        <th class="py-3 px-4">Color Hex</th>
+                        <th class="py-3 px-4 text-center">Class Sessions</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-neutral-800/80 text-slate-700 dark:text-slate-300">
+                    {{if not .Categories}}
+                    <tr>
+                        <td colspan="5" class="py-8 text-center text-slate-500 italic">
+                            No training categories configured yet. Click "Add New Category" above to create one.
+                        </td>
+                    </tr>
+                    {{else}}
+                    {{range .Categories}}
+                    <tr class="hover:bg-slate-50/60 dark:hover:bg-neutral-800/40 transition">
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border"
+                                  style="color: {{.Category.Color}}; background-color: {{.Category.Color}}15; border-color: {{.Category.Color}}40;">
+                                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: {{.Category.Color}};"></span>
+                                {{.Category.Name}}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
+                            {{.Category.Name}}
+                        </td>
+                        <td class="py-3.5 px-4 font-mono text-xs font-semibold">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-4 h-4 rounded border border-black/10 dark:border-white/10 flex-shrink-0 shadow-xs" style="background-color: {{.Category.Color}};"></span>
+                                <span>{{.Category.Color}}</span>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                            <span class="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                                {{.SessionsCount}} session{{if ne .SessionsCount 1}}s{{end}}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1.5">
+                                <button type="button"
+                                        onclick="openEditCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', '{{.Category.Color}}')"
+                                        class="btn btn-secondary btn-xs">
+                                    ✏️ Edit
+                                </button>
+                                <button type="button"
+                                        onclick="openDeleteCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', {{.SessionsCount}})"
+                                        class="btn btn-danger btn-xs">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Category -->
+<div id="modal-new-category" class="modal-backdrop hidden" onclick="if(event.target === this) closeNewCategoryModal()">
+    <div class="glass-panel w-full max-w-md mx-4 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <span>➕</span> Add Training Category
+            </h3>
+            <button type="button" onclick="closeNewCategoryModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg">&times;</button>
+        </div>
+
+        <form action="/settings/categories" method="POST" class="space-y-4 text-xs">
+            <div>
+                <label class="form-label">Category Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="name" id="new-cat-name" required placeholder="e.g. Sparring, Poomsae, Cadet Drills..."
+                       class="form-input text-xs sm:text-sm" oninput="updateBadgePreview('new')">
+            </div>
+
+            <div>
+                <label class="form-label">Category Color <span class="text-rose-500">*</span></label>
+                <div class="flex items-center gap-3">
+                    <input type="color" id="new-cat-picker" value="#990303"
+                           class="w-10 h-10 rounded-lg cursor-pointer border border-[#E5E3D8] dark:border-neutral-800 bg-transparent p-0.5"
+                           oninput="syncColorFromPicker('new')">
+                    <input type="text" name="color" id="new-cat-color" value="#990303" required
+                           placeholder="#990303"
+                           class="form-input font-mono text-xs sm:text-sm uppercase flex-1"
+                           oninput="syncColorFromText('new')">
+                </div>
+            </div>
+
+            <!-- Quick Color Presets -->
+            <div>
+                <label class="form-label text-[10px] text-slate-500 dark:text-slate-400">Quick Palette Presets</label>
+                <div class="flex items-center gap-1.5 flex-wrap pt-1">
+                    <button type="button" onclick="applyColorPreset('new', '#990303')" title="Series Crimson" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #990303;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#4F46E5')" title="Indigo" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #4F46E5;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#D97706')" title="Amber" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #D97706;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#7C3AED')" title="Purple" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #7C3AED;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#059669')" title="Emerald" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #059669;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#0284C7')" title="Sky Blue" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #0284C7;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#E11D48')" title="Rose" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #E11D48;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#EA580C')" title="Orange" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #EA580C;"></button>
+                    <button type="button" onclick="applyColorPreset('new', '#475569')" title="Slate" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #475569;"></button>
+                </div>
+            </div>
+
+            <!-- Real-Time Badge Preview -->
+            <div class="p-3 bg-slate-50 dark:bg-neutral-900 rounded-xl border border-slate-200 dark:border-neutral-800">
+                <p class="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-1.5">Live Preview</p>
+                <span id="new-badge-preview" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border"
+                      style="color: #990303; background-color: #99030315; border-color: #99030340;">
+                    <span id="new-badge-dot" class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: #990303;"></span>
+                    <span id="new-badge-text">New Category</span>
+                </span>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onclick="closeNewCategoryModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Create Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Category -->
+<div id="modal-edit-category" class="modal-backdrop hidden" onclick="if(event.target === this) closeEditCategoryModal()">
+    <div class="glass-panel w-full max-w-md mx-4 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <span>✏️</span> Edit Training Category
+            </h3>
+            <button type="button" onclick="closeEditCategoryModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg">&times;</button>
+        </div>
+
+        <form id="edit-cat-form" action="" method="POST" class="space-y-4 text-xs">
+            <div>
+                <label class="form-label">Category Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="name" id="edit-cat-name" required
+                       class="form-input text-xs sm:text-sm" oninput="updateBadgePreview('edit')">
+            </div>
+
+            <div>
+                <label class="form-label">Category Color <span class="text-rose-500">*</span></label>
+                <div class="flex items-center gap-3">
+                    <input type="color" id="edit-cat-picker" value="#990303"
+                           class="w-10 h-10 rounded-lg cursor-pointer border border-[#E5E3D8] dark:border-neutral-800 bg-transparent p-0.5"
+                           oninput="syncColorFromPicker('edit')">
+                    <input type="text" name="color" id="edit-cat-color" value="#990303" required
+                           class="form-input font-mono text-xs sm:text-sm uppercase flex-1"
+                           oninput="syncColorFromText('edit')">
+                </div>
+            </div>
+
+            <!-- Quick Color Presets -->
+            <div>
+                <label class="form-label text-[10px] text-slate-500 dark:text-slate-400">Quick Palette Presets</label>
+                <div class="flex items-center gap-1.5 flex-wrap pt-1">
+                    <button type="button" onclick="applyColorPreset('edit', '#990303')" title="Series Crimson" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #990303;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#4F46E5')" title="Indigo" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #4F46E5;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#D97706')" title="Amber" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #D97706;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#7C3AED')" title="Purple" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #7C3AED;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#059669')" title="Emerald" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #059669;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#0284C7')" title="Sky Blue" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #0284C7;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#E11D48')" title="Rose" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #E11D48;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#EA580C')" title="Orange" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #EA580C;"></button>
+                    <button type="button" onclick="applyColorPreset('edit', '#475569')" title="Slate" class="w-6 h-6 rounded-full border border-black/10 shadow-xs hover:scale-110 transition" style="background-color: #475569;"></button>
+                </div>
+            </div>
+
+            <!-- Real-Time Badge Preview -->
+            <div class="p-3 bg-slate-50 dark:bg-neutral-900 rounded-xl border border-slate-200 dark:border-neutral-800">
+                <p class="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-1.5">Live Preview</p>
+                <span id="edit-badge-preview" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border"
+                      style="color: #990303; background-color: #99030315; border-color: #99030340;">
+                    <span id="edit-badge-dot" class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: #990303;"></span>
+                    <span id="edit-badge-text">Category Name</span>
+                </span>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onclick="closeEditCategoryModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Delete Category -->
+<div id="modal-delete-category" class="modal-backdrop hidden" onclick="if(event.target === this) closeDeleteCategoryModal()">
+    <div class="glass-panel w-full max-w-sm mx-4 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <span>⚠️</span> Delete Category
+            </h3>
+            <button type="button" onclick="closeDeleteCategoryModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg">&times;</button>
+        </div>
+
+        <p class="text-xs text-slate-700 dark:text-slate-300">
+            Are you sure you want to delete category <strong id="delete-cat-name" class="text-black dark:text-white"></strong>?
+        </p>
+
+        <div id="delete-warning-sessions" class="hidden p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl text-amber-900 dark:text-amber-200 text-xs">
+            ⚠️ <strong>Active Classes Assigned:</strong> This category is currently assigned to <span id="delete-session-count" class="font-bold"></span> session(s). You must reassign or remove those sessions before deleting this category.
+        </div>
+
+        <form id="delete-cat-form" action="" method="POST" class="pt-2">
+            <div class="flex items-center justify-end gap-2">
+                <button type="button" onclick="closeDeleteCategoryModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" id="delete-submit-btn" class="btn btn-danger btn-sm">Confirm Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openNewCategoryModal() {
+        document.getElementById('new-cat-name').value = '';
+        document.getElementById('new-cat-picker').value = '#990303';
+        document.getElementById('new-cat-color').value = '#990303';
+        updateBadgePreview('new');
+        document.getElementById('modal-new-category').classList.remove('hidden');
+    }
+
+    function closeNewCategoryModal() {
+        document.getElementById('modal-new-category').classList.add('hidden');
+    }
+
+    function openEditCategoryModal(id, name, color) {
+        document.getElementById('edit-cat-form').action = '/settings/categories/' + id + '/edit';
+        document.getElementById('edit-cat-name').value = name;
+        document.getElementById('edit-cat-picker').value = color;
+        document.getElementById('edit-cat-color').value = color;
+        updateBadgePreview('edit');
+        document.getElementById('modal-edit-category').classList.remove('hidden');
+    }
+
+    function closeEditCategoryModal() {
+        document.getElementById('modal-edit-category').classList.add('hidden');
+    }
+
+    function openDeleteCategoryModal(id, name, sessionCount) {
+        document.getElementById('delete-cat-form').action = '/settings/categories/' + id + '/delete';
+        document.getElementById('delete-cat-name').textContent = name;
+        const warningDiv = document.getElementById('delete-warning-sessions');
+        const submitBtn = document.getElementById('delete-submit-btn');
+
+        if (sessionCount > 0) {
+            document.getElementById('delete-session-count').textContent = sessionCount;
+            warningDiv.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            warningDiv.classList.add('hidden');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        document.getElementById('modal-delete-category').classList.remove('hidden');
+    }
+
+    function closeDeleteCategoryModal() {
+        document.getElementById('modal-delete-category').classList.add('hidden');
+    }
+
+    function syncColorFromPicker(prefix) {
+        const picker = document.getElementById(prefix + '-cat-picker');
+        const text = document.getElementById(prefix + '-cat-color');
+        text.value = picker.value.toUpperCase();
+        updateBadgePreview(prefix);
+    }
+
+    function syncColorFromText(prefix) {
+        const picker = document.getElementById(prefix + '-cat-picker');
+        let textVal = document.getElementById(prefix + '-cat-color').value.trim();
+        if (textVal && !textVal.startsWith('#')) {
+            textVal = '#' + textVal;
+        }
+        if (/^#[0-9A-Fa-f]{6}$/.test(textVal)) {
+            picker.value = textVal;
+        }
+        updateBadgePreview(prefix);
+    }
+
+    function applyColorPreset(prefix, hex) {
+        document.getElementById(prefix + '-cat-picker').value = hex;
+        document.getElementById(prefix + '-cat-color').value = hex.toUpperCase();
+        updateBadgePreview(prefix);
+    }
+
+    function updateBadgePreview(prefix) {
+        const nameInput = document.getElementById(prefix + '-cat-name');
+        const colorInput = document.getElementById(prefix + '-cat-color');
+        const badgeText = document.getElementById(prefix + '-badge-text');
+        const badgePreview = document.getElementById(prefix + '-badge-preview');
+        const badgeDot = document.getElementById(prefix + '-badge-dot');
+
+        const name = nameInput.value.trim() || 'Category Name';
+        let color = colorInput.value.trim() || '#990303';
+        if (!color.startsWith('#')) color = '#' + color;
+
+        badgeText.textContent = name;
+        badgeDot.style.backgroundColor = color;
+        badgePreview.style.color = color;
+        badgePreview.style.backgroundColor = color + '15';
+        badgePreview.style.borderColor = color + '40';
+    }
+</script>
+{{end}}

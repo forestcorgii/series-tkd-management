@@ -38,6 +38,7 @@ type CalendarSession struct {
 	WidthPercent    int // width percentage
 	TimeDisplay     string
 	CategoryBadge   string
+	CategoryColor   string
 	StatusLabel     string
 	StatusBadge     string
 }
@@ -147,6 +148,7 @@ type SessionsPageData struct {
 	Admins             []*models.User
 	Students           []*models.Student
 	Locations          []*models.Location
+	TrainingCategories []*models.TrainingCategory
 	FilterCoachID      string
 	FilterStudentID    string
 	FilterLocationID   string
@@ -172,11 +174,12 @@ type LiveCheckInPageData struct {
 	Session          *models.TrainingSession
 	Attendances      []*models.Attendance
 	Students         []*models.Student
-	Coaches          []*models.Coach
-	Admins           []*models.User
-	Locations        []*models.Location
-	ReadinessMap     map[string]services.PromotionReadiness
-	PackageStatusMap map[string]string
+	Coaches            []*models.Coach
+	Admins             []*models.User
+	Locations          []*models.Location
+	TrainingCategories []*models.TrainingCategory
+	ReadinessMap       map[string]services.PromotionReadiness
+	PackageStatusMap   map[string]string
 }
 
 type StudentSearchResultItem struct {
@@ -344,6 +347,12 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	minHour := 8
 	maxHour := 21
 
+	categories, _ := a.store.GetAllTrainingCategories()
+	catColorMap := make(map[string]string)
+	for _, c := range categories {
+		catColorMap[strings.ToLower(c.Name)] = c.Color
+	}
+
 	// Map sessions into days and hours
 	for _, s := range sessions {
 		startH, startM := parseTimeHM(s.StartTime)
@@ -397,6 +406,22 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			durationTotal = 120
 		}
 
+		catColor := catColorMap[strings.ToLower(string(s.TrainingType))]
+		if catColor == "" {
+			switch s.TrainingType {
+			case models.TrainingSparring:
+				catColor = "#990303"
+			case models.TrainingPoomsae:
+				catColor = "#4F46E5"
+			case models.TrainingConditioning:
+				catColor = "#D97706"
+			case models.TrainingPromotionPrep:
+				catColor = "#7C3AED"
+			default:
+				catColor = "#990303"
+			}
+		}
+
 		calSess := &CalendarSession{
 			Session:         s,
 			AttendanceCount: attCount,
@@ -409,6 +434,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			DurationMinutes: durationTotal,
 			TimeDisplay:     timeDisp,
 			CategoryBadge:   catBadge,
+			CategoryColor:   catColor,
 			StatusLabel:     statusLabel,
 			StatusBadge:     statusBadge,
 		}
@@ -645,6 +671,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		Admins:             activeAdmins,
 		Students:           students,
 		Locations:          locations,
+		TrainingCategories: categories,
 		FilterCoachID:      coachIDStr,
 		FilterStudentID:    studentIDStr,
 		FilterLocationID:   locationIDStr,
@@ -940,17 +967,19 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 	})
 
 	locations, _ := a.store.GetAllLocations()
+	categories, _ := a.store.GetAllTrainingCategories()
 	user := GetUserFromContext(r.Context())
 	data := LiveCheckInPageData{
-		CurrentUser:      user,
-		Session:          session,
-		Attendances:      attendances,
-		Students:         allStudents,
-		Coaches:          coaches,
-		Admins:           activeAdmins,
-		Locations:        locations,
-		ReadinessMap:     readinessMap,
-		PackageStatusMap: pkgStatusMap,
+		CurrentUser:        user,
+		Session:            session,
+		Attendances:        attendances,
+		Students:           allStudents,
+		Coaches:            coaches,
+		Admins:             activeAdmins,
+		Locations:          locations,
+		TrainingCategories: categories,
+		ReadinessMap:       readinessMap,
+		PackageStatusMap:   pkgStatusMap,
 	}
 
 	a.RenderPage(w, "live_checkin.html", data)

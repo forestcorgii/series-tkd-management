@@ -36,6 +36,14 @@ type RepositoryStore interface {
 	UpdateLocation(loc *models.Location) error
 	DeleteLocation(id uuid.UUID) error
 
+	// Training Categories
+	GetAllTrainingCategories() ([]*models.TrainingCategory, error)
+	GetTrainingCategoryByID(id uuid.UUID) (*models.TrainingCategory, error)
+	GetTrainingCategoryByName(name string) (*models.TrainingCategory, error)
+	CreateTrainingCategory(cat *models.TrainingCategory) error
+	UpdateTrainingCategory(cat *models.TrainingCategory) error
+	DeleteTrainingCategory(id uuid.UUID) error
+
 	// Students
 	GetAllStudents() ([]*models.Student, error)
 	GetStudentByID(id uuid.UUID) (*models.Student, error)
@@ -132,6 +140,7 @@ type MemoryStore struct {
 	passwordResetTokens map[string]*models.PasswordResetToken
 	safetyIncidents     map[uuid.UUID]*models.SafetyIncident
 	locations           map[uuid.UUID]*models.Location
+	trainingCategories  map[uuid.UUID]*models.TrainingCategory
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -150,6 +159,7 @@ func NewMemoryStore() *MemoryStore {
 		passwordResetTokens: make(map[string]*models.PasswordResetToken),
 		safetyIncidents:     make(map[uuid.UUID]*models.SafetyIncident),
 		locations:           make(map[uuid.UUID]*models.Location),
+		trainingCategories:  make(map[uuid.UUID]*models.TrainingCategory),
 	}
 	m.seedData()
 	return m
@@ -1328,6 +1338,122 @@ func (m *MemoryStore) DeleteLocation(id uuid.UUID) error {
 		return ErrNotFound
 	}
 	delete(m.locations, id)
+	return nil
+}
+
+func (m *MemoryStore) GetAllTrainingCategories() ([]*models.TrainingCategory, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make([]*models.TrainingCategory, 0, len(m.trainingCategories))
+	for _, c := range m.trainingCategories {
+		result = append(result, c)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
+	})
+	return result, nil
+}
+
+func (m *MemoryStore) GetTrainingCategoryByID(id uuid.UUID) (*models.TrainingCategory, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	c, ok := m.trainingCategories[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return c, nil
+}
+
+func (m *MemoryStore) GetTrainingCategoryByName(name string) (*models.TrainingCategory, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	cleanName := strings.ToLower(strings.TrimSpace(name))
+	for _, c := range m.trainingCategories {
+		if strings.ToLower(c.Name) == cleanName {
+			return c, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MemoryStore) CreateTrainingCategory(cat *models.TrainingCategory) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cleanName := strings.ToLower(strings.TrimSpace(cat.Name))
+	for _, existing := range m.trainingCategories {
+		if strings.ToLower(existing.Name) == cleanName {
+			return errors.New("training category with this name already exists")
+		}
+	}
+
+	if cat.ID == uuid.Nil {
+		cat.ID = uuid.New()
+	}
+	if cat.CreatedAt.IsZero() {
+		cat.CreatedAt = time.Now()
+	}
+	if strings.TrimSpace(cat.Color) == "" {
+		cat.Color = "#990303"
+	}
+	m.trainingCategories[cat.ID] = cat
+	return nil
+}
+
+func (m *MemoryStore) UpdateTrainingCategory(cat *models.TrainingCategory) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.trainingCategories[cat.ID]
+	if !ok {
+		return ErrNotFound
+	}
+
+	cleanName := strings.ToLower(strings.TrimSpace(cat.Name))
+	for id, other := range m.trainingCategories {
+		if id != cat.ID && strings.ToLower(other.Name) == cleanName {
+			return errors.New("training category with this name already exists")
+		}
+	}
+
+	oldName := existing.Name
+	existing.Name = strings.TrimSpace(cat.Name)
+	if strings.TrimSpace(cat.Color) != "" {
+		existing.Color = strings.TrimSpace(cat.Color)
+	}
+
+	// Update any existing sessions if name changed
+	if oldName != existing.Name {
+		for _, s := range m.sessions {
+			if string(s.TrainingType) == oldName {
+				s.TrainingType = models.TrainingType(existing.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *MemoryStore) DeleteTrainingCategory(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.trainingCategories[id]
+	if !ok {
+		return ErrNotFound
+	}
+
+	// Check if any sessions are using this category
+	for _, s := range m.sessions {
+		if string(s.TrainingType) == existing.Name {
+			return errors.New("cannot delete training category that is assigned to existing sessions")
+		}
+	}
+
+	delete(m.trainingCategories, id)
 	return nil
 }
 

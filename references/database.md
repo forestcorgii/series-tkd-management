@@ -73,5 +73,13 @@
   * **Real-Time Client-Side Pre-Fill**: Location dropdowns in [sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html), and [admin_portal.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/admin_portal.html) embed `data-fixed-rate`. Selecting a location immediately populates the class's `session_rate` input in real-time, while still permitting manual administrative adjustment.
   * **Server-Side Fallback Guarantee**: If a session creation or schedule request specifies `location_id` but leaves `session_rate` blank or omitted, [HandleCreateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) and [HandleAPIAdminSchedule](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/portal_handler.go) automatically resolve and assign `sess.SessionRate = loc.FixedRate`.
 
+### Context: Configurable Training Categories & Disciplines Schema Evolution
+
+* **Problem**: Training categories (e.g. Sparring, Poomsae, Conditioning, Promotion Prep) and their visual indicators were hardcoded across backend handlers and frontend templates. Operators had no self-service method to define new disciplines or configure customized badge colors without modifying codebase constants and CSS rules.
+* **Enforced Solution**:
+  * **Database Evolution**: Created `training_categories` table in PostgreSQL (`id UUID PRIMARY KEY`, `name VARCHAR(100) NOT NULL UNIQUE`, `color VARCHAR(30) NOT NULL`) and SQLite (`id TEXT PRIMARY KEY`, `name TEXT NOT NULL UNIQUE`, `color TEXT NOT NULL`). In `SQLStore.runMigrations()`, runtime migrations ensure tables exist and auto-seed standard categories if empty.
+  * **Domain & Model**: Defined [TrainingCategory](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/category.go) with `Name` and `Color` properties.
+  * **Cascading Session Sync & Deletion Restriction**: Renaming a category automatically updates existing session records via `UPDATE training_sessions SET training_type = $1 WHERE training_type = $2`. Deleting a category with active assigned sessions is safely blocked to maintain relational integrity.
+
 
 

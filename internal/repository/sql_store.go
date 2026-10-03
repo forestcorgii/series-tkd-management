@@ -149,6 +149,13 @@ func (s *SQLStore) runMigrations() error {
 			created_at TEXT NOT NULL
 		);
 
+		CREATE TABLE IF NOT EXISTS training_categories (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			color TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		);
+
 		CREATE TABLE IF NOT EXISTS training_sessions (
 			id TEXT PRIMARY KEY,
 			session_date TEXT NOT NULL,
@@ -302,6 +309,13 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
+		CREATE TABLE IF NOT EXISTS training_categories (
+			id UUID PRIMARY KEY,
+			name VARCHAR(100) NOT NULL UNIQUE,
+			color VARCHAR(30) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
 		CREATE TABLE IF NOT EXISTS training_sessions (
 			id UUID PRIMARY KEY,
 			session_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -425,10 +439,35 @@ func (s *SQLStore) runMigrations() error {
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN fixed_rate REAL`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			color TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN session_rate REAL`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN session_rate REAL`)
+
+		// Seed default categories if none exist in SQLite
+		var catCountSQLite int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM training_categories`).Scan(&catCountSQLite); err == nil && catCountSQLite == 0 {
+			now := time.Now()
+			defaults := []struct {
+				name  string
+				color string
+			}{
+				{"Sparring", "#990303"},
+				{"Poomsae", "#4F46E5"},
+				{"Conditioning", "#D97706"},
+				{"Promotion Prep", "#7C3AED"},
+			}
+			for _, d := range defaults {
+				_, _ = s.db.Exec(`INSERT INTO training_categories (id, name, color, created_at) VALUES ($1, $2, $3, $4)`,
+					uuid.New().String(), d.name, d.color, formatTimeForDB(now))
+			}
+		}
 
 		// Drop NOT NULL on coach_id in training_sessions if table was previously created with NOT NULL
 		if rows, err := s.db.Query(`PRAGMA table_info(training_sessions)`); err == nil {
@@ -500,11 +539,36 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS fixed_rate NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
+			id UUID PRIMARY KEY,
+			name VARCHAR(100) NOT NULL UNIQUE,
+			color VARCHAR(30) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`)
+
+		// Seed default categories if none exist in Postgres
+		var catCountPG int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM training_categories`).Scan(&catCountPG); err == nil && catCountPG == 0 {
+			now := time.Now()
+			defaults := []struct {
+				name  string
+				color string
+			}{
+				{"Sparring", "#990303"},
+				{"Poomsae", "#4F46E5"},
+				{"Conditioning", "#D97706"},
+				{"Promotion Prep", "#7C3AED"},
+			}
+			for _, d := range defaults {
+				_, _ = s.db.Exec(`INSERT INTO training_categories (id, name, color, created_at) VALUES ($1, $2, $3, $4)`,
+					uuid.New().String(), d.name, d.color, formatTimeForDB(now))
+			}
+		}
 	}
 
 	return nil
@@ -626,6 +690,163 @@ func (s *SQLStore) UpdateLocation(loc *models.Location) error {
 
 func (s *SQLStore) DeleteLocation(id uuid.UUID) error {
 	query := `DELETE FROM locations WHERE id = $1`
+	res, err := s.db.Exec(query, id.String())
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// Training Categories
+func (s *SQLStore) GetAllTrainingCategories() ([]*models.TrainingCategory, error) {
+	query := `SELECT id, name, color, created_at FROM training_categories ORDER BY name ASC`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []*models.TrainingCategory
+	for rows.Next() {
+		var idStr, createdStr string
+		cat := &models.TrainingCategory{}
+		if err := rows.Scan(&idStr, &cat.Name, &cat.Color, &createdStr); err != nil {
+			return nil, err
+		}
+		cat.ID = uuid.Must(uuid.Parse(idStr))
+		cat.CreatedAt, _ = parseTimeFlex(createdStr)
+		categories = append(categories, cat)
+	}
+	return categories, nil
+}
+
+func (s *SQLStore) GetTrainingCategoryByID(id uuid.UUID) (*models.TrainingCategory, error) {
+	query := `SELECT id, name, color, created_at FROM training_categories WHERE id = $1`
+	var idStr, createdStr string
+	cat := &models.TrainingCategory{}
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &cat.Name, &cat.Color, &createdStr)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	cat.ID = uuid.Must(uuid.Parse(idStr))
+	cat.CreatedAt, _ = parseTimeFlex(createdStr)
+	return cat, nil
+}
+
+func (s *SQLStore) GetTrainingCategoryByName(name string) (*models.TrainingCategory, error) {
+	query := `SELECT id, name, color, created_at FROM training_categories WHERE LOWER(name) = LOWER($1)`
+	var idStr, createdStr string
+	cat := &models.TrainingCategory{}
+	err := s.db.QueryRow(query, strings.TrimSpace(name)).Scan(&idStr, &cat.Name, &cat.Color, &createdStr)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	cat.ID = uuid.Must(uuid.Parse(idStr))
+	cat.CreatedAt, _ = parseTimeFlex(createdStr)
+	return cat, nil
+}
+
+func (s *SQLStore) CreateTrainingCategory(cat *models.TrainingCategory) error {
+	cleanName := strings.TrimSpace(cat.Name)
+	if cleanName == "" {
+		return errors.New("category name is required")
+	}
+
+	var existingCount int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM training_categories WHERE LOWER(name) = LOWER($1)`, cleanName).Scan(&existingCount)
+	if err == nil && existingCount > 0 {
+		return errors.New("training category with this name already exists")
+	}
+
+	if cat.ID == uuid.Nil {
+		cat.ID = uuid.New()
+	}
+	if cat.CreatedAt.IsZero() {
+		cat.CreatedAt = time.Now()
+	}
+	if strings.TrimSpace(cat.Color) == "" {
+		cat.Color = "#990303"
+	}
+	query := `INSERT INTO training_categories (id, name, color, created_at) VALUES ($1, $2, $3, $4)`
+	_, err = s.db.Exec(query, cat.ID.String(), cleanName, cat.Color, formatTimeForDB(cat.CreatedAt))
+	return err
+}
+
+func (s *SQLStore) UpdateTrainingCategory(cat *models.TrainingCategory) error {
+	cleanName := strings.TrimSpace(cat.Name)
+	if cleanName == "" {
+		return errors.New("category name is required")
+	}
+
+	// First fetch old name
+	var oldName string
+	err := s.db.QueryRow(`SELECT name FROM training_categories WHERE id = $1`, cat.ID.String()).Scan(&oldName)
+	if err == sql.ErrNoRows {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	var dupCount int
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM training_categories WHERE LOWER(name) = LOWER($1) AND id != $2`, cleanName, cat.ID.String()).Scan(&dupCount)
+	if err == nil && dupCount > 0 {
+		return errors.New("training category with this name already exists")
+	}
+
+	query := `UPDATE training_categories SET name = $1, color = $2 WHERE id = $3`
+	res, err := s.db.Exec(query, cleanName, cat.Color, cat.ID.String())
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	// Update existing sessions if name changed
+	if oldName != cleanName {
+		_, _ = s.db.Exec(`UPDATE training_sessions SET training_type = $1 WHERE training_type = $2`, cleanName, oldName)
+	}
+
+	return nil
+}
+
+func (s *SQLStore) DeleteTrainingCategory(id uuid.UUID) error {
+	// Get category name
+	var name string
+	err := s.db.QueryRow(`SELECT name FROM training_categories WHERE id = $1`, id.String()).Scan(&name)
+	if err == sql.ErrNoRows {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	// Check if any sessions are using this category
+	var count int
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM training_sessions WHERE training_type = $1`, name).Scan(&count)
+	if err == nil && count > 0 {
+		return errors.New("cannot delete training category that is assigned to existing sessions")
+	}
+
+	query := `DELETE FROM training_categories WHERE id = $1`
 	res, err := s.db.Exec(query, id.String())
 	if err != nil {
 		return err

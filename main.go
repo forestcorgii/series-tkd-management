@@ -105,6 +105,14 @@ func main() {
 	mux.HandleFunc("GET /profile", app.RequireAuth(app.HandleProfile))
 	mux.HandleFunc("POST /profile", app.RequireAuth(app.HandleProfile))
 
+	// Settings & Configurable Training Categories (Staff Roles)
+	mux.HandleFunc("GET /settings", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSettings))
+	mux.HandleFunc("POST /settings/categories", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateCategory))
+	mux.HandleFunc("POST /settings/categories/{id}/edit", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateCategory))
+	mux.HandleFunc("PUT /settings/categories/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateCategory))
+	mux.HandleFunc("POST /settings/categories/{id}/delete", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteCategory))
+	mux.HandleFunc("DELETE /settings/categories/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteCategory))
+
 	// Section 4 Role Guarded APIs
 	mux.HandleFunc("GET /api/student/readiness", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleAPIStudentReadiness))
 	mux.HandleFunc("POST /api/student/check-in", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleAPIStudentCheckIn))

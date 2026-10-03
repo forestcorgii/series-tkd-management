@@ -526,4 +526,35 @@ func (m *MemoryStore) seedData() {
 		CreatedAt:    now.AddDate(0, 0, -2),
 	}
 	m.safetyIncidents[incID] = incident
+
+	// 10. Default Configurable Training Categories
+	defaultCategories := []*models.TrainingCategory{
+		{
+			ID:        uuid.MustParse("00000000-0000-0000-0000-000000000010"),
+			Name:      "Sparring",
+			Color:     "#990303",
+			CreatedAt: now,
+		},
+		{
+			ID:        uuid.MustParse("00000000-0000-0000-0000-000000000011"),
+			Name:      "Poomsae",
+			Color:     "#4F46E5",
+			CreatedAt: now,
+		},
+		{
+			ID:        uuid.MustParse("00000000-0000-0000-0000-000000000012"),
+			Name:      "Conditioning",
+			Color:     "#D97706",
+			CreatedAt: now,
+		},
+		{
+			ID:        uuid.MustParse("00000000-0000-0000-0000-000000000013"),
+			Name:      "Promotion Prep",
+			Color:     "#7C3AED",
+			CreatedAt: now,
+		},
+	}
+	for _, cat := range defaultCategories {
+		m.trainingCategories[cat.ID] = cat
+	}
 }

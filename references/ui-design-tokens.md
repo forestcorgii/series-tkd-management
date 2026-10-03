@@ -82,3 +82,13 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   4. **Bidirectional State Synchronization:** The engine intercepts `select.value` assignment via prototype property descriptor and listens to form `reset` events so external script assignments (e.g. grading candidate buttons or filter clearing) instantly update the visible combobox text.
   5. **Native Keyboard Accessibility & Validation:** Supports `ArrowDown`/`ArrowUp` navigation with auto-scroll, `Enter` selection, `Escape`/`Tab` dismissal, and synchronizes `setCustomValidity` when `required` is present on the native select.
 
+### Context: Profile Submenu & Configurable Category Color Badges
+
+* **Problem:**
+  1. The user indicator in the header was a single direct link to `/profile`, lacking an extensible submenu for configuration and settings.
+  2. Training cards, timetable borders, and category filters relied on static hardcoded Tailwind classes, preventing custom categories from rendering custom brand or discipline colors.
+* **Enforced Solution:**
+  * **Profile Menu Dropdown ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**: Transformed the header profile indicator into an interactive dropdown with chevron indicator, exposing "Go to Profile" (`/profile`), "Settings" (`/settings`), and "Sign Out" (`/logout`), with seamless outside-click dismissal.
+  * **Dynamic Category Theming ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Timetable calendar cards apply dynamic inline style `border-left-color: {{.CategoryColor}}`, and category badges utilize dynamic color with alpha backgrounds (`color: {{.CategoryColor}}; background-color: {{.CategoryColor}}18; border: 1px solid {{.CategoryColor}}40;`).
+  * **Dynamic Form Selects ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html), [admin_portal.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/admin_portal.html))**: Dropdowns dynamically populate from the active configured categories repository.
+
