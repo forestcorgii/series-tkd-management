@@ -194,6 +194,10 @@
      - In **/coaches** (Coach Directory): Unapproved coaches display an amber ? Pending Approval pill, card notice, and 1-click ? Approve Coach button.
      - In **/portal/admin** (Master Operations Portal): Displays a dynamic banner when pending staff registrations exist, linking directly to /coaches or /admins for rapid review.
 
+  4. **Production Routing & URL Aliasing (/registration & /register)**:
+     - Railway Railpack builds directly from repository root (`main.go`).
+     - Both `main.go` and `cmd/server/main.go` register `GET /register`, `POST /register`, and seamless redirects/forwarding for `GET /registration`, `GET /registration/`, `GET /register/` (preserving query parameters like `?role=admin`), as well as `POST /registration` direct processing.
+
 ### Context: Student Deletion & Cascading Record Purge Governance (/students/{id}/delete)
 
 * **Problem**:

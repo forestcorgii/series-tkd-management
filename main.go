@@ -84,9 +84,31 @@ func main() {
 	mux.HandleFunc("POST /forgot-password", app.HandleForgotPasswordSubmit)
 	mux.HandleFunc("GET /reset-password", app.HandleResetPasswordPage)
 	mux.HandleFunc("POST /reset-password", app.HandleResetPasswordSubmit)
-	mux.HandleFunc("GET /register", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+	// Staff & Coach Registration (/register & /registration)
+	mux.HandleFunc("GET /register", app.HandleRegisterPage)
+	mux.HandleFunc("POST /register", app.HandleRegisterSubmit)
+	mux.HandleFunc("GET /register/", func(w http.ResponseWriter, r *http.Request) {
+		target := "/register"
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
 	})
+	mux.HandleFunc("GET /registration", func(w http.ResponseWriter, r *http.Request) {
+		target := "/register"
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /registration/", func(w http.ResponseWriter, r *http.Request) {
+		target := "/register"
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
+	})
+	mux.HandleFunc("POST /registration", app.HandleRegisterSubmit)
 	mux.HandleFunc("GET /logout", app.HandleLogout)
 	mux.HandleFunc("POST /logout", app.HandleLogout)
 	mux.HandleFunc("POST /api/auth/login", app.HandleAPILogin)
@@ -168,6 +190,9 @@ func main() {
 	mux.HandleFunc("PUT /admins/{id}/reset-password", app.RequireRole(models.RoleOperationManager)(app.HandleResetAdminPassword))
 	mux.HandleFunc("POST /api/admins/{id}/reset-password", app.RequireRole(models.RoleOperationManager)(app.HandleResetAdminPassword))
 	mux.HandleFunc("PUT /api/admins/{id}/reset-password", app.RequireRole(models.RoleOperationManager)(app.HandleResetAdminPassword))
+	mux.HandleFunc("POST /admins/{id}/delete", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteAdmin))
+	mux.HandleFunc("DELETE /admins/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteAdmin))
+	mux.HandleFunc("DELETE /api/admins/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteAdmin))
 
 	// Packages & Billing Passes (Admin can view and assign; Operation Manager has full control)
 	mux.HandleFunc("GET /packages", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandlePackages))

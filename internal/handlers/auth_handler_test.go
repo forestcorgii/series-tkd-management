@@ -1203,6 +1203,91 @@ func TestAuthHandler_CoachAndAdminRegistrationFlow(t *testing.T) {
 	}
 }
 
+func TestAuthHandler_RegistrationRoutesAndAliases(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /register", app.HandleRegisterPage)
+	mux.HandleFunc("POST /register", app.HandleRegisterSubmit)
+	mux.HandleFunc("GET /register/", func(w http.ResponseWriter, r *http.Request) {
+		target := "/register"
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /registration", func(w http.ResponseWriter, r *http.Request) {
+		target := "/register"
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /registration/", func(w http.ResponseWriter, r *http.Request) {
+		target := "/register"
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
+	})
+	mux.HandleFunc("POST /registration", app.HandleRegisterSubmit)
+
+	handler := app.AuthMiddleware(mux)
+
+	// 1. GET /register returns 200 OK
+	req := httptest.NewRequest("GET", "/register", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on GET /register, got %d", rec.Code)
+	}
+
+	// 2. GET /registration redirects to /register with query params preserved
+	req = httptest.NewRequest("GET", "/registration?role=admin", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on GET /registration, got %d", rec.Code)
+	}
+	if rec.Header().Get("Location") != "/register?role=admin" {
+		t.Fatalf("expected redirect to /register?role=admin, got %s", rec.Header().Get("Location"))
+	}
+
+	// 3. GET /registration/ redirects to /register
+	req = httptest.NewRequest("GET", "/registration/", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/register" {
+		t.Fatalf("expected redirect to /register, got %d to %s", rec.Code, rec.Header().Get("Location"))
+	}
+
+	// 4. POST /registration works seamlessly
+	form := url.Values{
+		"role":             {"COACH"},
+		"full_name":        {"Coach Alias Test"},
+		"email":            {"aliastest@seriestkd.com"},
+		"username":         {"aliastest"},
+		"password":         {"password123"},
+		"confirm_password": {"password123"},
+		"phone":            {"+63 917 555 8888"},
+	}
+	req = httptest.NewRequest("POST", "/registration", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on POST /registration, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Header().Get("Location"), "/login") {
+		t.Fatalf("expected redirect to /login after registration, got: %s", rec.Header().Get("Location"))
+	}
+
+	user, err := store.GetUserByEmail("aliastest@seriestkd.com")
+	if err != nil || user == nil {
+		t.Fatalf("expected user to be created from POST /registration")
+	}
+}
+
 
 
 
