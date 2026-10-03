@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/services"
 )
@@ -42,11 +44,7 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 	students, _ := a.store.GetAllStudents()
 	coaches, _ := a.store.GetAllCoaches()
 	sessions, _ := a.store.GetAllSessions()
-	var allAttendances []*models.Attendance
-	for _, sess := range sessions {
-		atts, _ := a.store.GetSessionAttendances(sess.ID)
-		allAttendances = append(allAttendances, atts...)
-	}
+	allAttendances, _ := a.store.GetAllAttendances()
 
 	firstAidAlerts := 0
 	now := time.Now()
@@ -59,15 +57,22 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	readinessSummaries := []StudentReadinessSummary{}
-	allSessionsMap := make(map[string]*models.TrainingSession)
+	readinessSummaries := make([]StudentReadinessSummary, 0, len(students))
+	allSessionsMap := make(map[string]*models.TrainingSession, len(sessions))
 	for _, s := range sessions {
 		allSessionsMap[s.ID.String()] = s
 	}
 
+	studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(students))
+	for _, att := range allAttendances {
+		studentAttendancesMap[att.StudentID] = append(studentAttendancesMap[att.StudentID], att)
+	}
+
+	latestEvalsMap, _ := a.store.GetLatestEvaluations()
+
 	for _, st := range students {
-		atts, _ := a.store.GetStudentAttendances(st.ID)
-		latestEval, _ := a.store.GetLatestEvaluation(st.ID)
+		atts := studentAttendancesMap[st.ID]
+		latestEval := latestEvalsMap[st.ID]
 		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 
 		readinessSummaries = append(readinessSummaries, StudentReadinessSummary{

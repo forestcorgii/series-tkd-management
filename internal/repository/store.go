@@ -83,6 +83,12 @@ type RepositoryStore interface {
 	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
 	RemoveAttendance(sessionID, studentID uuid.UUID) error
 
+	// Batch Optimizations
+	GetAllAttendances() ([]*models.Attendance, error)
+	GetSessionAttendanceCounts() (map[uuid.UUID]int, error)
+	GetLatestEvaluations() (map[uuid.UUID]*models.StudentEvaluation, error)
+	GetAllStudentPackagesGrouped() (map[uuid.UUID][]*models.StudentPackage, error)
+
 	// Evaluations
 	GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEvaluation, error)
 	GetStudentEvaluations(studentID uuid.UUID) ([]*models.StudentEvaluation, error)
@@ -507,6 +513,20 @@ func (m *MemoryStore) UpdateStudentPackage(pkg *models.StudentPackage) error {
 	return nil
 }
 
+func (m *MemoryStore) GetAllStudentPackagesGrouped() (map[uuid.UUID][]*models.StudentPackage, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[uuid.UUID][]*models.StudentPackage)
+	for _, sp := range m.studentPackages {
+		if tpl, ok := m.packageTemplates[sp.TemplateID]; ok {
+			sp.TemplateTitle = tpl.Title
+		}
+		result[sp.StudentID] = append(result[sp.StudentID], sp)
+	}
+	return result, nil
+}
+
 func (m *MemoryStore) GetAllSessions() ([]*models.TrainingSession, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -863,6 +883,54 @@ func (m *MemoryStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
 	return nil
 }
 
+func (m *MemoryStore) GetAllAttendances() ([]*models.Attendance, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make([]*models.Attendance, 0, len(m.attendances))
+	for _, a := range m.attendances {
+		if st, ok := m.students[a.StudentID]; ok {
+			a.StudentName = st.FullName
+			a.StudentBelt = st.CurrentBelt
+		}
+		if a.StudentPackageID != nil {
+			if sp, ok := m.studentPackages[*a.StudentPackageID]; ok {
+				if tpl, ok2 := m.packageTemplates[sp.TemplateID]; ok2 {
+					a.PackageTitle = tpl.Title
+				}
+			}
+		}
+		if a.LocationID != nil {
+			if loc, ok := m.locations[*a.LocationID]; ok {
+				a.LocationName = loc.Name
+				a.LocationPin = loc.Pin
+			}
+		} else if sess, ok := m.sessions[a.SessionID]; ok && sess.LocationID != nil {
+			a.LocationID = sess.LocationID
+			if loc, ok := m.locations[*sess.LocationID]; ok {
+				a.LocationName = loc.Name
+				a.LocationPin = loc.Pin
+			}
+		}
+		result = append(result, a)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CheckedInAt.After(result[j].CheckedInAt)
+	})
+	return result, nil
+}
+
+func (m *MemoryStore) GetSessionAttendanceCounts() (map[uuid.UUID]int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	counts := make(map[uuid.UUID]int)
+	for _, a := range m.attendances {
+		counts[a.SessionID]++
+	}
+	return counts, nil
+}
+
 func (m *MemoryStore) GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEvaluation, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -879,6 +947,24 @@ func (m *MemoryStore) GetLatestEvaluation(studentID uuid.UUID) (*models.StudentE
 		}
 	}
 	return latest, nil
+}
+
+func (m *MemoryStore) GetLatestEvaluations() (map[uuid.UUID]*models.StudentEvaluation, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[uuid.UUID]*models.StudentEvaluation)
+	for _, e := range m.evaluations {
+		curr, exists := result[e.StudentID]
+		if !exists || e.EvaluationDate.After(curr.EvaluationDate) ||
+			(e.EvaluationDate.Equal(curr.EvaluationDate) && e.CreatedAt.After(curr.CreatedAt)) {
+			if c, ok := m.coaches[e.CoachID]; ok {
+				e.CoachName = c.FullName
+			}
+			result[e.StudentID] = e
+		}
+	}
+	return result, nil
 }
 
 func (m *MemoryStore) GetStudentEvaluations(studentID uuid.UUID) ([]*models.StudentEvaluation, error) {

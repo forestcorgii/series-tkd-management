@@ -42,11 +42,7 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessions, _ := a.store.GetAllSessions()
-	var allAttendances []*models.Attendance
-	for _, sess := range sessions {
-		atts, _ := a.store.GetSessionAttendances(sess.ID)
-		allAttendances = append(allAttendances, atts...)
-	}
+	allAttendances, _ := a.store.GetAllAttendances()
 
 	now := time.Now()
 	start := now.AddDate(0, -1, 0)
