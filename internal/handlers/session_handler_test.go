@@ -1190,5 +1190,89 @@ func TestHandleCreateSession_LocationFixedRatePreFill(t *testing.T) {
 	}
 }
 
+func TestSessionHandler_OverlappingSchedulesAndCardClickability(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	loc1 := &models.Location{
+		ID:        uuid.New(),
+		Name:      "Main Dojang",
+		Pin:       "https://maps.google.com/?q=Main+Dojang",
+		CreatedAt: time.Now(),
+	}
+	loc2 := &models.Location{
+		ID:        uuid.New(),
+		Name:      "West Branch",
+		Pin:       "https://maps.google.com/?q=West+Branch",
+		CreatedAt: time.Now(),
+	}
+	_ = store.CreateLocation(loc1)
+	_ = store.CreateLocation(loc2)
+
+	sessDate, _ := time.Parse("2006-01-02", "2026-10-14")
+	sess1 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  sessDate,
+		StartTime:    "16:00",
+		EndTime:      "18:00",
+		LocationID:   &loc1.ID,
+		TrainingType: models.TrainingSparring,
+		Notes:        "Sparring class at Main Dojang",
+		CreatedAt:    time.Now(),
+	}
+	sess2 := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  sessDate,
+		StartTime:    "16:00",
+		EndTime:      "18:00",
+		LocationID:   &loc2.ID,
+		TrainingType: models.TrainingPoomsae,
+		Notes:        "Poomsae class at West Branch",
+		CreatedAt:    time.Now(),
+	}
+	_ = store.CreateSession(sess1)
+	_ = store.CreateSession(sess2)
+
+	req := httptest.NewRequest(http.MethodGet, "/sessions?date=2026-10-14", nil)
+	rec := httptest.NewRecorder()
+	app.HandleSessions(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+
+	// 1. Verify overlapping cascading cards are rendered with generous width (65% instead of squeezed 50%)
+	if !strings.Contains(body, "left: calc(0% + 2px); width: calc(65% - 4px);") {
+		t.Errorf("expected card 1 to be placed at left 0%% and width 65%%, body snippet not found")
+	}
+	if !strings.Contains(body, "left: calc(35% + 2px); width: calc(65% - 4px);") {
+		t.Errorf("expected card 2 to be placed at left 35%% and width 65%%, body snippet not found")
+	}
+
+	// 2. Verify whole card clickability handler is present
+	if !strings.Contains(body, "onclick=\"openClassInfoFromCard(this)\"") {
+		t.Errorf("expected card to have openClassInfoFromCard(this) click handler")
+	}
+
+	// 3. Verify Class Info modal exists in the page
+	if !strings.Contains(body, "id=\"class-info-modal\"") {
+		t.Errorf("expected class-info-modal to be present in page")
+	}
+
+	// 4. Verify location names are present in card headers
+	if !strings.Contains(body, "Main Dojang") || !strings.Contains(body, "West Branch") {
+		t.Errorf("expected location names in rendered calendar cards")
+	}
+
+	// 5. Verify Schedule Class action button is present in header
+	if !strings.Contains(body, "Schedule Class") {
+		t.Errorf("expected Schedule Class button in page")
+	}
+}
+
 
 

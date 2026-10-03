@@ -519,8 +519,21 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			if s.TotalColumns < 1 {
 				s.TotalColumns = 1
 			}
-			s.LeftPercent = (s.ColumnIndex * 100) / s.TotalColumns
-			s.WidthPercent = 100 / s.TotalColumns
+			if s.TotalColumns == 1 {
+				s.LeftPercent = 0
+				s.WidthPercent = 100
+			} else {
+				// Allow schedules across multiple locations to overlap gracefully with generous card width
+				n := s.TotalColumns
+				width := 50 + 30/n
+				if width > 75 {
+					width = 75
+				}
+				maxLeft := 100 - width
+				left := (s.ColumnIndex * maxLeft) / (n - 1)
+				s.LeftPercent = left
+				s.WidthPercent = width
+			}
 		}
 	}
 

@@ -109,4 +109,15 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   4. **Strict Scope Safeguards**:
      - Automatically excludes sensitive or formatted fields: `email`, `password`, `tel`, `number`, `date`, `time`, `search`, `url`, `color`, `checkbox`, `radio`, `hidden`.
 
+### Context: Multi-Location Overlapping Schedules & Interactive Class Info Modal
+
+* **Problem:** As dojang operations expand across multiple venues/locations, simultaneous classes frequently occur during the same time slot. Crushing overlapping sessions into tiny side-by-side vertical columns caused severe text truncation, clipped action buttons, and blocked users from scheduling parallel classes on occupied time slots. Furthermore, cards lacked an intuitive click target to view full session details.
+* **Enforced Solution:**
+  1. **Cascading Overlap Geometry ([session_handler.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go))**: When `TotalColumns > 1`, cards allocate a generous width (`width = 50 + 30/n`, capped at 75%) and stagger offsets (`left = (ColumnIndex * (100 - width)) / (n - 1)`) so cards overlap gracefully as a deck without clipping within the day column.
+  2. **Hover Elevation & Location Clarity ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Overlapping cards feature `hover:z-30 hover:shadow-xl hover:border-slate-400` to smoothly surface on mouseover, and prominently render the location tag (`📍 LocationName`) in bold contrast.
+  3. **Full-Card Clickability & Data Contract ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: The entire card and roster table rows expose `data-*` attributes (`data-id`, `data-type`, `data-date`, `data-time`, `data-location`, `data-coach`, `data-rate`, etc.) and bind `onclick="openClassInfoFromCard(this)"`, while preserving `e.stopPropagation()` on direct live attendance links.
+  4. **Class Info Modal ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html))**: Displays category, status, date, time, venue with map pin, pricing, instructor, admin, attendance tally, remarks, and complete action CTAs ("+ Add Overlapping Class", "Edit", "Delete", "Cancel", and "⚡ Open Live Attendance").
+  5. **Explicit Scheduling CTAs ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Unconditional `+ Schedule Class` action buttons in both the page header and calendar navigation bar ensure front-desk staff can schedule concurrent sessions without needing an empty calendar grid slot.
+
+
 

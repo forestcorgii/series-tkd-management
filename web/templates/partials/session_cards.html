@@ -43,8 +43,13 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                💡 Click any time slot to schedule a class
+            <button type="button"
+                    onclick="openNewSessionModal('{{.Calendar.TodayStr}}', '16:00')"
+                    class="btn btn-primary btn-xs py-1.5 px-3 flex items-center gap-1 shadow-xs">
+                <span>+</span> Schedule Class
+            </button>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
+                💡 Click any class card to view info, or empty slot to schedule
             </span>
         </div>
     </div>
@@ -150,8 +155,35 @@
                             <!-- Plotted Session Cards (Google Calendar Spanning Cards) -->
                             <div class="absolute inset-0 z-10 pointer-events-none">
                                 {{range $day.Sessions}}
-                                <div class="absolute rounded-lg border shadow-xs transition-all hover:shadow-lg hover:z-30 cursor-pointer overflow-hidden flex flex-col justify-between p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed{{else}}bg-white/95 dark:bg-neutral-900/90 border-slate-200 dark:border-neutral-800 border-l-4{{end}}"
-                                     style="top: {{.TopOffset}}px; height: {{.CardHeight}}px; left: calc({{.LeftPercent}}% + 2px); width: calc({{.WidthPercent}}% - 4px); {{if and (not .Session.IsCancelled) .CategoryColor}}border-left-color: {{.CategoryColor}};{{end}}">
+                                <div class="absolute rounded-lg border shadow-xs transition-all hover:shadow-xl hover:z-30 hover:border-slate-400 dark:hover:border-neutral-600 cursor-pointer overflow-hidden flex flex-col justify-between p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed{{else}}bg-white/95 dark:bg-neutral-900/90 border-slate-200 dark:border-neutral-800 border-l-4{{end}}"
+                                     style="top: {{.TopOffset}}px; height: {{.CardHeight}}px; left: calc({{.LeftPercent}}% + 2px); width: calc({{.WidthPercent}}% - 4px); {{if and (not .Session.IsCancelled) .CategoryColor}}border-left-color: {{.CategoryColor}};{{end}}"
+                                     onclick="openClassInfoFromCard(this)"
+                                     data-id="{{.Session.ID}}"
+                                     data-type="{{.Session.TrainingType}}"
+                                     data-color="{{.CategoryColor}}"
+                                     data-date="{{formatDate .Session.SessionDate}}"
+                                     data-date-raw="{{.Session.SessionDate.Format "2006-01-02"}}"
+                                     data-start="{{.Session.StartTime}}"
+                                     data-end="{{.Session.EndTime}}"
+                                     data-time="{{.TimeDisplay}}"
+                                     data-status="{{.StatusLabel}}"
+                                     data-status-badge="{{.StatusBadge}}"
+                                     data-coach="{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}Unassigned{{end}}"
+                                     data-coach-id="{{.Session.CoachIDString}}"
+                                     data-admin="{{if .Session.AdminName}}{{.Session.AdminName}}{{end}}"
+                                     data-admin-id="{{if .Session.AdminID}}{{.Session.AdminID}}{{end}}"
+                                     data-location="{{if .Session.LocationName}}{{.Session.LocationName}}{{end}}"
+                                     data-location-id="{{if .Session.LocationID}}{{.Session.LocationID}}{{end}}"
+                                     data-location-pin="{{if .Session.LocationPin}}{{.Session.LocationPin}}{{end}}"
+                                     data-rate="{{if .Session.HasFixedRate}}₱{{formatCurrency .Session.SessionRate}}{{end}}"
+                                     data-rate-raw="{{if .Session.SessionRate}}{{printf "%.2f" .Session.SessionRateVal}}{{end}}"
+                                     data-notes="{{.Session.Notes}}"
+                                     data-attendance="{{.AttendanceCount}}"
+                                     data-cancelled="{{if .Session.IsCancelled}}true{{else}}false{{end}}"
+                                     data-cancellation-reason="{{.Session.CancellationReason}}"
+                                     data-is-open="{{if .Session.IsOpen}}true{{else}}false{{end}}"
+                                     data-is-done="{{if .Session.IsDone}}true{{else}}false{{end}}"
+                                     title="Click to view class info: {{.Session.TrainingType}} ({{.TimeDisplay}})">
                                     <div>
                                         <div class="flex items-center justify-between gap-1 mb-0.5">
                                             <span class="inline-block px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200{{end}}"
@@ -172,64 +204,35 @@
                                         <h4 class="font-display font-bold text-xs leading-tight truncate {{if .Session.IsCancelled}}text-slate-400 line-through{{else}}text-slate-900 dark:text-white{{end}}">
                                             {{.TimeDisplay}}
                                         </h4>
-                                        <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium truncate mt-0.5">
+                                        {{if .Session.LocationName}}
+                                        <p class="text-[10px] text-slate-700 dark:text-slate-300 font-semibold truncate flex items-center gap-1 mt-0.5">
+                                            <span class="text-rose-600 dark:text-rose-400">📍</span>
+                                            <span class="truncate">{{.Session.LocationName}}</span>
+                                        </p>
+                                        {{end}}
+                                        <p class="text-[10px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5">
                                             Coach: <span class="font-semibold">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 dark:text-slate-500 font-normal italic">Unassigned</span>{{end}}</span>
                                         </p>
-                                        {{if .Session.AdminName}}
+                                        {{if and .Session.AdminName (gt .CardHeight 90)}}
                                         <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
                                             Admin: <span class="font-semibold">{{.Session.AdminName}}</span>
                                         </p>
                                         {{end}}
-                                        {{if .Session.LocationName}}
-                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center gap-1">
-                                            <span>📍</span>
-                                            {{if .Session.LocationPin}}
-                                            <a href="{{.Session.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold truncate" title="View in Google Maps">
-                                                {{.Session.LocationName}}
-                                            </a>
-                                            {{else}}
-                                            <span class="font-semibold truncate">{{.Session.LocationName}}</span>
-                                            {{end}}
-                                        </p>
-                                        {{end}}
-                                        {{if and .Session.Notes (gt .CardHeight 70)}}
+                                        {{if and .Session.Notes (gt .CardHeight 80)}}
                                         <p class="text-[10px] text-slate-500 dark:text-slate-400 italic truncate mt-0.5" title="{{.Session.Notes}}">
                                             "{{.Session.Notes}}"
                                         </p>
                                         {{end}}
                                     </div>
 
-                                    <div class="pt-1 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between gap-1 mt-auto" onclick="event.stopPropagation()">
+                                    <div class="pt-1 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between gap-1 mt-auto">
                                         <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400">
                                             👥 {{.AttendanceCount}}
                                         </span>
-                                        <div class="flex items-center gap-1">
-                                            {{if not .Session.IsCancelled}}
-                                            <button type="button"
-                                                    onclick="openEditSessionModal('{{.Session.ID}}', '{{.Session.SessionDate.Format "2006-01-02"}}', '{{.Session.StartTime}}', '{{.Session.EndTime}}', '{{.Session.CoachIDString}}', '{{if .Session.AdminID}}{{.Session.AdminID}}{{end}}', '{{.Session.TrainingType}}', '{{.Session.Notes}}', {{if .Session.IsOpen}}true{{else}}false{{end}}, '{{if .Session.LocationID}}{{.Session.LocationID}}{{end}}', '{{if .Session.SessionRate}}{{printf "%.2f" .Session.SessionRateVal}}{{end}}')"
-                                                    class="text-[10px] text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white font-bold p-0.5"
-                                                    title="Edit Class">
-                                                ✏️
-                                            </button>
-                                            {{end}}
-                                            {{if .Session.IsOpen}}
-                                            <button type="button"
-                                                    onclick="openDeleteSessionModal('{{.Session.ID}}', '{{.Session.TrainingType}}', '{{formatDate .Session.SessionDate}}', '{{.TimeDisplay}}')"
-                                                    class="text-[10px] text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold p-0.5"
-                                                    title="Delete Class">
-                                                🗑️
-                                            </button>
-                                            {{end}}
-                                            {{if not (or .Session.IsCancelled .Session.IsDone)}}
-                                            <button type="button"
-                                                    onclick="openCancelModal('{{.Session.ID}}', '{{.Session.TrainingType}}', '{{formatDate .Session.SessionDate}}', '{{.TimeDisplay}}', '{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}Unassigned{{end}}')"
-                                                    class="text-[10px] text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold p-0.5"
-                                                    title="Cancel Class">
-                                                ✖
-                                            </button>
-                                            {{end}}
+                                        <div class="flex items-center gap-1" onclick="event.stopPropagation()">
                                             <a href="/sessions/{{.Session.ID}}/live"
-                                               class="btn btn-xs py-0.5 px-2 text-[10px] {{if .Session.IsCancelled}}btn-secondary opacity-70{{else if .Session.IsDone}}btn-secondary{{else}}btn-primary{{end}}">
+                                               class="btn btn-xs py-0.5 px-2 text-[10px] {{if .Session.IsCancelled}}btn-secondary opacity-70{{else if .Session.IsDone}}btn-secondary{{else}}btn-primary{{end}}"
+                                               title="Go to Live Tablet Attendance">
                                                 {{if .Session.IsCancelled}}Roster{{else if .Session.IsDone}}Roster{{else}}⚡ Live{{end}}
                                             </a>
                                         </div>
@@ -282,7 +285,34 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
                     {{range .Sessions}}
-                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors {{if .IsCancelled}}bg-rose-50/20 dark:bg-rose-950/10{{end}}">
+                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer {{if .IsCancelled}}bg-rose-50/20 dark:bg-rose-950/10{{end}}"
+                        onclick="openClassInfoFromCard(this)"
+                        data-id="{{.ID}}"
+                        data-type="{{.TrainingType}}"
+                        data-color=""
+                        data-date="{{formatDate .SessionDate}}"
+                        data-date-raw="{{.SessionDate.Format "2006-01-02"}}"
+                        data-start="{{.StartTime}}"
+                        data-end="{{.EndTime}}"
+                        data-time="{{.StartTime}} - {{.EndTime}}"
+                        data-status="{{if .IsCancelled}}CANCELLED{{else if .IsDone}}CLOSED{{else}}LIVE / UPCOMING{{end}}"
+                        data-status-badge="{{if .IsCancelled}}bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .IsDone}}bg-slate-200 text-slate-600 border-slate-300 dark:bg-slate-800/80 dark:text-slate-400 dark:border-slate-700{{else}}bg-emerald-500 text-white font-bold{{end}}"
+                        data-coach="{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}"
+                        data-coach-id="{{.CoachIDString}}"
+                        data-admin="{{if .AdminName}}{{.AdminName}}{{end}}"
+                        data-admin-id="{{if .AdminID}}{{.AdminID}}{{end}}"
+                        data-location="{{if .LocationName}}{{.LocationName}}{{end}}"
+                        data-location-id="{{if .LocationID}}{{.LocationID}}{{end}}"
+                        data-location-pin="{{if .LocationPin}}{{.LocationPin}}{{end}}"
+                        data-rate="{{if .HasFixedRate}}₱{{formatCurrency .SessionRate}}{{end}}"
+                        data-rate-raw="{{if .SessionRate}}{{printf "%.2f" .SessionRateVal}}{{end}}"
+                        data-notes="{{.Notes}}"
+                        data-attendance=""
+                        data-cancelled="{{if .IsCancelled}}true{{else}}false{{end}}"
+                        data-cancellation-reason="{{.CancellationReason}}"
+                        data-is-open="{{if .IsOpen}}true{{else}}false{{end}}"
+                        data-is-done="{{if .IsDone}}true{{else}}false{{end}}"
+                        title="Click to view class info: {{.TrainingType}} ({{.StartTime}} - {{.EndTime}})">
                         <!-- Date & Time -->
                         <td class="py-3 px-4 whitespace-nowrap">
                             <div class="font-bold text-slate-900 dark:text-white font-mono text-xs sm:text-sm {{if .IsCancelled}}line-through text-slate-400{{end}}">
@@ -326,7 +356,7 @@
                             <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5 flex items-center gap-1">
                                 <span>📍</span>
                                 {{if .LocationPin}}
-                                <a href="{{.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold" title="View in Google Maps">{{.LocationName}}</a>
+                                <a href="{{.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold" title="View in Google Maps" onclick="event.stopPropagation()">{{.LocationName}}</a>
                                 {{else}}
                                 <span>{{.LocationName}}</span>
                                 {{end}}
@@ -350,8 +380,14 @@
                         </td>
 
                         <!-- Actions -->
-                        <td class="py-3 px-4 text-right whitespace-nowrap">
+                        <td class="py-3 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
                             <div class="inline-flex items-center gap-1.5">
+                                <button type="button"
+                                        onclick="openClassInfoFromCard(this.closest('tr'))"
+                                        class="btn btn-ghost btn-xs text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white py-1 px-2 font-medium"
+                                        title="View Class Info">
+                                    <span>👁️</span> Info
+                                </button>
                                 {{if not .IsCancelled}}
                                 <button type="button"
                                         onclick="openEditSessionModal('{{.ID}}', '{{.SessionDate.Format "2006-01-02"}}', '{{.StartTime}}', '{{.EndTime}}', '{{.CoachIDString}}', '{{if .AdminID}}{{.AdminID}}{{end}}', '{{.TrainingType}}', '{{.Notes}}', {{if .IsOpen}}true{{else}}false{{end}}, '{{if .LocationID}}{{.LocationID}}{{end}}', '{{if .SessionRate}}{{printf "%.2f" .SessionRateVal}}{{end}}')"

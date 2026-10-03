@@ -10,6 +10,11 @@
             <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Training Classes &amp; Floor Attendance Log</h1>
             <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Schedule dojang classes on the 7-day calendar, filter by coach or date, and manage floor attendance screens.</p>
         </div>
+        <button type="button"
+                onclick="openNewSessionModal(currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
+                class="btn btn-primary btn-sm flex items-center gap-1.5 self-start sm:self-auto shadow-sm">
+            <span>+</span> Schedule Class
+        </button>
     </div>
 
     <!-- Classes List & Calendar Container -->
@@ -348,6 +353,119 @@
     </div>
 </div>
 
+<!-- Modal: View Class Info -->
+<div id="class-info-modal" class="modal-backdrop hidden" onclick="if(event.target === this) closeClassInfoModal()">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span id="info-modal-category-badge" class="px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider">
+                    Class
+                </span>
+                <span id="info-modal-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                    Upcoming
+                </span>
+            </div>
+            <button type="button" onclick="closeClassInfoModal()" class="modal-close">&times;</button>
+        </div>
+
+        <div class="p-5 space-y-4">
+            <!-- Title & Time Header -->
+            <div>
+                <h3 id="info-modal-title" class="font-display font-extrabold text-xl text-slate-900 dark:text-white">
+                    Training Class
+                </h3>
+                <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium mt-1">
+                    <span id="info-modal-date" class="font-semibold text-slate-800 dark:text-slate-100"></span>
+                    <span>&bull;</span>
+                    <span id="info-modal-time" class="font-mono font-bold text-[#990303] dark:text-[#DC2626]"></span>
+                </div>
+            </div>
+
+            <!-- Cancelled Notice (if cancelled) -->
+            <div id="info-modal-cancelled-banner" class="hidden p-3 bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900 rounded-xl text-xs text-rose-900 dark:text-rose-200 space-y-1">
+                <p class="font-bold flex items-center gap-1.5">
+                    <span>⚠️</span> Class Cancelled
+                </p>
+                <p id="info-modal-cancellation-reason" class="text-rose-800 dark:text-rose-300"></p>
+            </div>
+
+            <!-- Details Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
+                <!-- Location -->
+                <div class="space-y-0.5">
+                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Training Location</span>
+                    <div class="flex items-center gap-1 text-slate-900 dark:text-white font-semibold">
+                        <span>📍</span>
+                        <span id="info-modal-location">Unassigned</span>
+                        <a id="info-modal-location-pin" href="#" target="_blank" rel="noopener noreferrer" class="hidden text-indigo-600 dark:text-indigo-400 hover:underline text-[11px] ml-1">
+                            (Map ↗)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Fixed Rate (if any) -->
+                <div class="space-y-0.5">
+                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Pricing / Rate</span>
+                    <div class="font-semibold text-slate-900 dark:text-white">
+                        <span id="info-modal-rate">Standard Membership Deduction</span>
+                    </div>
+                </div>
+
+                <!-- Lead Coach -->
+                <div class="space-y-0.5">
+                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Lead Coach</span>
+                    <p id="info-modal-coach" class="font-semibold text-slate-900 dark:text-white">Unassigned</p>
+                </div>
+
+                <!-- Supervising Admin -->
+                <div class="space-y-0.5">
+                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Supervising Admin</span>
+                    <p id="info-modal-admin" class="font-semibold text-slate-900 dark:text-white">Unassigned</p>
+                </div>
+
+                <!-- Attendance Count -->
+                <div class="space-y-0.5 sm:col-span-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+                    <div>
+                        <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Attendance Roster</span>
+                        <p id="info-modal-attendance" class="font-semibold text-slate-900 dark:text-white">0 students checked in</p>
+                    </div>
+                    <a id="info-modal-live-btn" href="#" class="btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold">
+                        <span>⚡</span> Open Live Attendance
+                    </a>
+                </div>
+            </div>
+
+            <!-- Notes / Remarks -->
+            <div class="space-y-1">
+                <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Class Remarks / Focus</span>
+                <p id="info-modal-notes" class="text-xs text-slate-700 dark:text-slate-300 italic p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200/60 dark:border-slate-800">
+                    No specific remarks provided.
+                </p>
+            </div>
+        </div>
+
+        <div class="modal-footer flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <button type="button" id="info-modal-edit-btn" class="btn btn-secondary btn-xs py-1.5 px-2.5 flex items-center gap-1 text-xs">
+                    <span>✏️</span> Edit
+                </button>
+                <button type="button" id="info-modal-delete-btn" class="btn btn-ghost btn-xs py-1.5 px-2.5 text-rose-600 hover:text-rose-700 dark:text-rose-400 flex items-center gap-1 text-xs">
+                    <span>🗑️</span> Delete
+                </button>
+                <button type="button" id="info-modal-cancel-btn" class="btn btn-ghost btn-xs py-1.5 px-2.5 text-rose-600 hover:text-rose-700 dark:text-rose-400 flex items-center gap-1 text-xs">
+                    <span>✖</span> Cancel
+                </button>
+                <button type="button" id="info-modal-add-overlap-btn" class="btn btn-ghost btn-xs py-1.5 px-2.5 text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white flex items-center gap-1 text-xs" title="Schedule another overlapping class at this same date & time">
+                    <span>+</span> Add Overlapping Class
+                </button>
+            </div>
+            <button type="button" onclick="closeClassInfoModal()" class="btn btn-secondary btn-sm">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
 let currentSelectedDate = '{{.SelectedDate}}' || new Date().toISOString().split('T')[0];
 
@@ -524,6 +642,201 @@ function openCancelModal(id, category, date, time, coach) {
 
 function closeCancelModal() {
     document.getElementById('cancel-session-modal').classList.add('hidden');
+}
+
+function openClassInfoFromCard(cardEl) {
+    if (!cardEl) return;
+    const d = cardEl.dataset;
+    
+    // Category badge
+    const catBadge = document.getElementById('info-modal-category-badge');
+    if (catBadge) {
+        catBadge.textContent = d.type || 'Training';
+        if (d.cancelled === 'true') {
+            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200';
+            catBadge.style = '';
+        } else if (d.color) {
+            catBadge.style.color = d.color;
+            catBadge.style.backgroundColor = d.color + '18';
+            catBadge.style.border = '1px solid ' + d.color + '40';
+            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider';
+        } else {
+            catBadge.style = '';
+            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950 dark:text-rose-300';
+        }
+    }
+    
+    // Status badge
+    const statusBadge = document.getElementById('info-modal-status-badge');
+    if (statusBadge) {
+        statusBadge.textContent = d.status || 'UPCOMING';
+        statusBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase ' + (d.statusBadge || '');
+    }
+    
+    // Title
+    const titleEl = document.getElementById('info-modal-title');
+    if (titleEl) {
+        titleEl.textContent = (d.type || 'Training') + ' Class';
+        if (d.cancelled === 'true') {
+            titleEl.classList.add('line-through', 'text-slate-400');
+        } else {
+            titleEl.classList.remove('line-through', 'text-slate-400');
+        }
+    }
+    
+    // Date & Time
+    const dateEl = document.getElementById('info-modal-date');
+    if (dateEl) dateEl.textContent = d.date || '';
+    
+    const timeEl = document.getElementById('info-modal-time');
+    if (timeEl) timeEl.textContent = d.time || '';
+    
+    // Cancelled banner
+    const cancelledBanner = document.getElementById('info-modal-cancelled-banner');
+    const cancellationReasonEl = document.getElementById('info-modal-cancellation-reason');
+    if (cancelledBanner) {
+        if (d.cancelled === 'true') {
+            cancelledBanner.classList.remove('hidden');
+            if (cancellationReasonEl) {
+                cancellationReasonEl.textContent = 'Reason: ' + (d.cancellationReason || 'Cancelled by floor staff');
+            }
+        } else {
+            cancelledBanner.classList.add('hidden');
+        }
+    }
+    
+    // Location
+    const locEl = document.getElementById('info-modal-location');
+    const locPin = document.getElementById('info-modal-location-pin');
+    if (locEl) {
+        locEl.textContent = d.location || 'Unassigned / Dojang Floor';
+    }
+    if (locPin) {
+        if (d.locationPin) {
+            locPin.href = d.locationPin;
+            locPin.classList.remove('hidden');
+        } else {
+            locPin.classList.add('hidden');
+        }
+    }
+    
+    // Rate
+    const rateEl = document.getElementById('info-modal-rate');
+    if (rateEl) {
+        if (d.rate) {
+            rateEl.textContent = d.rate + ' (Fixed Rate Check-in)';
+            rateEl.className = 'text-amber-600 dark:text-amber-400 font-bold';
+        } else {
+            rateEl.textContent = 'Standard Membership Deduction';
+            rateEl.className = 'text-slate-700 dark:text-slate-300 font-normal';
+        }
+    }
+    
+    // Coach & Admin
+    const coachEl = document.getElementById('info-modal-coach');
+    if (coachEl) coachEl.textContent = d.coach || 'Unassigned';
+    
+    const adminEl = document.getElementById('info-modal-admin');
+    if (adminEl) adminEl.textContent = d.admin || 'Unassigned';
+    
+    // Attendance count
+    const attEl = document.getElementById('info-modal-attendance');
+    if (attEl) {
+        if (d.attendance !== undefined && d.attendance !== "") {
+            const count = parseInt(d.attendance, 10) || 0;
+            attEl.textContent = count + (count === 1 ? ' student checked in' : ' students checked in');
+        } else {
+            attEl.textContent = 'Active floor session roster';
+        }
+    }
+    
+    // Live Attendance button
+    const liveBtn = document.getElementById('info-modal-live-btn');
+    if (liveBtn) {
+        liveBtn.href = '/sessions/' + d.id + '/live';
+        if (d.cancelled === 'true') {
+            liveBtn.innerHTML = '<span>📋</span> View Cancelled Roster';
+            liveBtn.className = 'btn btn-secondary btn-xs py-1 px-3 flex items-center gap-1 font-bold opacity-80';
+        } else if (d.isDone === 'true') {
+            liveBtn.innerHTML = '<span>🔒</span> View Completed Roster';
+            liveBtn.className = 'btn btn-secondary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
+        } else {
+            liveBtn.innerHTML = '<span>⚡</span> Open Live Attendance';
+            liveBtn.className = 'btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
+        }
+    }
+    
+    // Notes
+    const notesEl = document.getElementById('info-modal-notes');
+    if (notesEl) {
+        if (d.notes && d.notes.trim()) {
+            notesEl.textContent = '"' + d.notes.trim() + '"';
+            notesEl.classList.remove('text-slate-400', 'dark:text-slate-500');
+            notesEl.classList.add('text-slate-700', 'dark:text-slate-300');
+        } else {
+            notesEl.textContent = 'No specific remarks provided.';
+            notesEl.classList.add('text-slate-400', 'dark:text-slate-500');
+            notesEl.classList.remove('text-slate-700', 'dark:text-slate-300');
+        }
+    }
+    
+    // Edit Button
+    const editBtn = document.getElementById('info-modal-edit-btn');
+    if (editBtn) {
+        if (d.cancelled !== 'true') {
+            editBtn.classList.remove('hidden');
+            editBtn.onclick = function() {
+                closeClassInfoModal();
+                openEditSessionModal(d.id, d.dateRaw, d.start, d.end, d.coachId, d.adminId, d.type, d.notes, d.isOpen === 'true', d.locationId, d.rateRaw);
+            };
+        } else {
+            editBtn.classList.add('hidden');
+        }
+    }
+    
+    // Delete Button
+    const deleteBtn = document.getElementById('info-modal-delete-btn');
+    if (deleteBtn) {
+        if (d.isOpen === 'true') {
+            deleteBtn.classList.remove('hidden');
+            deleteBtn.onclick = function() {
+                closeClassInfoModal();
+                openDeleteSessionModal(d.id, d.type, d.date, d.time);
+            };
+        } else {
+            deleteBtn.classList.add('hidden');
+        }
+    }
+    
+    // Cancel Button
+    const cancelBtn = document.getElementById('info-modal-cancel-btn');
+    if (cancelBtn) {
+        if (d.cancelled !== 'true' && d.isDone !== 'true') {
+            cancelBtn.classList.remove('hidden');
+            cancelBtn.onclick = function() {
+                closeClassInfoModal();
+                openCancelModal(d.id, d.type, d.date, d.time, d.coach);
+            };
+        } else {
+            cancelBtn.classList.add('hidden');
+        }
+    }
+    
+    // Add Overlapping Class Button
+    const addOverlapBtn = document.getElementById('info-modal-add-overlap-btn');
+    if (addOverlapBtn) {
+        addOverlapBtn.onclick = function() {
+            closeClassInfoModal();
+            openNewSessionModal(d.dateRaw, d.start);
+        };
+    }
+    
+    document.getElementById('class-info-modal').classList.remove('hidden');
+}
+
+function closeClassInfoModal() {
+    const modal = document.getElementById('class-info-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 function clearFilters() {
