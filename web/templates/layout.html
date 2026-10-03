@@ -180,6 +180,18 @@
         .searchable-menu::-webkit-scrollbar-track { background: transparent; }
         .searchable-menu::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
         .searchable-menu::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
+
+        /* Auto-uppercase for general text and textarea inputs */
+        input[type="text"]:not(.searchable-input):not(.no-uppercase),
+        input:not([type]):not(.searchable-input):not(.no-uppercase),
+        textarea:not(.no-uppercase) {
+            text-transform: uppercase;
+        }
+        input[type="text"]::placeholder,
+        input:not([type])::placeholder,
+        textarea::placeholder {
+            text-transform: none;
+        }
     </style>
 </head>
 
@@ -861,9 +873,94 @@
             }
         });
 
-        window.addEventListener('DOMContentLoaded', () => initSearchableSelects(document));
-        document.addEventListener('htmx:afterSwap', (e) => initSearchableSelects(e.detail.target || e.target));
-        document.addEventListener('htmx:afterProcess', (e) => initSearchableSelects(e.detail.target || e.target));
+        // --- STMS Universal Alpha-Numeric Uppercase Transformation Engine ---
+        function isAlphaNumericTextInput(el) {
+            if (!el || el.readOnly || el.disabled) return false;
+            if (el.classList && (el.classList.contains('searchable-input') || el.classList.contains('no-uppercase'))) return false;
+            if (el.dataset && (el.dataset.noUppercase === 'true' || el.dataset.searchable === 'true')) return false;
+
+            const tag = el.tagName ? el.tagName.toLowerCase() : '';
+            if (tag === 'textarea') return true;
+            if (tag === 'input') {
+                const type = (el.getAttribute('type') || 'text').toLowerCase();
+                const excludedTypes = [
+                    'email', 'password', 'tel', 'date', 'time',
+                    'datetime-local', 'month', 'week', 'number',
+                    'search', 'url', 'color', 'file', 'checkbox',
+                    'radio', 'hidden', 'range', 'button', 'submit',
+                    'reset', 'image'
+                ];
+                return !excludedTypes.includes(type);
+            }
+            return false;
+        }
+
+        function applyUppercase(el) {
+            if (!isAlphaNumericTextInput(el)) return;
+            const curVal = el.value;
+            if (!curVal) return;
+            const upper = curVal.toUpperCase();
+            if (curVal !== upper) {
+                const start = el.selectionStart;
+                const end = el.selectionEnd;
+                el.value = upper;
+                if (start !== null && end !== null) {
+                    try {
+                        el.setSelectionRange(start, end);
+                    } catch (err) {}
+                }
+            }
+        }
+
+        function syncAllUppercaseInputs(root) {
+            if (!root || !root.querySelectorAll) return;
+            const inputs = root.querySelectorAll('input:not([type]), input[type="text"], textarea');
+            inputs.forEach(applyUppercase);
+        }
+
+        // Live typing & pasting transformation with cursor preservation
+        document.addEventListener('input', function (e) {
+            applyUppercase(e.target);
+        }, true);
+
+        // Pre-submit synchronization for native form submissions
+        document.addEventListener('submit', function (e) {
+            const form = e.target;
+            if (!form || !form.elements) return;
+            for (let i = 0; i < form.elements.length; i++) {
+                applyUppercase(form.elements[i]);
+            }
+        }, true);
+
+        // Pre-request synchronization for HTMX submissions
+        document.addEventListener('htmx:configRequest', function (e) {
+            const elt = e.detail && e.detail.elt;
+            if (elt) {
+                const form = elt.closest ? elt.closest('form') : null;
+                if (form && form.elements) {
+                    for (let i = 0; i < form.elements.length; i++) {
+                        applyUppercase(form.elements[i]);
+                    }
+                } else if (isAlphaNumericTextInput(elt)) {
+                    applyUppercase(elt);
+                }
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initSearchableSelects(document);
+            syncAllUppercaseInputs(document);
+        });
+        document.addEventListener('htmx:afterSwap', (e) => {
+            const target = e.detail.target || e.target;
+            initSearchableSelects(target);
+            syncAllUppercaseInputs(target);
+        });
+        document.addEventListener('htmx:afterProcess', (e) => {
+            const target = e.detail.target || e.target;
+            initSearchableSelects(target);
+            syncAllUppercaseInputs(target);
+        });
     </script>
 </body>
 

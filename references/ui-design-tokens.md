@@ -92,3 +92,21 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   * **Dynamic Category Theming ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Timetable calendar cards apply dynamic inline style `border-left-color: {{.CategoryColor}}`, and category badges utilize dynamic color with alpha backgrounds (`color: {{.CategoryColor}}; background-color: {{.CategoryColor}}18; border: 1px solid {{.CategoryColor}}40;`).
   * **Dynamic Form Selects ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html), [admin_portal.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/admin_portal.html))**: Dropdowns dynamically populate from the active configured categories repository.
 
+### Context: Universal Alpha-Numeric Uppercase Transformation Engine
+
+* **Problem:** Manual or inconsistent casing across student names, emergency contacts, notes, specialties, remarks, and venue names results in fragmented data entry and visual inconsistency across floor operations and roster reports. Pure CSS `text-transform: uppercase` renders visually uppercase text but leaves underlying DOM values in mixed/lowercase, transmitting lowercase values on form submit.
+* **Enforced Solution:**
+  1. **Visual Presentation Layer ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
+     - Global CSS rule applies `text-transform: uppercase` to all general `input[type="text"]`, `input:not([type])`, and `textarea` elements.
+     - Selectively excludes `.searchable-input`, `.no-uppercase`, and non-text types.
+     - Explicitly resets `::placeholder` with `text-transform: none` to preserve original casing and legibility of hint text.
+  2. **Real-Time Input Event Listener with Selection Preservation ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
+     - Intercepts input events globally (`document.addEventListener('input', ..., true)`).
+     - Converts `el.value` to uppercase on typing and pasting while preserving cursor position via `selectionStart` and `selectionEnd`.
+  3. **Multi-Submission & HTMX Hooking ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
+     - Synchronizes values on native `submit` events and HTMX `htmx:configRequest` payloads so transmitted and stored backend records are uppercase.
+     - Synchronizes pre-existing values upon initial load (`DOMContentLoaded`) and post-swap DOM mutations (`htmx:afterSwap`, `htmx:afterProcess`).
+  4. **Strict Scope Safeguards**:
+     - Automatically excludes sensitive or formatted fields: `email`, `password`, `tel`, `number`, `date`, `time`, `search`, `url`, `color`, `checkbox`, `radio`, `hidden`.
+
+
