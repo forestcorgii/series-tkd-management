@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"time"
 	_ "time/tzdata"
 
@@ -239,6 +240,12 @@ func (a *AppHandler) parseTemplates() error {
 	return nil
 }
 
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
 func (a *AppHandler) RenderPage(w http.ResponseWriter, pageName string, data interface{}) {
 	tmpl, ok := a.pageTemplates[pageName]
 	if !ok {
@@ -246,8 +253,11 @@ func (a *AppHandler) RenderPage(w http.ResponseWriter, pageName string, data int
 		return
 	}
 
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, pageName, data); err != nil {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	if err := tmpl.ExecuteTemplate(buf, pageName, data); err != nil {
 		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -256,8 +266,11 @@ func (a *AppHandler) RenderPage(w http.ResponseWriter, pageName string, data int
 }
 
 func (a *AppHandler) RenderPartial(w http.ResponseWriter, partialName string, data interface{}) {
-	var buf bytes.Buffer
-	if err := a.partialTemplates.ExecuteTemplate(&buf, partialName, data); err != nil {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	if err := a.partialTemplates.ExecuteTemplate(buf, partialName, data); err != nil {
 		http.Error(w, fmt.Sprintf("Partial template error: %v", err), http.StatusInternalServerError)
 		return
 	}

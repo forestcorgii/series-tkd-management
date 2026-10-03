@@ -1750,6 +1750,167 @@ func TestSQLStore_OptionalCoachID(t *testing.T) {
 	}
 }
 
+func TestSQLStore_BatchOptimizationMethods(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+	stores := map[string]repository.RepositoryStore{}
+	stores["MemoryStore"] = repository.NewMemoryStore()
+
+	dbFile := filepath.Join(t.TempDir(), "test_batch_methods.db")
+	sqlStore, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if s, ok := sqlStore.(*repository.SQLStore); ok {
+			_ = s.Close()
+		}
+	}()
+	stores["SQLStore"] = sqlStore
+
+	for storeName, store := range stores {
+		t.Run(storeName, func(t *testing.T) {
+			// 1. Create Coach & Student
+			coach := &models.Coach{
+				ID:        uuid.New(),
+				FullName:  "Coach Batch " + storeName,
+				Email:     "coach.batch." + storeName + "@seriestkd.com",
+				Phone:     "0911223344",
+				BeltRank:  "4th Dan",
+				IsActive:  true,
+				CreatedAt: time.Now(),
+			}
+			_ = store.CreateCoach(coach)
+
+			student := &models.Student{
+				ID:                uuid.New(),
+				FullName:          "Student Batch " + storeName,
+				DOB:               time.Now().AddDate(-15, 0, 0),
+				CurrentBelt:       models.BeltWhite,
+				LastPromotionDate: time.Now().AddDate(0, -2, 0),
+				EmergencyName:     "Parent",
+				EmergencyPhone:    "0911999999",
+				EmergencyRelation: "Mother",
+				IsActive:          true,
+				CreatedAt:         time.Now(),
+			}
+			_ = store.CreateStudent(student)
+
+			// 2. Create Package Template and assign package
+			tpl := &models.PackageTemplate{
+				ID:           uuid.New(),
+				Title:        "12-Class Card",
+				SessionCount: intPtr(12),
+				ValidityDays: 90,
+				Price:        3000,
+				IsActive:     true,
+			}
+			_ = store.CreatePackageTemplate(tpl)
+
+			pkg := &models.StudentPackage{
+				ID:                uuid.New(),
+				StudentID:         student.ID,
+				TemplateID:        tpl.ID,
+				TotalSessions:     intPtr(12),
+				RemainingSessions: intPtr(11),
+				PurchaseDate:      time.Now().AddDate(0, 0, -5),
+				ExpiryDate:        time.Now().AddDate(0, 0, 85),
+				PaymentStatus:     "paid",
+			}
+			_ = store.AssignPackage(pkg)
+
+			// Verify GetAllStudentPackagesGrouped
+			pkgsMap, err := store.GetAllStudentPackagesGrouped()
+			if err != nil {
+				t.Fatalf("GetAllStudentPackagesGrouped failed: %v", err)
+			}
+			stPkgs := pkgsMap[student.ID]
+			if len(stPkgs) == 0 {
+				t.Fatalf("expected student packages in map, got empty")
+			}
+			if stPkgs[0].TemplateTitle != "12-Class Card" {
+				t.Errorf("expected template title '12-Class Card', got %s", stPkgs[0].TemplateTitle)
+			}
+
+			// 3. Create Session and check in
+			sess := &models.TrainingSession{
+				ID:           uuid.New(),
+				SessionDate:  time.Now(),
+				StartTime:    "17:00",
+				EndTime:      "18:30",
+				CoachID:      &coach.ID,
+				TrainingType: models.TrainingSparring,
+				CreatedAt:    time.Now(),
+			}
+			_ = store.CreateSession(sess)
+
+			_, err = store.CheckInStudent(sess.ID, student.ID, &pkg.ID, nil)
+			if err != nil {
+				t.Fatalf("CheckInStudent failed: %v", err)
+			}
+
+			// Verify GetAllAttendances
+			allAtts, err := store.GetAllAttendances()
+			if err != nil {
+				t.Fatalf("GetAllAttendances failed: %v", err)
+			}
+			foundAtt := false
+			for _, a := range allAtts {
+				if a.SessionID == sess.ID && a.StudentID == student.ID {
+					foundAtt = true
+					if a.StudentName != student.FullName {
+						t.Errorf("expected StudentName %s, got %s", student.FullName, a.StudentName)
+					}
+					break
+				}
+			}
+			if !foundAtt {
+				t.Errorf("expected newly created attendance in GetAllAttendances")
+			}
+
+			// Verify GetSessionAttendanceCounts
+			counts, err := store.GetSessionAttendanceCounts()
+			if err != nil {
+				t.Fatalf("GetSessionAttendanceCounts failed: %v", err)
+			}
+			if counts[sess.ID] != 1 {
+				t.Errorf("expected count 1 for session, got %d", counts[sess.ID])
+			}
+
+			// 4. Create Evaluation and verify GetLatestEvaluations
+			eval := &models.StudentEvaluation{
+				ID:             uuid.New(),
+				StudentID:      student.ID,
+				CoachID:        coach.ID,
+				EvaluationDate: time.Now(),
+				Flexibility:    8,
+				Stamina:        7,
+				Power:          8,
+				Technique:      9,
+				SparringIQ:     8,
+				Discipline:     10,
+				CoachRemarks:   "Excellent batch progress",
+				CreatedAt:      time.Now(),
+			}
+			if err := store.CreateEvaluation(eval); err != nil {
+				t.Fatalf("CreateEvaluation failed: %v", err)
+			}
+
+			latestMap, err := store.GetLatestEvaluations()
+			if err != nil {
+				t.Fatalf("GetLatestEvaluations failed: %v", err)
+			}
+			stEval := latestMap[student.ID]
+			if stEval == nil {
+				t.Fatalf("expected latest evaluation for student in map")
+			}
+			if stEval.Technique != 9 || stEval.CoachRemarks != "Excellent batch progress" {
+				t.Errorf("unexpected evaluation data: %+v", stEval)
+			}
+		})
+	}
+}
+
+
 
 
 

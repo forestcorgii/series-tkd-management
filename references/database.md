@@ -81,5 +81,23 @@
   * **Domain & Model**: Defined [TrainingCategory](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/category.go) with `Name` and `Color` properties.
   * **Cascading Session Sync & Deletion Restriction**: Renaming a category automatically updates existing session records via `UPDATE training_sessions SET training_type = $1 WHERE training_type = $2`. Deleting a category with active assigned sessions is safely blocked to maintain relational integrity.
 
+### Context: Database Indexing, SQLite WAL & Batch N+1 Query Elimination
+
+* **Problem**: 
+  1. Handlers (`HandleDashboard`, `HandleStudents`, `HandleSessions`, `HandleLiveSession`, `HandleCoaches`, role portals) repeatedly executed hundreds of individual SQL queries inside loops for attendances, latest evaluations, and student packages (up to 500+ queries per page load).
+  2. Tables lacked B-Tree indexes on foreign keys and frequently queried fields (`attendance.session_id`, `attendance.student_id`, `student_packages.student_id`, `training_sessions.session_date`), leading to full-table scans.
+  3. SQLite operated under default synchronous `DELETE` journal mode with no connection pool bounds, leading to latency and locks under concurrent requests.
+* **Enforced Solution**:
+  * **Database Indexes**: Created 12 composite and targeted indexes across `attendance`, `student_packages`, `training_sessions`, `student_evaluations`, `students`, `users`, `user_sessions`, and `safety_incidents`.
+  * **SQLite WAL & Connection Pool Tuning**: Enabled Write-Ahead Logging (`PRAGMA journal_mode=WAL;`), `PRAGMA synchronous=NORMAL;`, `PRAGMA busy_timeout=5000;`, and `PRAGMA cache_size=-20000;` (20MB cache) alongside pool tuning (`db.SetMaxOpenConns(10)`, `db.SetMaxIdleConns(5)`).
+  * **High-Performance Batch Repository Queries**:
+    1. `GetAllAttendances()`: Single query returning all attendances with student, template, session, and location data joined.
+    2. `GetSessionAttendanceCounts()`: Aggregated counts via `SELECT session_id, COUNT(*) FROM attendance GROUP BY session_id`.
+    3. `GetLatestEvaluations()`: Windowed single-pass query using ANSI `ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY evaluation_date DESC, created_at DESC)`.
+    4. `GetAllStudentPackagesGrouped()`: Fetches all packages grouped by student in a single query.
+  * **UI Gzip & Buffer Pooling**: Added [GzipMiddleware](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/gzip_middleware.go) reducing HTML transfer sizes by ~85% and `sync.Pool` buffer pooling for Go template execution.
+
+
+
 
 

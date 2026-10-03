@@ -353,6 +353,8 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		catColorMap[strings.ToLower(c.Name)] = c.Color
 	}
 
+	attCounts, _ := a.store.GetSessionAttendanceCounts()
+
 	// Map sessions into days and hours
 	for _, s := range sessions {
 		startH, startM := parseTimeHM(s.StartTime)
@@ -365,8 +367,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			maxHour = endH
 		}
 
-		atts, _ := a.store.GetSessionAttendances(s.ID)
-		attCount := len(atts)
+		attCount := attCounts[s.ID]
 
 		catBadge := "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
 		switch s.TrainingType {
@@ -908,40 +909,32 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	attendances, _ := a.store.GetSessionAttendances(sessionID)
-	allStudents, _ := a.store.GetAllStudents()
 	allSessions, _ := a.store.GetAllSessions()
 
-	allSessionsMap := make(map[string]*models.TrainingSession)
+	allSessionsMap := make(map[string]*models.TrainingSession, len(allSessions))
 	for _, s := range allSessions {
 		allSessionsMap[s.ID.String()] = s
 	}
 
-	readinessMap := make(map[string]services.PromotionReadiness)
-	pkgStatusMap := make(map[string]string)
+	readinessMap := make(map[string]services.PromotionReadiness, len(attendances))
+	if len(attendances) > 0 {
+		allAtts, _ := a.store.GetAllAttendances()
+		studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(allAtts))
+		for _, a := range allAtts {
+			studentAttendancesMap[a.StudentID] = append(studentAttendancesMap[a.StudentID], a)
+		}
+		latestEvalsMap, _ := a.store.GetLatestEvaluations()
 
-	for _, st := range allStudents {
-		atts, _ := a.store.GetStudentAttendances(st.ID)
-		latestEval, _ := a.store.GetLatestEvaluation(st.ID)
-		rStatus := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
-		readinessMap[st.ID.String()] = rStatus
-
-		pkgs, _ := a.store.GetStudentPackages(st.ID)
-		oldestValid, err := a.packageSvc.FindOldestValidPackage(pkgs, atts, time.Now())
-		if err != nil {
-			pkgStatusMap[st.ID.String()] = "No Active Credits ⚠️"
-		} else if oldestValid.IsFourWeek() {
-			weekNum, _, _ := oldestValid.CurrentCycleWindow(time.Now())
-			if oldestValid.RemainingSessions != nil {
-				pkgStatusMap[st.ID.String()] = fmt.Sprintf("Wk %d: %d left (%dx/wk)", weekNum, *oldestValid.RemainingSessions, oldestValid.WeeklyCadence())
-			} else {
-				pkgStatusMap[st.ID.String()] = fmt.Sprintf("Wk %d 4-Week Pass", weekNum)
+		for _, att := range attendances {
+			st, err := a.store.GetStudentByID(att.StudentID)
+			if err != nil || st == nil {
+				continue
 			}
-		} else if oldestValid.RemainingSessions != nil {
-			pkgStatusMap[st.ID.String()] = fmt.Sprintf("%d sessions left", *oldestValid.RemainingSessions)
-		} else {
-			pkgStatusMap[st.ID.String()] = "Unlimited Pass ♾️"
+			rStatus := a.promotionSvc.EvaluateReadiness(st, studentAttendancesMap[att.StudentID], allSessionsMap, latestEvalsMap[att.StudentID])
+			readinessMap[att.StudentID.String()] = rStatus
 		}
 	}
+	pkgStatusMap := make(map[string]string)
 
 	coaches, _ := a.store.GetAllCoaches()
 	adminUsers, _ := a.store.GetUsersByRole(models.RoleAdmin)
@@ -973,7 +966,7 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 		CurrentUser:        user,
 		Session:            session,
 		Attendances:        attendances,
-		Students:           allStudents,
+		Students:           nil,
 		Coaches:            coaches,
 		Admins:             activeAdmins,
 		Locations:          locations,
@@ -994,17 +987,25 @@ func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	query := r.FormValue("query")
-	students, _ := a.store.SearchStudents(query)
-	existingAttendances, _ := a.store.GetSessionAttendances(sessionID)
+	query := strings.TrimSpace(r.FormValue("query"))
+	if query == "" {
+		a.RenderPartial(w, "search_results.html", []StudentSearchResultItem{})
+		return
+	}
 
-	checkedMap := make(map[string]bool)
+	students, _ := a.store.SearchStudents(query)
+	if len(students) > 25 {
+		students = students[:25]
+	}
+
+	existingAttendances, _ := a.store.GetSessionAttendances(sessionID)
+	checkedMap := make(map[string]bool, len(existingAttendances))
 	for _, att := range existingAttendances {
 		checkedMap[att.StudentID.String()] = true
 	}
 
 	allSessions, _ := a.store.GetAllSessions()
-	allSessionsMap := make(map[string]*models.TrainingSession)
+	allSessionsMap := make(map[string]*models.TrainingSession, len(allSessions))
 	for _, s := range allSessions {
 		allSessionsMap[s.ID.String()] = s
 	}
@@ -1015,14 +1016,24 @@ func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request)
 		classSessionRate = session.SessionRate
 	}
 
-	results := []StudentSearchResultItem{}
+	allAttendances, _ := a.store.GetAllAttendances()
+	studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(allAttendances))
+	for _, a := range allAttendances {
+		studentAttendancesMap[a.StudentID] = append(studentAttendancesMap[a.StudentID], a)
+	}
+
+	latestEvalsMap, _ := a.store.GetLatestEvaluations()
+	packagesMap, _ := a.store.GetAllStudentPackagesGrouped()
+	now := time.Now()
+
+	results := make([]StudentSearchResultItem, 0, len(students))
 	for _, st := range students {
-		atts, _ := a.store.GetStudentAttendances(st.ID)
-		latestEval, _ := a.store.GetLatestEvaluation(st.ID)
+		atts := studentAttendancesMap[st.ID]
+		latestEval := latestEvalsMap[st.ID]
 		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 
-		pkgs, _ := a.store.GetStudentPackages(st.ID)
-		validPkg, pkgErr := a.packageSvc.FindOldestValidPackage(pkgs, atts, time.Now())
+		pkgs := packagesMap[st.ID]
+		validPkg, pkgErr := a.packageSvc.FindOldestValidPackage(pkgs, atts, now)
 
 		warning := ""
 		if pkgErr != nil {

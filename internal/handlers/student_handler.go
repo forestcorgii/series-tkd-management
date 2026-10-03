@@ -41,21 +41,31 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessions, _ := a.store.GetAllSessions()
-	allSessionsMap := make(map[string]*models.TrainingSession)
+	allSessionsMap := make(map[string]*models.TrainingSession, len(sessions))
 	for _, s := range sessions {
 		allSessionsMap[s.ID.String()] = s
 	}
 
+	allAttendances, _ := a.store.GetAllAttendances()
+	studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(students))
+	for _, att := range allAttendances {
+		studentAttendancesMap[att.StudentID] = append(studentAttendancesMap[att.StudentID], att)
+	}
+
+	latestEvalsMap, _ := a.store.GetLatestEvaluations()
+	packagesMap, _ := a.store.GetAllStudentPackagesGrouped()
+	now := time.Now()
+
 	items := make([]StudentListItem, 0, len(students))
 	for _, st := range students {
-		atts, _ := a.store.GetStudentAttendances(st.ID)
-		latestEval, _ := a.store.GetLatestEvaluation(st.ID)
+		atts := studentAttendancesMap[st.ID]
+		latestEval := latestEvalsMap[st.ID]
 		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 
-		pkgs, _ := a.store.GetStudentPackages(st.ID)
+		pkgs := packagesMap[st.ID]
 		var activePkg *models.StudentPackage
 		for _, p := range pkgs {
-			if p.IsValidAt(time.Now()) {
+			if p.IsValidAt(now) {
 				activePkg = p
 				break
 			}

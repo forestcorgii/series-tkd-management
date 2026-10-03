@@ -3,7 +3,7 @@
 {{define "title"}}Practitioner Portal &bull; {{.Student.FullName}} &bull; Series Taekwondo{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
+<div id="student-portal-reactive" class="space-y-6" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#student-portal-reactive" hx-target="#student-portal-reactive" hx-swap="outerHTML">
     <!-- Safety & First Aid Alert Notice (Displayed if flagged) -->
     {{if .HasActiveSafetyHold}}
     <div class="p-4 sm:p-5 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 text-rose-700 dark:text-rose-300 shadow-lg flex items-start gap-4 animate-pulse">
@@ -25,7 +25,7 @@
     {{end}}
 
     <!-- Top Practitioner Header & Belt Ribbon -->
-    <div id="student-header" class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#student-header" hx-target="#student-header" hx-swap="outerHTML">
+    <div id="student-header" class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div class="flex items-center space-x-4">
                 <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
@@ -73,7 +73,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Readiness Progress HUD (2 cols) -->
         <div class="lg:col-span-2 space-y-6">
-            <div id="readiness-hud" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#readiness-hud" hx-target="#readiness-hud" hx-swap="outerHTML">
+            <div id="readiness-hud" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
@@ -154,7 +154,7 @@
             </div>
 
             <!-- Package Balance & Auto-Deduction Wallet -->
-            <div id="wallet-ledger-card" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#wallet-ledger-card" hx-target="#wallet-ledger-card" hx-swap="outerHTML">
+            <div id="wallet-ledger-card" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">

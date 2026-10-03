@@ -201,11 +201,18 @@ func (a *AppHandler) HandleCoachPortal(w http.ResponseWriter, r *http.Request) {
 		allSessionsMap[s.ID.String()] = s
 	}
 
+	allAtts, _ := a.store.GetAllAttendances()
+	studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(allAtts))
+	for _, a := range allAtts {
+		studentAttendancesMap[a.StudentID] = append(studentAttendancesMap[a.StudentID], a)
+	}
+	latestEvalsMap, _ := a.store.GetLatestEvaluations()
+
 	// Build priority review queue: Students who are READY or PRE-TEST ELIGIBLE
 	var reviewQueue []StudentReadinessSummary
 	for _, st := range students {
-		atts, _ := a.store.GetStudentAttendances(st.ID)
-		latestEval, _ := a.store.GetLatestEvaluation(st.ID)
+		atts := studentAttendancesMap[st.ID]
+		latestEval := latestEvalsMap[st.ID]
 		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 		if readiness.Status == services.StatusReady || readiness.Status == services.StatusPreTestEligible {
 			reviewQueue = append(reviewQueue, StudentReadinessSummary{
@@ -256,10 +263,17 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		allSessionsMap[s.ID.String()] = s
 	}
 
+	allAtts, _ := a.store.GetAllAttendances()
+	studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(allAtts))
+	for _, a := range allAtts {
+		studentAttendancesMap[a.StudentID] = append(studentAttendancesMap[a.StudentID], a)
+	}
+	latestEvalsMap, _ := a.store.GetLatestEvaluations()
+
 	var readinessList []StudentReadinessSummary
 	for _, st := range students {
-		atts, _ := a.store.GetStudentAttendances(st.ID)
-		latestEval, _ := a.store.GetLatestEvaluation(st.ID)
+		atts := studentAttendancesMap[st.ID]
+		latestEval := latestEvalsMap[st.ID]
 		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 		readinessList = append(readinessList, StudentReadinessSummary{
 			Student:   st,

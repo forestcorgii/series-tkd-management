@@ -208,9 +208,12 @@ func main() {
 	mux.HandleFunc("DELETE /sessions/{id}/attendance/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
 	mux.HandleFunc("POST /sessions/{id}/remove/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
 
-	// Static assets if needed
+	// Static assets with caching headers
 	fs := http.FileServer(http.Dir("web/static"))
-	mux.Handle("GET /static/", http.StripPrefix("/static/", fs))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		fs.ServeHTTP(w, r)
+	})))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -221,9 +224,10 @@ func main() {
 	log.Printf("🥋 Series Taekwondo Management System (STMS) Server Started")
 	log.Printf("📍 Listening on http://localhost:%s", port)
 	log.Printf("🛡️  RBAC Engine Online: Student, Coach & Admin Portals Activated")
+	log.Printf("⚡ Gzip Compression & Database Indexing Engine Online")
 	log.Printf("=========================================================")
 
-	handler := app.AuthMiddleware(mux)
+	handler := handlers.GzipMiddleware(app.AuthMiddleware(mux))
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}

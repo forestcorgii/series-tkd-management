@@ -60,6 +60,22 @@ func InitDatabase(databaseURL string) (RepositoryStore, string, error) {
 		return nil, driver, fmt.Errorf("failed to ping database (%s): %w", driver, err)
 	}
 
+	if driver == "sqlite" {
+		// WAL mode for non-blocking concurrent readers & fast writes
+		_, _ = db.Exec("PRAGMA journal_mode=WAL;")
+		_, _ = db.Exec("PRAGMA synchronous=NORMAL;")
+		_, _ = db.Exec("PRAGMA busy_timeout=5000;")
+		_, _ = db.Exec("PRAGMA cache_size=-20000;") // 20MB cache
+		db.SetMaxOpenConns(10)
+		db.SetMaxIdleConns(5)
+		db.SetConnMaxLifetime(30 * time.Minute)
+	} else {
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(10)
+		db.SetConnMaxLifetime(15 * time.Minute)
+		db.SetConnMaxIdleTime(5 * time.Minute)
+	}
+
 	store := NewSQLStore(db, driver)
 	if err := store.runMigrations(); err != nil {
 		db.Close()
@@ -569,6 +585,25 @@ func (s *SQLStore) runMigrations() error {
 					uuid.New().String(), d.name, d.color, formatTimeForDB(now))
 			}
 		}
+	}
+
+	// High-performance operational indexes (SQLite & PostgreSQL compatible)
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_attendance_session_id ON attendance(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_attendance_student_id ON attendance(student_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_attendance_package_id ON attendance(student_package_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_student_packages_student_id ON student_packages(student_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_training_sessions_date ON training_sessions(session_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_training_sessions_coach ON training_sessions(coach_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_training_sessions_loc ON training_sessions(location_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_evaluations_student_date ON student_evaluations(student_id, evaluation_date DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_students_active_name ON students(is_active, full_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_safety_incidents_resolved ON safety_incidents(resolved)`,
+	}
+	for _, idx := range indexes {
+		_, _ = s.db.Exec(idx)
 	}
 
 	return nil
@@ -1493,6 +1528,70 @@ func (s *SQLStore) GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPac
 	return pkgs, nil
 }
 
+func (s *SQLStore) GetAllStudentPackagesGrouped() (map[uuid.UUID][]*models.StudentPackage, error) {
+	query := `SELECT sp.id, sp.student_id, sp.template_id, pt.title, COALESCE(sp.plan_type, 'standard'), sp.total_sessions,
+		sp.remaining_sessions, sp.sessions_per_week, sp.custom_price, COALESCE(sp.notes, ''), sp.purchase_date, sp.expiry_date, sp.payment_status, sp.created_at
+		FROM student_packages sp
+		LEFT JOIN package_templates pt ON sp.template_id = pt.id
+		ORDER BY sp.purchase_date ASC`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]*models.StudentPackage)
+	for rows.Next() {
+		var idStr, stIDStr, tmplIDStr, purchStr, expStr, createdStr, notesStr string
+		var titleStr, planTypeStr sql.NullString
+		var total, rem, spw sql.NullInt64
+		var customPrice sql.NullFloat64
+		sp := &models.StudentPackage{}
+		err := rows.Scan(
+			&idStr, &stIDStr, &tmplIDStr, &titleStr, &planTypeStr, &total,
+			&rem, &spw, &customPrice, &notesStr, &purchStr, &expStr, &sp.PaymentStatus, &createdStr,
+		)
+		if err != nil {
+			return nil, err
+		}
+		sp.ID = uuid.Must(uuid.Parse(idStr))
+		sp.StudentID = uuid.Must(uuid.Parse(stIDStr))
+		sp.TemplateID = uuid.Must(uuid.Parse(tmplIDStr))
+		if titleStr.Valid {
+			sp.TemplateTitle = titleStr.String
+		}
+		pType := "standard"
+		if planTypeStr.Valid && planTypeStr.String != "" {
+			pType = planTypeStr.String
+		} else if !total.Valid {
+			pType = "unlimited"
+		}
+		sp.PlanType = models.PlanType(pType)
+		sp.Notes = notesStr
+		if customPrice.Valid {
+			cp := customPrice.Float64
+			sp.CustomPrice = &cp
+		}
+		if total.Valid {
+			t := int(total.Int64)
+			sp.TotalSessions = &t
+		}
+		if rem.Valid {
+			r := int(rem.Int64)
+			sp.RemainingSessions = &r
+		}
+		if spw.Valid {
+			w := int(spw.Int64)
+			sp.SessionsPerWeek = &w
+		}
+		sp.PurchaseDate, _ = parseTimeFlex(purchStr)
+		sp.ExpiryDate, _ = parseTimeFlex(expStr)
+		sp.CreatedAt, _ = parseTimeFlex(createdStr)
+		result[sp.StudentID] = append(result[sp.StudentID], sp)
+	}
+	return result, nil
+}
+
 func (s *SQLStore) AssignPackage(pkg *models.StudentPackage) error {
 	if pkg.ID == uuid.Nil {
 		pkg.ID = uuid.New()
@@ -1983,6 +2082,101 @@ func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attenda
 	return attendances, nil
 }
 
+func (s *SQLStore) GetAllAttendances() ([]*models.Attendance, error) {
+	query := `SELECT a.id, a.session_id, a.student_id, a.student_package_id, a.checked_in_at,
+		st.full_name, st.current_belt, pt.title,
+		COALESCE(a.location_id, ts.location_id),
+		COALESCE(loc.name, loc_ts.name, ''),
+		COALESCE(loc.pin, loc_ts.pin, ''),
+		a.session_rate
+		FROM attendance a
+		LEFT JOIN students st ON a.student_id = st.id
+		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
+		LEFT JOIN package_templates pt ON sp.template_id = pt.id
+		LEFT JOIN training_sessions ts ON a.session_id = ts.id
+		LEFT JOIN locations loc ON a.location_id = loc.id
+		LEFT JOIN locations loc_ts ON ts.location_id = loc_ts.id
+		ORDER BY a.checked_in_at DESC`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var attendances []*models.Attendance
+	for rows.Next() {
+		var idStr, sessStr, stStr, checkedStr string
+		var pkgIDStr, stName, belt, pkgTitle sql.NullString
+		var locIDStr, locName, locPin sql.NullString
+		var sessionRateVal sql.NullFloat64
+		att := &models.Attendance{}
+		err := rows.Scan(
+			&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
+			&stName, &belt, &pkgTitle,
+			&locIDStr, &locName, &locPin,
+			&sessionRateVal,
+		)
+		if err != nil {
+			return nil, err
+		}
+		att.ID = uuid.Must(uuid.Parse(idStr))
+		att.SessionID = uuid.Must(uuid.Parse(sessStr))
+		att.StudentID = uuid.Must(uuid.Parse(stStr))
+		att.CheckedInAt, _ = parseTimeFlex(checkedStr)
+		if pkgIDStr.Valid && pkgIDStr.String != "" {
+			pID := uuid.Must(uuid.Parse(pkgIDStr.String))
+			att.StudentPackageID = &pID
+		}
+		if sessionRateVal.Valid {
+			r := sessionRateVal.Float64
+			att.SessionRate = &r
+		}
+		if stName.Valid {
+			att.StudentName = stName.String
+		}
+		if belt.Valid {
+			att.StudentBelt = models.BeltRank(belt.String)
+		}
+		if pkgTitle.Valid {
+			att.PackageTitle = pkgTitle.String
+		}
+		if locIDStr.Valid && locIDStr.String != "" {
+			lID := uuid.Must(uuid.Parse(locIDStr.String))
+			att.LocationID = &lID
+		}
+		if locName.Valid {
+			att.LocationName = locName.String
+		}
+		if locPin.Valid {
+			att.LocationPin = locPin.String
+		}
+		attendances = append(attendances, att)
+	}
+	return attendances, nil
+}
+
+func (s *SQLStore) GetSessionAttendanceCounts() (map[uuid.UUID]int, error) {
+	query := `SELECT session_id, COUNT(*) FROM attendance GROUP BY session_id`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[uuid.UUID]int)
+	for rows.Next() {
+		var sessIDStr string
+		var count int
+		if err := rows.Scan(&sessIDStr, &count); err != nil {
+			return nil, err
+		}
+		if sID, err := uuid.Parse(sessIDStr); err == nil {
+			counts[sID] = count
+		}
+	}
+	return counts, nil
+}
+
 func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error) {
 	query := `SELECT a.id, a.session_id, a.student_id, a.student_package_id, a.checked_in_at,
 		st.full_name, st.current_belt, pt.title,
@@ -2200,6 +2394,55 @@ func (s *SQLStore) GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEval
 		eval.CoachRemarks = remarks.String
 	}
 	return eval, nil
+}
+
+func (s *SQLStore) GetLatestEvaluations() (map[uuid.UUID]*models.StudentEvaluation, error) {
+	query := `SELECT ranked.id, ranked.student_id, ranked.coach_id, c.full_name, ranked.evaluation_date,
+		ranked.flexibility, ranked.stamina, ranked.power, ranked.technique, ranked.sparring_iq, ranked.discipline,
+		ranked.coach_remarks, ranked.created_at
+	FROM (
+		SELECT id, student_id, coach_id, evaluation_date,
+			flexibility, stamina, power, technique, sparring_iq, discipline,
+			coach_remarks, created_at,
+			ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY evaluation_date DESC, created_at DESC) as rn
+		FROM student_evaluations
+	) ranked
+	LEFT JOIN coaches c ON ranked.coach_id = c.id
+	WHERE ranked.rn = 1`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]*models.StudentEvaluation)
+	for rows.Next() {
+		var idStr, stIDStr, coachIDStr, evalDateStr, createdStr string
+		var coachName, remarks sql.NullString
+		eval := &models.StudentEvaluation{}
+		err := rows.Scan(
+			&idStr, &stIDStr, &coachIDStr, &coachName, &evalDateStr,
+			&eval.Flexibility, &eval.Stamina, &eval.Power, &eval.Technique,
+			&eval.SparringIQ, &eval.Discipline, &remarks, &createdStr,
+		)
+		if err != nil {
+			return nil, err
+		}
+		eval.ID = uuid.Must(uuid.Parse(idStr))
+		eval.StudentID = uuid.Must(uuid.Parse(stIDStr))
+		eval.CoachID = uuid.Must(uuid.Parse(coachIDStr))
+		eval.EvaluationDate, _ = parseTimeFlex(evalDateStr)
+		eval.CreatedAt, _ = parseTimeFlex(createdStr)
+		if coachName.Valid {
+			eval.CoachName = coachName.String
+		}
+		if remarks.Valid {
+			eval.CoachRemarks = remarks.String
+		}
+		result[eval.StudentID] = eval
+	}
+	return result, nil
 }
 
 func (s *SQLStore) GetStudentEvaluations(studentID uuid.UUID) ([]*models.StudentEvaluation, error) {
