@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -41,6 +42,24 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 		Notes:        "Sparring strategy",
 	}
 	_ = store.CreateSession(sess)
+
+	coachMaria := &models.Coach{
+		ID:       uuid.New(),
+		FullName: "Coach Maria",
+		BeltRank: "3rd Dan Black Belt",
+	}
+	_ = store.CreateCoach(coachMaria)
+
+	sessMaria := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  sessDate,
+		StartTime:    "19:00",
+		EndTime:      "20:30",
+		CoachID:      &coachMaria.ID,
+		TrainingType: models.TrainingPoomsae,
+		Notes:        "Forms refinement",
+	}
+	_ = store.CreateSession(sessMaria)
 
 	t.Run("HandleSessions renders full page for standard GET", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
@@ -95,6 +114,86 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 		body := rec.Body.String()
 		if !strings.Contains(body, "No Training Classes Found") {
 			t.Errorf("expected empty state when category doesn't match, got: %s", body)
+		}
+	})
+
+	t.Run("HandleSessions pre-filters for logged-in coach on initial visit", func(t *testing.T) {
+		coachUser := &models.User{
+			ID:       uuid.New(),
+			Email:    "carlos@example.com",
+			Role:     models.RoleCoach,
+			CoachID:  &coach.ID,
+			IsActive: true,
+		}
+		req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+		ctx := context.WithValue(req.Context(), handlers.UserContextKey, coachUser)
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		app.HandleSessions(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, "Sparring strategy") {
+			t.Errorf("expected Coach Carlos's session in response")
+		}
+		if strings.Contains(body, "Forms refinement") {
+			t.Errorf("expected Coach Maria's session to be filtered out for Coach Carlos")
+		}
+		if !strings.Contains(body, `value="`+coach.ID.String()+`" selected`) {
+			t.Errorf("expected coach option to be selected")
+		}
+	})
+
+	t.Run("HandleSessions allows coach to view all when coach_id is explicitly empty", func(t *testing.T) {
+		coachUser := &models.User{
+			ID:       uuid.New(),
+			Email:    "carlos@example.com",
+			Role:     models.RoleCoach,
+			CoachID:  &coach.ID,
+			IsActive: true,
+		}
+		req := httptest.NewRequest(http.MethodGet, "/sessions?coach_id=", nil)
+		ctx := context.WithValue(req.Context(), handlers.UserContextKey, coachUser)
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		app.HandleSessions(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, "Sparring strategy") {
+			t.Errorf("expected Carlos session")
+		}
+		if !strings.Contains(body, "Forms refinement") {
+			t.Errorf("expected Maria session when coach_id is explicitly empty")
+		}
+	})
+
+	t.Run("HandleSessions does not pre-filter for admin users", func(t *testing.T) {
+		adminUser := &models.User{
+			ID:       uuid.New(),
+			Email:    "admin@example.com",
+			Role:     models.RoleAdmin,
+			IsActive: true,
+		}
+		req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+		ctx := context.WithValue(req.Context(), handlers.UserContextKey, adminUser)
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		app.HandleSessions(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, "Sparring strategy") || !strings.Contains(body, "Forms refinement") {
+			t.Errorf("expected all sessions for admin")
 		}
 	})
 
@@ -1271,6 +1370,158 @@ func TestSessionHandler_OverlappingSchedulesAndCardClickability(t *testing.T) {
 	// 5. Verify Schedule Class action button is present in header
 	if !strings.Contains(body, "Schedule Class") {
 		t.Errorf("expected Schedule Class button in page")
+	}
+}
+
+func TestHandleSearchStudent_BlankInputPaginationAndNoReadiness(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// Purge existing students from seeded store
+	existingStudents, _ := store.GetAllStudents()
+	for _, s := range existingStudents {
+		_ = store.DeleteStudent(s.ID)
+	}
+
+	// Create 25 students with known names (Student 01 ... Student 25)
+	for i := 1; i <= 25; i++ {
+		st := &models.Student{
+			ID:          uuid.New(),
+			FullName:    fmt.Sprintf("Student %02d", i),
+			DOB:         time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC),
+			Gender:      "M",
+			CurrentBelt: models.BeltWhite,
+			IsActive:    true,
+		}
+		if err := store.CreateStudent(st); err != nil {
+			t.Fatalf("failed to create student %d: %v", i, err)
+		}
+	}
+
+	// Create a training session
+	coaches, _ := store.GetAllCoaches()
+	coachID := coaches[0].ID
+	now := time.Now()
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  now,
+		StartTime:    "10:00",
+		EndTime:      "11:30",
+		CoachID:      &coachID,
+		TrainingType: models.TrainingSparring,
+	}
+	if err := store.CreateSession(sess); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// 1. Floor attendance search with blank query -> returns top 10 students with pagination
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/search-student", sess.ID), strings.NewReader("query=&page=1"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	app.HandleSearchStudent(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for search-student, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+
+	// Verify top 10 students are present
+	for i := 1; i <= 10; i++ {
+		name := fmt.Sprintf("Student %02d", i)
+		if !strings.Contains(body, name) {
+			t.Errorf("expected '%s' on page 1 of search results, but not found", name)
+		}
+	}
+
+	// Verify students 11 to 25 are NOT on page 1
+	for i := 11; i <= 25; i++ {
+		name := fmt.Sprintf("Student %02d", i)
+		if strings.Contains(body, name) {
+			t.Errorf("expected '%s' NOT to be on page 1 of search results", name)
+		}
+	}
+
+	// Verify pagination display counts
+	if !strings.Contains(body, "Showing") || !strings.Contains(body, "1") || !strings.Contains(body, "10") || !strings.Contains(body, "25") {
+		t.Errorf("expected pagination counter showing 1 to 10 of 25 students, got:\n%s", body)
+	}
+	if !strings.Contains(body, "Page 1 of 3") {
+		t.Errorf("expected 'Page 1 of 3' in pagination summary, got:\n%s", body)
+	}
+
+	// Verify promotion readiness badges are REMOVED from the result
+	if strings.Contains(body, "READY") || strings.Contains(body, "PRE-TEST") || strings.Contains(body, "DEVELOPING") {
+		t.Errorf("expected promotion readiness to be removed from search results, but found in body:\n%s", body)
+	}
+	if strings.Contains(body, "badge-ready") || strings.Contains(body, "badge-pretest") || strings.Contains(body, "badge-developing") {
+		t.Errorf("expected readiness badge classes to be removed from search results, but found in body:\n%s", body)
+	}
+
+	// 2. Page 2 request
+	reqPage2 := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/search-student", sess.ID), strings.NewReader("query=&page=2"))
+	reqPage2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recPage2 := httptest.NewRecorder()
+	app.HandleSearchStudent(recPage2, reqPage2)
+
+	if recPage2.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for page 2 search-student, got %d", recPage2.Code)
+	}
+
+	bodyPage2 := recPage2.Body.String()
+
+	// Verify students 11 to 20 are present
+	for i := 11; i <= 20; i++ {
+		name := fmt.Sprintf("Student %02d", i)
+		if !strings.Contains(bodyPage2, name) {
+			t.Errorf("expected '%s' on page 2 of search results, but not found", name)
+		}
+	}
+
+	// Verify student 01 and student 21 are NOT on page 2
+	if strings.Contains(bodyPage2, "Student 01") {
+		t.Errorf("expected Student 01 NOT to be on page 2")
+	}
+	if strings.Contains(bodyPage2, "Student 21") {
+		t.Errorf("expected Student 21 NOT to be on page 2")
+	}
+	if !strings.Contains(bodyPage2, "Page 2 of 3") {
+		t.Errorf("expected 'Page 2 of 3' in pagination summary for page 2, got:\n%s", bodyPage2)
+	}
+
+	// 3. Page 3 request
+	reqPage3 := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/search-student", sess.ID), strings.NewReader("query=&page=3"))
+	reqPage3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recPage3 := httptest.NewRecorder()
+	app.HandleSearchStudent(recPage3, reqPage3)
+
+	bodyPage3 := recPage3.Body.String()
+	for i := 21; i <= 25; i++ {
+		name := fmt.Sprintf("Student %02d", i)
+		if !strings.Contains(bodyPage3, name) {
+			t.Errorf("expected '%s' on page 3 of search results, but not found", name)
+		}
+	}
+	if !strings.Contains(bodyPage3, "Page 3 of 3") {
+		t.Errorf("expected 'Page 3 of 3' in pagination summary for page 3, got:\n%s", bodyPage3)
+	}
+
+	// 4. Query filter search
+	reqFilter := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/search-student", sess.ID), strings.NewReader("query=Student 2"))
+	reqFilter.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recFilter := httptest.NewRecorder()
+	app.HandleSearchStudent(recFilter, reqFilter)
+
+	bodyFilter := recFilter.Body.String()
+	// Matches Student 20, 21, 22, 23, 24, 25 (6 students)
+	if !strings.Contains(bodyFilter, "Student 20") || !strings.Contains(bodyFilter, "Student 25") {
+		t.Errorf("expected filtered search to contain Student 20 and Student 25")
+	}
+	if strings.Contains(bodyFilter, "Student 01") {
+		t.Errorf("expected Student 01 not to match filter 'Student 2'")
 	}
 }
 

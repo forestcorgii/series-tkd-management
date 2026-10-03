@@ -169,17 +169,34 @@ type SessionsPageData struct {
 	PageNumbers        []int
 }
 
+type StudentSearchResultsData struct {
+	SessionID          uuid.UUID
+	Query              string
+	Items              []StudentSearchResultItem
+	Page               int
+	TotalPages         int
+	TotalMatchingCount int
+	DisplayStart       int
+	DisplayEnd         int
+	HasPrevPage        bool
+	HasNextPage        bool
+	PrevPage           int
+	NextPage           int
+	PageNumbers        []int
+}
+
 type LiveCheckInPageData struct {
-	CurrentUser      *models.User
-	Session          *models.TrainingSession
-	Attendances      []*models.Attendance
-	Students         []*models.Student
+	CurrentUser        *models.User
+	Session            *models.TrainingSession
+	Attendances        []*models.Attendance
+	Students           []*models.Student
 	Coaches            []*models.Coach
 	Admins             []*models.User
 	Locations          []*models.Location
 	TrainingCategories []*models.TrainingCategory
 	ReadinessMap       map[string]services.PromotionReadiness
 	PackageStatusMap   map[string]string
+	SearchResults      *StudentSearchResultsData
 }
 
 type StudentSearchResultItem struct {
@@ -227,7 +244,11 @@ func formatHourLabel(h int) string {
 }
 
 func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
 	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
+	if !r.URL.Query().Has("coach_id") && user != nil && user.Role == models.RoleCoach && user.CoachID != nil {
+		coachIDStr = user.CoachID.String()
+	}
 	studentIDStr := strings.TrimSpace(r.URL.Query().Get("student_id"))
 	locationIDStr := strings.TrimSpace(r.URL.Query().Get("location_id"))
 	category := strings.TrimSpace(r.URL.Query().Get("category"))
@@ -582,7 +603,6 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	students, _ := a.store.GetAllStudents()
-	user := GetUserFromContext(r.Context())
 
 	// Fetch active Administrators and Operation Managers for Supervising Admin field
 	adminUsers, _ := a.store.GetUsersByRole(models.RoleAdmin)
@@ -975,6 +995,7 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 	locations, _ := a.store.GetAllLocations()
 	categories, _ := a.store.GetAllTrainingCategories()
 	user := GetUserFromContext(r.Context())
+	searchResults, _ := a.buildStudentSearchResults(sessionID, "", 1)
 	data := LiveCheckInPageData{
 		CurrentUser:        user,
 		Session:            session,
@@ -986,9 +1007,132 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 		TrainingCategories: categories,
 		ReadinessMap:       readinessMap,
 		PackageStatusMap:   pkgStatusMap,
+		SearchResults:      searchResults,
 	}
 
 	a.RenderPage(w, "live_checkin.html", data)
+}
+
+func (a *AppHandler) buildStudentSearchResults(sessionID uuid.UUID, query string, page int) (*StudentSearchResultsData, error) {
+	pageSize := 10
+	if page < 1 {
+		page = 1
+	}
+
+	students, err := a.store.SearchStudents(query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Deterministic alphabetical sorting by full_name
+	sort.Slice(students, func(i, j int) bool {
+		return strings.ToLower(students[i].FullName) < strings.ToLower(students[j].FullName)
+	})
+
+	totalMatchingCount := len(students)
+	totalPages := (totalMatchingCount + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	startIndex := (page - 1) * pageSize
+	endIndex := startIndex + pageSize
+	if startIndex > totalMatchingCount {
+		startIndex = totalMatchingCount
+	}
+	if endIndex > totalMatchingCount {
+		endIndex = totalMatchingCount
+	}
+
+	var pagedStudents []*models.Student
+	if totalMatchingCount > 0 && startIndex < totalMatchingCount {
+		pagedStudents = students[startIndex:endIndex]
+	}
+
+	existingAttendances, _ := a.store.GetSessionAttendances(sessionID)
+	checkedMap := make(map[string]bool, len(existingAttendances))
+	for _, att := range existingAttendances {
+		checkedMap[att.StudentID.String()] = true
+	}
+
+	session, _ := a.store.GetSessionByID(sessionID)
+	var classSessionRate *float64
+	if session != nil {
+		classSessionRate = session.SessionRate
+	}
+
+	allAttendances, _ := a.store.GetAllAttendances()
+	studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(allAttendances))
+	for _, att := range allAttendances {
+		studentAttendancesMap[att.StudentID] = append(studentAttendancesMap[att.StudentID], att)
+	}
+
+	packagesMap, _ := a.store.GetAllStudentPackagesGrouped()
+	now := time.Now()
+
+	results := make([]StudentSearchResultItem, 0, len(pagedStudents))
+	for _, st := range pagedStudents {
+		atts := studentAttendancesMap[st.ID]
+		pkgs := packagesMap[st.ID]
+		validPkg, pkgErr := a.packageSvc.FindOldestValidPackage(pkgs, atts, now)
+
+		warning := ""
+		if pkgErr != nil {
+			warning = pkgErr.Error()
+		}
+
+		results = append(results, StudentSearchResultItem{
+			SessionID:        sessionID,
+			Student:          st,
+			ActivePackage:    validPkg,
+			IsAlreadyChecked: checkedMap[st.ID.String()],
+			WarningMessage:   warning,
+			SessionRate:      classSessionRate,
+		})
+	}
+
+	displayStart := 0
+	displayEnd := 0
+	if totalMatchingCount > 0 {
+		displayStart = startIndex + 1
+		displayEnd = endIndex
+	}
+
+	var pageNumbers []int
+	startPage := page - 2
+	if startPage < 1 {
+		startPage = 1
+	}
+	endPage := startPage + 4
+	if endPage > totalPages {
+		endPage = totalPages
+		startPage = endPage - 4
+		if startPage < 1 {
+			startPage = 1
+		}
+	}
+	for i := startPage; i <= endPage; i++ {
+		pageNumbers = append(pageNumbers, i)
+	}
+
+	return &StudentSearchResultsData{
+		SessionID:          sessionID,
+		Query:              query,
+		Items:              results,
+		Page:               page,
+		TotalPages:         totalPages,
+		TotalMatchingCount: totalMatchingCount,
+		DisplayStart:       displayStart,
+		DisplayEnd:         displayEnd,
+		HasPrevPage:        page > 1,
+		HasNextPage:        page < totalPages,
+		PrevPage:           page - 1,
+		NextPage:           page + 1,
+		PageNumbers:        pageNumbers,
+	}, nil
 }
 
 func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request) {
@@ -1001,70 +1145,20 @@ func (a *AppHandler) HandleSearchStudent(w http.ResponseWriter, r *http.Request)
 	}
 
 	query := strings.TrimSpace(r.FormValue("query"))
-	if query == "" {
-		a.RenderPartial(w, "search_results.html", []StudentSearchResultItem{})
+	page := 1
+	if pStr := strings.TrimSpace(r.FormValue("page")); pStr != "" {
+		if p, err := strconv.Atoi(pStr); err == nil && p >= 1 {
+			page = p
+		}
+	}
+
+	searchResults, err := a.buildStudentSearchResults(sessionID, query, page)
+	if err != nil {
+		http.Error(w, "Failed to search students", http.StatusInternalServerError)
 		return
 	}
 
-	students, _ := a.store.SearchStudents(query)
-	if len(students) > 25 {
-		students = students[:25]
-	}
-
-	existingAttendances, _ := a.store.GetSessionAttendances(sessionID)
-	checkedMap := make(map[string]bool, len(existingAttendances))
-	for _, att := range existingAttendances {
-		checkedMap[att.StudentID.String()] = true
-	}
-
-	allSessions, _ := a.store.GetAllSessions()
-	allSessionsMap := make(map[string]*models.TrainingSession, len(allSessions))
-	for _, s := range allSessions {
-		allSessionsMap[s.ID.String()] = s
-	}
-
-	session, _ := a.store.GetSessionByID(sessionID)
-	var classSessionRate *float64
-	if session != nil {
-		classSessionRate = session.SessionRate
-	}
-
-	allAttendances, _ := a.store.GetAllAttendances()
-	studentAttendancesMap := make(map[uuid.UUID][]*models.Attendance, len(allAttendances))
-	for _, a := range allAttendances {
-		studentAttendancesMap[a.StudentID] = append(studentAttendancesMap[a.StudentID], a)
-	}
-
-	latestEvalsMap, _ := a.store.GetLatestEvaluations()
-	packagesMap, _ := a.store.GetAllStudentPackagesGrouped()
-	now := time.Now()
-
-	results := make([]StudentSearchResultItem, 0, len(students))
-	for _, st := range students {
-		atts := studentAttendancesMap[st.ID]
-		latestEval := latestEvalsMap[st.ID]
-		readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
-
-		pkgs := packagesMap[st.ID]
-		validPkg, pkgErr := a.packageSvc.FindOldestValidPackage(pkgs, atts, now)
-
-		warning := ""
-		if pkgErr != nil {
-			warning = pkgErr.Error()
-		}
-
-		results = append(results, StudentSearchResultItem{
-			SessionID:        sessionID,
-			Student:          st,
-			Readiness:        readiness,
-			ActivePackage:    validPkg,
-			IsAlreadyChecked: checkedMap[st.ID.String()],
-			WarningMessage:   warning,
-			SessionRate:      classSessionRate,
-		})
-	}
-
-	a.RenderPartial(w, "search_results.html", results)
+	a.RenderPartial(w, "search_results.html", searchResults)
 }
 
 func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request) {

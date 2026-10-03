@@ -39,7 +39,7 @@
   1. **Branding & Dynamic Role Indicator**:
      - Brand title standard is **"SERIES TAEKWONDO"**.
      - Dynamic role badge reflects authenticated role: `Students`, `Coach`, `Admin`, or `Manager`.
-     - Logo click routes directly to the role's home view (`/portal/student` for students, `/portal/coach` for coaches, `/packages` for admins, `/` for managers).
+     - Logo click routes directly to the role's home view (`/portal/student` for students, `/sessions` for coaches and admins, `/` for managers).
   2. **Dedicated Profile Route (`/profile`)**:
      - Protected by `RequireAuth`.
      - Accessible via the user profile pill directly adjacent to the Sign Out button.
@@ -219,3 +219,30 @@
      - **Student Profile View (`student_detail.html`)**: Action button `🗑️ Delete Student` rendered in top action bar and within "Edit Student Info" modal with explicit JavaScript confirmation prompt.
      - **Student Directory Table (`students.html` / `student_table_rows.html`)**: Quick-action delete button (`🗑️`) rendered in the action column for authorized staff with confirmation.
      - **Dynamic Feedback**: Flash alert banners rendered at the top of `/students` (`SuccessNotice` / `ErrorNotice`) and `HX-Redirect` support for HTMX consumers.
+
+### Context: Attendance Default Landing Page for Admins & Coaches (/sessions)
+
+* **Problem**:
+  1. Default login and home redirects previously sent front-desk Admins to Memberships (/packages) and Coaches to Student Directory (/students).
+  2. For daily dojang operations, both Coaches and front-desk Admins require immediate access to the floor schedule and live Attendance check-in screen (/sessions).
+* **Enforced Solution**:
+  1. **Authentication & Session Landing**:
+     - HandleLoginSubmit, HandleLoginPage, and RequireRole redirect authenticated ADMIN and COACH users directly to /sessions instead of /packages or /students.
+     - HandleDashboard redirects ADMIN and COACH requests from / directly to /sessions.
+  2. **Navigation & Home Actions**:
+     - Dojang brand logo in [layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html) links directly to /sessions for Admin and Coach.
+     - Desktop and mobile navigation menus position **Attendance** as the leading navigation tab for both roles.
+     - Profile navigation and cancel buttons in [profile.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/profile.html) return Admins and Coaches to Attendance (/sessions).
+
+### Context: Coach Pre-Filter on Attendance & Classes Floor Page (/sessions)
+
+* **Problem**:
+  1. When coaches arrive on the `/sessions` page, the view previously showed classes from all coaches by default, requiring coaches to manually locate and select their own name in the coach filter dropdown every time.
+* **Enforced Solution**:
+  1. **Automatic Pre-Filter on Initial Load**:
+     - In [`HandleSessions`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go#L246), inspect the authenticated user context.
+     - When `user.Role == models.RoleCoach` and `user.CoachID != nil`: if `!r.URL.Query().Has("coach_id")`, automatically default `coachIDStr = user.CoachID.String()`.
+     - Sets `FilterCoachID` in template view data and binds query filters so calendar week view, list rosters, and dropdown selection show the coach's own classes.
+  2. **Preserving Explicit Selection**:
+     - Checking `!r.URL.Query().Has("coach_id")` ensures that when a coach deliberately selects "All Coaches" (submitting `coach_id=""`), the user's explicit filter choice is respected without being overwritten.
+     - Admins and Operations Managers remain defaulted to viewing all coaches unless an explicit filter is chosen.

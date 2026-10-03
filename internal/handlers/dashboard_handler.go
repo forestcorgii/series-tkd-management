@@ -30,10 +30,10 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 	if user != nil {
 		switch user.Role {
 		case models.RoleAdmin:
-			http.Redirect(w, r, "/packages", http.StatusSeeOther)
+			http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 			return
 		case models.RoleCoach:
-			http.Redirect(w, r, "/students", http.StatusSeeOther)
+			http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 			return
 		case models.RoleStudent:
 			http.Redirect(w, r, "/portal/student", http.StatusSeeOther)

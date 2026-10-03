@@ -175,7 +175,7 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 		t.Errorf("expected 200 OK for Admin role on /locations, got %d", recAdmin.Code)
 	}
 
-	// Coach Access (Browser request redirects to Coach default portal /students)
+	// Coach Access (Browser request redirects to Coach default portal /sessions)
 	coachUser, _ := store.GetUserByEmail("jiwoo.park@seriestkd.com")
 	coachToken := uuid.New().String()
 	_ = store.CreateSessionToken(coachToken, coachUser.ID, time.Now().Add(time.Hour))
@@ -183,8 +183,8 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 	reqCoach.AddCookie(&http.Cookie{Name: "stms_session", Value: coachToken})
 	recCoach := httptest.NewRecorder()
 	app.AuthMiddleware(app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recCoach, reqCoach)
-	if recCoach.Code != http.StatusSeeOther || !strings.Contains(recCoach.Header().Get("Location"), "/students") {
-		t.Errorf("expected 303 redirect to /students for Coach role on /locations, got code %d to %s", recCoach.Code, recCoach.Header().Get("Location"))
+	if recCoach.Code != http.StatusSeeOther || !strings.Contains(recCoach.Header().Get("Location"), "/sessions") {
+		t.Errorf("expected 303 redirect to /sessions for Coach role on /locations, got code %d to %s", recCoach.Code, recCoach.Header().Get("Location"))
 	}
 
 	// Coach Access via HTMX/API (Returns 403 Forbidden)

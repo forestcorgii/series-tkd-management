@@ -116,21 +116,29 @@
             </div>
 
             <div class="relative">
-                <input type="search"
-                       name="query"
-                       {{if .Session.IsCancelled}}disabled placeholder="Check-in disabled for cancelled class"{{else if .Session.IsDone}}placeholder="Search student to add or adjust roster..." autofocus{{else}}placeholder="Scan QR code or search student by name..." autofocus{{end}}
-                       hx-post="/sessions/{{.Session.ID}}/search-student"
-                       hx-trigger="keyup changed delay:250ms, search, attendanceUpdated from:body"
-                       hx-target="#search-results"
-                       class="form-input text-base py-3 px-4 rounded-xl" />
+                <form id="student-search-form"
+                      hx-post="/sessions/{{.Session.ID}}/search-student"
+                      hx-trigger="submit, keyup changed delay:250ms from:#student-search-input, search from:#student-search-input, attendanceUpdated from:body"
+                      hx-target="#search-results"
+                      onsubmit="return false;">
+                    <input type="search"
+                           id="student-search-input"
+                           name="query"
+                           oninput="var p = document.getElementById('search-page-input'); if(p) p.value='1';"
+                           {{if .Session.IsCancelled}}disabled placeholder="Check-in disabled for cancelled class"{{else if .Session.IsDone}}placeholder="Search student to add or adjust roster..." autofocus{{else}}placeholder="Scan QR code or search student by name..." autofocus{{end}}
+                           class="form-input text-base py-3 px-4 rounded-xl" />
+                    <input type="hidden" name="page" id="search-page-input" value="1">
+                </form>
             </div>
 
             <!-- HTMX Search Results Container -->
             <div id="search-results" class="space-y-3 pt-2">
                 {{if .Session.IsCancelled}}
                 <p class="text-xs text-slate-500 dark:text-slate-400 text-center py-4">Attendance admittance is locked.</p>
+                {{else if .SearchResults}}
+                    {{template "search_results.html" .SearchResults}}
                 {{else}}
-                <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">Type student name or scan QR code to perform instant attendance check-in...</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No matching student found. Register a new student or adjust search query.</p>
                 {{end}}
             </div>
         </div>

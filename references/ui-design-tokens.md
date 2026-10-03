@@ -121,3 +121,14 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
 
 
 
+
+### Context: Floor Attendance Search Pagination & Result Simplicity
+
+* **Problem:** 
+  1. Floor attendance search previously returned an empty state when the query was blank, forcing staff to know exact student names or scan barcodes.
+  2. Large dojang rosters need clean pagination capped at top 10 students per page without overloading front-desk tablet DOM trees.
+  3. Displaying promotion readiness badges (READY, PRE-TEST, DEVELOPING) in attendance search results created visual clutter and diverted staff attention from rapid floor admittance and membership verification.
+* **Enforced Solution:**
+  1. **Blank Query Directory Listing ([session_handler.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go))**: When text input is blank, HandleSearchStudent returns all active students deterministically ordered by full name, defaulting to top 10 on page 1.
+  2. **Top-10 Pagination Controls ([search_results.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/search_results.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html))**: Renders responsive pagination summary (Showing 1 to 10 of 42 students (Page 1 of 5)), Previous/Next buttons, and numbered page buttons with HTMX post handlers and page synchronization on ttendanceUpdated.
+  3. **Readiness Omission in Search**: Promotion readiness status badges are removed from search_results.html, keeping the search result card focused purely on student identity, belt rank, membership/rate status, and admittance/removal actions.

@@ -89,12 +89,12 @@
                     Settings
                 </a>
                 {{end}}
-                <a href="{{if .CurrentUser.IsOperationManager}}/portal/admin{{else if .CurrentUser.IsAdmin}}/packages{{else if .CurrentUser.IsCoach}}/portal/coach{{else}}/portal/student{{end}}"
+                <a href="{{if .CurrentUser.IsOperationManager}}/portal/admin{{else if or .CurrentUser.IsAdmin .CurrentUser.IsCoach}}/sessions{{else}}/portal/student{{end}}"
                    class="btn btn-secondary btn-sm flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to {{if .CurrentUser.IsOperationManager}}Operations Portal{{else if .CurrentUser.IsAdmin}}Memberships{{else if .CurrentUser.IsCoach}}Coach Console{{else}}Student Portal{{end}}
+                    Back to {{if .CurrentUser.IsOperationManager}}Operations Portal{{else if or .CurrentUser.IsAdmin .CurrentUser.IsCoach}}Attendance{{else}}Student Portal{{end}}
                 </a>
             </div>
         </div>
@@ -328,7 +328,7 @@
 
         <!-- Form Submission Actions -->
         <div class="flex items-center justify-end gap-3 pt-2">
-            <a href="{{if .CurrentUser.IsOperationManager}}/portal/admin{{else if .CurrentUser.IsAdmin}}/packages{{else if .CurrentUser.IsCoach}}/portal/coach{{else}}/portal/student{{end}}"
+            <a href="{{if .CurrentUser.IsOperationManager}}/portal/admin{{else if or .CurrentUser.IsAdmin .CurrentUser.IsCoach}}/sessions{{else}}/portal/student{{end}}"
                class="btn btn-secondary btn-md">
                 Cancel
             </a>

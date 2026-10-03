@@ -1,99 +1,151 @@
 {{define "search_results.html"}}
-{{if .}}
-    {{range .}}
-    <div class="p-4 bg-slate-50 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shadow-sm">
-        <div>
-            <div class="flex items-center gap-2">
-                <a href="/students/{{.Student.ID}}" target="_blank" class="font-bold text-slate-900 dark:text-white text-base hover:underline hover:text-emerald-600 dark:hover:text-emerald-400">
-                    {{.Student.FullName}}
-                </a>
-                <span class="badge-belt">
-                    {{.Student.CurrentBelt}}
-                </span>
-                {{if eq .Readiness.Status "READY"}}
-                <span class="badge-ready">🟢 READY</span>
-                {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
-                <span class="badge-pretest">🟡 PRE-TEST</span>
-                {{else}}
-                <span class="badge-developing">🔴 DEVELOPING</span>
-                {{end}}
-            </div>
-
-            <div class="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
-                {{if .SessionRate}}
-                    <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60">
-                        🏫 Class Fixed Rate: ₱{{formatCurrency .SessionRate}} (Package credits untouched)
+{{if .Items}}
+    <div class="space-y-3">
+        {{range .Items}}
+        <div class="p-4 bg-slate-50 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shadow-sm">
+            <div>
+                <div class="flex items-center gap-2">
+                    <a href="/students/{{.Student.ID}}" target="_blank" class="font-bold text-slate-900 dark:text-white text-base hover:underline hover:text-emerald-600 dark:hover:text-emerald-400">
+                        {{.Student.FullName}}
+                    </a>
+                    <span class="badge-belt">
+                        {{.Student.CurrentBelt}}
                     </span>
-                {{else if .ActivePackage}}
-                    Membership: <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
-                    {{if .ActivePackage.IsFourWeek}}
-                        ({{.ActivePackage.RemainingSessions}} classes left &bull; {{.ActivePackage.WeeklyCadence}}x/wk &bull; 4 Weeks)
-                    {{else if .ActivePackage.RemainingSessions}}
-                        ({{.ActivePackage.RemainingSessions}} classes left)
+                </div>
+
+                <div class="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                    {{if .SessionRate}}
+                        <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60">
+                            🏫 Class Fixed Rate: ₱{{formatCurrency .SessionRate}} (Package credits untouched)
+                        </span>
+                    {{else if .ActivePackage}}
+                        Membership: <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
+                        {{if .ActivePackage.IsFourWeek}}
+                            ({{.ActivePackage.RemainingSessions}} classes left &bull; {{.ActivePackage.WeeklyCadence}}x/wk &bull; 4 Weeks)
+                        {{else if .ActivePackage.RemainingSessions}}
+                            ({{.ActivePackage.RemainingSessions}} classes left)
+                        {{else}}
+                            (Unlimited Membership ♾️)
+                        {{end}}
                     {{else}}
-                        (Unlimited Membership ♾️)
+                        <span class="text-rose-600 dark:text-rose-400 font-bold">⚠️ NO VALID MEMBERSHIP</span>
                     {{end}}
-                {{else}}
-                    <span class="text-rose-600 dark:text-rose-400 font-bold">⚠️ NO VALID MEMBERSHIP</span>
+                </div>
+
+                {{if .WarningMessage}}
+                <div class="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 mt-1">
+                    ⚠️ {{.WarningMessage}}
+                </div>
                 {{end}}
             </div>
 
-            {{if .WarningMessage}}
-            <div class="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 mt-1">
-                ⚠️ {{.WarningMessage}}
-            </div>
-            {{end}}
-        </div>
-
-        <div>
-            {{if .IsAlreadyChecked}}
-            <div class="flex items-center gap-2">
-                <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                    ✓ Already In Roster
-                </span>
-                <button type="button"
-                        hx-post="/sessions/{{.SessionID}}/attendance/{{.Student.ID}}/remove?from=search"
-                        hx-confirm="Remove {{.Student.FullName}} from this class roster? If a membership class was deducted, 1 class will be refunded."
-                        class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 py-1 px-2.5"
-                        title="Remove student & restore class credit">
-                    Remove
-                </button>
-            </div>
-            {{else}}
-            <div class="flex items-center gap-2">
-                {{if .SessionRate}}
-                <!-- Single-click Admit under Class Fixed Rate, no individual input required -->
-                <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
-                        hx-target="#attendance-roster"
-                        hx-swap="afterbegin"
-                        class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
-                        title="Admit student under class fixed rate: ₱{{formatCurrency .SessionRate}}">
-                    <span>Admit Student</span>
-                    <span class="text-xs opacity-90 font-normal bg-black/15 px-1.5 py-0.5 rounded">₱{{formatCurrency .SessionRate}}</span>
-                </button>
+            <div>
+                {{if .IsAlreadyChecked}}
+                <div class="flex items-center gap-2">
+                    <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                        ✓ Already In Roster
+                    </span>
+                    <button type="button"
+                            hx-post="/sessions/{{.SessionID}}/attendance/{{.Student.ID}}/remove?from=search"
+                            hx-confirm="Remove {{.Student.FullName}} from this class roster? If a membership class was deducted, 1 class will be refunded."
+                            class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 py-1 px-2.5"
+                            title="Remove student & restore class credit">
+                        Remove
+                    </button>
+                </div>
                 {{else}}
-                    {{if .ActivePackage}}
+                <div class="flex items-center gap-2">
+                    {{if .SessionRate}}
+                    <!-- Single-click Admit under Class Fixed Rate, no individual input required -->
                     <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
                             hx-target="#attendance-roster"
                             hx-swap="afterbegin"
-                            class="btn btn-primary btn-sm">
-                        Admit Student
+                            class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
+                            title="Admit student under class fixed rate: ₱{{formatCurrency .SessionRate}}">
+                        <span>Admit Student</span>
+                        <span class="text-xs opacity-90 font-normal bg-black/15 px-1.5 py-0.5 rounded">₱{{formatCurrency .SessionRate}}</span>
                     </button>
                     {{else}}
-                    <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}?override=true"
-                            hx-target="#attendance-roster"
-                            hx-swap="afterbegin"
-                            class="btn btn-warning btn-sm">
-                        Override &amp; Admit
-                    </button>
+                        {{if .ActivePackage}}
+                        <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
+                                hx-target="#attendance-roster"
+                                hx-swap="afterbegin"
+                                class="btn btn-primary btn-sm">
+                            Admit Student
+                        </button>
+                        {{else}}
+                        <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}?override=true"
+                                hx-target="#attendance-roster"
+                                hx-swap="afterbegin"
+                                class="btn btn-warning btn-sm">
+                            Override &amp; Admit
+                        </button>
+                        {{end}}
                     {{end}}
+                </div>
                 {{end}}
             </div>
-            {{end}}
         </div>
+        {{end}}
     </div>
-    {{end}}
+
+    <!-- Pagination Controls (10 per page) -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-xs mt-3">
+        <div class="text-slate-500 dark:text-slate-400 font-medium text-[11px] sm:text-xs">
+            Showing <span class="font-bold text-slate-800 dark:text-slate-200">{{.DisplayStart}}</span> to <span class="font-bold text-slate-800 dark:text-slate-200">{{.DisplayEnd}}</span> of <span class="font-bold text-slate-800 dark:text-slate-200">{{.TotalMatchingCount}}</span> students (Page {{.Page}} of {{.TotalPages}}){{if .Query}} for <span class="font-semibold text-slate-700 dark:text-slate-300">"{{.Query}}"</span>{{end}}
+        </div>
+
+        {{if gt .TotalPages 1}}
+        <div class="flex items-center gap-1.5 flex-wrap">
+            <!-- Prev Button -->
+            <button type="button"
+                    {{if .HasPrevPage}}
+                    hx-post="/sessions/{{$.SessionID}}/search-student"
+                    hx-vals='{"query": "{{$.Query}}", "page": "{{.PrevPage}}"}'
+                    hx-target="#search-results"
+                    onclick="var p = document.getElementById('search-page-input'); if(p) p.value='{{.PrevPage}}';"
+                    class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-700 dark:text-slate-300"
+                    {{else}}
+                    disabled
+                    class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                    {{end}}
+                    title="Previous Page">
+                &larr; Prev
+            </button>
+            
+            <!-- Page Numbers -->
+            <div class="inline-flex items-center gap-1">
+                {{range .PageNumbers}}
+                <button type="button"
+                        hx-post="/sessions/{{$.SessionID}}/search-student"
+                        hx-vals='{"query": "{{$.Query}}", "page": "{{.}}"}'
+                        hx-target="#search-results"
+                        onclick="var p = document.getElementById('search-page-input'); if(p) p.value='{{.}}';"
+                        class="btn btn-xs px-2.5 py-1 {{if eq . $.Page}}bg-[#990303] text-white hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C]{{else}}btn-ghost text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800{{end}} font-bold font-mono">
+                    {{.}}
+                </button>
+                {{end}}
+            </div>
+            
+            <!-- Next Button -->
+            <button type="button"
+                    {{if .HasNextPage}}
+                    hx-post="/sessions/{{$.SessionID}}/search-student"
+                    hx-vals='{"query": "{{$.Query}}", "page": "{{.NextPage}}"}'
+                    hx-target="#search-results"
+                    onclick="var p = document.getElementById('search-page-input'); if(p) p.value='{{.NextPage}}';"
+                    class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-700 dark:text-slate-300"
+                    {{else}}
+                    disabled
+                    class="btn btn-secondary btn-xs px-2.5 py-1 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                    {{end}}
+                    title="Next Page">
+                Next &rarr;
+            </button>
+        </div>
+        {{end}}
+    </div>
 {{else}}
-<div class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No matching student found. Register a new student or adjust search query.</div>
+    <div class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No matching student found. Register a new student or adjust search query.</div>
 {{end}}
 {{end}}

@@ -204,6 +204,9 @@ func (m *MemoryStore) SearchStudents(query string) ([]*models.Student, error) {
 			result = append(result, s)
 		}
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i].FullName) < strings.ToLower(result[j].FullName)
+	})
 	return result, nil
 }
 
