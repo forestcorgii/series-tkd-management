@@ -1909,9 +1909,75 @@ func TestSQLStore_BatchOptimizationMethods(t *testing.T) {
 		})
 	}
 }
+func TestTrainingSessions_SupervisingAdminUserFKDecoupled(t *testing.T) {
+	tempDB := filepath.Join(t.TempDir(), "test_admin_fk.db")
+	sqlStore, _, err := repository.InitDatabase(tempDB)
+	if err != nil {
+		t.Fatalf("failed to create SQL store: %v", err)
+	}
+	if s, ok := sqlStore.(*repository.SQLStore); ok {
+		defer s.DB().Close()
+	}
 
+	stores := map[string]repository.RepositoryStore{
+		"MemoryStore": repository.NewMemoryStore(),
+		"SQLStore":    sqlStore,
+	}
 
+	for name, store := range stores {
+		t.Run(name, func(t *testing.T) {
+			adminUser := &models.User{
+				ID:          uuid.New(),
+				Email:       "superadmin@seriestkd.com",
+				Username:    "superadmin",
+				DisplayName: "Supervising Master Admin",
+				Role:        models.RoleOperationManager,
+				IsActive:    true,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+			}
+			if err := store.CreateUser(adminUser); err != nil {
+				t.Fatalf("CreateUser failed: %v", err)
+			}
 
+			// Create session directly with AdminID set to adminUser.ID (which is not in coaches)
+			sess := &models.TrainingSession{
+				ID:           uuid.New(),
+				SessionDate:  time.Now(),
+				StartTime:    "10:00",
+				EndTime:      "11:30",
+				AdminID:      &adminUser.ID,
+				TrainingType: models.TrainingSparring,
+				Notes:        "Decoupled FK test session",
+				CreatedAt:    time.Now(),
+			}
+			if err := store.CreateSession(sess); err != nil {
+				t.Fatalf("CreateSession failed with adminUser: %v", err)
+			}
 
+			loaded, err := store.GetSessionByID(sess.ID)
+			if err != nil {
+				t.Fatalf("GetSessionByID failed: %v", err)
+			}
+			if loaded.AdminName != "Supervising Master Admin" {
+				t.Errorf("expected AdminName 'Supervising Master Admin', got %q", loaded.AdminName)
+			}
 
+			// Delete admin user and verify admin_id is safely nullified
+			if err := store.DeleteUser(adminUser.ID); err != nil {
+				t.Fatalf("DeleteUser failed: %v", err)
+			}
 
+			loadedAfterDelete, err := store.GetSessionByID(sess.ID)
+			if err != nil {
+				t.Fatalf("GetSessionByID after delete failed: %v", err)
+			}
+			if loadedAfterDelete.AdminID != nil {
+				t.Errorf("expected AdminID to be nil after DeleteUser, got %v", loadedAfterDelete.AdminID)
+			}
+			if loadedAfterDelete.AdminName != "" {
+				t.Errorf("expected empty AdminName after DeleteUser, got %q", loadedAfterDelete.AdminName)
+			}
+		})
+	}
+}

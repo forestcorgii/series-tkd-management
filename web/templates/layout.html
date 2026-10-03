@@ -355,9 +355,11 @@
                     </a>
                 </div>
                 {{else}}
+                {{block "navAuthAction" .}}
                 <a href="/login" class="btn btn-primary btn-sm">
                     Sign In
                 </a>
+                {{end}}
                 {{end}}
             </div>
         </div>
@@ -424,10 +426,12 @@
         </nav>
         {{end}}
         {{else}}
+        {{block "navAuthMobile" .}}
         <nav
             class="flex lg:hidden items-center justify-end pt-2.5 mt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800 text-xs font-semibold">
             <a href="/login" class="btn btn-primary btn-xs">Sign In</a>
         </nav>
+        {{end}}
         {{end}}
     </header>
 

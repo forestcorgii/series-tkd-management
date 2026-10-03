@@ -178,7 +178,7 @@ func (s *SQLStore) runMigrations() error {
 			start_time TEXT NOT NULL,
 			end_time TEXT NOT NULL,
 			coach_id TEXT REFERENCES coaches(id),
-			admin_id TEXT REFERENCES coaches(id),
+			admin_id TEXT,
 			location_id TEXT REFERENCES locations(id),
 			session_rate REAL,
 			training_type TEXT NOT NULL,
@@ -338,7 +338,7 @@ func (s *SQLStore) runMigrations() error {
 			start_time VARCHAR(20) NOT NULL,
 			end_time VARCHAR(20) NOT NULL,
 			coach_id UUID REFERENCES coaches(id),
-			admin_id UUID REFERENCES coaches(id),
+			admin_id UUID,
 			location_id UUID REFERENCES locations(id),
 			session_rate NUMERIC(10, 2),
 			training_type VARCHAR(50) NOT NULL,
@@ -508,7 +508,7 @@ func (s *SQLStore) runMigrations() error {
 						start_time TEXT NOT NULL,
 						end_time TEXT NOT NULL,
 						coach_id TEXT REFERENCES coaches(id),
-						admin_id TEXT REFERENCES coaches(id),
+						admin_id TEXT,
 						location_id TEXT REFERENCES locations(id),
 						training_type TEXT NOT NULL,
 						notes TEXT,
@@ -566,6 +566,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_admin_id_fkey`)
 
 		// Seed default categories if none exist in Postgres
 		var catCountPG int
@@ -2900,6 +2901,7 @@ func (s *SQLStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
 func (s *SQLStore) DeleteUser(userID uuid.UUID) error {
 	_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, userID.String())
 	_, _ = s.db.Exec(`DELETE FROM password_reset_tokens WHERE user_id = $1`, userID.String())
+	_, _ = s.db.Exec(`UPDATE training_sessions SET admin_id = NULL WHERE admin_id = $1`, userID.String())
 	res, err := s.db.Exec(`DELETE FROM users WHERE id = $1`, userID.String())
 	if err != nil {
 		return err

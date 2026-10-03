@@ -36,6 +36,12 @@ func TestAuthHandler_WebFlow(t *testing.T) {
 	if !strings.Contains(body, "SERIES") || !strings.Contains(body, "PORTAL ACCESS") {
 		t.Errorf("login page missing portal access headers")
 	}
+	if strings.Contains(body, `class="btn btn-primary btn-sm">`) && strings.Contains(body, "Sign In") {
+		t.Errorf("login page should not have top right sign in button in header")
+	}
+	if strings.Contains(body, `class="btn btn-primary btn-xs">Sign In</a>`) {
+		t.Errorf("login page should not have mobile top right sign in button in header")
+	}
 
 	// 2. POST /login with invalid credentials
 	form := url.Values{}
@@ -1022,6 +1028,12 @@ func TestAuthHandler_CoachAndAdminRegistrationFlow(t *testing.T) {
 	body := rec.Body.String()
 	if !strings.Contains(body, "REGISTRATION") || !strings.Contains(body, "Coach / Instructor") {
 		t.Errorf("registration page missing expected branding or role buttons")
+	}
+	if strings.Contains(body, `class="btn btn-primary btn-sm">`) && strings.Contains(body, "Sign In") {
+		t.Errorf("register page should not have top right sign in button in header")
+	}
+	if strings.Contains(body, `class="btn btn-primary btn-xs">Sign In</a>`) {
+		t.Errorf("register page should not have mobile top right sign in button in header")
 	}
 
 	// 2. POST /register for Coach

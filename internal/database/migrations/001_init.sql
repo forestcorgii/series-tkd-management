@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS training_sessions (
     start_time VARCHAR(20) NOT NULL,
     end_time VARCHAR(20) NOT NULL,
     coach_id UUID REFERENCES coaches(id),
-    admin_id UUID REFERENCES coaches(id),
+    admin_id UUID,
     location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
     session_rate NUMERIC(10, 2),
     training_type VARCHAR(50) NOT NULL, -- 'Poomsae', 'Sparring', 'Conditioning', etc.

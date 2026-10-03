@@ -97,7 +97,11 @@
     4. `GetAllStudentPackagesGrouped()`: Fetches all packages grouped by student in a single query.
   * **UI Gzip & Buffer Pooling**: Added [GzipMiddleware](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/gzip_middleware.go) reducing HTML transfer sizes by ~85% and `sync.Pool` buffer pooling for Go template execution.
 
+### Context: Supervising Admin Foreign Key Decoupling
 
-
-
+* **Problem**: In PostgreSQL, `training_sessions` was originally defined with `admin_id UUID REFERENCES coaches(id)`, creating the constraint `training_sessions_admin_id_fkey`. When multi-role user portals were implemented, supervising admins were selected from the `users` table (`RoleAdmin` and `RoleOperationManager`). Inserting or updating a training session with an admin `user.ID` caused `ERROR: insert or update on table "training_sessions" violates foreign key constraint "training_sessions_admin_id_fkey" (SQLSTATE 23503)` because the user UUID did not exist in the `coaches` table.
+* **Enforced Solution**:
+  * **FK Decoupling**: Removed `REFERENCES coaches(id)` from `admin_id` in PostgreSQL DDL (`001_init.sql`, `sql_store.go`) and SQLite schema. In PostgreSQL runtime migrations (`SQLStore.runMigrations()`), automatically execute `ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_admin_id_fkey`.
+  * **Polymorphic Joining**: Queries in `SQLStore` continue to join across both tables (`LEFT JOIN users u ON ts.admin_id = u.id LEFT JOIN coaches ca ON ts.admin_id = ca.id`), supporting both user accounts and legacy coach references.
+  * **Cascading Nullification**: Deleting a user in `SQLStore` or `MemoryStore` safely nullifies `training_sessions.admin_id = NULL` for all associated sessions.
 

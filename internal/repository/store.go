@@ -1168,6 +1168,12 @@ func (m *MemoryStore) DeleteUser(userID uuid.UUID) error {
 			delete(m.sessionTokens, token)
 		}
 	}
+	for _, sess := range m.sessions {
+		if sess.AdminID != nil && *sess.AdminID == userID {
+			sess.AdminID = nil
+			sess.AdminName = ""
+		}
+	}
 	delete(m.usersByEmail, user.Email)
 	delete(m.users, userID)
 	return nil
