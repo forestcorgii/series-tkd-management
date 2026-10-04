@@ -3,6 +3,7 @@
 {{define "title"}}Locations &amp; Dojangs - STMS{{end}}
 
 {{define "content"}}
+{{$user := currentUser .}}
 <div class="space-y-6">
     <!-- Top Header & Actions -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -14,6 +15,7 @@
                 Manage branch venues, pin Google Maps directions, and review class attendance per location.
             </p>
         </div>
+        {{if and $user $user.IsOperationManager}}
         <div>
             <button type="button"
                     onclick="openNewLocationModal()"
@@ -21,6 +23,7 @@
                 <span>+</span> Add New Location
             </button>
         </div>
+        {{end}}
     </div>
 
     <!-- Flash Alert Notices -->
@@ -161,6 +164,7 @@
                                    title="Filter attendance & classes for this location">
                                     <span>📅</span> Classes
                                 </a>
+                                {{if and $user $user.IsOperationManager}}
                                 <button type="button"
                                         onclick="openEditLocationModal('{{.Location.ID}}', '{{.Location.Name}}', '{{.Location.Pin}}', '{{if .Location.FixedRate}}{{printf "%.2f" .Location.FixedRateVal}}{{end}}')"
                                         class="btn btn-secondary btn-xs flex items-center gap-1">
@@ -171,6 +175,7 @@
                                         class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900 flex items-center gap-1">
                                     <span>🗑️</span> Delete
                                 </button>
+                                {{end}}
                             </div>
                         </td>
                     </tr>
@@ -183,16 +188,19 @@
             <span class="text-4xl">📍</span>
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">No locations registered yet</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                Add branch dojangs or venue facilities to start scheduling classes and tracking floor check-ins per location.
+                Branch dojangs or venue facilities will be displayed here for schedule tracking and floor check-ins.
             </p>
+            {{if and $user $user.IsOperationManager}}
             <button type="button" onclick="openNewLocationModal()" class="btn btn-primary btn-sm mt-2">
                 + Register First Location
             </button>
+            {{end}}
         </div>
         {{end}}
     </div>
 </div>
 
+{{if and $user $user.IsOperationManager}}
 <!-- Modal: Add New Location -->
 <div id="new-location-modal" class="modal-backdrop hidden">
     <div class="modal-dialog max-w-md">
@@ -322,6 +330,7 @@
         </form>
     </div>
 </div>
+{{end}}
 
 <script>
 function openNewLocationModal() {

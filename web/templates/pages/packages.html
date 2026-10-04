@@ -167,6 +167,7 @@
                         <th class="py-3 px-4">Expiry Date</th>
                         <th class="py-3 px-4">Custom Notes / Rate</th>
                         <th class="py-3 px-4 text-center">Payment Status</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
@@ -220,6 +221,10 @@
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
                                 ✓ PAID
                             </span>
+                            {{else if eq .Package.PaymentStatus "revoked"}}
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
+                                REVOKED
+                            </span>
                             {{else if eq .Package.PaymentStatus "pending"}}
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
                                 PENDING
@@ -230,10 +235,26 @@
                             </span>
                             {{end}}
                         </td>
+                        <td class="py-3.5 px-4 text-right">
+                            {{if and $user $user.IsOperationManager}}
+                                {{if eq .Package.PaymentStatus "revoked"}}
+                                <span class="text-slate-400 dark:text-slate-500 text-[11px] italic font-medium">Revoked</span>
+                                {{else}}
+                                <form action="/packages/student-packages/{{.Package.ID}}/revoke" method="POST" class="inline" onsubmit="return confirm('Revoke membership for {{.StudentName}} ({{.Package.TemplateTitle}})? This will immediately invalidate the membership.');">
+                                    <input type="hidden" name="redirect_url" value="/packages">
+                                    <button type="submit" class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold" title="Revoke Membership">
+                                        🚫 Revoke
+                                    </button>
+                                </form>
+                                {{end}}
+                            {{else}}
+                            <span class="text-slate-400 dark:text-slate-500 text-xs">—</span>
+                            {{end}}
+                        </td>
                     </tr>
                     {{else}}
                     <tr>
-                        <td colspan="7" class="text-center py-8 text-xs text-slate-600 dark:text-slate-400">No active student memberships assigned yet.</td>
+                        <td colspan="8" class="text-center py-8 text-xs text-slate-600 dark:text-slate-400">No active student memberships assigned yet.</td>
                     </tr>
                     {{end}}
                 </tbody>

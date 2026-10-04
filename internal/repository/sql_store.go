@@ -1618,9 +1618,79 @@ func (s *SQLStore) AssignPackage(pkg *models.StudentPackage) error {
 	return err
 }
 
+func (s *SQLStore) GetStudentPackageByID(id uuid.UUID) (*models.StudentPackage, error) {
+	query := `SELECT sp.id, sp.student_id, sp.template_id, pt.title, COALESCE(sp.plan_type, 'standard'), sp.total_sessions,
+		sp.remaining_sessions, sp.sessions_per_week, sp.custom_price, COALESCE(sp.notes, ''), sp.purchase_date, sp.expiry_date, sp.payment_status, sp.created_at
+		FROM student_packages sp
+		LEFT JOIN package_templates pt ON sp.template_id = pt.id
+		WHERE sp.id = $1`
+	var idStr, stIDStr, tmplIDStr, purchStr, expStr, createdStr, notesStr string
+	var titleStr, planTypeStr sql.NullString
+	var total, rem, spw sql.NullInt64
+	var customPrice sql.NullFloat64
+	sp := &models.StudentPackage{}
+	err := s.db.QueryRow(query, id.String()).Scan(
+		&idStr, &stIDStr, &tmplIDStr, &titleStr, &planTypeStr, &total,
+		&rem, &spw, &customPrice, &notesStr, &purchStr, &expStr, &sp.PaymentStatus, &createdStr,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	sp.ID = uuid.Must(uuid.Parse(idStr))
+	sp.StudentID = uuid.Must(uuid.Parse(stIDStr))
+	sp.TemplateID = uuid.Must(uuid.Parse(tmplIDStr))
+	if titleStr.Valid {
+		sp.TemplateTitle = titleStr.String
+	}
+	pType := "standard"
+	if planTypeStr.Valid && planTypeStr.String != "" {
+		pType = planTypeStr.String
+	} else if !total.Valid {
+		pType = "unlimited"
+	}
+	sp.PlanType = models.PlanType(pType)
+	sp.Notes = notesStr
+	if customPrice.Valid {
+		cp := customPrice.Float64
+		sp.CustomPrice = &cp
+	}
+	if total.Valid {
+		tot := int(total.Int64)
+		sp.TotalSessions = &tot
+	}
+	if rem.Valid {
+		r := int(rem.Int64)
+		sp.RemainingSessions = &r
+	}
+	if spw.Valid {
+		w := int(spw.Int64)
+		sp.SessionsPerWeek = &w
+	}
+	sp.PurchaseDate, _ = parseTimeFlex(purchStr)
+	sp.ExpiryDate, _ = parseTimeFlex(expStr)
+	sp.CreatedAt, _ = parseTimeFlex(createdStr)
+	return sp, nil
+}
+
 func (s *SQLStore) UpdateStudentPackage(pkg *models.StudentPackage) error {
 	query := `UPDATE student_packages SET remaining_sessions = $1, payment_status = $2 WHERE id = $3`
 	res, err := s.db.Exec(query, pkg.RemainingSessions, pkg.PaymentStatus, pkg.ID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *SQLStore) RevokeStudentPackage(id uuid.UUID) error {
+	query := `UPDATE student_packages SET payment_status = 'revoked' WHERE id = $1`
+	res, err := s.db.Exec(query, id.String())
 	if err != nil {
 		return err
 	}

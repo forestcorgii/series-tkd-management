@@ -907,7 +907,10 @@ func (a *AppHandler) HandleDeleteSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if !sess.IsOpen() {
+	user := GetUserFromContext(r.Context())
+	isManager := user != nil && user.Role == models.RoleOperationManager
+
+	if !sess.IsOpen() && !isManager {
 		http.Error(w, "Only open attendance classes can be deleted", http.StatusBadRequest)
 		return
 	}

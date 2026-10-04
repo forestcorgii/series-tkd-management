@@ -163,38 +163,48 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 		t.Errorf("expected error redirect for empty name, got code %d to %s", recEmpty.Code, recEmpty.Header().Get("Location"))
 	}
 
-	// Admin Access (Allowed)
+	// Admin Access (Allowed to view)
 	adminUser, _ := store.GetUserByEmail("admin@seriestkd.com")
 	adminToken := uuid.New().String()
 	_ = store.CreateSessionToken(adminToken, adminUser.ID, time.Now().Add(time.Hour))
 	reqAdmin := httptest.NewRequest("GET", "/locations", nil)
 	reqAdmin.AddCookie(&http.Cookie{Name: "stms_session", Value: adminToken})
 	recAdmin := httptest.NewRecorder()
-	app.AuthMiddleware(app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recAdmin, reqAdmin)
+	app.AuthMiddleware(app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recAdmin, reqAdmin)
 	if recAdmin.Code != http.StatusOK {
-		t.Errorf("expected 200 OK for Admin role on /locations, got %d", recAdmin.Code)
+		t.Errorf("expected 200 OK for Admin role on GET /locations, got %d", recAdmin.Code)
 	}
 
-	// Coach Access (Browser request redirects to Coach default portal /sessions)
+	// Admin Mutating Location (Forbidden - view only)
+	reqAdminMutate := httptest.NewRequest("POST", "/locations", strings.NewReader("name=UnauthorizedBranch"))
+	reqAdminMutate.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqAdminMutate.AddCookie(&http.Cookie{Name: "stms_session", Value: adminToken})
+	recAdminMutate := httptest.NewRecorder()
+	app.AuthMiddleware(app.RequireRole(models.RoleOperationManager)(app.HandleCreateLocation)).ServeHTTP(recAdminMutate, reqAdminMutate)
+	if recAdminMutate.Code == http.StatusSeeOther && strings.Contains(recAdminMutate.Header().Get("Location"), "success=") {
+		t.Errorf("admin should NOT be permitted to create/modify locations")
+	}
+
+	// Coach Access (Allowed to view)
 	coachUser, _ := store.GetUserByEmail("jiwoo.park@seriestkd.com")
 	coachToken := uuid.New().String()
 	_ = store.CreateSessionToken(coachToken, coachUser.ID, time.Now().Add(time.Hour))
 	reqCoach := httptest.NewRequest("GET", "/locations", nil)
 	reqCoach.AddCookie(&http.Cookie{Name: "stms_session", Value: coachToken})
 	recCoach := httptest.NewRecorder()
-	app.AuthMiddleware(app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recCoach, reqCoach)
-	if recCoach.Code != http.StatusSeeOther || !strings.Contains(recCoach.Header().Get("Location"), "/sessions") {
-		t.Errorf("expected 303 redirect to /sessions for Coach role on /locations, got code %d to %s", recCoach.Code, recCoach.Header().Get("Location"))
+	app.AuthMiddleware(app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recCoach, reqCoach)
+	if recCoach.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for Coach role on GET /locations, got %d", recCoach.Code)
 	}
 
-	// Coach Access via HTMX/API (Returns 403 Forbidden)
-	reqCoachAPI := httptest.NewRequest("GET", "/locations", nil)
-	reqCoachAPI.Header.Set("HX-Request", "true")
-	reqCoachAPI.AddCookie(&http.Cookie{Name: "stms_session", Value: coachToken})
-	recCoachAPI := httptest.NewRecorder()
-	app.AuthMiddleware(app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recCoachAPI, reqCoachAPI)
-	if recCoachAPI.Code != http.StatusForbidden {
-		t.Errorf("expected 403 Forbidden for Coach role on HTMX /locations, got %d", recCoachAPI.Code)
+	// Coach Mutating Location (Forbidden - view only)
+	reqCoachMutate := httptest.NewRequest("POST", "/locations", strings.NewReader("name=UnauthorizedBranch"))
+	reqCoachMutate.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqCoachMutate.AddCookie(&http.Cookie{Name: "stms_session", Value: coachToken})
+	recCoachMutate := httptest.NewRecorder()
+	app.AuthMiddleware(app.RequireRole(models.RoleOperationManager)(app.HandleCreateLocation)).ServeHTTP(recCoachMutate, reqCoachMutate)
+	if recCoachMutate.Code == http.StatusSeeOther && strings.Contains(recCoachMutate.Header().Get("Location"), "success=") {
+		t.Errorf("coach should NOT be permitted to create/modify locations")
 	}
 
 	// Student Access (Browser request redirects to Student portal /portal/student)
@@ -204,7 +214,7 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 	reqStudent := httptest.NewRequest("GET", "/locations", nil)
 	reqStudent.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
 	recStudent := httptest.NewRecorder()
-	app.AuthMiddleware(app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recStudent, reqStudent)
+	app.AuthMiddleware(app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recStudent, reqStudent)
 	if recStudent.Code != http.StatusSeeOther || !strings.Contains(recStudent.Header().Get("Location"), "/portal/student") {
 		t.Errorf("expected 303 redirect to /portal/student for Student role on /locations, got code %d to %s", recStudent.Code, recStudent.Header().Get("Location"))
 	}
@@ -214,7 +224,7 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 	reqStudentAPI.Header.Set("HX-Request", "true")
 	reqStudentAPI.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
 	recStudentAPI := httptest.NewRecorder()
-	app.AuthMiddleware(app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recStudentAPI, reqStudentAPI)
+	app.AuthMiddleware(app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recStudentAPI, reqStudentAPI)
 	if recStudentAPI.Code != http.StatusForbidden {
 		t.Errorf("expected 403 Forbidden for Student role on HTMX /locations, got %d", recStudentAPI.Code)
 	}

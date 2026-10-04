@@ -3,6 +3,7 @@
 {{define "title"}}Live Attendance - {{.Session.TrainingType}}{{end}}
 
 {{define "content"}}
+{{$user := currentUser .}}
 <div class="space-y-6">
     <!-- Session Status Header -->
     <!-- Session Status Header -->
@@ -49,7 +50,7 @@
                 <span>✏️</span> Edit Class
             </button>
             {{end}}
-            {{if .Session.IsOpen}}
+            {{if or .Session.IsOpen (and $user $user.IsOperationManager)}}
             <button type="button"
                     onclick="openDeleteSessionModal()"
                     class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
@@ -319,7 +320,7 @@
             </div>
 
             <div class="modal-footer flex items-center justify-between">
-                {{if .Session.IsOpen}}
+                {{if or .Session.IsOpen (and $user $user.IsOperationManager)}}
                 <button type="button" onclick="closeEditModal(); openDeleteSessionModal();" class="btn btn-ghost btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold flex items-center gap-1">
                     <span>🗑️</span> Delete Class
                 </button>

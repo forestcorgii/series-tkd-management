@@ -261,6 +261,8 @@
                     class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
                 <a href="/students"
                     class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
+                <a href="/locations"
+                    class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
                 {{end}}
                 {{end}}
             </nav>
@@ -398,6 +400,8 @@
                 class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
             <a href="/students"
                 class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
+            <a href="/locations"
+                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Locations</a>
             {{end}}
             <a href="{{if $user.IsOperationManager}}/portal/admin{{else if $user.IsAdmin}}/packages{{else if $user.IsCoach}}/portal/coach{{end}}"
                 class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">

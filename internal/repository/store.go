@@ -67,8 +67,10 @@ type RepositoryStore interface {
 	UpdatePackageTemplate(tpl *models.PackageTemplate) error
 	TogglePackageTemplateStatus(id uuid.UUID, isActive bool) error
 	GetStudentPackages(studentID uuid.UUID) ([]*models.StudentPackage, error)
+	GetStudentPackageByID(id uuid.UUID) (*models.StudentPackage, error)
 	AssignPackage(pkg *models.StudentPackage) error
 	UpdateStudentPackage(pkg *models.StudentPackage) error
+	RevokeStudentPackage(id uuid.UUID) error
 
 	// Sessions & Floor Attendance
 	GetAllSessions() ([]*models.TrainingSession, error)
@@ -505,6 +507,20 @@ func (m *MemoryStore) AssignPackage(pkg *models.StudentPackage) error {
 	return nil
 }
 
+func (m *MemoryStore) GetStudentPackageByID(id uuid.UUID) (*models.StudentPackage, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sp, ok := m.studentPackages[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if tpl, ok := m.packageTemplates[sp.TemplateID]; ok {
+		sp.TemplateTitle = tpl.Title
+	}
+	return sp, nil
+}
+
 func (m *MemoryStore) UpdateStudentPackage(pkg *models.StudentPackage) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -513,6 +529,18 @@ func (m *MemoryStore) UpdateStudentPackage(pkg *models.StudentPackage) error {
 		return ErrNotFound
 	}
 	m.studentPackages[pkg.ID] = pkg
+	return nil
+}
+
+func (m *MemoryStore) RevokeStudentPackage(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sp, ok := m.studentPackages[id]
+	if !ok {
+		return ErrNotFound
+	}
+	sp.PaymentStatus = "revoked"
 	return nil
 }
 

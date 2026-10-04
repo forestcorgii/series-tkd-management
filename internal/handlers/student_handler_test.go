@@ -157,9 +157,9 @@ func TestStudentHandler_HandleDeleteStudent_RoleGuarded(t *testing.T) {
 	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
 	coachUser, _ := store.GetUserByEmail("jiwoo.park@seriestkd.com")
 
-	handler := app.AuthMiddleware(app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteStudent))
+	handler := app.AuthMiddleware(app.RequireRole(models.RoleOperationManager)(app.HandleDeleteStudent))
 
-	// 1. Admin is permitted to delete student
+	// 1. Admin is NOT permitted to delete student
 	st1 := &models.Student{
 		ID:          uuid.New(),
 		FullName:    "Student One",
@@ -178,8 +178,12 @@ func TestStudentHandler_HandleDeleteStudent_RoleGuarded(t *testing.T) {
 	recAdmin := httptest.NewRecorder()
 	handler.ServeHTTP(recAdmin, reqAdmin)
 
-	if recAdmin.Code != http.StatusSeeOther {
-		t.Fatalf("expected 303 for admin delete, got %d", recAdmin.Code)
+	// Admin must be rejected (403 Forbidden or redirected away)
+	if recAdmin.Code == http.StatusSeeOther && recAdmin.Header().Get("Location") == "/students" {
+		t.Fatalf("admin should NOT be allowed to delete student")
+	}
+	if found, _ := store.GetStudentByID(st1.ID); found == nil {
+		t.Fatalf("expected student1 to still exist after admin delete attempt")
 	}
 
 	// 2. Manager is permitted to delete student

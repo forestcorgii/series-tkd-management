@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -410,6 +411,49 @@ func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request)
 
 	if _, err := a.AssignPackageFromForm(r, studentID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	redirectURL := r.FormValue("redirect_url")
+	if redirectURL == "" {
+		redirectURL = "/packages"
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+func (a *AppHandler) HandleRevokeStudentPackage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.Role != models.RoleOperationManager {
+		http.Error(w, "Forbidden: Only Operation Managers can revoke memberships", http.StatusForbidden)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimPrefix(r.URL.Path, "/packages/student-packages/")
+		idStr = strings.TrimPrefix(idStr, "/api/packages/student-packages/")
+		idStr = strings.TrimSuffix(idStr, "/revoke")
+	}
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid package ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := a.store.RevokeStudentPackage(id); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to revoke membership: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "revoked", "id": id.String()})
 		return
 	}
 

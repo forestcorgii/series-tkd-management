@@ -342,6 +342,18 @@ func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.Role != models.RoleOperationManager {
+		if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Forbidden: only Operation Managers can delete students."})
+			return
+		}
+		http.Error(w, "Forbidden: only Operation Managers can delete students", http.StatusForbidden)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	if idStr == "" {
 		idStr = strings.TrimPrefix(r.URL.Path, "/students/")

@@ -91,6 +91,12 @@ func (a *AppHandler) HandleCreateLocation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.Role != models.RoleOperationManager {
+		http.Error(w, "Forbidden: Only Operation Managers can modify locations", http.StatusForbidden)
+		return
+	}
+
 	name := strings.TrimSpace(r.FormValue("name"))
 	pin := strings.TrimSpace(r.FormValue("pin"))
 
@@ -129,6 +135,12 @@ func (a *AppHandler) HandleCreateLocation(w http.ResponseWriter, r *http.Request
 func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.Role != models.RoleOperationManager {
+		http.Error(w, "Forbidden: Only Operation Managers can modify locations", http.StatusForbidden)
 		return
 	}
 
@@ -186,6 +198,12 @@ func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request
 func (a *AppHandler) HandleDeleteLocation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.Role != models.RoleOperationManager {
+		http.Error(w, "Forbidden: Only Operation Managers can modify locations", http.StatusForbidden)
 		return
 	}
 

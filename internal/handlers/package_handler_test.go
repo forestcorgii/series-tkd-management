@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -398,6 +399,87 @@ func TestHandlePackages_CustomPriceRendering(t *testing.T) {
 	}
 	if !strings.Contains(sBody, "₱1499.50") {
 		t.Errorf("expected formatted currency ₱1499.50 in student detail body")
+	}
+}
+
+func TestHandleRevokeStudentPackage(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	// 1. Create student and assign package
+	student := &models.Student{
+		ID:          uuid.New(),
+		FullName:    "Revoke Test Student",
+		DOB:         time.Now().AddDate(-12, 0, 0),
+		CurrentBelt: models.BeltLowYellow,
+		IsActive:    true,
+	}
+	_ = store.CreateStudent(student)
+
+	tpl := &models.PackageTemplate{
+		ID:           uuid.New(),
+		Title:        "10-Class Test Pass",
+		ValidityDays: 30,
+		Price:        100.0,
+		IsActive:     true,
+	}
+	_ = store.CreatePackageTemplate(tpl)
+
+	tot := 10
+	sp := &models.StudentPackage{
+		ID:                uuid.New(),
+		StudentID:         student.ID,
+		TemplateID:        tpl.ID,
+		TemplateTitle:     tpl.Title,
+		PlanType:          models.PlanTypeStandard,
+		TotalSessions:     &tot,
+		RemainingSessions: &tot,
+		PurchaseDate:      time.Now(),
+		ExpiryDate:        time.Now().AddDate(0, 1, 0),
+		PaymentStatus:     "paid",
+	}
+	_ = store.AssignPackage(sp)
+
+	// 2. Non-manager is forbidden
+	coachUser, _ := store.GetUserByEmail("jiwoo.park@seriestkd.com")
+	ctxCoach := context.WithValue(context.Background(), handlers.UserContextKey, coachUser)
+	reqCoach := httptest.NewRequest(http.MethodPost, "/packages/student-packages/"+sp.ID.String()+"/revoke", nil).WithContext(ctxCoach)
+	reqCoach.SetPathValue("id", sp.ID.String())
+	recCoach := httptest.NewRecorder()
+	app.HandleRevokeStudentPackage(recCoach, reqCoach)
+
+	if recCoach.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden for non-manager revoke, got %d", recCoach.Code)
+	}
+
+	// 3. Manager successfully revokes package
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	ctxMgr := context.WithValue(context.Background(), handlers.UserContextKey, managerUser)
+	reqMgr := httptest.NewRequest(http.MethodPost, "/packages/student-packages/"+sp.ID.String()+"/revoke", nil).WithContext(ctxMgr)
+	reqMgr.SetPathValue("id", sp.ID.String())
+	recMgr := httptest.NewRecorder()
+	app.HandleRevokeStudentPackage(recMgr, reqMgr)
+
+	if recMgr.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect for manager revoke, got %d", recMgr.Code)
+	}
+
+	// 4. Verify package is now revoked and invalid
+	pkgs, _ := store.GetStudentPackages(student.ID)
+	var revokedPkg *models.StudentPackage
+	for _, p := range pkgs {
+		if p.ID == sp.ID {
+			revokedPkg = p
+			break
+		}
+	}
+	if revokedPkg == nil {
+		t.Fatal("revoked package not found in student packages")
+	}
+	if revokedPkg.PaymentStatus != "revoked" {
+		t.Errorf("expected PaymentStatus 'revoked', got %s", revokedPkg.PaymentStatus)
+	}
+	if revokedPkg.IsValidAt(time.Now()) {
+		t.Errorf("expected revoked package to NOT be valid for check-in")
 	}
 }
 

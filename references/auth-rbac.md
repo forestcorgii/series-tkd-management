@@ -201,7 +201,7 @@
 ### Context: Student Deletion & Cascading Record Purge Governance (/students/{id}/delete)
 
 * **Problem**:
-  1. Front-desk administrators and operations managers lacked an interface and endpoints to delete obsolete, erroneous, or inactive student profiles.
+  1. Front-desk staff and operations managers needed clarity on who is authorized to permanently purge student profiles. Student deletion must not be permitted for coaches or front-desk administrators, but reserved exclusively for Operations Managers.
   2. Deleting a student naively leaves orphaned attendance logs, active student packages, athletic evaluations, open safety incident tickets, and portal login credentials with session cookies.
 * **Enforced Solution**:
   1. **Transactional Cascading Storage (`DeleteStudent`)**:
@@ -213,11 +213,11 @@
        - Purges `student_packages` credit passes (`student_id = $1`).
        - Purges the `students` profile record.
   2. **Multi-Role RBAC Route Guarding**:
-     - `POST /students/{id}/delete`, `DELETE /students/{id}`, and `DELETE /api/students/{id}` are strictly guarded by `RequireRole(models.RoleAdmin, models.RoleOperationManager)`.
-     - Unauthorized roles (`COACH`, `STUDENT`) are forbidden.
+     - `POST /students/{id}/delete`, `DELETE /students/{id}`, and `DELETE /api/students/{id}` are strictly guarded by `RequireRole(models.RoleOperationManager)`.
+     - Unauthorized roles (`ADMIN`, `COACH`, `STUDENT`) are forbidden (HTTP 403).
   3. **Interactive UI & Safe Confirmation**:
-     - **Student Profile View (`student_detail.html`)**: Action button `🗑️ Delete Student` rendered in top action bar and within "Edit Student Info" modal with explicit JavaScript confirmation prompt.
-     - **Student Directory Table (`students.html` / `student_table_rows.html`)**: Quick-action delete button (`🗑️`) rendered in the action column for authorized staff with confirmation.
+     - **Student Profile View (`student_detail.html`)**: Action button `🗑️ Delete Student` rendered in top action bar and within "Edit Student Info" modal exclusively when `.CurrentUser.IsOperationManager` is true.
+     - **Student Directory Table (`students.html` / `student_table_rows.html`)**: Quick-action delete button (`🗑️`) rendered exclusively for Operation Managers.
      - **Dynamic Feedback**: Flash alert banners rendered at the top of `/students` (`SuccessNotice` / `ErrorNotice`) and `HX-Redirect` support for HTMX consumers.
 
 ### Context: Attendance Default Landing Page for Admins & Coaches (/sessions)
@@ -246,3 +246,37 @@
   2. **Preserving Explicit Selection**:
      - Checking `!r.URL.Query().Has("coach_id")` ensures that when a coach deliberately selects "All Coaches" (submitting `coach_id=""`), the user's explicit filter choice is respected without being overwritten.
      - Admins and Operations Managers remain defaulted to viewing all coaches unless an explicit filter is chosen.
+
+### Context: Manager Deletion of Closed Classes (/sessions/{id}/delete)
+
+* **Problem**:
+  1. Previously, classes that were already closed or in the past (!session.IsOpen()) could not be deleted by any user, including Operations Managers, causing errors if erroneous or test classes were concluded.
+* **Enforced Solution**:
+  1. **Manager Override**:
+     - In HandleDeleteSession, if !sess.IsOpen(), allow deletion if user != nil && user.Role == models.RoleOperationManager. Non-managers attempting to delete closed classes are returned HTTP 400 Bad Request ("Only Operation Managers can delete past or closed classes").
+  2. **UI Controls**:
+     - In session_cards.html, sessions.html, and live_checkin.html, delete buttons and modals are conditionally enabled/visible if or .IsOpen (and  .IsOperationManager).
+
+### Context: Membership Revocation Governance (/packages/student-packages/{id}/revoke)
+
+* **Problem**:
+  1. When a student membership package needed to be cancelled, refunded, or voided for policy reasons, the system lacked a direct revocation mechanism.
+* **Enforced Solution**:
+  1. **Status Transition**:
+     - Added RevokeStudentPackage(id uuid.UUID) error to RepositoryStore (MemoryStore and SQLStore), setting payment_status = 'revoked'.
+     - StudentPackage.IsValidAt() requires PaymentStatus == "paid" (or non-revoked), immediately preventing revoked passes from being used for floor check-ins.
+  2. **Route Guarding & UI**:
+     - POST /packages/student-packages/{id}/revoke and POST /api/packages/student-packages/{id}/revoke are protected with RequireRole(models.RoleOperationManager).
+     - Action buttons ?? Revoke and REVOKED status badges rendered in packages.html and student_detail.html exclusively for Operation Managers.
+
+### Context: View-Only Locations Directory for Admins & Coaches (/locations)
+
+* **Problem**:
+  1. Front-desk administrators and coaches need access to review branch/dojang facility details, mat capacities, and location contacts, but must not be permitted to create, edit, or delete facility records.
+* **Enforced Solution**:
+  1. **Route Guarding**:
+     - GET /locations is accessible to models.RoleCoach, models.RoleAdmin, and models.RoleOperationManager.
+     - All mutating routes (POST /locations, POST /locations/{id}, POST /locations/{id}/edit, PUT /locations/{id}, POST /locations/{id}/delete, DELETE /locations/{id}, DELETE /api/locations/{id}) are strictly restricted to models.RoleOperationManager.
+  2. **UI Adaptation**:
+     - In locations.html, "Add New Location", "Edit", and "Delete" buttons and modals are rendered only when .CurrentUser.IsOperationManager is true. Non-managers see a clean, informative view-only directory of dojang branches.
+     - Coach desktop and mobile navigation in layout.html includes the "Locations" link.

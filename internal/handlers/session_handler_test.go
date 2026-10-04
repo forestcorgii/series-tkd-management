@@ -936,6 +936,36 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 			t.Errorf("expected 400 BadRequest when deleting closed session, got %d: %s", rec.Code, rec.Body.String())
 		}
 	})
+
+	// 6. Deleting closed/past session is allowed for Operation Manager
+	t.Run("HandleDeleteSession allows closed session for manager", func(t *testing.T) {
+		pastSess := &models.TrainingSession{
+			ID:           uuid.New(),
+			SessionDate:  time.Now().AddDate(0, 0, -2), // 2 days ago
+			StartTime:    "09:00",
+			EndTime:      "10:00",
+			CoachID:      &coach1.ID,
+			TrainingType: models.TrainingConditioning,
+		}
+		_ = store.CreateSession(pastSess)
+
+		mgrUser := &models.User{
+			ID:   uuid.New(),
+			Role: models.RoleOperationManager,
+		}
+		ctx := context.WithValue(context.Background(), handlers.UserContextKey, mgrUser)
+		req := httptest.NewRequest(http.MethodPost, "/sessions/"+pastSess.ID.String()+"/delete", nil).WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		app.HandleDeleteSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 SeeOther when manager deletes closed session, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if _, err := store.GetSessionByID(pastSess.ID); err == nil {
+			t.Errorf("expected session to be deleted by manager")
+		}
+	})
 }
 
 func TestHandleCheckIn_SessionRate_NoPackageCreditDeduction(t *testing.T) {
