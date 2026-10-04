@@ -5,10 +5,10 @@
 {{define "content"}}
 <div class="space-y-6">
     <!-- Top Coach Header -->
-    <div class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+    <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="flex items-center space-x-4">
-                <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+            <div class="flex items-center space-x-3.5 sm:space-x-4">
+                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
                     🥊
                 </div>
                 <div>
@@ -58,17 +58,20 @@
         <!-- Col 1 & 2: Active Floor Roster + Promotion Review Queue -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Active Floor Roster & Rapid Check-in -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                    <div>
-                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
                             Live Mat Roster ({{if .LiveSession}}{{.LiveSession.TrainingType}} @ {{.LiveSession.StartTime}}{{else}}Floor Standby{{end}})
                         </h2>
-                        <p class="text-xs text-slate-600 dark:text-slate-400">
-                            Currently checked-in practitioners with active membership deductions
-                        </p>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Live mat roster note">ⓘ</button>
+                            <div class="tooltip-content w-64">
+                                Currently checked-in practitioners with active membership deductions.
+                            </div>
+                        </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">
                         {{len .LiveAttendances}} On Mat
                     </span>
                 </div>
@@ -98,8 +101,8 @@
                 {{end}}
 
                 <!-- Roster Table -->
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs">
+                <div class="overflow-x-auto -mx-1 sm:mx-0">
+                    <table class="w-full text-left text-xs min-w-[500px]">
                         <thead>
                             <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase">
                                 <th class="pb-2">Practitioner</th>
@@ -133,17 +136,20 @@
             </div>
 
             <!-- Promotion Review Priority Queue -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center justify-between mb-3">
-                    <div>
-                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-3 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
                             Promotion Review Priority Queue
                         </h2>
-                        <p class="text-xs text-slate-600 dark:text-slate-400">
-                            Candidates on the floor flagged as READY 🟢 or PRE-TEST ELIGIBLE 🟡 for observation
-                        </p>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Promotion review note">ⓘ</button>
+                            <div class="tooltip-content w-64">
+                                Candidates on the floor flagged as READY 🟢 or PRE-TEST ELIGIBLE 🟡 for observation.
+                            </div>
+                        </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex-shrink-0">
                         {{len .PriorityReviewQueue}} Candidates
                     </span>
                 </div>
@@ -180,13 +186,18 @@
         <!-- Col 3: Quick Evaluation Entry & Safety Incident Form -->
         <div class="space-y-6">
             <!-- Athletic Radar Score Form -->
-            <div id="eval-container" class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-1">
-                    Athletic Radar Quick-Entry
-                </h2>
-                <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                    Score adjustments feed dynamic promotion insights
-                </p>
+            <div id="eval-container" class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center gap-2 mb-3">
+                    <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                        Athletic Radar Quick-Entry
+                    </h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Quick evaluation note">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Score adjustments immediately update dynamic promotion readiness insights.
+                        </div>
+                    </div>
+                </div>
 
                 <form hx-post="/api/coach/evaluate"
                       hx-target="#eval-feedback"
@@ -249,16 +260,19 @@
             </div>
 
             <!-- Floor Incident & Safety Flag Logger -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center gap-2 mb-1">
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center gap-2 mb-3">
                     <span class="text-sm">🚨</span>
                     <h2 class="font-display font-extrabold text-base uppercase text-rose-600 dark:text-rose-400">
                         First Aid &amp; Incident Logger
                     </h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="First aid note">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Instantly flags practitioner profile with mat safety hold until cleared.
+                        </div>
+                    </div>
                 </div>
-                <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                    Instantly flags student profile with mat safety hold
-                </p>
 
                 <form hx-post="/api/safety/flag"
                       hx-target="#safety-feedback"

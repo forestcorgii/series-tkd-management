@@ -24,41 +24,45 @@
     </div>
     {{end}}
 
-    <!-- Page Header & Action Bar -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Student Directory &amp; Ability Radar</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Manage athletic evaluations, emergency medical notes, and promotion readiness status.</p>
+    <h1 class="sr-only">Student Directory &amp; Ability Radar</h1>
+
+    <!-- Compact Action Bar & Search -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex-1 flex items-center gap-2">
+            <div class="relative flex-1">
+                <input type="search"
+                       name="query"
+                       value="{{.Search}}"
+                       placeholder="Search by student name, phone, or belt rank..."
+                       hx-get="/students"
+                       hx-trigger="keyup changed delay:250ms, search"
+                       hx-target="#student-rows"
+                       class="form-input" />
+            </div>
+            <div class="has-tooltip flex-shrink-0">
+                <button type="button" class="tooltip-icon" aria-label="Student Directory Information">ⓘ</button>
+                <div class="tooltip-content">
+                    Manage athletic evaluations, emergency medical notes, and promotion readiness status.
+                </div>
+            </div>
         </div>
         {{$user := currentUser .}}
         {{if or (not $user) $user.IsOperationManager $user.IsAdmin}}
-        <div class="flex items-center gap-2.5 flex-wrap">
-            <button type="button" onclick="openAssignModal()" class="btn btn-secondary btn-md shadow-sm">
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button type="button" onclick="openAssignModal()" class="btn btn-secondary btn-sm flex-1 sm:flex-none shadow-sm py-2 px-3">
                 💳 Assign Membership
             </button>
-            <button type="button" onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-md shadow-sm">
+            <button type="button" onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-sm flex-1 sm:flex-none shadow-sm py-2 px-3">
                 ➕ Register New Student
             </button>
         </div>
         {{end}}
     </div>
 
-    <!-- Search Bar & Filters -->
-    <div class="glass-panel p-4 rounded-xl flex items-center gap-4 border border-slate-200/80 dark:border-slate-800">
-        <input type="search"
-               name="query"
-               value="{{.Search}}"
-               placeholder="Search by student name, phone, or belt rank..."
-               hx-get="/students"
-               hx-trigger="keyup changed delay:250ms, search"
-               hx-target="#student-rows"
-               class="form-input" />
-    </div>
-
     <!-- Student Roster Table -->
     <div class="glass-panel rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+        <div class="overflow-x-auto -mx-1 sm:mx-0">
+            <table class="w-full min-w-[700px] text-left text-sm text-slate-700 dark:text-slate-300">
                 <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                     <tr>
                         <th class="py-3.5 px-4">Student Name</th>
@@ -106,16 +110,20 @@
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="form-label">Contact Number *</label>
+                    <label class="form-label flex items-center justify-between">
+                        <span>Contact Number *</span>
+                        <span class="has-tooltip">
+                            <span class="tooltip-icon">ⓘ</span>
+                            <span class="tooltip-content">11-digit mobile number starting with 09 (e.g. 09626914130)</span>
+                        </span>
+                    </label>
                     <input type="tel" name="phone" required
                            placeholder="09626914130"
                            pattern="09[0-9]{9}"
                            maxlength="11"
                            inputmode="numeric"
                            oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
-                           title="11-digit mobile number starting with 09 (e.g. 09626914130)"
                            class="form-input">
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">11 digits starting with 09 (e.g. 09626914130)</p>
                 </div>
                 <div>
                     <label class="form-label">Current Belt Rank</label>
@@ -146,19 +154,23 @@
                 </div>
             </div>
             <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <span class="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-400">Emergency &amp; Medical Clearance</span>
-                <div class="grid grid-cols-3 gap-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-400">Emergency &amp; Medical Clearance</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Emergency phone: 11 digits starting with 09. Medical notes: list allergies, asthma, injuries.</span>
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input type="text" name="emergency_name" placeholder="Contact Name" required class="form-input">
                     <input type="tel" name="emergency_phone" placeholder="09626914130" required
                            pattern="09[0-9]{9}"
                            maxlength="11"
                            inputmode="numeric"
                            oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
-                           title="11-digit mobile number starting with 09 (e.g. 09626914130)"
                            class="form-input">
                     <input type="text" name="emergency_relation" placeholder="Relation" required class="form-input">
                 </div>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400">Emergency phone: 11 digits starting with 09 (e.g. 09626914130)</p>
                 <textarea name="medical_notes" rows="2" placeholder="Medical clearance flags, allergies, injury logs..." class="form-textarea"></textarea>
             </div>
 
@@ -228,9 +240,12 @@
 <div id="assign-pass-modal" class="modal-backdrop hidden">
     <div class="modal-dialog max-w-lg">
         <div class="modal-header">
-            <div>
+            <div class="flex items-center gap-1.5">
                 <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase">Assign Membership to Student</h3>
-                <p class="text-xs text-slate-600 dark:text-slate-400">Select a plan and customize credits, validity, or discounted rates on the fly.</p>
+                <span class="has-tooltip">
+                    <span class="tooltip-icon">ⓘ</span>
+                    <span class="tooltip-content">Select a plan and customize credits, validity, or discounted rates on the fly.</span>
+                </span>
             </div>
             <button type="button" onclick="closeAssignModal()" class="modal-close">&times;</button>
         </div>

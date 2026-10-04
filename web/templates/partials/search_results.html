@@ -2,8 +2,8 @@
 {{if .Items}}
     <div class="space-y-3">
         {{range .Items}}
-        <div class="p-4 bg-slate-50 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shadow-sm">
-            <div>
+        <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div class="space-y-1">
                 <div class="flex items-center gap-2">
                     <a href="/students/{{.Student.ID}}" target="_blank" class="font-bold text-slate-900 dark:text-white text-base hover:underline hover:text-emerald-600 dark:hover:text-emerald-400">
                         {{.Student.FullName}}
@@ -13,11 +13,17 @@
                     </span>
                 </div>
 
-                <div class="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                <div class="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5 flex-wrap">
                     {{if .SessionRate}}
                         <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60">
-                            🏫 Class Fixed Rate: ₱{{formatCurrency .SessionRate}} (Package credits untouched)
+                            🏫 Class Fixed Rate: ₱{{formatCurrency .SessionRate}}
                         </span>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Fixed rate note">ⓘ</button>
+                            <div class="tooltip-content">
+                                Drops-in under class fixed rate. Package credits remain untouched.
+                            </div>
+                        </div>
                     {{else if .ActivePackage}}
                         Membership: <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.ActivePackage.TemplateTitle}}</span>
                         {{if .ActivePackage.IsFourWeek}}
@@ -39,28 +45,28 @@
                 {{end}}
             </div>
 
-            <div>
+            <div class="self-stretch sm:self-auto flex items-center gap-2">
                 {{if .IsAlreadyChecked}}
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                     <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                         ✓ Already In Roster
                     </span>
                     <button type="button"
                             hx-post="/sessions/{{.SessionID}}/attendance/{{.Student.ID}}/remove?from=search"
                             hx-confirm="Remove {{.Student.FullName}} from this class roster? If a membership class was deducted, 1 class will be refunded."
-                            class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 py-1 px-2.5"
+                            class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 py-1.5 px-3 min-h-[36px]"
                             title="Remove student & restore class credit">
                         Remove
                     </button>
                 </div>
                 {{else}}
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
                     {{if .SessionRate}}
                     <!-- Single-click Admit under Class Fixed Rate, no individual input required -->
                     <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
                             hx-target="#attendance-roster"
                             hx-swap="afterbegin"
-                            class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
+                            class="btn btn-primary btn-sm flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto min-h-[40px] px-3.5"
                             title="Admit student under class fixed rate: ₱{{formatCurrency .SessionRate}}">
                         <span>Admit Student</span>
                         <span class="text-xs opacity-90 font-normal bg-black/15 px-1.5 py-0.5 rounded">₱{{formatCurrency .SessionRate}}</span>
@@ -70,14 +76,14 @@
                         <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}"
                                 hx-target="#attendance-roster"
                                 hx-swap="afterbegin"
-                                class="btn btn-primary btn-sm">
+                                class="btn btn-primary btn-sm w-full sm:w-auto min-h-[40px] px-3.5">
                             Admit Student
                         </button>
                         {{else}}
                         <button hx-post="/sessions/{{.SessionID}}/checkin/{{.Student.ID}}?override=true"
                                 hx-target="#attendance-roster"
                                 hx-swap="afterbegin"
-                                class="btn btn-warning btn-sm">
+                                class="btn btn-warning btn-sm w-full sm:w-auto min-h-[40px] px-3.5">
                             Override &amp; Admit
                         </button>
                         {{end}}

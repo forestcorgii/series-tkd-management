@@ -5,22 +5,25 @@
 {{define "content"}}
 {{$user := currentUser .}}
 <div class="space-y-6">
-    <!-- Top Header & Actions -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>📍</span> Training Locations &amp; Branch Dojangs
-            </h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                Manage branch venues, pin Google Maps directions, and review class attendance per location.
-            </p>
+    <h1 class="sr-only">Training Locations &amp; Branch Dojangs</h1>
+
+    <!-- Compact Top Action Bar -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Training Locations</span>
+            <div class="has-tooltip">
+                <button type="button" class="tooltip-icon" aria-label="Locations Info">ⓘ</button>
+                <div class="tooltip-content">
+                    Manage branch venues, pin Google Maps directions, and review class attendance per location.
+                </div>
+            </div>
         </div>
         {{if and $user $user.IsOperationManager}}
         <div>
             <button type="button"
                     onclick="openNewLocationModal()"
-                    class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm">
-                <span>+</span> Add New Location
+                    class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm py-2 px-3">
+                <span>+</span> Add Location
             </button>
         </div>
         {{end}}
@@ -85,8 +88,8 @@
         </div>
 
         {{if .Locations}}
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+        <div class="overflow-x-auto -mx-1 sm:mx-0">
+            <table class="w-full min-w-[700px] text-left border-collapse text-xs sm:text-sm">
                 <thead>
                     <tr class="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
                         <th class="py-3 px-4 sm:px-6">Location / Branch Name</th>
@@ -221,18 +224,27 @@
             </div>
 
             <div>
-                <label class="form-label">Google Maps Pin Link</label>
+                <label class="form-label flex items-center justify-between">
+                    <span>Google Maps Pin Link</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Paste the share link from Google Maps for easy one-click directions.</span>
+                    </span>
+                </label>
                 <input type="url"
                        name="pin"
                        placeholder="https://maps.app.goo.gl/... or https://maps.google.com/?q=..."
                        class="form-input text-sm">
-                <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
-                    Paste the share link from Google Maps for easy one-click directions.
-                </span>
             </div>
 
             <div>
-                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Pre-fills class attendance rate when scheduling at this location)</span></label>
+                <label class="form-label flex items-center justify-between">
+                    <span>School / Fixed Rate (₱)</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Optional. Pre-fills class attendance rate when scheduling at this location.</span>
+                    </span>
+                </label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
                     <input type="number"
@@ -272,19 +284,28 @@
             </div>
 
             <div>
-                <label class="form-label">Google Maps Pin Link</label>
+                <label class="form-label flex items-center justify-between">
+                    <span>Google Maps Pin Link</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Paste Google Maps URL so students and instructors can navigate directly to the mats.</span>
+                    </span>
+                </label>
                 <input type="url"
                        id="edit-location-pin"
                        name="pin"
                        placeholder="https://maps.app.goo.gl/..."
                        class="form-input text-sm">
-                <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
-                    Paste Google Maps URL so students and instructors can navigate directly to the mats.
-                </span>
             </div>
 
             <div>
-                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Pre-fills class attendance rate when scheduling at this location)</span></label>
+                <label class="form-label flex items-center justify-between">
+                    <span>School / Fixed Rate (₱)</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Optional. Pre-fills class attendance rate when scheduling at this location.</span>
+                    </span>
+                </label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
                     <input type="number"

@@ -45,10 +45,10 @@
     {{end}}
 
     <!-- Profile Hero Card -->
-    <div class="glass-panel rounded-2xl p-6 sm:p-8 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+    <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="flex items-center space-x-4">
-                <div class="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+            <div class="flex items-center space-x-3.5 sm:space-x-4">
+                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
                     {{if .CurrentUser.DisplayName}}
                         {{printf "%.1s" .CurrentUser.DisplayName}}
                     {{else if .CurrentUser.Email}}
@@ -105,10 +105,17 @@
         {{if .CurrentUser.IsStudent}}
             {{if .Student}}
             <!-- Student Personal Information Card -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
-                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
-                    <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Personal Information</h2>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">View and update your student contact details.</p>
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">Personal Information</h2>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Personal info note">ⓘ</button>
+                            <div class="tooltip-content w-64">
+                                View and update your student contact details. Name changes require admin clearance.
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -162,14 +169,19 @@
             </div>
 
             <!-- Student Emergency Contact Card -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
-                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center justify-between">
-                    <div>
-                        <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Emergency Contact &amp; Medical</h2>
-                        <p class="text-xs text-slate-600 dark:text-slate-400">Critical contacts accessed by floor coaches during training sessions.</p>
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">Emergency &amp; Medical</h2>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Emergency contact note">ⓘ</button>
+                            <div class="tooltip-content w-64">
+                                Critical safety contacts accessed by floor coaches during training sessions.
+                            </div>
+                        </div>
                     </div>
-                    <span class="badge bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold">
-                        Floor Safety Critical
+                    <span class="badge bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold flex-shrink-0">
+                        Safety Critical
                     </span>
                 </div>
 
@@ -208,10 +220,15 @@
         {{else if .CurrentUser.IsCoach}}
             {{if .Coach}}
             <!-- Coach Information Card -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
-                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
-                    <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Instructor Profile</h2>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">View and update your coaching profile and specialties.</p>
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center gap-2">
+                    <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">Instructor Profile</h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Instructor profile note">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            View and update your coaching profile and curriculum specialties.
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -276,10 +293,15 @@
 
         {{else if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}
             <!-- Administrator / Manager Profile Card -->
-            <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
-                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
-                    <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Operations Account</h2>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">Manage administrative account display credentials.</p>
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+                <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center gap-2">
+                    <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">Operations Account</h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Operations account note">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Manage administrative account display credentials and permissions.
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -307,10 +329,15 @@
         {{end}}
 
         <!-- Account Security / Password Update (Available to all roles) -->
-        <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
-            <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3">
-                <h2 class="font-display font-extrabold text-lg uppercase text-black dark:text-[#FFFDF4]">Security Credentials</h2>
-                <p class="text-xs text-slate-600 dark:text-slate-400">Update your login password. Leave blank if you do not wish to change it.</p>
+        <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+            <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center gap-2">
+                <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">Security Credentials</h2>
+                <div class="has-tooltip inline-flex items-center">
+                    <button type="button" class="tooltip-icon" aria-label="Security note">ⓘ</button>
+                    <div class="tooltip-content w-64">
+                        Update your login password. Leave blank if you do not wish to change it.
+                    </div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -4,14 +4,21 @@
 
 {{define "content"}}
 <div class="space-y-6">
-    <!-- Page Header & Action Bar -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Coach Directory, Safety &amp; Payroll</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Manage instructor credentials, monitor first aid compliance, control login access, and calculate verified class payroll compensation.</p>
+    <h1 class="sr-only">Coach Directory, Safety &amp; Payroll</h1>
+
+    <!-- Compact Top Action Bar -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Coach Directory</span>
+            <div class="has-tooltip">
+                <button type="button" class="tooltip-icon" aria-label="Coach Directory Info">ⓘ</button>
+                <div class="tooltip-content">
+                    Manage instructor credentials, monitor first aid compliance, control login access, and calculate verified class payroll compensation.
+                </div>
+            </div>
         </div>
-        <button onclick="document.getElementById('new-coach-modal').classList.remove('hidden')" class="btn btn-primary btn-md">
-            ➕ Add New Coach Profile
+        <button onclick="document.getElementById('new-coach-modal').classList.remove('hidden')" class="btn btn-primary btn-sm py-2 px-3 shadow-sm">
+            ➕ Add Coach
         </button>
     </div>
 
@@ -106,8 +113,8 @@
         </div>
 
         <!-- Listview Table -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse" id="coaches-table">
+        <div class="overflow-x-auto -mx-1 sm:mx-0">
+            <table class="w-full min-w-[750px] text-left border-collapse" id="coaches-table">
                 <thead>
                     <tr class="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-neutral-900/40">
                         <th class="py-3 px-4">Instructor</th>
@@ -407,16 +414,20 @@
                     <input type="email" name="email" required placeholder="coach@seriestkd.com" class="form-input">
                 </div>
                 <div>
-                    <label class="form-label">Contact Number *</label>
+                    <label class="form-label flex items-center justify-between">
+                        <span>Contact Number *</span>
+                        <span class="has-tooltip">
+                            <span class="tooltip-icon">ⓘ</span>
+                            <span class="tooltip-content">11-digit mobile number starting with 09 (e.g. 09626914130)</span>
+                        </span>
+                    </label>
                     <input type="tel" name="phone" required
                            placeholder="09626914130"
                            pattern="09[0-9]{9}"
                            maxlength="11"
                            inputmode="numeric"
                            oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
-                           title="11-digit mobile number starting with 09 (e.g. 09626914130)"
                            class="form-input">
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">11 digits starting with 09 (e.g. 09626914130)</p>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -437,7 +448,13 @@
                     </select>
                 </div>
                 <div>
-                    <label class="form-label">Rate Per Class (₱)</label>
+                    <label class="form-label flex items-center justify-between">
+                        <span>Rate Per Class (₱)</span>
+                        <span class="has-tooltip">
+                            <span class="tooltip-icon">ⓘ</span>
+                            <span class="tooltip-content">Base pay rate per class conducted for verified payroll calculations</span>
+                        </span>
+                    </label>
                     <input type="number" step="0.01" name="rate_per_session" required placeholder="65.00" class="form-input">
                 </div>
             </div>
@@ -457,7 +474,13 @@
                 </div>
             </div>
             <div>
-                <label class="form-label">Specialties (comma separated)</label>
+                <label class="form-label flex items-center justify-between">
+                    <span>Specialties</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Comma-separated areas of expertise (e.g. Sparring, Poomsae, Conditioning)</span>
+                    </span>
+                </label>
                 <input type="text" name="specialties" placeholder="Sparring/Kyorugi, Forms/Poomsae, Conditioning" class="form-input">
             </div>
             <div class="modal-footer">

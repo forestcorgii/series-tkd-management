@@ -192,6 +192,101 @@
         textarea::placeholder {
             text-transform: none;
         }
+
+        /* Accessible Screen Reader Only Utility */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* Tooltip System */
+        .has-tooltip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .tooltip-content {
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: 70;
+            width: max-content;
+            max-width: 16rem;
+            padding: 0.375rem 0.625rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            line-height: 1.25;
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: normal;
+            background-color: #0F172A;
+            color: #F8FAFC;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+        }
+        html.dark .tooltip-content {
+            background-color: #1E293B;
+            color: #FFFDF4;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .has-tooltip:hover .tooltip-content,
+            .has-tooltip:focus-within .tooltip-content {
+                opacity: 1;
+                visibility: visible;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        .has-tooltip.tooltip-active .tooltip-content {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.125rem;
+            height: 1.125rem;
+            border-radius: 9999px;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #64748B;
+            background-color: rgba(100, 116, 139, 0.12);
+            border: 1px solid rgba(100, 116, 139, 0.25);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            vertical-align: middle;
+            margin-left: 0.25rem;
+        }
+        .tooltip-icon:hover, .tooltip-icon:focus {
+            color: #0F172A;
+            background-color: rgba(100, 116, 139, 0.25);
+        }
+        html.dark .tooltip-icon {
+            color: #94A3B8;
+            background-color: rgba(148, 163, 184, 0.15);
+            border-color: rgba(148, 163, 184, 0.3);
+        }
+        html.dark .tooltip-icon:hover {
+            color: #FFFFFF;
+            background-color: rgba(148, 163, 184, 0.3);
+        }
     </style>
 </head>
 
@@ -356,6 +451,13 @@
                         </svg>
                     </a>
                 </div>
+                <!-- Mobile Menu Hamburger Button -->
+                <button type="button" id="mobile-menu-btn" onclick="toggleMobileDrawer(true)" aria-label="Open Navigation Menu"
+                    class="lg:hidden p-2 rounded-xl border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-sm transition flex items-center justify-center">
+                    <svg class="w-4 h-4 text-slate-700 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
                 {{else}}
                 {{block "navAuthAction" .}}
                 <a href="/login" class="btn btn-primary btn-sm">
@@ -365,84 +467,181 @@
                 {{end}}
             </div>
         </div>
-
-        <!-- Mobile Navigation Row -->
-        {{if $user}}
-        {{if not $user.IsStudent}}
-        <nav
-            class="flex lg:hidden items-center justify-between pt-2.5 mt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800 overflow-x-auto gap-1 text-xs font-semibold">
-            {{if $user.IsOperationManager}}
-            <a href="/"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Dashboard</a>
-            <a href="/students"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
-            <a href="/sessions"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
-            <a href="/coaches"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Coaches</a>
-            <a href="/admins"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Admins</a>
-            <a href="/packages"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Memberships</a>
-            <a href="/locations"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Locations</a>
-            {{else if $user.IsAdmin}}
-            <a href="/sessions"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
-            <a href="/students"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
-            <a href="/packages"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Memberships</a>
-            <a href="/locations"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Locations</a>
-            {{else if $user.IsCoach}}
-            <a href="/sessions"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Attendance</a>
-            <a href="/students"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Students</a>
-            <a href="/locations"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 whitespace-nowrap">Locations</a>
-            {{end}}
-            <a href="{{if $user.IsOperationManager}}/portal/admin{{else if $user.IsAdmin}}/packages{{else if $user.IsCoach}}/portal/coach{{end}}"
-                class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">
-                {{if $user.IsOperationManager}}Op Portal{{else if $user.IsAdmin}}Memberships{{else if
-                $user.IsCoach}}Coach Portal{{end}}
-            </a>
-            <a href="/profile"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] whitespace-nowrap">Profile</a>
-            {{if not $user.IsStudent}}
-            <a href="/settings"
-                class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] whitespace-nowrap">Settings</a>
-            {{end}}
-            <a href="/logout" class="px-2 py-1 rounded text-rose-600 whitespace-nowrap">Sign Out</a>
-        </nav>
-        {{else}}
-        <nav
-            class="flex lg:hidden items-center justify-between pt-2.5 mt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800 text-xs font-semibold">
-            <a href="/portal/student"
-                class="px-2 py-1 rounded text-[#990303] dark:text-red-400 font-bold whitespace-nowrap">Practitioner
-                Portal</a>
-            <div class="flex items-center gap-2">
-                <a href="/profile"
-                    class="px-2 py-1 rounded text-slate-700 dark:text-[#8C8A82] whitespace-nowrap">Profile</a>
-                <a href="/logout" class="px-2 py-1 rounded text-rose-600 whitespace-nowrap">Sign Out</a>
-            </div>
-        </nav>
-        {{end}}
-        {{else}}
-        {{block "navAuthMobile" .}}
-        <nav
-            class="flex lg:hidden items-center justify-end pt-2.5 mt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800 text-xs font-semibold">
-            <a href="/login" class="btn btn-primary btn-xs">Sign In</a>
-        </nav>
-        {{end}}
-        {{end}}
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 min-w-0">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-20 lg:pb-6 min-w-0">
         {{block "content" .}}{{end}}
     </main>
+
+    <!-- Mobile Slide-Out Navigation Drawer -->
+    {{if $user}}
+    <div id="mobile-nav-drawer" class="fixed inset-0 z-50 pointer-events-none transition-all duration-300">
+        <!-- Backdrop Overlay -->
+        <div id="mobile-nav-backdrop" onclick="toggleMobileDrawer(false)"
+            class="absolute inset-0 bg-black/60 backdrop-blur-xs opacity-0 transition-opacity duration-300 pointer-events-none"></div>
+        
+        <!-- Drawer Panel -->
+        <div id="mobile-nav-panel"
+            class="absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-neutral-950 border-l border-[#E5E3D8] dark:border-neutral-800 shadow-2xl flex flex-col translate-x-full transition-transform duration-300 ease-out pointer-events-auto">
+            <!-- Drawer Header -->
+            <div class="p-4 border-b border-[#E5E3D8] dark:border-neutral-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-sm flex-shrink-0 shadow-md">
+                        ST
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-bold text-xs text-slate-900 dark:text-white truncate">{{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}</p>
+                        <span class="inline-block text-[10px] px-2 py-0.5 rounded-full font-bold uppercase
+                            {{if $user.IsOperationManager}}bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30
+                            {{else if $user.IsAdmin}}bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30
+                            {{else if $user.IsCoach}}bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30
+                            {{else}}bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30{{end}}">
+                            {{if $user.IsOperationManager}}Operation Manager{{else if $user.IsAdmin}}Admin{{else if $user.IsCoach}}Coach{{else}}Student{{end}}
+                        </span>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleMobileDrawer(false)" aria-label="Close menu"
+                    class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Drawer Nav Links -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-5 text-sm font-semibold">
+                {{if not $user.IsStudent}}
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Floor Operations</p>
+                    <div class="space-y-1">
+                        {{if $user.IsOperationManager}}
+                        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">📊</span> <span>Dashboard</span>
+                        </a>
+                        {{end}}
+                        <a href="/sessions" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">📅</span> <span>Attendance &amp; Schedule</span>
+                        </a>
+                        <a href="/students" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">🥋</span> <span>Student Directory</span>
+                        </a>
+                        {{if or $user.IsOperationManager $user.IsAdmin}}
+                        <a href="/packages" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">💳</span> <span>Memberships &amp; Plans</span>
+                        </a>
+                        {{end}}
+                        <a href="/locations" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">📍</span> <span>Branch Locations</span>
+                        </a>
+                    </div>
+                </div>
+
+                {{if $user.IsOperationManager}}
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Governance</p>
+                    <div class="space-y-1">
+                        <a href="/coaches" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">🏅</span> <span>Coach Directory &amp; Payroll</span>
+                        </a>
+                        <a href="/admins" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">🛡️</span> <span>Administrator Directory</span>
+                        </a>
+                        <a href="/portal/admin" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">⚡</span> <span>Master Operations Portal</span>
+                        </a>
+                    </div>
+                </div>
+                {{else if $user.IsCoach}}
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Console</p>
+                    <div class="space-y-1">
+                        <a href="/portal/coach" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">🥊</span> <span>Coach Floor Console</span>
+                        </a>
+                    </div>
+                </div>
+                {{end}}
+                {{else}}
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Student Practitioner</p>
+                    <div class="space-y-1">
+                        <a href="/portal/student" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">🥋</span> <span>Practitioner Portal</span>
+                        </a>
+                    </div>
+                </div>
+                {{end}}
+
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Account</p>
+                    <div class="space-y-1">
+                        <a href="/profile" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">👤</span> <span>Profile</span>
+                        </a>
+                        {{if not $user.IsStudent}}
+                        <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">⚙️</span> <span>Settings</span>
+                        </a>
+                        {{end}}
+                        <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+                            <span class="text-base">🚪</span> <span>Sign Out</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Quick-Access Bar -->
+    <nav id="mobile-bottom-bar"
+        class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-[#E5E3D8] dark:border-neutral-800 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        {{if not $user.IsStudent}}
+            {{if $user.IsOperationManager}}
+            <a href="/" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">📊</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Dash</span>
+            </a>
+            {{end}}
+            <a href="/sessions" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">📅</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Classes</span>
+            </a>
+            <a href="/students" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">🥋</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Students</span>
+            </a>
+            {{if or $user.IsOperationManager $user.IsAdmin}}
+            <a href="/packages" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">💳</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Passes</span>
+            </a>
+            {{else if $user.IsCoach}}
+            <a href="/portal/coach" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">🥊</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Console</span>
+            </a>
+            {{end}}
+            <button type="button" onclick="toggleMobileDrawer(true)" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">☰</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">More</span>
+            </button>
+        {{else}}
+            <a href="/portal/student" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[#990303] dark:text-red-400 transition min-w-[64px]">
+                <span class="text-base leading-none">🥋</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Portal</span>
+            </a>
+            <a href="/profile" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white transition min-w-[64px]">
+                <span class="text-base leading-none">👤</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Profile</span>
+            </a>
+            <button type="button" onclick="toggleMobileDrawer(true)" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white transition min-w-[64px]">
+                <span class="text-base leading-none">☰</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Menu</span>
+            </button>
+        {{end}}
+    </nav>
+    {{end}}
 
     <!-- Footer -->
     <footer
@@ -483,6 +682,47 @@
             }
         }
         window.addEventListener('DOMContentLoaded', syncThemeUI);
+
+        // --- Mobile Navigation Drawer Engine ---
+        function toggleMobileDrawer(open) {
+            const drawer = document.getElementById('mobile-nav-drawer');
+            const backdrop = document.getElementById('mobile-nav-backdrop');
+            const panel = document.getElementById('mobile-nav-panel');
+            if (!drawer || !backdrop || !panel) return;
+            if (open) {
+                drawer.classList.remove('pointer-events-none');
+                backdrop.classList.remove('pointer-events-none', 'opacity-0');
+                backdrop.classList.add('pointer-events-auto', 'opacity-100');
+                panel.classList.remove('translate-x-full');
+                panel.classList.add('translate-x-0');
+                document.body.style.overflow = 'hidden';
+            } else {
+                backdrop.classList.remove('pointer-events-auto', 'opacity-100');
+                backdrop.classList.add('pointer-events-none', 'opacity-0');
+                panel.classList.remove('translate-x-0');
+                panel.classList.add('translate-x-full');
+                setTimeout(() => {
+                    drawer.classList.add('pointer-events-none');
+                    document.body.style.overflow = '';
+                }, 300);
+            }
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') toggleMobileDrawer(false);
+        });
+
+        // --- Touch & Click Tooltip Engine ---
+        document.addEventListener('click', (e) => {
+            const trigger = e.target.closest('.has-tooltip');
+            if (trigger) {
+                const isActive = trigger.classList.contains('tooltip-active');
+                document.querySelectorAll('.has-tooltip.tooltip-active').forEach(el => el.classList.remove('tooltip-active'));
+                if (!isActive) trigger.classList.add('tooltip-active');
+                e.stopPropagation();
+            } else {
+                document.querySelectorAll('.has-tooltip.tooltip-active').forEach(el => el.classList.remove('tooltip-active'));
+            }
+        });
 
         // --- STMS Searchable Dropdown Engine ---
         function initSearchableSelect(select) {

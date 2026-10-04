@@ -5,24 +5,25 @@
 {{define "content"}}
 {{$user := currentUser .}}
 <div class="space-y-6">
-    <!-- Page Header & Action Bar -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">Training Classes &amp; Floor Attendance Log</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Schedule dojang classes on the 7-day calendar, filter by coach or date, and manage floor attendance screens.</p>
-        </div>
-        <button type="button"
-                onclick="openNewSessionModal(currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
-                class="btn btn-primary btn-sm flex items-center gap-1.5 self-start sm:self-auto shadow-sm">
-            <span>+</span> Schedule Class
-        </button>
-    </div>
+    <h1 class="sr-only">Training Classes &amp; Floor Attendance Log</h1>
 
     <!-- Classes List & Calendar Container -->
-    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 space-y-4 shadow-sm">
-        <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
-            <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Dojang 7-Day Class Calendar</h2>
-            <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">Weekly Schedule &amp; Live Status</span>
+    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-6 space-y-4 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3 gap-2">
+            <div class="flex items-center gap-2">
+                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Dojang 7-Day Class Calendar</h2>
+                <div class="has-tooltip">
+                    <button type="button" class="tooltip-icon" aria-label="Schedule Information">ⓘ</button>
+                    <div class="tooltip-content">
+                        Schedule dojang classes on the 7-day calendar, filter by coach or date, and manage floor attendance screens.
+                    </div>
+                </div>
+            </div>
+            <button type="button"
+                    onclick="openNewSessionModal(currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
+                    class="btn btn-primary btn-sm flex items-center gap-1.5 self-start sm:self-auto shadow-sm py-1.5 px-3">
+                <span>+</span> Schedule Class
+            </button>
         </div>
 
         <!-- Attendance & Class Filter Bar -->
@@ -115,7 +116,13 @@
                     <input type="time" id="modal-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEndTime()">
                 </div>
                 <div>
-                    <label class="form-label">End Time <span class="text-[10px] text-slate-400 font-normal">(+2h)</span></label>
+                    <label class="form-label flex items-center justify-between">
+                        <span>End Time</span>
+                        <span class="has-tooltip">
+                            <span class="tooltip-icon">ⓘ</span>
+                            <span class="tooltip-content">Automatically set to 2 hours after start time</span>
+                        </span>
+                    </label>
                     <input type="time" id="modal-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
                 </div>
             </div>
@@ -162,7 +169,13 @@
             </div>
 
             <div>
-                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Pre-filled from location if set; check-ins inherit this rate and do not deduct student package credits)</span></label>
+                <label class="form-label flex items-center justify-between">
+                    <span>School / Fixed Rate (₱)</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Optional. Pre-filled from location if set. Check-ins inherit this rate without deducting package credits.</span>
+                    </span>
+                </label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
                     <input type="number" id="modal-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">
@@ -204,7 +217,13 @@
                     <input type="time" id="edit-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
                 </div>
                 <div>
-                    <label class="form-label">End Time</label>
+                    <label class="form-label flex items-center justify-between">
+                        <span>End Time</span>
+                        <span class="has-tooltip">
+                            <span class="tooltip-icon">ⓘ</span>
+                            <span class="tooltip-content">Automatically set to 2 hours after start time</span>
+                        </span>
+                    </label>
                     <input type="time" id="edit-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
                 </div>
             </div>
@@ -254,7 +273,13 @@
             </div>
 
             <div>
-                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Applies fixed rate on check-in, skips package deduction)</span></label>
+                <label class="form-label flex items-center justify-between">
+                    <span>School / Fixed Rate (₱)</span>
+                    <span class="has-tooltip">
+                        <span class="tooltip-icon">ⓘ</span>
+                        <span class="tooltip-content">Optional. Applies fixed rate on check-in and skips student package deduction.</span>
+                    </span>
+                </label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
                     <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">

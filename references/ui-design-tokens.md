@@ -132,3 +132,39 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   1. **Blank Query Directory Listing ([session_handler.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go))**: When text input is blank, HandleSearchStudent returns all active students deterministically ordered by full name, defaulting to top 10 on page 1.
   2. **Top-10 Pagination Controls ([search_results.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/search_results.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html))**: Renders responsive pagination summary (Showing 1 to 10 of 42 students (Page 1 of 5)), Previous/Next buttons, and numbered page buttons with HTMX post handlers and page synchronization on ttendanceUpdated.
   3. **Readiness Omission in Search**: Promotion readiness status badges are removed from search_results.html, keeping the search result card focused purely on student identity, belt rank, membership/rate status, and admittance/removal actions.
+
+### Context: Mobile-First Uncluttered UX & Touchscreen Universal Tooltip System
+
+* **Problem:**
+  1. **Vertical Screen Waste:** Bulky top page banners (`<h1>` headers with descriptive paragraph subtitles) occupied 100–160px of prime viewport real estate on mobile devices and floor tablets, forcing repetitive scrolling to access core operational forms, tables, and buttons.
+  2. **Mobile Nav Cramping:** Rendering a horizontal scrolling single-row overflow link bar with 11 items caused accidental horizontal swipes, clipped icons, and poor ergonomics on small handheld screens.
+  3. **Touch Incompatibility of Tooltips:** Traditional CSS `:hover` tooltips fail on touchscreens and cannot be dismissed without tapping another interactive element.
+  4. **Table Crushing:** Responsive multi-column operational tables (5–8 columns) collapsed into illegible vertical text wraps without minimum column width safeguards.
+
+* **Enforced Solution:**
+  1. **Accessible Page Header Removal ([students.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/students.html), [sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [coaches.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/coaches.html), [admins.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/admins.html), [packages.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/packages.html), [locations.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/locations.html), [settings.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/settings.html))**:
+     - Large visible `<h1>` header banners and descriptive subtitles are removed across all operational pages.
+     - Preserves semantic accessibility and test assertions using `<h1 class="sr-only">Title</h1>`, which consumes 0px of visual space.
+     - Primary action buttons and search controls are consolidated into compact single-row toolbars (`flex items-center justify-between gap-3`).
+  2. **Universal Touchscreen Tooltip Engine ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
+     - Standardized container `.has-tooltip` with button `.tooltip-icon` (`ⓘ`, min 28px tap target) and popover `.tooltip-content` (dark slate `#0F172A` / `#1E293B`, rounded-lg, z-70, shadow-xl).
+     - Hover-enabled on desktop (`@media (hover: hover)`).
+     - Tap-to-toggle enabled on mobile devices via global delegated click handler toggling `.tooltip-active`, with automatic outside-tap dismissal.
+  3. **Mobile Drawer & Role-Aware Bottom Quick Bar ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
+     - Replaced cramped horizontal link row with a sleek slide-out navigation drawer (`#mobile-nav-drawer`) triggered by header hamburger button (`lg:hidden`).
+     - Added a fixed ergonomic bottom bar (`#mobile-bottom-bar`, `lg:hidden`) tailored by user role:
+       - **Manager / Admin:** Dashboard, Classes, Students, Passes, More (opens drawer).
+       - **Coach:** Classes, Students, Floor Console, More (opens drawer).
+       - **Student:** Portal, Profile, Menu (opens drawer).
+     - Base container padding updated to `px-3 sm:px-6 py-4 sm:py-6 pb-20 lg:pb-6 min-w-0` to guarantee breathing room and clear the bottom bar.
+  4. **Guarded Anti-Cramp Table Scrollers**:
+     - All multi-column tables are wrapped in `overflow-x-auto -mx-1 sm:mx-0` with explicit column guardrails:
+       - Students Table: `min-w-[700px]`
+       - Sessions Calendar: `min-w-[700px]`
+       - Coaches Table: `min-w-[750px]`
+       - Admins Table: `min-w-[700px]`
+       - Packages / Memberships: `min-w-[700px]`
+       - Locations Table: `min-w-[700px]`
+       - Training Categories: `min-w-[600px]`
+       - Live Floor Roster: `min-w-[550px]`
+       - Promotion Pipeline Tables: `min-w-[540px]` to `min-w-[700px]`

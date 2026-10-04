@@ -6,15 +6,22 @@
 {{$user := currentUser .}}
 <div class="space-y-6">
     <!-- Session Status Header -->
-    <!-- Session Status Header -->
-    <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm {{if .Session.IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900{{end}}">
-        <div>
-            <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded text-xs uppercase font-extrabold {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .Session.IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
+    <div class="glass-panel p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm {{if .Session.IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900{{end}}">
+        <div class="space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2 py-0.5 rounded text-[11px] uppercase font-extrabold {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .Session.IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
                     {{if .Session.IsCancelled}}🚫 CANCELLED CLASS{{else if .Session.IsDone}}🔒 ATTENDANCE CLOSED{{else}}LIVE CLASS{{end}}
                 </span>
+                <span class="font-display font-extrabold text-lg sm:text-xl {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}}">
+                    {{.Session.TrainingType}}
+                </span>
+                {{if .Session.HasFixedRate}}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                    ₱{{formatCurrency .Session.SessionRate}}
+                </span>
+                {{end}}
                 <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold {{if .Session.IsCancelled}}line-through{{end}}">
-                    {{.Session.StartTime}} - {{.Session.EndTime}}
+                    &bull; {{.Session.StartTime}} - {{.Session.EndTime}}
                 </span>
                 <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">&bull; {{formatDate .Session.SessionDate}}</span>
                 {{if .Session.LocationName}}
@@ -28,18 +35,10 @@
                 </span>
                 {{end}}
             </div>
-            <h1 class="font-display font-extrabold text-2xl {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}} mt-1 flex items-center gap-2 flex-wrap">
-                <span>{{.Session.TrainingType}} Class</span>
-                {{if .Session.HasFixedRate}}
-                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                    🏫 Fixed Rate: ₱{{formatCurrency .Session.SessionRate}}
-                </span>
-                {{end}}
-            </h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400">
-                Lead Instructor: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 dark:text-slate-500 font-normal italic">None / Unassigned</span>{{end}}</span>
-                {{if .Session.AdminName}} &bull; Supervising Admin: <span class="text-slate-800 dark:text-slate-200 font-semibold">{{.Session.AdminName}}</span>{{end}}
-            </p>
+            <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
+                <span>Coach: <strong class="text-slate-800 dark:text-slate-200">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 font-normal italic">Unassigned</span>{{end}}</strong></span>
+                {{if .Session.AdminName}}<span>&bull; Admin: <strong class="text-slate-800 dark:text-slate-200">{{.Session.AdminName}}</strong></span>{{end}}
+            </div>
         </div>
 
         <div class="flex items-center gap-2 self-start md:self-auto flex-wrap">
@@ -47,25 +46,25 @@
             <button type="button"
                     onclick="openEditSessionModal()"
                     class="btn btn-secondary btn-sm flex items-center gap-1.5">
-                <span>✏️</span> Edit Class
+                <span>✏️</span> Edit
             </button>
             {{end}}
             {{if or .Session.IsOpen (and $user $user.IsOperationManager)}}
             <button type="button"
                     onclick="openDeleteSessionModal()"
                     class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
-                <span>🗑️</span> Delete Class
+                <span>🗑️</span> Delete
             </button>
             {{end}}
             {{if and (not .Session.IsCancelled) (not .Session.IsDone)}}
             <button type="button"
                     onclick="document.getElementById('cancel-session-modal').classList.remove('hidden')"
                     class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
-                <span>✖</span> Cancel Class
+                <span>✖</span> Cancel
             </button>
             {{end}}
             <a href="/sessions" class="btn btn-secondary btn-sm">
-                &larr; Exit Attendance
+                &larr; Exit
             </a>
         </div>
     </div>
@@ -87,17 +86,18 @@
     </div>
     {{else if .Session.IsDone}}
     <!-- Closed Attendance Notice (Admit & Remove remain available) -->
-    <div class="p-4 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 text-sm flex items-start justify-between gap-3 shadow-sm">
-        <div class="flex items-start gap-3">
-            <span class="text-2xl mt-0.5">🔒</span>
-            <div class="space-y-1">
-                <h4 class="font-display font-bold text-base text-slate-900 dark:text-white">Attendance Closed (Session Concluded)</h4>
-                <p class="text-xs text-slate-600 dark:text-slate-400">
+    <div class="p-3.5 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 text-xs flex items-center justify-between gap-3 shadow-sm">
+        <div class="flex items-center gap-2">
+            <span class="text-lg">🔒</span>
+            <span class="font-semibold text-slate-900 dark:text-white">Attendance Closed (Audit Mode)</span>
+            <div class="has-tooltip inline-flex items-center">
+                <button type="button" class="tooltip-icon" aria-label="Closed session details">ⓘ</button>
+                <div class="tooltip-content w-72">
                     This training class scheduled from {{.Session.StartTime}} to {{.Session.EndTime}} has ended. Normal attendance is closed, but you may still admit late students or remove students to maintain an accurate verified roster.
-                </p>
+                </div>
             </div>
         </div>
-        <span class="hidden sm:inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap self-center">
+        <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap">
             Audit Mode
         </span>
     </div>
@@ -106,9 +106,9 @@
     <!-- Two Column Floor Tablet Layout: Left Search & Check-in | Right Live Roster -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Left: Quick Search / QR Code Reader & Admit Action -->
-        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
+        <div class="glass-panel p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
             <div class="flex items-center justify-between">
-                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Floor Attendance Search</h2>
+                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Floor Attendance Search</h2>
                 {{if .Session.IsCancelled}}
                 <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold">Disabled</span>
                 {{else if .Session.IsDone}}
@@ -145,9 +145,9 @@
         </div>
 
         <!-- Right: Verified Floor Roster -->
-        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
+        <div class="glass-panel p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">Verified Floor Roster</h2>
+                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Verified Floor Roster</h2>
                 {{if .Session.IsCancelled}}
                 <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">Class Cancelled 🚫</span>
                 {{else if .Session.IsDone}}
@@ -157,8 +157,8 @@
                 {{end}}
             </div>
 
-            <div class="overflow-hidden">
-                <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+            <div class="overflow-x-auto -mx-1 sm:mx-0">
+                <table class="w-full text-left text-xs sm:text-sm text-slate-700 dark:text-slate-300 min-w-[550px]">
                     <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                         <tr>
                             <th class="py-2.5 px-3">Student</th>
@@ -307,7 +307,15 @@
             </div>
 
             <div>
-                <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal">(Optional — Applies fixed rate on check-in, skips package deduction)</span></label>
+                <div class="flex items-center gap-1.5 mb-1">
+                    <label class="form-label mb-0">School / Fixed Rate (₱)</label>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Fixed rate info">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Optional. When set, applies a fixed drop-in fee on check-in and skips package session deduction.
+                        </div>
+                    </div>
+                </div>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
                     <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" value="{{if .Session.SessionRate}}{{printf "%.2f" .Session.SessionRateVal}}{{end}}" class="form-input pl-7 text-xs sm:text-sm">

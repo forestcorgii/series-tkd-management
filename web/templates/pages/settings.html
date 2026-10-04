@@ -4,18 +4,18 @@
 
 {{define "content"}}
 <div class="space-y-6">
-    <!-- Top Header & Actions -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-[#990303] dark:text-red-400">Administration &bull; Settings</span>
+    <h1 class="sr-only">System Settings &amp; Training Categories</h1>
+
+    <!-- Compact Action Toolbar -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-neutral-500">Settings</span>
+            <div class="has-tooltip inline-flex items-center">
+                <button type="button" class="tooltip-icon" aria-label="Settings guide">ⓘ</button>
+                <div class="tooltip-content w-64">
+                    Configure class disciplines, custom training categories, and visual badge colors for floor timetables and check-ins.
+                </div>
             </div>
-            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-0.5">
-                <span>⚙️</span> System Settings &amp; Training Categories
-            </h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                Configure class disciplines, custom training categories, and visual badge colors for floor timetables and check-ins.
-            </p>
         </div>
         <div class="flex items-center gap-2">
             <button type="button"
@@ -70,12 +70,15 @@
 
     <!-- Training Categories List Card -->
     <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div class="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Training Disciplines &amp; Categories</h2>
-                <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                    Colors define left borders on timetable cards, live roster tags, and schedule filters.
-                </p>
+        <div class="p-3.5 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Training Disciplines</h2>
+                <div class="has-tooltip inline-flex items-center">
+                    <button type="button" class="tooltip-icon" aria-label="Category colors guide">ⓘ</button>
+                    <div class="tooltip-content w-64">
+                        Colors define left borders on timetable cards, live roster tags, and schedule filters.
+                    </div>
+                </div>
             </div>
             <button type="button"
                     onclick="openNewCategoryModal()"
@@ -85,7 +88,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+            <table class="w-full text-left text-xs min-w-[600px]">
                 <thead class="bg-slate-50 dark:bg-neutral-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
                     <tr>
                         <th class="py-3 px-4">Badge Preview</th>

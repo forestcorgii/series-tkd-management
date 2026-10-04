@@ -121,26 +121,28 @@
     </div>
 
     <!-- Section: Promotion Pipeline Oversight & 1-Click Advancements -->
-    <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
-            <div>
-                <h2 class="font-display font-extrabold text-lg sm:text-xl uppercase text-black dark:text-[#FFFDF4]">
+    <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+        <div class="flex items-center justify-between gap-3 mb-5">
+            <div class="flex items-center gap-2">
+                <h2 class="font-display font-extrabold text-base sm:text-xl uppercase text-black dark:text-[#FFFDF4]">
                     Promotion Pipeline &amp; Dan Roster Control
                 </h2>
-                <p class="text-xs text-slate-600 dark:text-slate-400">
-                    Students ranked by readiness. Advancing rank increments belt grade and resets attendance &amp; tenure cycle counters.
-                </p>
+                <div class="has-tooltip inline-flex items-center">
+                    <button type="button" class="tooltip-icon" aria-label="Promotion pipeline info">ⓘ</button>
+                    <div class="tooltip-content w-64">
+                        Students ranked by readiness. Advancing rank increments belt grade and resets attendance &amp; tenure cycle counters.
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-slate-600 dark:text-slate-400">Total Pipeline:</span>
+            <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-xs font-bold text-black dark:text-white border border-neutral-200 dark:border-neutral-800">
                     {{len .StudentsWithReadiness}} Practitioners
                 </span>
             </div>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+        <div class="overflow-x-auto -mx-1 sm:mx-0">
+            <table class="w-full text-left text-xs min-w-[700px]">
                 <thead>
                     <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase tracking-wider">
                         <th class="pb-3">Practitioner</th>
@@ -210,17 +212,20 @@
     <!-- 2 Columns: Safety Incident Clearance & Curriculum Schedule Generator -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Safety & Incident Clearance Queue -->
-        <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <div class="flex items-center justify-between mb-4">
-                <div>
+        <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <div class="flex items-center justify-between mb-4 gap-2">
+                <div class="flex items-center gap-2">
                     <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
                         Safety Incident &amp; First Aid Clearance
                     </h2>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">
-                        Administrative queue to review floor injuries and clear safety holds
-                    </p>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Safety clearance info">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Administrative queue to review floor injuries and clear student mat safety holds.
+                        </div>
+                    </div>
                 </div>
-                <span class="px-2 py-0.5 rounded text-xs font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-500{{end}}">
+                <span class="px-2 py-0.5 rounded text-xs font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-500{{end}} flex-shrink-0">
                     {{.OpenIncidentsCount}} Open
                 </span>
             </div>
@@ -269,13 +274,18 @@
         </div>
 
         <!-- Curriculum & Schedule Generator -->
-        <div class="glass-panel rounded-2xl p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-1">
-                Curriculum Class Generator
-            </h2>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                Provision new scheduled class training blocks (Poomsae, Sparring, Conditioning)
-            </p>
+        <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+            <div class="flex items-center gap-2 mb-3">
+                <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                    Curriculum Class Generator
+                </h2>
+                <div class="has-tooltip inline-flex items-center">
+                    <button type="button" class="tooltip-icon" aria-label="Curriculum generator info">ⓘ</button>
+                    <div class="tooltip-content w-64">
+                        Provision new scheduled class training blocks (Poomsae, Sparring, Conditioning).
+                    </div>
+                </div>
+            </div>
 
             <form hx-post="/api/admin/schedule"
                   hx-target="#schedule-feedback"
@@ -341,7 +351,15 @@
                 </div>
 
                 <div>
-                    <label class="form-label">School / Fixed Rate (₱) <span class="text-[10px] text-slate-400 font-normal lowercase">(optional — applies fixed rate on check-in, skips package deduction)</span></label>
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <label class="form-label mb-0">School / Fixed Rate (₱)</label>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Fixed rate note">ⓘ</button>
+                            <div class="tooltip-content w-64">
+                                Optional. Applies fixed drop-in fee on check-in, skipping package session deduction.
+                            </div>
+                        </div>
+                    </div>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
                         <input type="number" id="admin-schedule-rate" name="session_rate" step="0.01" min="0" placeholder="0.00" class="form-input pl-7 text-xs">

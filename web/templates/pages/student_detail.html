@@ -5,21 +5,21 @@
 {{define "content"}}
 <div class="space-y-6">
     <!-- Back & Header -->
-    <div class="flex items-center justify-between">
-        <a href="/students" class="text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 font-semibold transition">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <a href="/students" class="text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 font-semibold transition py-1">
             &larr; Back to Student Directory
         </a>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
             {{$user := currentUser .}}
             {{if and $user (or $user.IsAdmin $user.IsOperationManager)}}
             <button onclick="document.getElementById('edit-student-modal').classList.remove('hidden')" class="btn btn-secondary btn-sm flex items-center gap-1.5 shadow-sm">
-                ✏️ Edit Student Info
+                ✏️ Edit Info
             </button>
             {{end}}
             {{if and $user $user.IsOperationManager}}
             <form action="/students/{{.Student.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete student {{.Student.FullName}}? All associated records (attendance, evaluations, packages, and login credentials) will be permanently deleted. This action cannot be undone.');">
                 <button type="submit" class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40 flex items-center gap-1.5 shadow-sm" title="Permanently Delete Student">
-                    🗑️ Delete Student
+                    🗑️ Delete
                 </button>
             </form>
             {{end}}
@@ -43,15 +43,15 @@
     </div>
 
     <!-- Student Top Profile Summary -->
-    <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+    <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div class="flex items-center space-x-4">
-                <div class="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-slate-950 font-display font-extrabold text-[11px] leading-tight text-center p-1 shadow-md flex-shrink-0 overflow-hidden break-words line-clamp-2" title="{{.Student.FullName}}">
+            <div class="flex items-center space-x-3.5 sm:space-x-4">
+                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-slate-950 font-display font-extrabold text-[11px] leading-tight text-center p-1 shadow-md flex-shrink-0 overflow-hidden break-words line-clamp-2" title="{{.Student.FullName}}">
                     {{.Student.FullName}}
                 </div>
                 <div>
-                    <h1 class="font-display font-bold text-2xl text-slate-900 dark:text-white">{{.Student.FullName}}</h1>
-                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Age: {{.Student.Age}} &bull; Phone: {{.Student.Phone}} &bull; Last Promotion: {{.Student.DaysInCurrentRank}} days ago</p>
+                    <h1 class="font-display font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">{{.Student.FullName}}</h1>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5 sm:mt-1">Age: {{.Student.Age}} &bull; Phone: {{.Student.Phone}} &bull; Last Promotion: {{.Student.DaysInCurrentRank}} days ago</p>
                 </div>
             </div>
 
@@ -73,16 +73,21 @@
     <!-- Two Column Layout: Left Radar Chart & Eval Form | Right Promotion Insights & Passes -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Left: Athletic Ability Radar Chart -->
-        <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                <div>
-                    <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white">6-Factor Athletic Ability Radar Chart</h2>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">Flexibility, Stamina, Power, Technique, Sparring IQ, Discipline</p>
+        <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 sm:space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-2">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Athletic Ability Radar</h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Radar chart metrics">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Evaluates 6 martial arts metrics: Flexibility, Stamina, Power, Technique, Sparring IQ, and Discipline.
+                        </div>
+                    </div>
                 </div>
                 {{if .LatestEvaluation}}
-                <div class="text-right">
-                    <span class="text-xs text-slate-600 dark:text-slate-400">Overall Score</span>
-                    <div class="font-display font-bold text-xl text-emerald-600 dark:text-emerald-400">{{printf "%.1f" .LatestEvaluation.AverageScore}} / 10</div>
+                <div class="text-right flex-shrink-0">
+                    <span class="text-xs text-slate-600 dark:text-slate-400">Overall</span>
+                    <div class="font-display font-bold text-lg sm:text-xl text-emerald-600 dark:text-emerald-400">{{printf "%.1f" .LatestEvaluation.AverageScore}} / 10</div>
                 </div>
                 {{end}}
             </div>
@@ -186,8 +191,18 @@
 
         <!-- Right: Promotion Readiness Rules Engine Breakdown -->
         <div class="space-y-6">
-            <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
-                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">Promotion Readiness Evaluation Breakdown</h2>
+            <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Promotion Readiness</h2>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Promotion readiness breakdown">ⓘ</button>
+                            <div class="tooltip-content w-64">
+                                Dynamic rules engine evaluating required attendance hours, tenure in rank, syllabus diversity balance, and coach ability scores.
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="space-y-3 text-xs">
                     <!-- Rule 1: Attendance Count -->
@@ -270,11 +285,11 @@
             </div>
 
             <!-- Active Purchased Packages -->
-            <div class="glass-panel p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
-                <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">Active Student Memberships</h2>
+            <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">Active Student Memberships</h2>
                 <div class="space-y-3">
                     {{range .Packages}}
-                    <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
+                    <div class="p-3 sm:p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
                         <div>
                             <div class="flex items-center gap-2">
                                 <h4 class="font-bold text-slate-900 dark:text-white text-sm">{{.TemplateTitle}}</h4>
