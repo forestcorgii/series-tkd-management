@@ -236,6 +236,15 @@ func main() {
 	mux.HandleFunc("DELETE /sessions/{id}/attendance/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
 	mux.HandleFunc("POST /sessions/{id}/remove/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
 
+	// Activity & Audit Logs (Operation Manager Exclusive)
+	mux.HandleFunc("GET /logs", app.RequireRole(models.RoleOperationManager)(app.HandleAuditLogs))
+	mux.HandleFunc("GET /logs/", app.RequireRole(models.RoleOperationManager)(app.HandleAuditLogs))
+	mux.HandleFunc("GET /audit-logs", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/logs", http.StatusMovedPermanently)
+	})
+	mux.HandleFunc("GET /api/logs", app.RequireRole(models.RoleOperationManager)(app.HandleAuditLogs))
+	mux.HandleFunc("GET /api/logs/telemetry", app.RequireRole(models.RoleOperationManager)(app.HandleAuditTelemetry))
+
 	// Static assets with caching headers
 	fs := http.FileServer(http.Dir("web/static"))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -71,6 +71,7 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 			a.RenderPage(w, "profile.html", data)
 			return
 		}
+		a.LogAction(r, "PROFILE_PASSWORD_CHANGE", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User updated their account password")
 	}
 
 	if user.IsStudent() && student != nil {
@@ -137,5 +138,6 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 
 	data.SuccessNotice = "Profile updated successfully!"
 	data.CurrentUser = user
+	a.LogAction(r, "PROFILE_UPDATE", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User updated their profile information")
 	a.RenderPage(w, "profile.html", data)
 }

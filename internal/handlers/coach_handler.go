@@ -137,6 +137,8 @@ func (a *AppHandler) HandleCreateCoach(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.LogAction(r, "COACH_CREATE", models.AuditCategoryCoaches, "Coach", c.ID.String(), c.FullName, "Created coach profile: "+c.FullName)
+
 	password := strings.TrimSpace(r.FormValue("password"))
 	if c.Email != "" {
 		if password == "" {
@@ -174,6 +176,8 @@ func (a *AppHandler) HandleToggleCoachStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	a.LogAction(r, "COACH_TOGGLE_ACTIVE", models.AuditCategoryCoaches, "Coach", targetID.String(), coach.FullName, fmt.Sprintf("Coach %s status toggled to %v", coach.FullName, newStatus))
+
 	statusMsg := "activated and can now log in"
 	u, _ := a.store.GetUserByEmail(coach.Email)
 	if u != nil && u.LastLoginAt == nil && newStatus {
@@ -209,6 +213,8 @@ func (a *AppHandler) HandleDeleteCoach(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/coaches?error="+url.QueryEscape("Failed to delete coach: "+err.Error()), http.StatusSeeOther)
 		return
 	}
+
+	a.LogAction(r, "COACH_DELETE", models.AuditCategoryCoaches, "Coach", targetID.String(), coach.FullName, "Permanently deleted coach: "+coach.FullName)
 
 	http.Redirect(w, r, "/coaches?success="+url.QueryEscape(fmt.Sprintf("Coach '%s' and all associated records have been permanently deleted.", coach.FullName)), http.StatusSeeOther)
 }

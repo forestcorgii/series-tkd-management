@@ -236,6 +236,8 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   7 * 24 * 3600,
 	})
 
+	a.LogAction(r, "AUTH_LOGIN", models.AuditCategoryAuth, "User", user.ID.String(), user.DisplayName, "User "+user.Email+" signed in successfully")
+
 	if redirectTarget != "" && strings.HasPrefix(redirectTarget, "/") {
 		http.Redirect(w, r, redirectTarget, http.StatusSeeOther)
 		return
@@ -260,6 +262,8 @@ func (a *AppHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if err == nil && cookie != nil {
 		_ = a.authSvc.Logout(cookie.Value)
 	}
+
+	a.LogAction(r, "AUTH_LOGOUT", models.AuditCategoryAuth, "User", "", "", "User signed out")
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookieKey,
@@ -568,6 +572,8 @@ func (a *AppHandler) HandleRegisterSubmit(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	a.LogAction(r, "AUTH_STAFF_REGISTER", models.AuditCategoryAuth, "User", "", fullName, "New "+role+" account registered (pending approval): "+email)
+
 	successMsg := "Registration submitted successfully! Your account is pending manager approval. You can log in once approved."
 	if isJSON {
 		w.Header().Set("Content-Type", "application/json")
@@ -690,6 +696,8 @@ func (a *AppHandler) HandleResetPasswordSubmit(w http.ResponseWriter, r *http.Re
 		http.Redirect(w, r, "/forgot-password?error="+url.QueryEscape("Unable to reset password: "+err.Error()), http.StatusSeeOther)
 		return
 	}
+
+	a.LogAction(r, "AUTH_RESET_PASSWORD", models.AuditCategoryAuth, "User", "", "", "Password reset successfully via reset token")
 
 	http.Redirect(w, r, "/login?success="+url.QueryEscape("Your password has been reset successfully! You can now sign in with your new credentials."), http.StatusSeeOther)
 }

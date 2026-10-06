@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 	_ "time/tzdata"
@@ -42,6 +45,7 @@ type AppHandler struct {
 	payrollSvc       *services.PayrollService
 	packageSvc       *services.PackageService
 	authSvc          *services.AuthService
+	auditSvc         *services.AuditService
 	pageTemplates    map[string]*template.Template
 	partialTemplates *template.Template
 }
@@ -51,6 +55,7 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 	paySvc := services.NewPayrollService()
 	pkgSvc := services.NewPackageService()
 	authSvc := services.NewAuthService(store)
+	auditSvc := services.NewAuditService(store)
 
 	app := &AppHandler{
 		store:        store,
@@ -58,6 +63,7 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 		payrollSvc:   paySvc,
 		packageSvc:   pkgSvc,
 		authSvc:      authSvc,
+		auditSvc:     auditSvc,
 	}
 
 	if err := app.parseTemplates(); err != nil {
@@ -65,6 +71,10 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 	}
 
 	return app, nil
+}
+
+func (a *AppHandler) AuditService() *services.AuditService {
+	return a.auditSvc
 }
 
 func (a *AppHandler) AuthService() *services.AuthService {
@@ -276,4 +286,77 @@ func (a *AppHandler) RenderPartial(w http.ResponseWriter, partialName string, da
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	buf.WriteTo(w)
+}
+
+func getClientIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+		return strings.TrimSpace(xrip)
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
+func (a *AppHandler) LogAction(r *http.Request, action string, category models.AuditCategory, targetType, targetID, targetName, description string, metadata ...map[string]interface{}) {
+	if a == nil || a.auditSvc == nil {
+		return
+	}
+
+	var actorUser *models.User
+	if r != nil {
+		actorUser = GetUserFromContext(r.Context())
+		if actorUser == nil {
+			if cookie, err := r.Cookie(sessionCookieKey); err == nil && cookie != nil && cookie.Value != "" {
+				if u, err := a.authSvc.ValidateSession(cookie.Value); err == nil {
+					actorUser = u
+				}
+			}
+		}
+	}
+
+	entry := &models.AuditLog{
+		Action:      action,
+		Category:    category,
+		TargetType:  targetType,
+		TargetID:    targetID,
+		TargetName:  targetName,
+		Description: description,
+		CreatedAt:   time.Now(),
+	}
+
+	if actorUser != nil {
+		entry.UserID = &actorUser.ID
+		if actorUser.DisplayName != "" {
+			entry.ActorName = actorUser.DisplayName
+		} else {
+			entry.ActorName = actorUser.Email
+		}
+		entry.ActorEmail = actorUser.Email
+		entry.ActorRole = actorUser.Role
+	} else {
+		entry.ActorName = "System / Guest"
+		entry.ActorRole = models.RoleStudent
+	}
+
+	if r != nil {
+		entry.IPAddress = getClientIP(r)
+		entry.UserAgent = r.UserAgent()
+	}
+
+	if len(metadata) > 0 && metadata[0] != nil {
+		if data, err := json.Marshal(metadata[0]); err == nil {
+			entry.Metadata = string(data)
+		}
+	}
+
+	_ = a.auditSvc.Log(entry)
 }

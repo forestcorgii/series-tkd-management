@@ -256,6 +256,24 @@ func (s *SQLStore) runMigrations() error {
 			resolved_by TEXT,
 			resolved_at TEXT,
 			created_at TEXT NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS audit_logs (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			actor_name TEXT NOT NULL DEFAULT '',
+			actor_email TEXT NOT NULL DEFAULT '',
+			actor_role TEXT NOT NULL DEFAULT '',
+			action TEXT NOT NULL,
+			category TEXT NOT NULL,
+			target_type TEXT DEFAULT '',
+			target_id TEXT DEFAULT '',
+			target_name TEXT DEFAULT '',
+			description TEXT NOT NULL DEFAULT '',
+			ip_address TEXT DEFAULT '',
+			user_agent TEXT DEFAULT '',
+			metadata TEXT DEFAULT '',
+			created_at TEXT NOT NULL
 		);`
 	} else {
 		schema = `
@@ -416,6 +434,24 @@ func (s *SQLStore) runMigrations() error {
 			resolved_by VARCHAR(255),
 			resolved_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS audit_logs (
+			id UUID PRIMARY KEY,
+			user_id UUID,
+			actor_name VARCHAR(150) NOT NULL DEFAULT '',
+			actor_email VARCHAR(150) NOT NULL DEFAULT '',
+			actor_role VARCHAR(50) NOT NULL DEFAULT '',
+			action VARCHAR(100) NOT NULL,
+			category VARCHAR(50) NOT NULL,
+			target_type VARCHAR(50) DEFAULT '',
+			target_id VARCHAR(100) DEFAULT '',
+			target_name VARCHAR(150) DEFAULT '',
+			description TEXT NOT NULL DEFAULT '',
+			ip_address VARCHAR(60) DEFAULT '',
+			user_agent TEXT DEFAULT '',
+			metadata TEXT DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);`
 	}
 
@@ -465,6 +501,23 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN session_rate REAL`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN session_rate REAL`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			actor_name TEXT NOT NULL DEFAULT '',
+			actor_email TEXT NOT NULL DEFAULT '',
+			actor_role TEXT NOT NULL DEFAULT '',
+			action TEXT NOT NULL,
+			category TEXT NOT NULL,
+			target_type TEXT DEFAULT '',
+			target_id TEXT DEFAULT '',
+			target_name TEXT DEFAULT '',
+			description TEXT NOT NULL DEFAULT '',
+			ip_address TEXT DEFAULT '',
+			user_agent TEXT DEFAULT '',
+			metadata TEXT DEFAULT '',
+			created_at TEXT NOT NULL
+		)`)
 
 		// Seed default categories if none exist in SQLite
 		var catCountSQLite int
@@ -567,6 +620,23 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_admin_id_fkey`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
+			id UUID PRIMARY KEY,
+			user_id UUID,
+			actor_name VARCHAR(150) NOT NULL DEFAULT '',
+			actor_email VARCHAR(150) NOT NULL DEFAULT '',
+			actor_role VARCHAR(50) NOT NULL DEFAULT '',
+			action VARCHAR(100) NOT NULL,
+			category VARCHAR(50) NOT NULL,
+			target_type VARCHAR(50) DEFAULT '',
+			target_id VARCHAR(100) DEFAULT '',
+			target_name VARCHAR(150) DEFAULT '',
+			description TEXT NOT NULL DEFAULT '',
+			ip_address VARCHAR(60) DEFAULT '',
+			user_agent TEXT DEFAULT '',
+			metadata TEXT DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
 
 		// Seed default categories if none exist in Postgres
 		var catCountPG int
@@ -602,6 +672,10 @@ func (s *SQLStore) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
 		`CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_safety_incidents_resolved ON safety_incidents(resolved)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_category ON audit_logs(category)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`,
 	}
 	for _, idx := range indexes {
 		_, _ = s.db.Exec(idx)
@@ -3238,4 +3312,217 @@ func (s *SQLStore) PromoteStudent(studentID uuid.UUID, newBelt models.BeltRank) 
 	query := `UPDATE students SET current_belt = $1, last_promotion_date = $2 WHERE id = $3`
 	_, err := s.db.Exec(query, string(newBelt), formatDateForDB(now), studentID.String())
 	return err
+}
+
+// Audit Logs
+func (s *SQLStore) CreateAuditLog(entry *models.AuditLog) error {
+	if entry.ID == uuid.Nil {
+		entry.ID = uuid.New()
+	}
+	if entry.CreatedAt.IsZero() {
+		entry.CreatedAt = time.Now()
+	}
+
+	var userIDStr sql.NullString
+	if entry.UserID != nil && *entry.UserID != uuid.Nil {
+		userIDStr = sql.NullString{String: entry.UserID.String(), Valid: true}
+	}
+
+	query := `INSERT INTO audit_logs (
+		id, user_id, actor_name, actor_email, actor_role, action, category,
+		target_type, target_id, target_name, description, ip_address, user_agent, metadata, created_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+
+	var createdAtVal interface{}
+	if s.driver == "sqlite" {
+		createdAtVal = formatTimeForDB(entry.CreatedAt)
+	} else {
+		createdAtVal = entry.CreatedAt
+	}
+
+	_, err := s.db.Exec(query,
+		entry.ID.String(),
+		userIDStr,
+		entry.ActorName,
+		entry.ActorEmail,
+		string(entry.ActorRole),
+		entry.Action,
+		string(entry.Category),
+		entry.TargetType,
+		entry.TargetID,
+		entry.TargetName,
+		entry.Description,
+		entry.IPAddress,
+		entry.UserAgent,
+		entry.Metadata,
+		createdAtVal,
+	)
+	return err
+}
+
+func (s *SQLStore) GetAuditLogs(filter models.AuditLogFilter) ([]*models.AuditLog, int, error) {
+	var whereClauses []string
+	var args []interface{}
+	argIdx := 1
+
+	if filter.Category != "" && strings.ToUpper(filter.Category) != "ALL" {
+		whereClauses = append(whereClauses, fmt.Sprintf("UPPER(category) = UPPER($%d)", argIdx))
+		args = append(args, filter.Category)
+		argIdx++
+	}
+
+	if filter.Role != "" && strings.ToUpper(filter.Role) != "ALL" {
+		whereClauses = append(whereClauses, fmt.Sprintf("UPPER(actor_role) = UPPER($%d)", argIdx))
+		args = append(args, filter.Role)
+		argIdx++
+	}
+
+	if filter.Action != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("UPPER(action) LIKE UPPER($%d)", argIdx))
+		args = append(args, "%"+filter.Action+"%")
+		argIdx++
+	}
+
+	if filter.StartDate != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("created_at >= $%d", argIdx))
+		args = append(args, filter.StartDate+" 00:00:00")
+		argIdx++
+	}
+
+	if filter.EndDate != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("created_at <= $%d", argIdx))
+		args = append(args, filter.EndDate+" 23:59:59")
+		argIdx++
+	}
+
+	if filter.Search != "" {
+		searchPattern := "%" + strings.TrimSpace(filter.Search) + "%"
+		clause := fmt.Sprintf("(actor_name LIKE $%d OR actor_email LIKE $%d OR action LIKE $%d OR target_name LIKE $%d OR description LIKE $%d OR ip_address LIKE $%d)",
+			argIdx, argIdx, argIdx, argIdx, argIdx, argIdx)
+		if s.driver != "sqlite" {
+			clause = fmt.Sprintf("(actor_name ILIKE $%d OR actor_email ILIKE $%d OR action ILIKE $%d OR target_name ILIKE $%d OR description ILIKE $%d OR ip_address ILIKE $%d)",
+				argIdx, argIdx, argIdx, argIdx, argIdx, argIdx)
+		}
+		whereClauses = append(whereClauses, clause)
+		args = append(args, searchPattern)
+		argIdx++
+	}
+
+	whereSQL := ""
+	if len(whereClauses) > 0 {
+		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	// 1. Get total matching count
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_logs %s", whereSQL)
+	var total int
+	if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count audit logs: %w", err)
+	}
+
+	// 2. Query paginated results
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := fmt.Sprintf(`SELECT id, user_id, actor_name, actor_email, actor_role, action, category,
+		target_type, target_id, target_name, description, ip_address, user_agent, metadata, created_at
+		FROM audit_logs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, whereSQL, argIdx, argIdx+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query audit logs: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []*models.AuditLog
+	for rows.Next() {
+		var idStr string
+		var nullUserID sql.NullString
+		var actRole, catStr string
+		var createdVal interface{}
+		entry := &models.AuditLog{}
+
+		if err := rows.Scan(
+			&idStr,
+			&nullUserID,
+			&entry.ActorName,
+			&entry.ActorEmail,
+			&actRole,
+			&entry.Action,
+			&catStr,
+			&entry.TargetType,
+			&entry.TargetID,
+			&entry.TargetName,
+			&entry.Description,
+			&entry.IPAddress,
+			&entry.UserAgent,
+			&entry.Metadata,
+			&createdVal,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan audit log: %w", err)
+		}
+
+		entry.ID = uuid.Must(uuid.Parse(idStr))
+		if nullUserID.Valid && nullUserID.String != "" {
+			uid, _ := uuid.Parse(nullUserID.String)
+			entry.UserID = &uid
+		}
+		entry.ActorRole = models.UserRole(actRole)
+		entry.Category = models.AuditCategory(catStr)
+		entry.CreatedAt, _ = parseTimeFlex(createdVal)
+
+		logs = append(logs, entry)
+	}
+
+	return logs, total, nil
+}
+
+func (s *SQLStore) GetAuditTelemetry() (*models.AuditTelemetry, error) {
+	// Total logs
+	var total int
+	_ = s.db.QueryRow("SELECT COUNT(*) FROM audit_logs").Scan(&total)
+
+	// Today logs
+	todayDate := time.Now().Format("2006-01-02")
+	var todayCount int
+	var todayQuery string
+	if s.driver == "sqlite" {
+		todayQuery = "SELECT COUNT(*) FROM audit_logs WHERE created_at LIKE $1"
+		_ = s.db.QueryRow(todayQuery, todayDate+"%").Scan(&todayCount)
+	} else {
+		todayQuery = "SELECT COUNT(*) FROM audit_logs WHERE created_at::date = CURRENT_DATE"
+		_ = s.db.QueryRow(todayQuery).Scan(&todayCount)
+	}
+
+	// Active users today
+	var activeUsers int
+	if s.driver == "sqlite" {
+		_ = s.db.QueryRow("SELECT COUNT(DISTINCT CASE WHEN actor_email != '' THEN actor_email ELSE user_id END) FROM audit_logs WHERE created_at LIKE $1", todayDate+"%").Scan(&activeUsers)
+	} else {
+		_ = s.db.QueryRow("SELECT COUNT(DISTINCT CASE WHEN actor_email != '' THEN actor_email ELSE CAST(user_id AS TEXT) END) FROM audit_logs WHERE created_at::date = CURRENT_DATE").Scan(&activeUsers)
+	}
+
+	// Security / Critical Actions
+	var secCount int
+	secQuery := `SELECT COUNT(*) FROM audit_logs WHERE category IN ('AUTH', 'SAFETY')
+		OR UPPER(action) LIKE '%DELETE%'
+		OR UPPER(action) LIKE '%RESET%'
+		OR UPPER(action) LIKE '%REVOKE%'
+		OR UPPER(action) LIKE '%DEACTIVATE%'`
+	_ = s.db.QueryRow(secQuery).Scan(&secCount)
+
+	return &models.AuditTelemetry{
+		TotalLogs:       total,
+		TodayLogs:       todayCount,
+		ActiveUsers:     activeUsers,
+		SecurityActions: secCount,
+	}, nil
 }

@@ -280,3 +280,21 @@
   2. **UI Adaptation**:
      - In locations.html, "Add New Location", "Edit", and "Delete" buttons and modals are rendered only when .CurrentUser.IsOperationManager is true. Non-managers see a clean, informative view-only directory of dojang branches.
      - Coach desktop and mobile navigation in layout.html includes the "Locations" link.
+
+### Context: Activity & Audit Logging Architecture (/logs & Profile Submenu)
+
+* **Problem**:
+  1. The platform lacked an immutable, centralized audit trail tracking user interactions, floor check-ins, security actions, administrative overrides, and credential modifications.
+  2. Audit inspection needed to be strictly partitioned so only Operations Managers have access, while integrating directly into the profile submenu and mobile navigation without cluttering core floor operational menus.
+* **Enforced Solution**:
+  1. **Domain & Storage Isolation**:
+     - models.AuditLog, models.AuditLogFilter, and models.AuditTelemetry defined under pure domain models.
+     - Dual PostgreSQL and SQLite migration with dedicated B-Tree indexes on created_at DESC, category, user_id, and ction.
+     - AuditService encapsulates validation, defaults (UUID, PHT timestamps, string trimming), pagination clamping, and telemetry calculations.
+  2. **Non-Blocking Action Instrumentation**:
+     - AppHandler.LogAction(r, action, category, targetType, targetID, targetName, description, metadata...) extracts actor identity, client IP (respecting X-Forwarded-For), and User-Agent across authentication, student records, sessions, check-ins, memberships, coaches, and administrators.
+  3. **Strict Manager-Exclusive RBAC Guard**:
+     - Routes /logs, /logs/, /api/logs, and /api/logs/telemetry are guarded with RequireRole(models.RoleOperationManager). Mismatched browser requests are redirected to role portals (RoleDashboardURL()), while API and HTMX requests return HTTP 403 Forbidden.
+  4. **Profile Submenu & Reactive UI**:
+     - Desktop profile dropdown and mobile slide-out drawer include an **Activity Logs** entry exclusively rendered for OperationManager.
+     - udit_logs.html provides live telemetry metrics, search, category/role/date filters, HTMX partial swapping via udit_log_rows.html, and a full detail inspection modal with formatted JSON payload display.

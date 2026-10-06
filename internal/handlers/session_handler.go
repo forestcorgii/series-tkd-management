@@ -794,7 +794,20 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	http.Redirect(w, r, "/sessions/"+sess.ID.String()+"/live", http.StatusSeeOther)
+	a.LogAction(r, "SESSION_CREATE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType), fmt.Sprintf("Created %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
+
+	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
+	if redirectURL == "" {
+		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
 func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request) {
@@ -880,9 +893,16 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	redirectURL := r.FormValue("redirect_url")
-	if redirectURL == "" {
-		redirectURL = "/sessions"
+	a.LogAction(r, "SESSION_UPDATE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType), fmt.Sprintf("Updated %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
+
+	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
+	if redirectURL == "" || redirectURL == "/sessions" {
+		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
+	}
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
@@ -919,6 +939,8 @@ func (a *AppHandler) HandleDeleteSession(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	a.LogAction(r, "SESSION_DELETE", models.AuditCategorySessions, "Session", sessionID.String(), string(sess.TrainingType), fmt.Sprintf("Deleted %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
 
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Redirect", "/sessions")
@@ -1196,6 +1218,8 @@ func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	a.LogAction(r, "SESSION_CANCEL", models.AuditCategorySessions, "Session", sessionID.String(), reason, fmt.Sprintf("Cancelled session %s: %s", sessionID.String(), reason))
+
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Refresh", "true")
 		w.WriteHeader(http.StatusOK)
@@ -1305,6 +1329,8 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 	latestEval, _ := a.store.GetLatestEvaluation(studentID)
 	readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 
+	a.LogAction(r, "ATTENDANCE_CHECKIN", models.AuditCategoryAttendance, "Student", studentID.String(), st.FullName, fmt.Sprintf("Checked in student %s to session", st.FullName))
+
 	data := struct {
 		Attendance *models.Attendance
 		Readiness  services.PromotionReadiness
@@ -1364,6 +1390,8 @@ func (a *AppHandler) HandleRemoveAttendance(w http.ResponseWriter, r *http.Reque
 		http.Error(w, fmt.Sprintf("Failed to remove attendance: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	a.LogAction(r, "ATTENDANCE_REMOVE", models.AuditCategoryAttendance, "Student", studentID.String(), "", fmt.Sprintf("Removed attendance for student %s from session %s", studentID.String(), sessionID.String()))
 
 	w.Header().Set("HX-Trigger", "attendanceUpdated")
 

@@ -151,6 +151,8 @@ func (a *AppHandler) HandleCreatePackageTemplate(w http.ResponseWriter, r *http.
 		return
 	}
 
+	a.LogAction(r, "PACKAGE_TEMPLATE_CREATE", models.AuditCategoryPackages, "PackageTemplate", tpl.ID.String(), tpl.Title, "Created package template: "+tpl.Title)
+
 	http.Redirect(w, r, "/packages", http.StatusSeeOther)
 }
 
@@ -240,6 +242,8 @@ func (a *AppHandler) HandleUpdatePackageTemplate(w http.ResponseWriter, r *http.
 		return
 	}
 
+	a.LogAction(r, "PACKAGE_TEMPLATE_UPDATE", models.AuditCategoryPackages, "PackageTemplate", existing.ID.String(), existing.Title, "Updated package template: "+existing.Title)
+
 	http.Redirect(w, r, "/packages", http.StatusSeeOther)
 }
 
@@ -272,6 +276,8 @@ func (a *AppHandler) HandleTogglePackageTemplateStatus(w http.ResponseWriter, r 
 		http.Error(w, fmt.Sprintf("Failed to toggle status: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	a.LogAction(r, "PACKAGE_TEMPLATE_TOGGLE", models.AuditCategoryPackages, "PackageTemplate", id.String(), tpl.Title, fmt.Sprintf("Toggled package template status: %s to %v", tpl.Title, newStatus))
 
 	http.Redirect(w, r, "/packages", http.StatusSeeOther)
 }
@@ -394,6 +400,8 @@ func (a *AppHandler) AssignPackageFromForm(r *http.Request, studentID uuid.UUID)
 		return nil, err
 	}
 
+	a.LogAction(r, "PACKAGE_ASSIGN", models.AuditCategoryPackages, "StudentPackage", sp.ID.String(), sp.TemplateTitle, fmt.Sprintf("Assigned package '%s' to student %s", sp.TemplateTitle, studentID.String()))
+
 	return sp, nil
 }
 
@@ -449,6 +457,8 @@ func (a *AppHandler) HandleRevokeStudentPackage(w http.ResponseWriter, r *http.R
 		http.Error(w, fmt.Sprintf("Failed to revoke membership: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	a.LogAction(r, "PACKAGE_REVOKE", models.AuditCategoryPackages, "StudentPackage", id.String(), "", "Revoked student package: "+id.String())
 
 	if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
 		w.Header().Set("Content-Type", "application/json")

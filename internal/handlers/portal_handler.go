@@ -833,6 +833,8 @@ func (a *AppHandler) HandleAPISafetyFlag(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	a.LogAction(r, "SAFETY_INCIDENT_REPORT", models.AuditCategorySafety, "Student", studentID.String(), "", "Reported safety incident ("+incidentType+") with mat hold placed")
+
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(w, `<div class="p-3 bg-rose-500/15 border border-rose-500/30 text-rose-400 rounded-lg text-xs font-semibold">🚨 Safety incident logged. Mat hold activated for practitioner.</div>`)
@@ -871,6 +873,8 @@ func (a *AppHandler) HandleAPISafetyResolve(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	a.LogAction(r, "SAFETY_INCIDENT_RESOLVE", models.AuditCategorySafety, "SafetyIncident", incidentID.String(), "", "Resolved safety incident and cleared practitioner for mat floor")
+
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(w, `<div class="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-semibold">Incident cleared &amp; practitioner cleared for mat activity.</div>`)
@@ -908,6 +912,8 @@ func (a *AppHandler) HandleAPIAdminPromote(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	a.LogAction(r, "STUDENT_PROMOTE", models.AuditCategoryStudents, "Student", studentID.String(), student.FullName, fmt.Sprintf("Promoted %s to belt rank %s", student.FullName, string(newBelt)))
 
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

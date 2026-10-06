@@ -129,6 +129,8 @@ func (a *AppHandler) HandleCreateLocation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	a.LogAction(r, "LOCATION_CREATE", models.AuditCategoryLocations, "Location", loc.ID.String(), loc.Name, "Created branch location: "+loc.Name)
+
 	http.Redirect(w, r, "/locations?success="+url.QueryEscape(fmt.Sprintf("Location \"%s\" added successfully", loc.Name)), http.StatusSeeOther)
 }
 
@@ -192,6 +194,8 @@ func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	a.LogAction(r, "LOCATION_UPDATE", models.AuditCategoryLocations, "Location", loc.ID.String(), loc.Name, "Updated branch location: "+loc.Name)
+
 	http.Redirect(w, r, "/locations?success="+url.QueryEscape(fmt.Sprintf("Location \"%s\" updated successfully", loc.Name)), http.StatusSeeOther)
 }
 
@@ -228,6 +232,8 @@ func (a *AppHandler) HandleDeleteLocation(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/locations?error="+url.QueryEscape(fmt.Sprintf("Failed to delete location: %v", err)), http.StatusSeeOther)
 		return
 	}
+
+	a.LogAction(r, "LOCATION_DELETE", models.AuditCategoryLocations, "Location", locID.String(), "", "Deleted branch location: "+locID.String())
 
 	http.Redirect(w, r, "/locations?success="+url.QueryEscape("Location deleted successfully"), http.StatusSeeOther)
 }

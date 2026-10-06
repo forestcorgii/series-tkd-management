@@ -216,6 +216,8 @@ func (a *AppHandler) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.LogAction(r, "ADMIN_PROVISION", models.AuditCategoryAdmins, "User", newAdmin.ID.String(), fullName, "Provisioned administrator account: "+newAdmin.Email)
+
 	successMsg := fmt.Sprintf("Administrator account for '%s' provisioned successfully.", fullName)
 	if isJSONRequest(r) {
 		writeJSONResponse(w, http.StatusCreated, map[string]interface{}{
@@ -296,6 +298,8 @@ func (a *AppHandler) HandleToggleAdminStatus(w http.ResponseWriter, r *http.Requ
 	if name == "" {
 		name = targetUser.Email
 	}
+
+	a.LogAction(r, "ADMIN_TOGGLE_ACTIVE", models.AuditCategoryAdmins, "User", targetID.String(), name, fmt.Sprintf("Administrator %s status toggled to %v", name, newStatus))
 
 	msg := fmt.Sprintf("Administrator account for '%s' has been %s.", name, statusMsg)
 	if isJSONRequest(r) {
@@ -391,6 +395,8 @@ func (a *AppHandler) HandleDeleteAdmin(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = targetUser.Email
 	}
+
+	a.LogAction(r, "ADMIN_DELETE", models.AuditCategoryAdmins, "User", targetID.String(), name, "Deleted administrator account: "+name)
 
 	msg := fmt.Sprintf("Administrator account for '%s' has been removed.", name)
 	if isJSONRequest(r) {
@@ -496,6 +502,8 @@ func (a *AppHandler) HandleResetAdminPassword(w http.ResponseWriter, r *http.Req
 	if name == "" {
 		name = targetUser.Email
 	}
+
+	a.LogAction(r, "ADMIN_RESET_PASSWORD", models.AuditCategoryAdmins, "User", targetID.String(), name, "Reset administrator password for: "+name)
 
 	msg := fmt.Sprintf("Password for '%s' reset successfully.", name)
 	if isJSONRequest(r) {

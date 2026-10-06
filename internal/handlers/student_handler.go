@@ -201,6 +201,8 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	a.LogAction(r, "STUDENT_CREATE", models.AuditCategoryStudents, "Student", s.ID.String(), s.FullName, "Registered new student: "+s.FullName)
+
 	email := strings.TrimSpace(r.FormValue("email"))
 	password := strings.TrimSpace(r.FormValue("password"))
 	if email != "" {
@@ -257,6 +259,8 @@ func (a *AppHandler) HandleCreateEvaluation(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	a.LogAction(r, "EVALUATION_SUBMIT", models.AuditCategoryStudents, "Student", studentID.String(), "", "Submitted athletic radar evaluation for student")
 
 	http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)
 }
@@ -332,6 +336,8 @@ func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	a.LogAction(r, "STUDENT_UPDATE", models.AuditCategoryStudents, "Student", student.ID.String(), student.FullName, "Updated student profile details for: "+student.FullName)
+
 	http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)
 }
 
@@ -394,6 +400,8 @@ func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, "/students?error="+url.QueryEscape("Failed to delete student: "+err.Error()), http.StatusSeeOther)
 		return
 	}
+
+	a.LogAction(r, "STUDENT_DELETE", models.AuditCategoryStudents, "Student", targetID.String(), student.FullName, "Permanently deleted student profile: "+student.FullName)
 
 	msg := fmt.Sprintf("Student '%s' and all associated records have been permanently deleted.", student.FullName)
 

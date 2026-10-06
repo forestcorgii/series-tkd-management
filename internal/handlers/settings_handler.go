@@ -97,6 +97,8 @@ func (a *AppHandler) HandleCreateCategory(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	a.LogAction(r, "CATEGORY_CREATE", models.AuditCategorySettings, "Category", cat.ID.String(), cat.Name, "Created training category: "+cat.Name)
+
 	http.Redirect(w, r, "/settings?success="+url.QueryEscape(fmt.Sprintf("Category \"%s\" created successfully", cat.Name)), http.StatusSeeOther)
 }
 
@@ -138,6 +140,8 @@ func (a *AppHandler) HandleUpdateCategory(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	a.LogAction(r, "CATEGORY_UPDATE", models.AuditCategorySettings, "Category", cat.ID.String(), cat.Name, "Updated training category: "+cat.Name)
+
 	http.Redirect(w, r, "/settings?success="+url.QueryEscape(fmt.Sprintf("Category \"%s\" updated successfully", cat.Name)), http.StatusSeeOther)
 }
 
@@ -163,6 +167,8 @@ func (a *AppHandler) HandleDeleteCategory(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/settings?error="+url.QueryEscape(fmt.Sprintf("Cannot delete category: %v", err)), http.StatusSeeOther)
 		return
 	}
+
+	a.LogAction(r, "CATEGORY_DELETE", models.AuditCategorySettings, "Category", catID.String(), "", "Deleted training category: "+catID.String())
 
 	http.Redirect(w, r, "/settings?success="+url.QueryEscape("Training category deleted successfully"), http.StatusSeeOther)
 }

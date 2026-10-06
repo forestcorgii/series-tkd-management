@@ -106,7 +106,15 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
     - Coach Public Registration (`/register`)
     - Coach Directory Modal (`/coaches`)
     - Student Enrollment Modal (`/students`)
-    - Student Profile & Emergency Contact Edit Modal (`/students/{id}`)
-    - Student & Coach Personal Profile Settings (`/profile`)
+---
+
+## 7. Class Scheduling Navigation Flow
+
+### Context: Post-Schedule Calendar View Retention
+- **Problem**: When staff or coaches scheduled a class from the 7-day calendar, `HandleCreateSession` automatically redirected to the floor check-in view (`/sessions/{id}/live`), interrupting schedule planning and kicking the user away from the calendar view.
+- **Enforced Solution**:
+  - **Handler Navigation**: [HandleCreateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) and [HandleUpdateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) default to `/sessions?date=YYYY-MM-DD` matching the scheduled class date, or honor `redirect_url` when explicitly specified.
+  - **HTMX Support**: Evaluates `HX-Request` header and responds with `HX-Redirect` when requested via hypermedia.
+  - **UI Button & Modals**: Scheduling modal CTA is labeled `Schedule Class` (never `Schedule & Launch Attendance`), with dynamic `redirect_url` parameters updated on date selection to ensure the user stays focused on that class's week in the calendar view.
 
 

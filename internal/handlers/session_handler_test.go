@@ -520,10 +520,14 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 			t.Fatalf("expected 200 OK, got %d", rec.Code)
 		}
 		body := rec.Body.String()
+		rosterBody := body
+		if idx := strings.Index(body, "Class Rosters"); idx != -1 {
+			rosterBody = body[idx:]
+		}
 
-		pos3 := strings.Index(body, "Afternoon Conditioning Class")
-		pos2 := strings.Index(body, "Morning Sparring Class")
-		pos1 := strings.Index(body, "Old Poomsae Class")
+		pos3 := strings.Index(rosterBody, "Afternoon Conditioning Class")
+		pos2 := strings.Index(rosterBody, "Morning Sparring Class")
+		pos1 := strings.Index(rosterBody, "Old Poomsae Class")
 
 		if pos3 == -1 || pos2 == -1 || pos1 == -1 {
 			t.Fatalf("expected all 3 classes in roster, got pos3=%d, pos2=%d, pos1=%d", pos3, pos2, pos1)
@@ -634,12 +638,17 @@ func TestSessionHandler_RosterPagination(t *testing.T) {
 			t.Errorf("expected roster header 'Showing 1–10 of 15 matching'")
 		}
 
+		rosterBody := body
+		if idx := strings.Index(body, "Class Rosters"); idx != -1 {
+			rosterBody = body[idx:]
+		}
+
 		// The newest session is Sess-Note-15 (day 15)
-		if !strings.Contains(body, "Sess-Note-15") {
+		if !strings.Contains(rosterBody, "Sess-Note-15") {
 			t.Errorf("expected newest session (Sess-Note-15) on Page 1")
 		}
 		// The 11th session (day 5, Sess-Note-05) should NOT be on Page 1
-		if strings.Contains(body, "Sess-Note-05") {
+		if strings.Contains(rosterBody, "Sess-Note-05") {
 			t.Errorf("did not expect session from page 2 (Sess-Note-05) on Page 1")
 		}
 	})
@@ -746,16 +755,24 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 			t.Fatalf("expected 303 SeeOther, got %d: %s", rec.Code, rec.Body.String())
 		}
 		loc := rec.Header().Get("Location")
-		if !strings.HasPrefix(loc, "/sessions/") || !strings.HasSuffix(loc, "/live") {
-			t.Fatalf("unexpected redirect location: %s", loc)
+		if loc != "/sessions?date=2026-10-20" {
+			t.Fatalf("expected redirect to calendar view /sessions?date=2026-10-20, got %s", loc)
 		}
-		createdSessionID = strings.TrimSuffix(strings.TrimPrefix(loc, "/sessions/"), "/live")
-
-		sessUUID, _ := uuid.Parse(createdSessionID)
-		sess, err := store.GetSessionByID(sessUUID)
+		allSess, err := store.GetAllSessions()
 		if err != nil {
-			t.Fatalf("failed to retrieve created session: %v", err)
+			t.Fatalf("failed to retrieve sessions: %v", err)
 		}
+		var sess *models.TrainingSession
+		for _, s := range allSess {
+			if s.SessionDate.Format("2006-01-02") == "2026-10-20" && s.StartTime == "15:00" {
+				sess = s
+				break
+			}
+		}
+		if sess == nil {
+			t.Fatalf("failed to retrieve created session")
+		}
+		createdSessionID = sess.ID.String()
 		if sess.CoachID == nil || *sess.CoachID != coach1.ID {
 			t.Errorf("expected coach %s, got %v", coach1.ID, sess.CoachID)
 		}
@@ -829,12 +846,22 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 			t.Fatalf("expected 303 SeeOther, got %d: %s", rec.Code, rec.Body.String())
 		}
 		loc := rec.Header().Get("Location")
-		noCoachSessionID := strings.TrimSuffix(strings.TrimPrefix(loc, "/sessions/"), "/live")
-		sessUUID, _ := uuid.Parse(noCoachSessionID)
-		sess, err := store.GetSessionByID(sessUUID)
-		if err != nil {
-			t.Fatalf("failed to retrieve created session: %v", err)
+		if loc != "/sessions?date=2026-10-22" {
+			t.Fatalf("expected redirect to calendar view /sessions?date=2026-10-22, got %s", loc)
 		}
+		allSess, _ := store.GetAllSessions()
+		var sess *models.TrainingSession
+		for _, s := range allSess {
+			if s.SessionDate.Format("2006-01-02") == "2026-10-22" && s.StartTime == "17:00" {
+				sess = s
+				break
+			}
+		}
+		if sess == nil {
+			t.Fatalf("failed to retrieve created session")
+		}
+		sessUUID := sess.ID
+		noCoachSessionID := sessUUID.String()
 		if sess.CoachID != nil {
 			t.Errorf("expected nil CoachID, got %v", sess.CoachID)
 		}
@@ -860,6 +887,64 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 		updatedSess, _ := store.GetSessionByID(sessUUID)
 		if updatedSess.CoachID != nil {
 			t.Errorf("expected nil CoachID after edit, got %v", updatedSess.CoachID)
+		}
+	})
+
+	t.Run("HandleCreateSession stays in calendar view with date and respects redirect_url", func(t *testing.T) {
+		// Default: redirects to /sessions?date=YYYY-MM-DD
+		form1 := url.Values{
+			"session_date":  {"2026-11-10"},
+			"start_time":    {"14:00"},
+			"end_time":      {"16:00"},
+			"training_type": {"Sparring"},
+		}
+		req1 := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form1.Encode()))
+		req1.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec1 := httptest.NewRecorder()
+		app.HandleCreateSession(rec1, req1)
+		if rec1.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d", rec1.Code)
+		}
+		if loc := rec1.Header().Get("Location"); loc != "/sessions?date=2026-11-10" {
+			t.Fatalf("expected default redirect to /sessions?date=2026-11-10, got %s", loc)
+		}
+
+		// Explicit redirect_url
+		form2 := url.Values{
+			"session_date":  {"2026-11-12"},
+			"start_time":    {"10:00"},
+			"end_time":      {"12:00"},
+			"training_type": {"Poomsae"},
+			"redirect_url":  {"/sessions?date=2026-11-12&coach_id=" + coach1.ID.String()},
+		}
+		req2 := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form2.Encode()))
+		req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec2 := httptest.NewRecorder()
+		app.HandleCreateSession(rec2, req2)
+		if rec2.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d", rec2.Code)
+		}
+		if loc := rec2.Header().Get("Location"); loc != "/sessions?date=2026-11-12&coach_id="+coach1.ID.String() {
+			t.Fatalf("expected custom redirect_url, got %s", loc)
+		}
+
+		// HTMX request header
+		form3 := url.Values{
+			"session_date":  {"2026-11-15"},
+			"start_time":    {"09:00"},
+			"end_time":      {"11:00"},
+			"training_type": {"Conditioning"},
+		}
+		req3 := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form3.Encode()))
+		req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req3.Header.Set("HX-Request", "true")
+		rec3 := httptest.NewRecorder()
+		app.HandleCreateSession(rec3, req3)
+		if rec3.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK for HX-Request, got %d", rec3.Code)
+		}
+		if hxLoc := rec3.Header().Get("HX-Redirect"); hxLoc != "/sessions?date=2026-11-15" {
+			t.Fatalf("expected HX-Redirect to /sessions?date=2026-11-15, got %s", hxLoc)
 		}
 	})
 
@@ -1249,11 +1334,19 @@ func TestHandleCreateSession_LocationFixedRatePreFill(t *testing.T) {
 		t.Fatalf("expected 303 SeeOther, got %d: %s", rec1.Code, rec1.Body.String())
 	}
 	locURL1 := rec1.Header().Get("Location")
-	sessID1 := strings.TrimSuffix(strings.TrimPrefix(locURL1, "/sessions/"), "/live")
-	sessUUID1, _ := uuid.Parse(sessID1)
-	sess1, err := store.GetSessionByID(sessUUID1)
-	if err != nil {
-		t.Fatalf("failed to retrieve session 1: %v", err)
+	if locURL1 != "/sessions?date=2026-10-25" {
+		t.Fatalf("expected redirect to calendar view /sessions?date=2026-10-25, got %s", locURL1)
+	}
+	allSess1, _ := store.GetAllSessions()
+	var sess1 *models.TrainingSession
+	for _, s := range allSess1 {
+		if s.SessionDate.Format("2006-01-02") == "2026-10-25" && s.StartTime == "16:00" {
+			sess1 = s
+			break
+		}
+	}
+	if sess1 == nil {
+		t.Fatalf("failed to retrieve session 1")
 	}
 	if sess1.SessionRate == nil || *sess1.SessionRate != 350.0 {
 		t.Errorf("expected session rate 350.0 inherited from location, got %v", sess1.SessionRate)
@@ -1277,11 +1370,19 @@ func TestHandleCreateSession_LocationFixedRatePreFill(t *testing.T) {
 		t.Fatalf("expected 303 SeeOther, got %d: %s", rec2.Code, rec2.Body.String())
 	}
 	locURL2 := rec2.Header().Get("Location")
-	sessID2 := strings.TrimSuffix(strings.TrimPrefix(locURL2, "/sessions/"), "/live")
-	sessUUID2, _ := uuid.Parse(sessID2)
-	sess2, err := store.GetSessionByID(sessUUID2)
-	if err != nil {
-		t.Fatalf("failed to retrieve session 2: %v", err)
+	if locURL2 != "/sessions?date=2026-10-26" {
+		t.Fatalf("expected redirect to calendar view /sessions?date=2026-10-26, got %s", locURL2)
+	}
+	allSess2, _ := store.GetAllSessions()
+	var sess2 *models.TrainingSession
+	for _, s := range allSess2 {
+		if s.SessionDate.Format("2006-01-02") == "2026-10-26" && s.StartTime == "16:00" {
+			sess2 = s
+			break
+		}
+	}
+	if sess2 == nil {
+		t.Fatalf("failed to retrieve session 2")
 	}
 	if sess2.SessionRate == nil || *sess2.SessionRate != 450.0 {
 		t.Errorf("expected overridden session rate 450.0, got %v", sess2.SessionRate)

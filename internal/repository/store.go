@@ -124,6 +124,11 @@ type RepositoryStore interface {
 
 	// Belt Promotion
 	PromoteStudent(studentID uuid.UUID, newBelt models.BeltRank) error
+
+	// Audit Logs
+	CreateAuditLog(entry *models.AuditLog) error
+	GetAuditLogs(filter models.AuditLogFilter) ([]*models.AuditLog, int, error)
+	GetAuditTelemetry() (*models.AuditTelemetry, error)
 }
 
 type SessionTokenRecord struct {
@@ -149,6 +154,7 @@ type MemoryStore struct {
 	safetyIncidents     map[uuid.UUID]*models.SafetyIncident
 	locations           map[uuid.UUID]*models.Location
 	trainingCategories  map[uuid.UUID]*models.TrainingCategory
+	auditLogs           []*models.AuditLog
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -168,6 +174,7 @@ func NewMemoryStore() *MemoryStore {
 		safetyIncidents:     make(map[uuid.UUID]*models.SafetyIncident),
 		locations:           make(map[uuid.UUID]*models.Location),
 		trainingCategories:  make(map[uuid.UUID]*models.TrainingCategory),
+		auditLogs:           make([]*models.AuditLog, 0),
 	}
 	m.seedData()
 	return m
@@ -1578,5 +1585,123 @@ func (m *MemoryStore) DeleteTrainingCategory(id uuid.UUID) error {
 
 	delete(m.trainingCategories, id)
 	return nil
+}
+
+// Audit Logs
+func (m *MemoryStore) CreateAuditLog(entry *models.AuditLog) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if entry.ID == uuid.Nil {
+		entry.ID = uuid.New()
+	}
+	if entry.CreatedAt.IsZero() {
+		entry.CreatedAt = time.Now()
+	}
+	// Prepend for newest-first order
+	m.auditLogs = append([]*models.AuditLog{entry}, m.auditLogs...)
+	return nil
+}
+
+func (m *MemoryStore) GetAuditLogs(filter models.AuditLogFilter) ([]*models.AuditLog, int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var filtered []*models.AuditLog
+	searchLower := strings.ToLower(strings.TrimSpace(filter.Search))
+	catFilter := strings.ToUpper(strings.TrimSpace(filter.Category))
+	roleFilter := strings.ToUpper(strings.TrimSpace(filter.Role))
+	actionFilter := strings.ToUpper(strings.TrimSpace(filter.Action))
+
+	for _, entry := range m.auditLogs {
+		if catFilter != "" && catFilter != "ALL" && string(entry.Category) != catFilter {
+			continue
+		}
+		if roleFilter != "" && roleFilter != "ALL" && string(entry.ActorRole) != roleFilter {
+			continue
+		}
+		if actionFilter != "" && !strings.Contains(strings.ToUpper(entry.Action), actionFilter) {
+			continue
+		}
+		if filter.StartDate != "" {
+			entryDate := entry.CreatedAt.Format("2006-01-02")
+			if entryDate < filter.StartDate {
+				continue
+			}
+		}
+		if filter.EndDate != "" {
+			entryDate := entry.CreatedAt.Format("2006-01-02")
+			if entryDate > filter.EndDate {
+				continue
+			}
+		}
+		if searchLower != "" {
+			match := strings.Contains(strings.ToLower(entry.ActorName), searchLower) ||
+				strings.Contains(strings.ToLower(entry.ActorEmail), searchLower) ||
+				strings.Contains(strings.ToLower(entry.Action), searchLower) ||
+				strings.Contains(strings.ToLower(entry.TargetName), searchLower) ||
+				strings.Contains(strings.ToLower(entry.Description), searchLower) ||
+				strings.Contains(strings.ToLower(entry.IPAddress), searchLower)
+			if !match {
+				continue
+			}
+		}
+		filtered = append(filtered, entry)
+	}
+
+	total := len(filtered)
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= total {
+		return []*models.AuditLog{}, total, nil
+	}
+
+	end := total
+	if filter.Limit > 0 && offset+filter.Limit < end {
+		end = offset + filter.Limit
+	}
+
+	page := make([]*models.AuditLog, end-offset)
+	copy(page, filtered[offset:end])
+	return page, total, nil
+}
+
+func (m *MemoryStore) GetAuditTelemetry() (*models.AuditTelemetry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	todayStr := time.Now().Format("2006-01-02")
+	activeUsersMap := make(map[string]bool)
+	var todayCount int
+	var secCount int
+
+	for _, entry := range m.auditLogs {
+		if entry.CreatedAt.Format("2006-01-02") == todayStr {
+			todayCount++
+			if entry.ActorEmail != "" {
+				activeUsersMap[entry.ActorEmail] = true
+			} else if entry.UserID != nil {
+				activeUsersMap[entry.UserID.String()] = true
+			}
+		}
+		act := strings.ToUpper(entry.Action)
+		if entry.Category == models.AuditCategoryAuth ||
+			entry.Category == models.AuditCategorySafety ||
+			strings.Contains(act, "DELETE") ||
+			strings.Contains(act, "RESET") ||
+			strings.Contains(act, "REVOKE") ||
+			strings.Contains(act, "DEACTIVATE") {
+			secCount++
+		}
+	}
+
+	return &models.AuditTelemetry{
+		TotalLogs:       len(m.auditLogs),
+		TodayLogs:       todayCount,
+		ActiveUsers:     len(activeUsersMap),
+		SecurityActions: secCount,
+	}, nil
 }
 

@@ -99,3 +99,19 @@ func (u *User) IsStudent() bool {
 func (u *User) IsPendingApproval() bool {
 	return !u.IsActive && u.LastLoginAt == nil
 }
+
+func (u *User) RoleDashboardURL() string {
+	if u == nil {
+		return "/login"
+	}
+	switch u.Role {
+	case RoleOperationManager:
+		return "/"
+	case RoleAdmin, RoleCoach:
+		return "/sessions"
+	case RoleStudent:
+		return "/portal/student"
+	default:
+		return "/"
+	}
+}
