@@ -1,0 +1,646 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Coach Dashboard &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Top Coach Header -->
+    <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5 sm:space-x-4">
+                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl sm:text-3xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+                    🥊
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="font-display font-black text-2xl sm:text-3xl text-black dark:text-[#FFFDF4] uppercase tracking-wide">
+                            {{if .Coach}}{{.Coach.FullName}}{{else if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}Instructor Console{{end}}
+                        </h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/15 text-red-600 dark:text-red-400 border border-red-500/30">
+                            Dan Coach
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 flex-wrap font-medium">
+                        {{if .Coach}}
+                        <span>Belt Rank: <strong class="text-black dark:text-white">{{.Coach.BeltRank}}</strong></span>
+                        <span>&bull;</span>
+                        <span>First Aid:
+                            {{if .Coach.IsFirstAidValid}}
+                            <strong class="text-emerald-600 dark:text-emerald-400">Certified Active</strong>
+                            {{else}}
+                            <strong class="text-rose-600 dark:text-rose-400">Expired / Renewal Due</strong>
+                            {{end}}
+                        </span>
+                        <span>&bull;</span>
+                        <span>Classes Conducted: <strong class="text-black dark:text-white">{{.ClassesConductedCount}}</strong></span>
+                        {{else}}
+                        <span>Dojang Martial Arts Instructor</span>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Quick Select & Switch Class -->
+            <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+                {{if .AllSessions}}
+                <div class="flex items-center gap-2">
+                    <label for="session-quick-select" class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Class Monitor:</label>
+                    <select id="session-quick-select" onchange="window.location.href='/?session_id=' + this.value"
+                            class="form-select text-xs py-1.5 px-3 min-w-[200px]">
+                        {{range .AllSessions}}
+                        <option value="{{.ID}}" {{if and $.LiveSession (eq $.LiveSession.ID.String .ID.String)}}selected{{end}}>
+                            {{.StartTime}} - {{.EndTime}} &bull; {{.TrainingType}}
+                        </option>
+                        {{end}}
+                    </select>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        {{if .Coach}}
+        {{if .Coach.Specialties}}
+        <div class="mt-4 pt-3 border-t border-[#E5E3D8] dark:border-neutral-800/80 flex items-center gap-2 flex-wrap text-xs">
+            <span class="font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-[11px]">Specialties:</span>
+            {{range .Coach.Specialties}}
+            <span class="px-2.5 py-0.5 rounded-lg bg-neutral-100 dark:bg-neutral-800/80 text-black dark:text-white border border-[#E5E3D8] dark:border-neutral-700 font-semibold text-[11px]">
+                {{.}}
+            </span>
+            {{end}}
+        </div>
+        {{end}}
+        {{end}}
+    </div>
+
+    <!-- Quick Access Launcher Bar -->
+    <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+            <div>
+                <h2 class="font-display font-extrabold text-sm uppercase text-black dark:text-[#FFFDF4] tracking-wide">
+                    Instructor Quick Access Hub
+                </h2>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    Fast shortcuts to everyday coaching tools and student floor administration.
+                </p>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <a href="#quick-admit-section" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">🥋</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Mat Check-In</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Admit Student</span>
+            </a>
+            <button type="button" onclick="openEvalModal('', '')" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">⭐</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Evaluate Athlete</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">6-Pillar Radar</span>
+            </button>
+            <button type="button" onclick="openSafetyModal('', '')" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">🚨</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Safety Flag</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Injury Hold</span>
+            </button>
+            <a href="/sessions" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">📅</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Floor Schedule</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Timetable Grid</span>
+            </a>
+            <a href="/students" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">👥</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Student Roster</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Directory &amp; Belts</span>
+            </a>
+            <a href="/profile" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">👤</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Coach Profile</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Specialties &amp; Phone</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Coach Telemetry Cards Grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        <!-- Card 1: Today's Classes -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Today's Sessions
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{len .TodaySessions}}
+                </span>
+                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                    Floor Schedule
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 2: Live On-Mat Count -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Athletes On Mat
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-[#990303] dark:text-red-400">
+                    {{len .LiveAttendances}}
+                </span>
+                <span class="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span class="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+                    Live Roster
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 3: Promotion Review Queue -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Readiness Candidates
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{len .PriorityReviewQueue}}
+                </span>
+                <span class="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                    Testing Eligible
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 4: Safety Incident Alerts -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Safety Holds / Injuries
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black {{if gt (len .OpenSafetyIncidents) 0}}text-rose-600 dark:text-rose-400{{else}}text-black dark:text-white{{end}}">
+                    {{len .OpenSafetyIncidents}}
+                </span>
+                <span class="text-xs font-bold {{if gt (len .OpenSafetyIncidents) 0}}text-rose-600 bg-rose-500/15{{else}}text-slate-500 bg-neutral-200 dark:bg-neutral-800{{end}} px-2 py-0.5 rounded-full">
+                    {{if gt (len .OpenSafetyIncidents) 0}}Medical Alert{{else}}All Clear{{end}}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Operational Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Col 1 & 2: Today's Schedule & Live Mat Roster -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Today's Classes List -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Today's Training Sessions
+                        </h2>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-300 border border-[#E5E3D8] dark:border-neutral-700">
+                            {{len .TodaySessions}} Scheduled
+                        </span>
+                    </div>
+                    <a href="/sessions" class="text-xs font-bold text-[#990303] dark:text-red-400 hover:underline">
+                        Full Schedule &rarr;
+                    </a>
+                </div>
+
+                <div class="space-y-3">
+                    {{range .TodaySessions}}
+                    <div class="p-3.5 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-[#990303]/40 transition">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 text-slate-800 dark:text-slate-200">
+                                    {{.TrainingType}}
+                                </span>
+                                {{if .IsOpen}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Open Now
+                                </span>
+                                {{else if .IsCancelled}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                    Cancelled
+                                </span>
+                                {{else}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">
+                                    Closed
+                                </span>
+                                {{end}}
+                                {{if and $.Coach (eq .CoachIDString $.Coach.ID.String)}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30">
+                                    Assigned to You
+                                </span>
+                                {{end}}
+                            </div>
+                            <h3 class="font-display font-extrabold text-sm sm:text-base text-black dark:text-white mt-0.5">
+                                {{.StartTime}} - {{.EndTime}}
+                            </h3>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">
+                                Coach: <strong class="text-black dark:text-white">{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}</strong>
+                                {{if .LocationName}} &bull; 📍 {{.LocationName}}{{end}}
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <a href="/sessions/{{.ID}}/live" class="btn btn-primary btn-sm flex-1 sm:flex-initial">
+                                🥋 Live Attendance &rarr;
+                            </a>
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="p-8 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
+                        <p class="text-xs sm:text-sm font-medium">No sessions scheduled for today.</p>
+                        <a href="/sessions" class="mt-2 inline-block text-xs font-bold text-[#990303] dark:text-red-400 hover:underline">
+                            Open Schedule Timetable &rarr;
+                        </a>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Live Mat Roster & Rapid Admittance Bar -->
+            <div id="quick-admit-section" class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Live Mat Roster ({{if .LiveSession}}{{.LiveSession.TrainingType}} @ {{.LiveSession.StartTime}}{{else}}Standby{{end}})
+                        </h2>
+                        <span class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Live mat roster note">ⓘ</button>
+                            <span class="tooltip-content w-64">
+                                Practitioners admitted to the active floor class with package deduction.
+                            </span>
+                        </span>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+                        {{len .LiveAttendances}} On Mat
+                    </span>
+                </div>
+
+                <!-- Rapid Mat Check-In Bar -->
+                {{if .LiveSession}}
+                <div class="mb-5 p-3 rounded-xl bg-neutral-100 dark:bg-neutral-900/80 border border-[#E5E3D8] dark:border-neutral-800">
+                    <form hx-post="/api/coach/check-in"
+                          hx-target="#attendance-roster"
+                          hx-swap="afterbegin"
+                          class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <input type="hidden" name="session_id" value="{{.LiveSession.ID}}">
+                        <div class="flex-1">
+                            <select name="student_id" required
+                                    class="form-select text-xs searchable-select" data-placeholder="Select Practitioner to Admit...">
+                                <option value="">Select Practitioner to Admit...</option>
+                                {{range .AllStudents}}
+                                <option value="{{.ID}}">
+                                    {{.FullName}} ({{.CurrentBelt}}) {{if .HasSafetyFlag}}⚠️ [Safety Hold]{{end}}
+                                </option>
+                                {{end}}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm whitespace-nowrap">
+                            + Admit to Mat
+                        </button>
+                    </form>
+                </div>
+                {{end}}
+
+                <!-- Live Attendance Roster Table -->
+                <div class="overflow-x-auto -mx-1 sm:mx-0">
+                    <table class="w-full text-left text-xs min-w-[500px]">
+                        <thead>
+                            <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase tracking-wider">
+                                <th class="pb-2.5">Practitioner</th>
+                                <th class="pb-2.5">Admitted At</th>
+                                <th class="pb-2.5">Pass Status</th>
+                                <th class="pb-2.5 text-right">Quick Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-roster" class="divide-y divide-[#E5E3D8] dark:divide-neutral-800/60 font-medium">
+                            {{range .LiveAttendances}}
+                            <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition">
+                                <td class="py-2.5 font-bold text-black dark:text-white">
+                                    <a href="/students/{{.StudentID}}" class="hover:underline text-[#990303] dark:text-red-400">
+                                        {{.StudentName}}
+                                    </a>
+                                </td>
+                                <td class="py-2.5 text-slate-600 dark:text-slate-400">
+                                    {{formatDate .CheckedInAt}}
+                                </td>
+                                <td class="py-2.5">
+                                    {{if .SessionRate}}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                                        Fixed ₱{{formatCurrency .SessionRate}}
+                                    </span>
+                                    {{else if .PackageTitle}}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                        {{.PackageTitle}}
+                                    </span>
+                                    {{else}}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
+                                        Active Pass
+                                    </span>
+                                    {{end}}
+                                </td>
+                                <td class="py-2.5 text-right">
+                                    <button type="button" onclick="openEvalModal('{{.StudentID}}', '{{.StudentName}}')"
+                                            class="btn btn-outline btn-xs mr-1">
+                                        ⭐ Grade
+                                    </button>
+                                </td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td colspan="4" class="py-6 text-center text-slate-600 dark:text-slate-400">
+                                    No practitioners admitted to this class yet. Select above to admit.
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 3: Priority Readiness Queue & Safety Hold Monitor -->
+        <div class="space-y-6">
+            <!-- Priority Review Queue (Athletes Ready for Belt Advancement) -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                            Promotion Review
+                        </h2>
+                        <span class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Promotion review note">ⓘ</button>
+                            <span class="tooltip-content w-64">
+                                Athletes with fulfilled class attendance and tenure awaiting athletic grading.
+                            </span>
+                        </span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                        {{len .PriorityReviewQueue}} Candidates
+                    </span>
+                </div>
+
+                <div class="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
+                    {{range .PriorityReviewQueue}}
+                    <div class="p-3.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 text-xs">
+                        <div class="flex items-start justify-between gap-2 mb-1.5">
+                            <div>
+                                <a href="/students/{{.Student.ID}}" class="font-bold text-black dark:text-white hover:underline text-sm">
+                                    {{.Student.FullName}}
+                                </a>
+                                <div class="flex items-center gap-1.5 mt-0.5">
+                                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
+                                        {{.Student.CurrentBelt}}
+                                    </span>
+                                    <span class="text-slate-500">&rarr;</span>
+                                    <span class="text-[#990303] dark:text-red-400 font-bold text-[10px]">
+                                        {{.Student.NextBelt}}
+                                    </span>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
+                                {{if eq .Readiness.BadgeColor "emerald"}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400
+                                {{else}}bg-amber-500/15 text-amber-600 dark:text-amber-400{{end}}">
+                                {{.Readiness.BadgeIcon}} {{.Readiness.Status}}
+                            </span>
+                        </div>
+                        <div class="text-[11px] text-slate-600 dark:text-slate-400 mb-2">
+                            <span>Classes: <strong>{{.Readiness.TotalSessions}}/{{.Readiness.RequiredSessions}}</strong></span> &bull;
+                            <span>Tenure: <strong>{{.Readiness.DaysInRank}}/{{.Readiness.RequiredDaysInRank}} days</strong></span>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="button" onclick="openEvalModal('{{.Student.ID}}', '{{.Student.FullName}}')"
+                                    class="btn btn-primary btn-xs w-full sm:w-auto">
+                                ⭐ Rapid Evaluate
+                            </button>
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="p-6 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
+                        <p class="text-xs font-medium">No candidates currently awaiting promotion evaluation.</p>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Active Medical & Safety Holds Monitor -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                            Floor Safety Holds
+                        </h2>
+                        <span class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Safety hold note">ⓘ</button>
+                            <span class="tooltip-content w-64">
+                                Injured or medical-restricted practitioners barred from floor admittance without clearance.
+                            </span>
+                        </span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-xs font-bold {{if gt (len .OpenSafetyIncidents) 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400{{else}}bg-neutral-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
+                        {{len .OpenSafetyIncidents}} Holds
+                    </span>
+                </div>
+
+                <div class="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {{range .OpenSafetyIncidents}}
+                    <div class="p-3 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 text-xs space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-rose-900 dark:text-rose-200 text-sm">{{.StudentName}}</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                ACTIVE HOLD
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-rose-800 dark:text-rose-300 font-semibold">
+                            Incident: {{.IncidentType}}
+                        </p>
+                        {{if .Notes}}
+                        <p class="text-[10px] text-rose-700 dark:text-rose-400 italic">
+                            "{{.Notes}}"
+                        </p>
+                        {{end}}
+                        <p class="text-[10px] text-slate-500 pt-1">
+                            Logged: {{formatDate .CreatedAt}}
+                        </p>
+                    </div>
+                    {{else}}
+                    <div class="p-5 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
+                        <p class="text-xs font-medium">All clear! No athletes currently on safety hold.</p>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Quick Athletic Evaluation Modal -->
+<div id="coach-eval-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <div>
+                <h3 class="font-display font-black text-lg uppercase text-black dark:text-white">
+                    ⭐ Rapid Athlete Evaluation
+                </h3>
+                <p class="text-xs text-slate-600 dark:text-slate-400" id="eval-student-subtitle">
+                    Grade student 6-pillar athletic ability matrix (1 - 10)
+                </p>
+            </div>
+            <button type="button" onclick="closeEvalModal()" class="modal-close">&times;</button>
+        </div>
+
+        <form id="coach-eval-form" hx-post="/api/coach/evaluate" hx-swap="none" onsubmit="handleEvalSubmit(event)" class="space-y-4 text-xs">
+            <div>
+                <label class="form-label">Athlete / Practitioner</label>
+                <select name="student_id" id="eval-student-select" required class="form-select searchable-select" data-placeholder="Select Student to Grade...">
+                    <option value="">Select Student to Grade...</option>
+                    {{range .AllStudents}}
+                    <option value="{{.ID}}">{{.FullName}} ({{.CurrentBelt}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="form-label">Flexibility (1-10)</label>
+                    <input type="number" name="flexibility" min="1" max="10" value="7" required class="form-input text-xs">
+                </div>
+                <div>
+                    <label class="form-label">Stamina (1-10)</label>
+                    <input type="number" name="stamina" min="1" max="10" value="7" required class="form-input text-xs">
+                </div>
+                <div>
+                    <label class="form-label">Power (1-10)</label>
+                    <input type="number" name="power" min="1" max="10" value="7" required class="form-input text-xs">
+                </div>
+                <div>
+                    <label class="form-label">Technique (1-10)</label>
+                    <input type="number" name="technique" min="1" max="10" value="7" required class="form-input text-xs">
+                </div>
+                <div>
+                    <label class="form-label">Sparring IQ (1-10)</label>
+                    <input type="number" name="sparring_iq" min="1" max="10" value="7" required class="form-input text-xs">
+                </div>
+                <div>
+                    <label class="form-label">Discipline (1-10)</label>
+                    <input type="number" name="discipline" min="1" max="10" value="8" required class="form-input text-xs">
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label">Coach Notes / Technical Feedback</label>
+                <textarea name="remarks" rows="2" placeholder="e.g. Sharp snap on turning kicks, improve defensive recovery stance..." class="form-textarea"></textarea>
+            </div>
+
+            <div id="eval-feedback" class="hidden p-2.5 rounded-lg text-xs font-semibold"></div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeEvalModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Submit Evaluation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Report Safety Incident Modal -->
+<div id="safety-incident-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <div>
+                <h3 class="font-display font-black text-lg uppercase text-rose-600 dark:text-rose-400">
+                    🚨 Report Floor Safety Incident
+                </h3>
+                <p class="text-xs text-slate-600 dark:text-slate-400">
+                    Immediately flags a practitioner with a floor safety hold
+                </p>
+            </div>
+            <button type="button" onclick="closeSafetyModal()" class="modal-close">&times;</button>
+        </div>
+
+        <form hx-post="/api/safety/flag" hx-swap="none" onsubmit="handleSafetySubmit(event)" class="space-y-4 text-xs">
+            <div>
+                <label class="form-label">Student</label>
+                <select name="student_id" id="safety-student-select" required class="form-select searchable-select" data-placeholder="Select Injured Student...">
+                    <option value="">Select Injured Student...</option>
+                    {{range .AllStudents}}
+                    <option value="{{.ID}}">{{.FullName}} ({{.CurrentBelt}})</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Incident Type</label>
+                <select name="incident_type" required class="form-select">
+                    <option value="Sprained Ankle / Foot">Sprained Ankle / Foot</option>
+                    <option value="Head Impact / Concussion Protocol">Head Impact / Concussion Protocol</option>
+                    <option value="Bruising / Muscle Strain">Bruising / Muscle Strain</option>
+                    <option value="Hyperextension (Knee / Elbow)">Hyperextension (Knee / Elbow)</option>
+                    <option value="Nosebleed / Facial Impact">Nosebleed / Facial Impact</option>
+                    <option value="General Medical / Dizziness">General Medical / Dizziness</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Clinical Remarks &amp; Floor Action Taken</label>
+                <textarea name="notes" rows="3" required placeholder="e.g. Applied ice pack, rested for 15 mins. Advised medical clearance before next sparring class..." class="form-textarea"></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeSafetyModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-danger btn-sm">Apply Safety Hold</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEvalModal(studentID, studentName) {
+    var modal = document.getElementById('coach-eval-modal');
+    var select = document.getElementById('eval-student-select');
+    var subtitle = document.getElementById('eval-student-subtitle');
+    if (studentID && select) {
+        select.value = studentID;
+        if (select.dispatchEvent) {
+            select.dispatchEvent(new Event('change'));
+        }
+    }
+    if (studentName && subtitle) {
+        subtitle.textContent = "Grading: " + studentName;
+    } else if (subtitle) {
+        subtitle.textContent = "Grade student 6-pillar athletic ability matrix (1 - 10)";
+    }
+    modal.classList.remove('hidden');
+}
+
+function closeEvalModal() {
+    document.getElementById('coach-eval-modal').classList.add('hidden');
+}
+
+function handleEvalSubmit(e) {
+    setTimeout(function() {
+        closeEvalModal();
+        window.location.reload();
+    }, 500);
+}
+
+function openSafetyModal(studentID, studentName) {
+    var modal = document.getElementById('safety-incident-modal');
+    var select = document.getElementById('safety-student-select');
+    if (studentID && select) {
+        select.value = studentID;
+        if (select.dispatchEvent) {
+            select.dispatchEvent(new Event('change'));
+        }
+    }
+    modal.classList.remove('hidden');
+}
+
+function closeSafetyModal() {
+    document.getElementById('safety-incident-modal').classList.add('hidden');
+}
+
+function handleSafetySubmit(e) {
+    setTimeout(function() {
+        closeSafetyModal();
+        window.location.reload();
+    }, 500);
+}
+</script>
+{{end}}

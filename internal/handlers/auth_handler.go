@@ -90,10 +90,10 @@ func (a *AppHandler) RequireRole(roles ...models.UserRole) func(http.HandlerFunc
 						http.Redirect(w, r, "/", http.StatusSeeOther)
 						return
 					case models.RoleAdmin:
-						http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+						http.Redirect(w, r, "/", http.StatusSeeOther)
 						return
 					case models.RoleCoach:
-						http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+						http.Redirect(w, r, "/", http.StatusSeeOther)
 						return
 					case models.RoleStudent:
 						http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
@@ -170,14 +170,8 @@ func (a *AppHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	user := GetUserFromContext(r.Context())
 	if user != nil {
 		switch user.Role {
-		case models.RoleOperationManager:
+		case models.RoleOperationManager, models.RoleAdmin, models.RoleCoach:
 			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		case models.RoleAdmin:
-			http.Redirect(w, r, "/sessions", http.StatusSeeOther)
-			return
-		case models.RoleCoach:
-			http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 			return
 		case models.RoleStudent:
 			http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
@@ -244,12 +238,8 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch user.Role {
-	case models.RoleOperationManager:
+	case models.RoleOperationManager, models.RoleAdmin, models.RoleCoach:
 		http.Redirect(w, r, "/", http.StatusSeeOther)
-	case models.RoleAdmin:
-		http.Redirect(w, r, "/sessions", http.StatusSeeOther)
-	case models.RoleCoach:
-		http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 	case models.RoleStudent:
 		http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
 	default:

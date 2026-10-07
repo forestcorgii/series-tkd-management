@@ -148,8 +148,10 @@ func main() {
 	mux.HandleFunc("PUT /api/admin/schedule", app.RequireRole(models.RoleOperationManager)(app.HandleAPIAdminSchedule))
 	mux.HandleFunc("POST /api/admin/promote", app.RequireRole(models.RoleOperationManager)(app.HandleAPIAdminPromote))
 
-	// Dashboard (Only Operation Manager has full control over executive dashboard)
-	mux.HandleFunc("GET /", app.RequireRole(models.RoleOperationManager)(app.HandleDashboard))
+	// Dashboard (Customized Dashboards for Operation Manager, Coach & Admin)
+	mux.HandleFunc("GET /", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
+	mux.HandleFunc("GET /dashboard", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
+	mux.HandleFunc("GET /dashboard/", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
 
 	// Students & Ability Radar (Coach, Admin & Operation Manager; Students can view their own profile via /students/{id})
 	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudents))

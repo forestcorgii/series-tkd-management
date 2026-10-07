@@ -1,0 +1,661 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Admin Dashboard &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Top Admin Header -->
+    <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5 sm:space-x-4">
+                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-tr from-purple-700 to-indigo-900 text-white flex items-center justify-center font-display font-black text-2xl sm:text-3xl shadow-lg shadow-purple-900/30 border border-purple-500/30 flex-shrink-0">
+                    🛡️
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="font-display font-black text-2xl sm:text-3xl text-black dark:text-[#FFFDF4] uppercase tracking-wide">
+                            Front-Desk Admin Console
+                        </h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                            Administrator
+                        </span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
+                        Welcome, <strong class="text-black dark:text-white">{{if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}{{.CurrentUser.Email}}{{end}}</strong> &bull; Central floor reception, registrations &amp; billing operations.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                <button type="button" onclick="openNewStudentModal()" class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm">
+                    ➕ Register Student
+                </button>
+                <button type="button" onclick="openAssignPassModal('', '')" class="btn btn-outline btn-sm flex items-center gap-1.5 shadow-sm">
+                    💳 Assign Pass
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Access Launcher Bar -->
+    <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+            <div>
+                <h2 class="font-display font-extrabold text-sm uppercase text-black dark:text-[#FFFDF4] tracking-wide">
+                    Front-Desk Quick Access Hub
+                </h2>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    1-Click access to registrations, passes, timetable scheduling, and floor check-ins.
+                </p>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <button type="button" onclick="openNewStudentModal()" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">➕</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Register Student</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Add to Dojang</span>
+            </button>
+            <button type="button" onclick="openAssignPassModal('', '')" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">💳</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Assign Package</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Membership Pass</span>
+            </button>
+            <button type="button" onclick="openNewSessionModal()" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">📅</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Schedule Class</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Create Session</span>
+            </button>
+            <a href="/sessions" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">🥋</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Live Attendance</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Floor Tablet</span>
+            </a>
+            <a href="/students" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">👥</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Student Directory</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">Contact &amp; Emergency</span>
+            </a>
+            <a href="/packages" class="flex flex-col items-center justify-center p-3 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 hover:border-[#990303] dark:hover:border-red-500/60 hover:shadow-md transition text-center group">
+                <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">🏷️</span>
+                <span class="font-display font-bold text-xs uppercase text-black dark:text-white">Memberships Hub</span>
+                <span class="text-[10px] text-slate-600 dark:text-slate-400">All Student Passes</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Master Front-Desk Telemetry Cards Grid (4 Cards) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        <!-- Card 1: Active Students -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Active Students
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{.ActiveStudentsCount}}
+                </span>
+                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                    Roster Active
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 2: Today's Classes -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Classes Today
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{.TodaySessionsCount}}
+                </span>
+                <span class="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    {{len .LiveSessions}} Open Now
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 3: Active Prepaid Passes -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Active Passes
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
+                    {{.ActivePackagesCount}}
+                </span>
+                <span class="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">
+                    Wallets Active
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 4: Expiring / Low-Credit Passes -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
+                Passes Due for Renewal
+            </span>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl sm:text-3xl font-display font-black {{if gt .ExpiringPackagesCount 0}}text-amber-600 dark:text-amber-400{{else}}text-black dark:text-white{{end}}">
+                    {{.ExpiringPackagesCount}}
+                </span>
+                <span class="text-xs font-bold {{if gt .ExpiringPackagesCount 0}}text-amber-600 bg-amber-500/15{{else}}text-slate-500 bg-neutral-200 dark:bg-neutral-800{{end}} px-2 py-0.5 rounded-full">
+                    {{if gt .ExpiringPackagesCount 0}}Action Needed{{else}}All Good{{end}}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Operational Columns -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Col 1 & 2: Floor Schedule & Membership Renewal Alerts -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Today's Floor Schedule -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Floor Schedule Today
+                        </h2>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-300 border border-[#E5E3D8] dark:border-neutral-700">
+                            {{len .TodaySessions}} Classes
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="openNewSessionModal()" class="btn btn-outline btn-xs">
+                            ➕ New Class
+                        </button>
+                        <a href="/sessions" class="text-xs font-bold text-[#990303] dark:text-red-400 hover:underline">
+                            Timetable &rarr;
+                        </a>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    {{range .TodaySessions}}
+                    <div class="p-3.5 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-[#990303]/40 transition">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 text-slate-800 dark:text-slate-200">
+                                    {{.TrainingType}}
+                                </span>
+                                {{if .IsOpen}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Open Now
+                                </span>
+                                {{else if .IsCancelled}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                    Cancelled
+                                </span>
+                                {{else}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">
+                                    Concluded
+                                </span>
+                                {{end}}
+                            </div>
+                            <h3 class="font-display font-extrabold text-sm sm:text-base text-black dark:text-white mt-0.5">
+                                {{.StartTime}} - {{.EndTime}}
+                            </h3>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">
+                                Lead Coach: <strong class="text-black dark:text-white">{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}</strong>
+                                {{if .LocationName}} &bull; 📍 {{.LocationName}}{{end}}
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <a href="/sessions/{{.ID}}/live" class="btn btn-primary btn-sm flex-1 sm:flex-initial">
+                                🥋 Check-In Desk &rarr;
+                            </a>
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="p-8 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
+                        <p class="text-xs sm:text-sm font-medium">No sessions scheduled for today.</p>
+                        <button type="button" onclick="openNewSessionModal()" class="mt-2 text-xs font-bold text-[#990303] dark:text-red-400 hover:underline">
+                            + Schedule a class now
+                        </button>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Membership Passes Due for Renewal / Low Credit Alerts -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+                            Pass Renewal &amp; Low-Credit Alerts
+                        </h2>
+                        <span class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Pass alerts info">ⓘ</button>
+                            <span class="tooltip-content w-64">
+                                Students whose packages expire within 7 days or have 2 or fewer classes remaining.
+                            </span>
+                        </span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                        {{len .ExpiringPackages}} Due
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto -mx-1 sm:mx-0">
+                    <table class="w-full text-left text-xs min-w-[550px]">
+                        <thead>
+                            <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase tracking-wider">
+                                <th class="pb-2.5">Student</th>
+                                <th class="pb-2.5">Package Plan</th>
+                                <th class="pb-2.5">Remaining</th>
+                                <th class="pb-2.5">Expiry Date</th>
+                                <th class="pb-2.5 text-right">Quick Renewal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-[#E5E3D8] dark:divide-neutral-800/60 font-medium">
+                            {{range .ExpiringPackages}}
+                            <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition">
+                                <td class="py-2.5 font-bold text-black dark:text-white">
+                                    <a href="/students/{{.StudentID}}" class="hover:underline text-[#990303] dark:text-red-400">
+                                        {{.StudentName}}
+                                    </a>
+                                </td>
+                                <td class="py-2.5 text-slate-700 dark:text-slate-300">
+                                    {{.TemplateTitle}}
+                                </td>
+                                <td class="py-2.5">
+                                    {{if .IsUnlimited}}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
+                                        Unlimited Pass
+                                    </span>
+                                    {{else if le .RemainingSessions 1}}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                        ⚠️ {{.RemainingSessions}} Left
+                                    </span>
+                                    {{else}}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                        {{.RemainingSessions}} Left
+                                    </span>
+                                    {{end}}
+                                </td>
+                                <td class="py-2.5">
+                                    <div class="text-slate-600 dark:text-slate-400">
+                                        <span>{{formatDate .ExpiryDate}}</span>
+                                        {{if le .DaysUntilExpiry 3}}
+                                        <span class="block text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                            (In {{.DaysUntilExpiry}} days)
+                                        </span>
+                                        {{else}}
+                                        <span class="block text-[10px] text-slate-500">
+                                            (In {{.DaysUntilExpiry}} days)
+                                        </span>
+                                        {{end}}
+                                    </div>
+                                </td>
+                                <td class="py-2.5 text-right">
+                                    <button type="button" onclick="openAssignPassModal('{{.StudentID}}', '{{.StudentName}}')"
+                                            class="btn btn-primary btn-xs">
+                                        💳 Renew Pass
+                                    </button>
+                                </td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td colspan="5" class="py-6 text-center text-slate-600 dark:text-slate-400">
+                                    No student passes currently due for renewal.
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 3: Fast Student Search & Safety Holds Monitor -->
+        <div class="space-y-6">
+            <!-- Fast Student Search & Quick Admittance Widget -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-3 gap-2">
+                    <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                        Quick Student Finder
+                    </h2>
+                    <span class="text-xs text-slate-500">Fast Floor Action</span>
+                </div>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
+                    Instantly look up a practitioner to view details or assign passes.
+                </p>
+
+                <div class="space-y-3">
+                    <select id="quick-student-finder" onchange="onQuickStudentSelect(this)" class="form-select text-xs searchable-select" data-placeholder="Search by student name or belt...">
+                        <option value="">Search by student name or belt...</option>
+                        {{range .AllStudents}}
+                        <option value="{{.ID}}" data-name="{{.FullName}}" data-belt="{{.CurrentBelt}}">
+                            {{.FullName}} ({{.CurrentBelt}})
+                        </option>
+                        {{end}}
+                    </select>
+
+                    <div id="quick-student-card" class="hidden p-3.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span id="quick-student-name" class="font-bold text-sm text-black dark:text-white"></span>
+                            <span id="quick-student-belt" class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300"></span>
+                        </div>
+                        <div class="flex items-center gap-2 pt-1 border-t border-[#E5E3D8] dark:border-neutral-800">
+                            <a id="quick-student-view-btn" href="#" class="btn btn-secondary btn-xs flex-1 text-center">
+                                View Profile
+                            </a>
+                            <button type="button" id="quick-student-assign-btn" onclick="" class="btn btn-primary btn-xs flex-1">
+                                Assign Pass
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floor Safety Holds & Clearance Monitor -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
+                <div class="flex items-center justify-between mb-4 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+                            Floor Safety Holds
+                        </h2>
+                        <span class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Safety hold note">ⓘ</button>
+                            <span class="tooltip-content w-64">
+                                Practitioners restricted from mat activities due to injuries or medical concerns.
+                            </span>
+                        </span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-xs font-bold {{if gt (len .OpenSafetyIncidents) 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400{{else}}bg-neutral-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
+                        {{len .OpenSafetyIncidents}} Holds
+                    </span>
+                </div>
+
+                <div class="space-y-3 max-h-80 overflow-y-auto pr-1">
+                    {{range .OpenSafetyIncidents}}
+                    <div class="p-3 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 text-xs space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-rose-900 dark:text-rose-200 text-sm">{{.StudentName}}</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                ACTIVE HOLD
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-rose-800 dark:text-rose-300 font-semibold">
+                            Incident: {{.IncidentType}}
+                        </p>
+                        {{if .Notes}}
+                        <p class="text-[10px] text-rose-700 dark:text-rose-400 italic">
+                            "{{.Notes}}"
+                        </p>
+                        {{end}}
+                        <div class="flex items-center justify-between pt-1 text-[10px] text-slate-500">
+                            <span>Logged: {{formatDate .CreatedAt}}</span>
+                            <a href="/students/{{.StudentID}}" class="font-bold text-[#990303] dark:text-red-400 hover:underline">
+                                Student Record &rarr;
+                            </a>
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="p-5 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
+                        <p class="text-xs font-medium">All clear! No floor safety holds currently active.</p>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Register New Student Modal -->
+<div id="new-student-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase">Register New Student</h3>
+            <button type="button" onclick="closeNewStudentModal()" class="modal-close">&times;</button>
+        </div>
+        <form action="/students" method="POST" class="space-y-4">
+            <div>
+                <label class="form-label">Full Name</label>
+                <input type="text" name="full_name" required placeholder="Student's Full Name" class="form-input">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" name="dob" required class="form-input">
+                </div>
+                <div>
+                    <label class="form-label">Gender</label>
+                    <select name="gender" class="form-select">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="form-label">Contact Phone</label>
+                <input type="tel" name="phone" placeholder="e.g. 09171234567"
+                       pattern="[0-9]{11}" maxlength="11"
+                       title="Please enter exactly 11 digits (e.g. 09171234567)"
+                       oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
+                       class="form-input">
+            </div>
+
+            <!-- Emergency & Safety Details -->
+            <div class="p-3 bg-rose-50/60 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-900/50 space-y-3">
+                <span class="text-xs uppercase font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                    <span>🚨</span> Safety &amp; Emergency Contact
+                </span>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <input type="text" name="emergency_name" placeholder="Contact Name" required class="form-input">
+                    <input type="tel" name="emergency_phone" placeholder="11-digit phone" required
+                           pattern="[0-9]{11}" maxlength="11"
+                           title="Please enter exactly 11 digits"
+                           oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
+                           class="form-input">
+                    <input type="text" name="emergency_relation" placeholder="Relation" required class="form-input">
+                </div>
+                <textarea name="medical_notes" rows="2" placeholder="Medical clearance flags, allergies, injury logs..." class="form-textarea"></textarea>
+            </div>
+
+            <!-- Initial Membership Plan Enrollment (Optional) -->
+            <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <span class="text-xs uppercase font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span>💳</span> Initial Membership Plan <span class="text-[10px] text-slate-500 font-normal lowercase">(optional)</span>
+                </span>
+                <div>
+                    <label class="form-label text-[11px]">Select Membership Plan</label>
+                    <select name="template_id" class="form-select text-xs">
+                        <option value="">-- No Plan (Register Student Only) --</option>
+                        {{range .Templates}}
+                        {{if .IsActive}}
+                        <option value="{{.ID}}">
+                            {{.Title}} &bull; ₱{{printf "%.2f" .Price}} {{if .SessionCount}}({{.SessionCount}} classes){{else}}(Unlimited Pass){{end}}
+                        </option>
+                        {{end}}
+                        {{end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeNewStudentModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Assign Membership Pass Modal -->
+<div id="assign-pass-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase">Assign Membership Pass</h3>
+            <button type="button" onclick="closeAssignPassModal()" class="modal-close">&times;</button>
+        </div>
+        <form action="/packages/assign" method="POST" class="space-y-4">
+            <div>
+                <label class="form-label">Student</label>
+                <select name="student_id" id="assign-student-select" required class="form-select text-xs searchable-select" data-placeholder="Select Student...">
+                    <option value="">Select Student...</option>
+                    {{range .AllStudents}}
+                    <option value="{{.ID}}">{{.FullName}} ({{.CurrentBelt}})</option>
+                    {{end}}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Membership Plan Template</label>
+                <select name="template_id" required class="form-select text-xs">
+                    <option value="">Select Plan...</option>
+                    {{range .Templates}}
+                    {{if .IsActive}}
+                    <option value="{{.ID}}">
+                        {{.Title}} &bull; ₱{{printf "%.2f" .Price}} {{if .SessionCount}}({{.SessionCount}} classes){{else}}(Unlimited Pass){{end}} &bull; {{.ValidityDays}} days
+                    </option>
+                    {{end}}
+                    {{end}}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <label class="form-label">Payment Status</label>
+                    <select name="payment_status" class="form-select text-xs">
+                        <option value="paid" selected>PAID ✓</option>
+                        <option value="pending">PENDING</option>
+                        <option value="unpaid">UNPAID</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Custom Price Override (₱)</label>
+                    <input type="number" name="custom_price" step="0.01" min="0" placeholder="Default price" class="form-input text-xs">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeAssignPassModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Assign Membership</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 3: Schedule Floor Class Modal -->
+<div id="new-session-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-lg">
+        <div class="modal-header">
+            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase">Schedule Floor Class</h3>
+            <button type="button" onclick="closeNewSessionModal()" class="modal-close">&times;</button>
+        </div>
+        <form action="/sessions" method="POST" class="space-y-4">
+            <div>
+                <label class="form-label">Session Date</label>
+                <input type="date" name="session_date" id="new-session-date" required class="form-input text-xs">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="form-label">Start Time</label>
+                    <input type="time" name="start_time" id="new-start-time" value="16:00" required oninput="calcEndTime()" class="form-input text-xs">
+                </div>
+                <div>
+                    <label class="form-label">End Time</label>
+                    <input type="time" name="end_time" id="new-end-time" value="18:00" required class="form-input text-xs">
+                </div>
+            </div>
+            <div>
+                <label class="form-label">Lead Coach</label>
+                <select name="coach_id" class="form-select text-xs searchable-select" data-placeholder="Select Coach...">
+                    <option value="">None / Unassigned</option>
+                    {{range .AllCoaches}}
+                    {{if .IsActive}}
+                    <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                    {{end}}
+                    {{end}}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Location</label>
+                <select name="location_id" class="form-select text-xs">
+                    <option value="">Main Dojang</option>
+                    {{range .Locations}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Training Category</label>
+                <select name="training_type" required class="form-select text-xs">
+                    {{range .Categories}}
+                    <option value="{{.Name}}">{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeNewSessionModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Create Class</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openNewStudentModal() {
+    document.getElementById('new-student-modal').classList.remove('hidden');
+}
+function closeNewStudentModal() {
+    document.getElementById('new-student-modal').classList.add('hidden');
+}
+
+function openAssignPassModal(studentID, studentName) {
+    var modal = document.getElementById('assign-pass-modal');
+    var select = document.getElementById('assign-student-select');
+    if (studentID && select) {
+        select.value = studentID;
+        if (select.dispatchEvent) {
+            select.dispatchEvent(new Event('change'));
+        }
+    }
+    modal.classList.remove('hidden');
+}
+function closeAssignPassModal() {
+    document.getElementById('assign-pass-modal').classList.add('hidden');
+}
+
+function openNewSessionModal() {
+    var today = new Date().toISOString().split('T')[0];
+    document.getElementById('new-session-date').value = today;
+    document.getElementById('new-session-modal').classList.remove('hidden');
+}
+function closeNewSessionModal() {
+    document.getElementById('new-session-modal').classList.add('hidden');
+}
+
+function calcEndTime() {
+    var startInput = document.getElementById('new-start-time');
+    var endInput = document.getElementById('new-end-time');
+    if (startInput.value) {
+        var parts = startInput.value.split(':');
+        var hours = parseInt(parts[0], 10);
+        var mins = parts[1];
+        var endHours = (hours + 2) % 24;
+        endInput.value = (endHours < 10 ? '0' : '') + endHours + ':' + mins;
+    }
+}
+
+function onQuickStudentSelect(select) {
+    var card = document.getElementById('quick-student-card');
+    if (!select.value) {
+        card.classList.add('hidden');
+        return;
+    }
+    var selectedOpt = select.options[select.selectedIndex];
+    var studentName = selectedOpt.getAttribute('data-name');
+    var studentBelt = selectedOpt.getAttribute('data-belt');
+    var studentID = select.value;
+
+    document.getElementById('quick-student-name').textContent = studentName;
+    document.getElementById('quick-student-belt').textContent = studentBelt;
+    document.getElementById('quick-student-view-btn').href = '/students/' + studentID;
+    document.getElementById('quick-student-assign-btn').onclick = function() {
+        openAssignPassModal(studentID, studentName);
+    };
+
+    card.classList.remove('hidden');
+}
+</script>
+{{end}}

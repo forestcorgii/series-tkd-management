@@ -302,7 +302,7 @@
                     ST
                 </div>
                 <div>
-                    <a href="{{if $user}}{{if $user.IsOperationManager}}/{{else if or $user.IsAdmin $user.IsCoach}}/sessions{{else}}/portal/student{{end}}{{else}}/login{{end}}"
+                    <a href="{{if $user}}{{if or $user.IsOperationManager $user.IsAdmin $user.IsCoach}}/{{else}}/portal/student{{end}}{{else}}/login{{end}}"
                         class="font-display font-extrabold text-lg sm:text-xl tracking-wide text-[#000000] dark:text-[#FFFDF4] uppercase flex items-center gap-2">
                         SERIES TAEKWONDO
                         {{if $user}}
@@ -343,6 +343,8 @@
                 <a href="/locations"
                     class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
                 {{else if $user.IsAdmin}}
+                <a href="/"
+                    class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
                 <a href="/sessions"
                     class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
                 <a href="/students"
@@ -352,6 +354,8 @@
                 <a href="/locations"
                     class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
                 {{else if $user.IsCoach}}
+                <a href="/"
+                    class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
                 <a href="/sessions"
                     class="px-3 py-1.5 rounded-lg transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
                 <a href="/students"
@@ -524,11 +528,9 @@
                 <div>
                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Floor Operations</p>
                     <div class="space-y-1">
-                        {{if $user.IsOperationManager}}
                         <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
                             <span class="text-base">📊</span> <span>Dashboard</span>
                         </a>
-                        {{end}}
                         <a href="/sessions" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
                             <span class="text-base">📅</span> <span>Attendance &amp; Schedule</span>
                         </a>

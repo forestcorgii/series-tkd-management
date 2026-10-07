@@ -68,11 +68,12 @@ func TestAuthHandler_WebFlow(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("expected 303 on successful login, got %d", rec.Code)
 	}
-	if rec.Header().Get("Location") != "/sessions" {
-		t.Errorf("expected redirect to /sessions for admin, got %s", rec.Header().Get("Location"))
+	// 3. POST /login with valid admin credentials (redirects to customized Admin dashboard at /)
+	if rec.Header().Get("Location") != "/" {
+		t.Errorf("expected redirect to / for admin, got %s", rec.Header().Get("Location"))
 	}
 
-	// 3b. POST /login with valid coach credentials (redirects to /sessions)
+	// 3b. POST /login with valid coach credentials (redirects to customized Coach dashboard at /)
 	formCoach := url.Values{}
 	formCoach.Set("email", "jiwoo.park@seriestkd.com")
 	formCoach.Set("password", "coach123")
@@ -83,8 +84,8 @@ func TestAuthHandler_WebFlow(t *testing.T) {
 	if recCoach.Code != http.StatusSeeOther {
 		t.Fatalf("expected 303 on successful coach login, got %d", recCoach.Code)
 	}
-	if recCoach.Header().Get("Location") != "/sessions" {
-		t.Errorf("expected redirect to /sessions for coach, got %s", recCoach.Header().Get("Location"))
+	if recCoach.Header().Get("Location") != "/" {
+		t.Errorf("expected redirect to / for coach, got %s", recCoach.Header().Get("Location"))
 	}
 
 	// 4. POST /login with Operation Manager credentials (redirects to /)
@@ -442,7 +443,7 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 	mux.HandleFunc("GET /portal/admin", app.RequireRole(models.RoleOperationManager)(app.HandleAdminPortal))
 
 	// Core Views
-	mux.HandleFunc("GET /", app.RequireRole(models.RoleOperationManager)(app.HandleDashboard))
+	mux.HandleFunc("GET /", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
 	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudents))
 	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudentDetail))
 	mux.HandleFunc("POST /students", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateStudent))
@@ -490,29 +491,29 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 		}
 	})
 
-	// 2. COACH (Can only view Students and Attendance)
+	// 2. COACH (Can view Dashboard, Students, Attendance, and Coach Portal)
 	t.Run("Coach_AllowedViews", func(t *testing.T) {
-		for _, path := range []string{"/students", "/sessions", "/portal/coach"} {
+		for _, path := range []string{"/", "/students", "/sessions", "/portal/coach"} {
 			rec := testReq(tokCoach, path)
 			if rec.Code != http.StatusOK {
-				t.Errorf("Coach expected 200 on %s, got %d", path, rec.Code)
+				t.Errorf("Coach expected 200 on %s, got %d: %s", path, rec.Code, rec.Body.String())
 			}
 		}
 	})
 
 	t.Run("Coach_RestrictedViews", func(t *testing.T) {
-		// Coaches cannot view Dashboard, Coaches directory, or Packages (redirects to default page /sessions)
-		for _, path := range []string{"/", "/coaches", "/packages", "/portal/admin"} {
+		// Coaches cannot view Coaches directory, Packages, or Admin Portal (redirects to default page /)
+		for _, path := range []string{"/coaches", "/packages", "/portal/admin"} {
 			rec := testReq(tokCoach, path)
-			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/sessions" {
-				t.Errorf("Coach expected redirect to /sessions on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+				t.Errorf("Coach expected redirect to / on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
 			}
 		}
 	})
 
-	// 3. ADMIN (Can view/assign membership packages, attendance, and student directory)
+	// 3. ADMIN (Can view Dashboard, membership packages, attendance, and student directory)
 	t.Run("Admin_AllowedViews", func(t *testing.T) {
-		for _, path := range []string{"/packages", "/sessions", "/students"} {
+		for _, path := range []string{"/", "/packages", "/sessions", "/students"} {
 			rec := testReq(tokAdmin, path)
 			if rec.Code != http.StatusOK {
 				t.Errorf("Admin expected 200 on %s, got %d", path, rec.Code)
@@ -521,11 +522,11 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 	})
 
 	t.Run("Admin_RestrictedViews", func(t *testing.T) {
-		// Admin cannot view Dashboard, Coaches, or Admin Portal (redirects to default page /sessions)
-		for _, path := range []string{"/", "/coaches", "/portal/admin"} {
+		// Admin cannot view Coaches or Admin Portal (redirects to default page /)
+		for _, path := range []string{"/coaches", "/portal/admin"} {
 			rec := testReq(tokAdmin, path)
-			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/sessions" {
-				t.Errorf("Admin expected redirect to /sessions on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+				t.Errorf("Admin expected redirect to / on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
 			}
 		}
 	})
@@ -692,9 +693,9 @@ func TestAdmin_StudentPermissions(t *testing.T) {
 	rec = httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	// Admin is not authorized on POST /students/{id}/evaluations, must redirect to /sessions
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/sessions" {
-		t.Errorf("expected Admin evaluation attempt to be rejected (303 to /sessions), got %d to %s", rec.Code, rec.Header().Get("Location"))
+	// Admin is not authorized on POST /students/{id}/evaluations, must redirect to /
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+		t.Errorf("expected Admin evaluation attempt to be rejected (303 to /), got %d to %s", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
@@ -849,8 +850,8 @@ func TestAuthHandler_UsernameLoginFlow(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("expected 303 on successful login, got %d", rec.Code)
 	}
-	if rec.Header().Get("Location") != "/sessions" {
-		t.Errorf("expected redirect to /sessions for admin, got %s", rec.Header().Get("Location"))
+	if rec.Header().Get("Location") != "/" {
+		t.Errorf("expected redirect to / for admin, got %s", rec.Header().Get("Location"))
 	}
 
 	// 2. Login with student username
@@ -1125,8 +1126,8 @@ func TestAuthHandler_CoachAndAdminRegistrationFlow(t *testing.T) {
 		t.Fatalf("expected 303 after approved login, got %d", rec.Code)
 	}
 	loc = rec.Header().Get("Location")
-	if loc != "/sessions" {
-		t.Errorf("expected redirect to /sessions for coach, got: %s", loc)
+	if loc != "/" {
+		t.Errorf("expected redirect to / for coach, got: %s", loc)
 	}
 	cookie := rec.Header().Get("Set-Cookie")
 	if !strings.Contains(cookie, "stms_session=") {
@@ -1190,8 +1191,8 @@ func TestAuthHandler_CoachAndAdminRegistrationFlow(t *testing.T) {
 		t.Fatalf("expected 303 after approved login, got %d", rec.Code)
 	}
 	loc = rec.Header().Get("Location")
-	if loc != "/sessions" {
-		t.Errorf("expected redirect to /sessions for admin, got: %s", loc)
+	if loc != "/" {
+		t.Errorf("expected redirect to / for admin, got: %s", loc)
 	}
 	cookie = rec.Header().Get("Set-Cookie")
 	if !strings.Contains(cookie, "stms_session=") {

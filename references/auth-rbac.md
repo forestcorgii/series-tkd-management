@@ -281,6 +281,29 @@
      - In locations.html, "Add New Location", "Edit", and "Delete" buttons and modals are rendered only when .CurrentUser.IsOperationManager is true. Non-managers see a clean, informative view-only directory of dojang branches.
      - Coach desktop and mobile navigation in layout.html includes the "Locations" link.
 
+### Context: Role-Tailored Customized Dashboards for Coaches & Admins (/ & /dashboard)
+
+* **Problem**:
+  1. Default access permissions previously barred Coaches and front-desk Admins from visiting `/` (redirecting them to `/sessions`), leaving them without a centralized operational dashboard.
+  2. Coaches lacked a tailored floor overview combining their assigned classes, 1-click mat check-in, athlete promotion review queue (athletes ready for belt testing), and rapid 6-pillar athletic ability scoring launcher.
+  3. Front-desk Administrators lacked a tailored console combining floor class schedules, rapid student search, membership pass renewal/low-credit alerts, 1-click package assignment, and student registration shortcuts.
+* **Enforced Solution**:
+  1. **Role-Aware Polymorphic Dashboard Dispatcher (`HandleDashboard`)**:
+     - `GET /` and `GET /dashboard` are authorized for `RoleCoach`, `RoleAdmin`, and `RoleOperationManager`.
+     - Request context role inspection dispatches:
+       - `RoleCoach` -> `renderCoachDashboard` rendering `coach_dashboard.html`.
+       - `RoleAdmin` -> `renderAdminDashboard` rendering `admin_dashboard.html`.
+       - `RoleOperationManager` -> `renderOperationManagerDashboard` rendering executive `dashboard.html`.
+       - Managers can preview staff dashboards using `?view=coach` and `?view=admin`.
+       - `RoleStudent` automatically redirects to Practitioner Portal (`/portal/student`).
+  2. **Navigation & Default Landing Integration**:
+     - Desktop and mobile navigation headers position **Dashboard** as the leading navigation tab for both Coach and Admin.
+     - Brand logo click routes directly to `/` (rendering their role-tailored dashboard).
+     - Default login redirect in `HandleLoginSubmit` and `HandleLoginPage` lands Coaches and Admins on `/`.
+  3. **Operational Dashboards UX & Micro-Tools**:
+     - **Coach Dashboard (`coach_dashboard.html`)**: Features Instructor Telemetry (Today's Sessions, On-Mat Athlete Count, Promotion Review Candidates, Safety Holds), Quick Access Hub (Mat Check-In, Rapid 6-Factor Athlete Evaluator modal, Report Safety Incident modal), Today's Scheduled Classes list with "Assigned to You" indicator, Live Mat Roster with rapid admittance form, Priority Promotion Queue, and Active Medical Holds alert banner.
+     - **Admin Dashboard (`admin_dashboard.html`)**: Features Front-Desk Telemetry (Active Students, Today's Classes, Active Passes, Passes Due for Renewal), Quick Access Hub (Register Student modal, Assign Pass modal, Schedule Class modal), Today's Floor Schedule list with 1-click check-in links, Fast Student Finder combobox, Pass Renewal & Low-Credit Alerts table (highlighting <= 7 days or <= 2 sessions left), and Floor Safety Holds queue.
+
 ### Context: Activity & Audit Logging Architecture (/logs & Profile Submenu)
 
 * **Problem**:
