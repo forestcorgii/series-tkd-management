@@ -57,7 +57,7 @@
         </div>
 
         <div class="p-6 sm:p-8">
-            <form id="form-register" action="/register" method="POST" class="space-y-4">
+            <form id="form-register" action="/register" method="POST" class="space-y-4 no-uppercase" data-no-uppercase="true">
                 <input type="hidden" name="role" id="input-role" value="{{if eq .SelectedRole "ADMIN"}}ADMIN{{else}}COACH{{end}}">
 
                 <!-- Role Info Banner -->
@@ -78,8 +78,9 @@
                             Full Name <span class="text-rose-500">*</span>
                         </label>
                         <input type="text" id="full_name" name="full_name" required
+                               autocapitalize="words"
                                placeholder="e.g. Master Jin-Woo Park"
-                               class="form-input py-2 px-3 text-sm">
+                               class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
                     </div>
 
                     <div>
@@ -87,8 +88,9 @@
                             Username <span class="text-slate-400 text-xs font-normal">(Optional)</span>
                         </label>
                         <input type="text" id="username" name="username"
+                               autocapitalize="none" spellcheck="false"
                                placeholder="e.g. jinwoo.park"
-                               class="form-input py-2 px-3 text-sm">
+                               class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
                     </div>
                 </div>
 
@@ -169,7 +171,7 @@
                         </label>
                         <input type="text" id="specialties" name="specialties"
                                placeholder="e.g. Sparring/Kyorugi, Forms/Poomsae, Demonstration, Cadets"
-                               class="form-input py-2 px-3 text-sm">
+                               class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
                     </div>
 
                     <div class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800">

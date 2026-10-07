@@ -168,3 +168,19 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
        - Training Categories: `min-w-[600px]`
        - Live Floor Roster: `min-w-[550px]`
        - Promotion Pipeline Tables: `min-w-[540px]` to `min-w-[700px]`
+### Context: Case-Sensitive Input & Targeted Textbox Uppercase Suppression
+
+**Problem:**
+1. Global alpha-numeric uppercase engine and CSS (	ext-transform: uppercase) forcibly transformed all textboxes into uppercase on typing, paste, and form submit.
+2. Case-sensitive or casing-specific credentials and configuration settings—including login/forgot-password identifiers (email or username), user registration handles, display names, SMTP hosts/usernames, SMS phone numbers, and cryptographic Web Push VAPID public keys—were corrupted or visually distorted when transformed into uppercase.
+
+**Enforced Solution:**
+1. **Multi-Layer Selector & Property Opt-Out ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
+   - CSS 	ext-transform: uppercase excludes .no-uppercase, [data-no-uppercase=true], [autocapitalize=none], [autocapitalize=off], [name=username], [name=identifier], and [autocomplete=username].
+   - Explicit override rule 	ext-transform: none !important; applies to .no-uppercase, its child inputs/textareas, and known credential field names (smtp_host, smtp_user, web_push_public_key, web_push_subject, sms_from_number).
+2. **Path & Identifier Aware JS Engine ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
+   - isAlphaNumericTextInput(el) inspects el.closest('.no-uppercase, [data-no-uppercase=true]') as well as standard HTML utocapitalize=none.
+   - Entire case-sensitive routes (/login, /register, /settings, /forgot-password, /reset-password) are automatically exempted.
+   - Case-sensitive names (username, identifier, 	oken, key, secret, smtp_host, smtp_user, web_push_public_key, web_push_subject, sms_from_number, display_name) are exempted globally across all routes.
+3. **Template Declarations**:
+   - Explicitly annotate forms and inputs in login.html, egister.html, settings.html, orgot_password.html, eset_password.html, dmins.html, and profile.html with .no-uppercase, data-no-uppercase=true, utocapitalize=none, and spellcheck=false where appropriate.

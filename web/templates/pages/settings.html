@@ -3,7 +3,7 @@
 {{define "title"}}Settings &bull; Series Taekwondo{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
+<div class="space-y-6 no-uppercase" data-no-uppercase="true">
     <h1 class="sr-only">System Settings &amp; Configuration</h1>
 
     <!-- Action Toolbar & Tab Navigation -->
@@ -185,7 +185,7 @@
             </p>
         </div>
         {{else}}
-        <form action="/settings/notifications" method="POST" class="space-y-6">
+        <form action="/settings/notifications" method="POST" class="space-y-6 no-uppercase" data-no-uppercase="true">
             <!-- Channel Master Switches Card -->
             <div class="glass-panel p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm space-y-4">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-neutral-800 pb-3">
@@ -458,7 +458,9 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="form-label">SMTP Host</label>
-                            <input type="text" name="smtp_host" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPHost}}{{end}}" placeholder="smtp.gmail.com" class="form-input text-xs" />
+                            <input type="text" name="smtp_host" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPHost}}{{end}}" placeholder="smtp.gmail.com"
+                                   autocapitalize="none" spellcheck="false"
+                                   class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div>
                             <label class="form-label">SMTP Port</label>
@@ -466,11 +468,15 @@
                         </div>
                         <div>
                             <label class="form-label">From Address</label>
-                            <input type="email" name="smtp_from" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPFrom}}{{end}}" placeholder="notifications@seriestkd.com" class="form-input text-xs" />
+                            <input type="email" name="smtp_from" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPFrom}}{{end}}" placeholder="notifications@seriestkd.com"
+                                   autocapitalize="none" spellcheck="false"
+                                   class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div>
                             <label class="form-label">SMTP Username</label>
-                            <input type="text" name="smtp_user" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPUser}}{{end}}" placeholder="admin@seriestkd.com" class="form-input text-xs" />
+                            <input type="text" name="smtp_user" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPUser}}{{end}}" placeholder="admin@seriestkd.com"
+                                   autocapitalize="none" spellcheck="false"
+                                   class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div class="sm:col-span-2">
                             <label class="form-label">SMTP Password / App Key</label>
@@ -495,7 +501,9 @@
                         </div>
                         <div>
                             <label class="form-label">SMS Sender / From Number</label>
-                            <input type="text" name="sms_from_number" value="{{if .NotificationSettings}}{{.NotificationSettings.SMSFromNumber}}{{end}}" placeholder="+12025550199 or SERIES" class="form-input text-xs" />
+                            <input type="text" name="sms_from_number" value="{{if .NotificationSettings}}{{.NotificationSettings.SMSFromNumber}}{{end}}" placeholder="+12025550199 or SERIES"
+                                   autocapitalize="none"
+                                   class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div>
                             <label class="form-label">API Key / Auth Token</label>
@@ -512,11 +520,15 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="form-label">VAPID Public Key</label>
-                            <input type="text" name="web_push_public_key" value="{{if .NotificationSettings}}{{.NotificationSettings.WebPushPublicKey}}{{end}}" placeholder="BEl62iUYgUivxIkv69yViEuiBIa-Ib9-Skv..." class="form-input font-mono text-xs" />
+                            <input type="text" name="web_push_public_key" value="{{if .NotificationSettings}}{{.NotificationSettings.WebPushPublicKey}}{{end}}" placeholder="BEl62iUYgUivxIkv69yViEuiBIa-Ib9-Skv..."
+                                   autocapitalize="none" spellcheck="false"
+                                   class="form-input font-mono text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div>
                             <label class="form-label">Contact Subject / Mailto</label>
-                            <input type="text" name="web_push_subject" value="{{if .NotificationSettings}}{{.NotificationSettings.WebPushSubject}}{{end}}" placeholder="mailto:admin@seriestkd.com" class="form-input text-xs" />
+                            <input type="text" name="web_push_subject" value="{{if .NotificationSettings}}{{.NotificationSettings.WebPushSubject}}{{end}}" placeholder="mailto:admin@seriestkd.com"
+                                   autocapitalize="none" spellcheck="false"
+                                   class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                     </div>
                 </div>
@@ -543,11 +555,11 @@
             <button type="button" onclick="closeNewCategoryModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg">&times;</button>
         </div>
 
-        <form action="/settings/categories" method="POST" class="space-y-4 text-xs">
+        <form action="/settings/categories" method="POST" class="space-y-4 text-xs no-uppercase" data-no-uppercase="true">
             <div>
                 <label class="form-label">Category Name <span class="text-rose-500">*</span></label>
                 <input type="text" name="name" id="new-cat-name" required placeholder="e.g. Sparring, Poomsae, Cadet Drills..."
-                       class="form-input text-xs sm:text-sm" oninput="updateBadgePreview('new')">
+                       class="form-input text-xs sm:text-sm no-uppercase" data-no-uppercase="true" oninput="updateBadgePreview('new')">
             </div>
 
             <div>
@@ -607,11 +619,11 @@
             <button type="button" onclick="closeEditCategoryModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg">&times;</button>
         </div>
 
-        <form id="edit-cat-form" action="" method="POST" class="space-y-4 text-xs">
+        <form id="edit-cat-form" action="" method="POST" class="space-y-4 text-xs no-uppercase" data-no-uppercase="true">
             <div>
                 <label class="form-label">Category Name <span class="text-rose-500">*</span></label>
                 <input type="text" name="name" id="edit-cat-name" required
-                       class="form-input text-xs sm:text-sm" oninput="updateBadgePreview('edit')">
+                       class="form-input text-xs sm:text-sm no-uppercase" data-no-uppercase="true" oninput="updateBadgePreview('edit')">
             </div>
 
             <div>

@@ -49,7 +49,7 @@
 
         <div class="p-6 sm:p-8">
             <!-- SIGN IN FORM -->
-            <form id="form-login" action="/login" method="POST" class="space-y-4">
+            <form id="form-login" action="/login" method="POST" class="space-y-4 no-uppercase" data-no-uppercase="true">
                 <input type="hidden" name="redirect" value="{{.Redirect}}">
 
                 <div>
@@ -57,8 +57,9 @@
                         Email or Username
                     </label>
                     <input type="text" id="identifier" name="identifier" required autocomplete="username"
+                           autocapitalize="none" spellcheck="false"
                            placeholder="e.g. alex.vance or practitioner@seriestkd.com"
-                           class="form-input py-2.5 px-4 text-sm">
+                           class="form-input py-2.5 px-4 text-sm no-uppercase" data-no-uppercase="true">
                 </div>
 
                 <div>

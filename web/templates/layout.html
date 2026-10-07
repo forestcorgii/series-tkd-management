@@ -193,15 +193,41 @@
         .searchable-menu::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
 
         /* Auto-uppercase for general text and textarea inputs */
-        input[type="text"]:not(.searchable-input):not(.no-uppercase),
-        input:not([type]):not(.searchable-input):not(.no-uppercase),
-        textarea:not(.no-uppercase) {
+        input[type="text"]:not(.searchable-input):not(.no-uppercase):not([data-no-uppercase="true"]):not([autocapitalize="none"]):not([autocapitalize="off"]):not([name="username"]):not([name="identifier"]):not([autocomplete="username"]),
+        input:not([type]):not(.searchable-input):not(.no-uppercase):not([data-no-uppercase="true"]):not([autocapitalize="none"]):not([autocapitalize="off"]):not([name="username"]):not([name="identifier"]):not([autocomplete="username"]),
+        textarea:not(.no-uppercase):not([data-no-uppercase="true"]):not([autocapitalize="none"]):not([autocapitalize="off"]) {
             text-transform: uppercase;
         }
         input[type="text"]::placeholder,
         input:not([type])::placeholder,
         textarea::placeholder {
             text-transform: none;
+        }
+
+        /* Explicit suppression of auto-uppercase for case-sensitive fields, forms, and pages */
+        .no-uppercase,
+        .no-uppercase input,
+        .no-uppercase textarea,
+        [data-no-uppercase="true"],
+        [data-no-uppercase="true"] input,
+        [data-no-uppercase="true"] textarea,
+        input.no-uppercase,
+        textarea.no-uppercase,
+        input[data-no-uppercase="true"],
+        textarea[data-no-uppercase="true"],
+        input[autocapitalize="none"],
+        input[autocapitalize="off"],
+        textarea[autocapitalize="none"],
+        textarea[autocapitalize="off"],
+        input[autocomplete="username"],
+        input[name="username"],
+        input[name="identifier"],
+        input[name="smtp_host"],
+        input[name="smtp_user"],
+        input[name="web_push_public_key"],
+        input[name="web_push_subject"],
+        input[name="sms_from_number"] {
+            text-transform: none !important;
         }
 
         /* Accessible Screen Reader Only Utility */
@@ -1214,8 +1240,37 @@
         // --- STMS Universal Alpha-Numeric Uppercase Transformation Engine ---
         function isAlphaNumericTextInput(el) {
             if (!el || el.readOnly || el.disabled) return false;
+
+            // Direct or ancestor opt-out via class or data attribute
+            if (el.closest && (el.closest('.no-uppercase') || el.closest('[data-no-uppercase="true"]'))) return false;
             if (el.classList && (el.classList.contains('searchable-input') || el.classList.contains('no-uppercase'))) return false;
             if (el.dataset && (el.dataset.noUppercase === 'true' || el.dataset.searchable === 'true')) return false;
+
+            // Respect standard HTML autocapitalize attribute
+            const autocap = (el.getAttribute('autocapitalize') || '').toLowerCase();
+            if (autocap === 'none' || autocap === 'off') return false;
+
+            // Exclude entire pages where text inputs should never auto-uppercase (login, register, settings, recovery)
+            const path = (window.location && window.location.pathname) ? window.location.pathname.toLowerCase() : '';
+            if (path === '/login' || path === '/register' || path.startsWith('/settings') || path === '/forgot-password' || path === '/reset-password') {
+                return false;
+            }
+
+            // Exclude case-sensitive field names, IDs, and autocomplete tokens across all pages
+            const name = (el.getAttribute('name') || '').toLowerCase();
+            const id = (el.id || '').toLowerCase();
+            const autocomplete = (el.getAttribute('autocomplete') || '').toLowerCase();
+
+            const caseSensitiveNames = [
+                'username', 'identifier', 'login', 'token', 'key',
+                'api_key', 'apikey', 'secret', 'password', 'code',
+                'smtp_host', 'smtp_user', 'web_push_public_key',
+                'web_push_subject', 'sms_from_number', 'url', 'host',
+                'display_name'
+            ];
+            if (caseSensitiveNames.includes(name) || caseSensitiveNames.includes(id)) return false;
+            if (name.includes('token') || name.includes('secret') || name.includes('key')) return false;
+            if (autocomplete.includes('username') || autocomplete.includes('password') || autocomplete.includes('email') || autocomplete.includes('url')) return false;
 
             const tag = el.tagName ? el.tagName.toLowerCase() : '';
             if (tag === 'textarea') return true;
