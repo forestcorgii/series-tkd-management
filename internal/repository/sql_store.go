@@ -2532,6 +2532,8 @@ func (s *SQLStore) GetLatestEvaluation(studentID uuid.UUID) (*models.StudentEval
 	eval.CoachID = uuid.Must(uuid.Parse(coachIDStr))
 	eval.EvaluationDate, _ = parseTimeFlex(evalDateStr)
 	eval.CreatedAt, _ = parseTimeFlex(createdStr)
+	eval.Sparring = eval.SparringIQ
+	eval.Poomsae = eval.Technique
 	if coachName.Valid {
 		eval.CoachName = coachName.String
 	}
@@ -2579,6 +2581,8 @@ func (s *SQLStore) GetLatestEvaluations() (map[uuid.UUID]*models.StudentEvaluati
 		eval.CoachID = uuid.Must(uuid.Parse(coachIDStr))
 		eval.EvaluationDate, _ = parseTimeFlex(evalDateStr)
 		eval.CreatedAt, _ = parseTimeFlex(createdStr)
+		eval.Sparring = eval.SparringIQ
+		eval.Poomsae = eval.Technique
 		if coachName.Valid {
 			eval.CoachName = coachName.String
 		}
@@ -2622,6 +2626,8 @@ func (s *SQLStore) GetStudentEvaluations(studentID uuid.UUID) ([]*models.Student
 		eval.CoachID = uuid.Must(uuid.Parse(coachIDStr))
 		eval.EvaluationDate, _ = parseTimeFlex(evalDateStr)
 		eval.CreatedAt, _ = parseTimeFlex(createdStr)
+		eval.Sparring = eval.SparringIQ
+		eval.Poomsae = eval.Technique
 		if coachName.Valid {
 			eval.CoachName = coachName.String
 		}
@@ -2640,6 +2646,7 @@ func (s *SQLStore) CreateEvaluation(eval *models.StudentEvaluation) error {
 	if eval.CreatedAt.IsZero() {
 		eval.CreatedAt = time.Now()
 	}
+	eval.SyncLegacyFields()
 	query := `INSERT INTO student_evaluations (id, student_id, coach_id, evaluation_date,
 		flexibility, stamina, power, technique, sparring_iq, discipline, coach_remarks, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
@@ -2820,7 +2827,7 @@ func (s *SQLStore) SeedDefaultData() error {
 	// 7. Student Evaluation for Alex
 	_ = s.CreateEvaluation(&models.StudentEvaluation{
 		ID: uuid.New(), StudentID: s1ID, CoachID: c1ID, EvaluationDate: now.AddDate(0, 0, -5),
-		Flexibility: 8, Stamina: 9, Power: 7, Technique: 8, SparringIQ: 8, Discipline: 9,
+		Sparring: 8, Flexibility: 8, Poomsae: 8,
 		CoachRemarks: "Exceptional discipline and kick height. Clear candidate for Low Yellow promotion testing.",
 		CreatedAt:    now.AddDate(0, 0, -5),
 	})

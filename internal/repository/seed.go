@@ -421,15 +421,13 @@ func (m *MemoryStore) seedData() {
 		CoachID:        c1ID,
 		CoachName:      c1.FullName,
 		EvaluationDate: now.AddDate(0, 0, -5),
+		Sparring:       8,
 		Flexibility:    8,
-		Stamina:        9,
-		Power:          7,
-		Technique:      8,
-		SparringIQ:     8,
-		Discipline:     9,
+		Poomsae:        8,
 		CoachRemarks:   "Exceptional discipline and kick height. Clear candidate for Low Yellow promotion testing.",
 		CreatedAt:      now.AddDate(0, 0, -5),
 	}
+	eval1.SyncLegacyFields()
 	m.evaluations[eval1.ID] = eval1
 
 	// 8. Default Users for Multi-Role Auth

@@ -80,7 +80,7 @@
                     <div class="has-tooltip inline-flex items-center">
                         <button type="button" class="tooltip-icon" aria-label="Radar chart metrics">ⓘ</button>
                         <div class="tooltip-content w-64">
-                            Evaluates 6 martial arts metrics: Flexibility, Stamina, Power, Technique, Sparring IQ, and Discipline.
+                            Evaluates 3 martial arts metrics: Sparring, Flexibility, and Poomsae.
                         </div>
                     </div>
                 </div>
@@ -97,30 +97,25 @@
             <div class="relative w-72 h-72 mx-auto my-4">
                 <svg viewBox="0 0 200 200" class="w-full h-full">
                     <!-- Concentric Grid Polygons (Score 2, 4, 6, 8, 10) -->
-                    <polygon points="100,20 169.3,60 169.3,140 100,180 30.7,140 30.7,60" fill="none" stroke="#cbd5e1" class="dark:stroke-slate-700" stroke-width="1"/>
-                    <polygon points="100,36 155.4,68 155.4,132 100,164 44.6,132 44.6,68" fill="none" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
-                    <polygon points="100,52 141.6,76 141.6,124 100,148 58.4,124 58.4,76" fill="none" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-dasharray="2,2"/>
-                    <polygon points="100,68 127.7,84 127.7,116 100,132 72.3,116 72.3,84" fill="none" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-dasharray="2,2"/>
+                    <polygon points="100,20 169.3,140 30.7,140" fill="none" stroke="#cbd5e1" class="dark:stroke-slate-700" stroke-width="1"/>
+                    <polygon points="100,36 155.4,132 44.6,132" fill="none" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
+                    <polygon points="100,52 141.6,124 58.4,124" fill="none" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-dasharray="2,2"/>
+                    <polygon points="100,68 127.7,116 72.3,116" fill="none" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-dasharray="2,2"/>
+                    <polygon points="100,84 113.9,108 86.1,108" fill="none" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-dasharray="2,2"/>
 
                     <!-- Axes Lines -->
                     <line x1="100" y1="100" x2="100" y2="20" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
-                    <line x1="100" y1="100" x2="169.3" y2="60" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
                     <line x1="100" y1="100" x2="169.3" y2="140" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
-                    <line x1="100" y1="100" x2="100" y2="180" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
                     <line x1="100" y1="100" x2="30.7" y2="140" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
-                    <line x1="100" y1="100" x2="30.7" y2="60" stroke="#94a3b8" class="dark:stroke-slate-600" stroke-width="1"/>
 
                     <!-- Evaluated Polygon Fill -->
                     <polygon points="{{.SVGRadarPolygon}}" fill="rgba(16, 185, 129, 0.45)" stroke="#10b981" stroke-width="2.5"/>
                 </svg>
 
                 <!-- Axis Labels -->
-                <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Flexibility ({{.LatestEvaluation.Flexibility}})</span>
-                <span class="absolute top-12 right-0 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Stamina ({{.LatestEvaluation.Stamina}})</span>
-                <span class="absolute bottom-12 right-0 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Power ({{.LatestEvaluation.Power}})</span>
-                <span class="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Technique ({{.LatestEvaluation.Technique}})</span>
-                <span class="absolute bottom-12 left-0 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Sparring IQ ({{.LatestEvaluation.SparringIQ}})</span>
-                <span class="absolute top-12 left-0 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Discipline ({{.LatestEvaluation.Discipline}})</span>
+                <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Sparring ({{.LatestEvaluation.Sparring}})</span>
+                <span class="absolute bottom-2 right-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Flexibility ({{.LatestEvaluation.Flexibility}})</span>
+                <span class="absolute bottom-2 left-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Poomsae ({{.LatestEvaluation.Poomsae}})</span>
             </div>
 
             <!-- Coach Remarks -->
@@ -153,28 +148,16 @@
                     </div>
                     <div class="grid grid-cols-3 gap-2">
                         <div>
+                            <label class="form-label text-[10px]">Sparring</label>
+                            <input type="number" min="1" max="10" name="sparring" value="8" required class="form-input">
+                        </div>
+                        <div>
                             <label class="form-label text-[10px]">Flexibility</label>
                             <input type="number" min="1" max="10" name="flexibility" value="8" required class="form-input">
                         </div>
                         <div>
-                            <label class="form-label text-[10px]">Stamina</label>
-                            <input type="number" min="1" max="10" name="stamina" value="8" required class="form-input">
-                        </div>
-                        <div>
-                            <label class="form-label text-[10px]">Power</label>
-                            <input type="number" min="1" max="10" name="power" value="7" required class="form-input">
-                        </div>
-                        <div>
-                            <label class="form-label text-[10px]">Technique</label>
-                            <input type="number" min="1" max="10" name="technique" value="8" required class="form-input">
-                        </div>
-                        <div>
-                            <label class="form-label text-[10px]">Sparring IQ</label>
-                            <input type="number" min="1" max="10" name="sparring_iq" value="8" required class="form-input">
-                        </div>
-                        <div>
-                            <label class="form-label text-[10px]">Discipline</label>
-                            <input type="number" min="1" max="10" name="discipline" value="9" required class="form-input">
+                            <label class="form-label text-[10px]">Poomsae</label>
+                            <input type="number" min="1" max="10" name="poomsae" value="8" required class="form-input">
                         </div>
                     </div>
                     <div>

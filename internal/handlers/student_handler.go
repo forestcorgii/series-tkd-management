@@ -234,26 +234,27 @@ func (a *AppHandler) HandleCreateEvaluation(w http.ResponseWriter, r *http.Reque
 	}
 
 	coachID, _ := uuid.Parse(r.FormValue("coach_id"))
+	sparr, _ := strconv.Atoi(r.FormValue("sparring"))
+	if sparr == 0 {
+		sparr, _ = strconv.Atoi(r.FormValue("sparring_iq"))
+	}
 	flex, _ := strconv.Atoi(r.FormValue("flexibility"))
-	stam, _ := strconv.Atoi(r.FormValue("stamina"))
-	pow, _ := strconv.Atoi(r.FormValue("power"))
-	tech, _ := strconv.Atoi(r.FormValue("technique"))
-	sparr, _ := strconv.Atoi(r.FormValue("sparring_iq"))
-	disc, _ := strconv.Atoi(r.FormValue("discipline"))
+	poom, _ := strconv.Atoi(r.FormValue("poomsae"))
+	if poom == 0 {
+		poom, _ = strconv.Atoi(r.FormValue("technique"))
+	}
 
 	eval := &models.StudentEvaluation{
 		ID:             uuid.New(),
 		StudentID:      studentID,
 		CoachID:        coachID,
 		EvaluationDate: time.Now(),
+		Sparring:       sparr,
 		Flexibility:    flex,
-		Stamina:        stam,
-		Power:          pow,
-		Technique:      tech,
-		SparringIQ:     sparr,
-		Discipline:     disc,
+		Poomsae:        poom,
 		CoachRemarks:   r.FormValue("coach_remarks"),
 	}
+	eval.SyncLegacyFields()
 
 	if err := a.store.CreateEvaluation(eval); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

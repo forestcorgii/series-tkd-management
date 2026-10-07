@@ -1029,6 +1029,7 @@ func (m *MemoryStore) CreateEvaluation(eval *models.StudentEvaluation) error {
 		eval.ID = uuid.New()
 	}
 	eval.CreatedAt = time.Now()
+	eval.SyncLegacyFields()
 	m.evaluations[eval.ID] = eval
 	return nil
 }

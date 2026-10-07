@@ -763,20 +763,27 @@ func (a *AppHandler) HandleAPICoachEvaluate(w http.ResponseWriter, r *http.Reque
 		return n
 	}
 
+	sparr := parseInt(r.FormValue("sparring"))
+	if sparr == 0 {
+		sparr = parseInt(r.FormValue("sparring_iq"))
+	}
+	poom := parseInt(r.FormValue("poomsae"))
+	if poom == 0 {
+		poom = parseInt(r.FormValue("technique"))
+	}
+
 	eval := &models.StudentEvaluation{
 		ID:             uuid.New(),
 		StudentID:      studentID,
 		CoachID:        coachID,
 		EvaluationDate: time.Now(),
+		Sparring:       sparr,
 		Flexibility:    parseInt(r.FormValue("flexibility")),
-		Stamina:        parseInt(r.FormValue("stamina")),
-		Power:          parseInt(r.FormValue("power")),
-		Technique:      parseInt(r.FormValue("technique")),
-		SparringIQ:     parseInt(r.FormValue("sparring_iq")),
-		Discipline:     parseInt(r.FormValue("discipline")),
+		Poomsae:        poom,
 		CoachRemarks:   strings.TrimSpace(r.FormValue("coach_remarks")),
 		CreatedAt:      time.Now(),
 	}
+	eval.SyncLegacyFields()
 
 	if err := a.store.CreateEvaluation(eval); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to save evaluation: %v", err), http.StatusInternalServerError)

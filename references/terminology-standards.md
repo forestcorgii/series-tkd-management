@@ -117,4 +117,17 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
   - **HTMX Support**: Evaluates `HX-Request` header and responds with `HX-Redirect` when requested via hypermedia.
   - **UI Button & Modals**: Scheduling modal CTA is labeled `Schedule Class` (never `Schedule & Launch Attendance`), with dynamic `redirect_url` parameters updated on date selection to ensure the user stays focused on that class's week in the calendar view.
 
+---
 
+## 8. Athletic Evaluation Radar Standards
+
+### Context: 3-Axis Athletic Radar Metrics
+- **Problem:** The athletic ability evaluation radar previously required 6 crowded metrics (Flexibility, Stamina, Power, Technique, Sparring IQ, Discipline) which overburdened floor coaches during quick evaluations and cluttered student profile visualizations.
+- **Enforced Solution:**
+  - **Triad Metrics:** Reduced to exactly 3 core martial arts axes:
+    1. **Sparring** (Apex / Top, angle: $-90^\circ / -\frac{\pi}{2}$)
+    2. **Flexibility** (Bottom-Right, angle: $30^\circ / \frac{\pi}{6}$)
+    3. **Poomsae** (Bottom-Left, angle: $150^\circ / \frac{5\pi}{6}$)
+  - **Domain Model:** [StudentEvaluation](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go) with `Sparring`, `Flexibility`, `Poomsae`.
+  - **Backward Compatibility:** `GetSparring()`, `GetFlexibility()`, `GetPoomsae()`, and `SyncLegacyFields()` ensure existing records, SQL tables, and tests preserve full interoperability.
+  - **Polygon Math:** Equilateral triangle concentric grids at scores 10, 8, 6, 4, 2 with [ToSVGPolygon](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go) generating 3-point SVG polygon coordinates.
