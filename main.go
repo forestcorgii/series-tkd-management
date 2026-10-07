@@ -77,6 +77,12 @@ func main() {
 	// 3. Configure HTTP Routes
 	mux := http.NewServeMux()
 
+	// Progressive Web App (PWA) Endpoints
+	mux.HandleFunc("GET /manifest.webmanifest", app.HandleManifest)
+	mux.HandleFunc("GET /manifest.json", app.HandleManifest)
+	mux.HandleFunc("GET /sw.js", app.HandleServiceWorker)
+	mux.HandleFunc("GET /offline", app.HandleOfflinePage)
+
 	// Authentication (Web & REST API)
 	mux.HandleFunc("GET /login", app.HandleLoginPage)
 	mux.HandleFunc("POST /login", app.HandleLoginSubmit)
@@ -256,7 +262,14 @@ func main() {
 	mux.HandleFunc("GET /api/logs/telemetry", app.RequireRole(models.RoleOperationManager)(app.HandleAuditTelemetry))
 
 	// Static assets with caching headers
-	fs := http.FileServer(http.Dir("web/static"))
+	staticDir := "web/static"
+	for _, c := range []string{"web/static", "../web/static", "../../web/static"} {
+		if fi, err := os.Stat(c); err == nil && fi.IsDir() {
+			staticDir = c
+			break
+		}
+	}
+	fs := http.FileServer(http.Dir(staticDir))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		fs.ServeHTTP(w, r)

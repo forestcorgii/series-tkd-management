@@ -6,6 +6,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}Series Taekwondo Management System{{end}}</title>
+    <!-- PWA Manifest, Icons & Meta -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#990303">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Series TKD">
+    <meta name="application-name" content="Series TKD">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
+    <link rel="alternate icon" href="/static/icons/icon-192.png">
     <!-- Prevent Theme Flash -->
     <script>
         (function () {
@@ -387,6 +398,15 @@
                     <span id="theme-mode-text" class="hidden sm:inline">Light</span>
                 </button>
 
+                <!-- PWA Install Quick Action (shown when app install prompt is available) -->
+                <button type="button" onclick="triggerPWAInstall()" aria-label="Install App" title="Install Series TKD App"
+                    class="pwa-install-trigger hidden p-2 sm:px-2.5 sm:py-1.5 rounded-xl border border-[#990303]/40 bg-[#990303]/10 hover:bg-[#990303]/20 text-[#990303] dark:border-red-500/40 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 shadow-sm transition flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span class="hidden sm:inline">Install App</span>
+                </button>
+
                 <!-- Authenticated User Profile Indicator with Submenu -->
                 {{if $user}}
                 <!-- Notification Center Bell -->
@@ -466,6 +486,14 @@
                                 <span>Settings</span>
                             </a>
                             {{end}}
+                            <!-- PWA Install Option in User Dropdown -->
+                            <button type="button" onclick="triggerPWAInstall()"
+                                class="pwa-install-trigger hidden w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#990303] dark:text-red-400 hover:bg-[#F4F1E4] dark:hover:bg-neutral-800 transition text-left cursor-pointer">
+                                <svg class="w-4 h-4 text-[#990303] dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                <span>Install Series TKD App</span>
+                            </button>
                         </div>
                         <div class="border-t border-[#E5E3D8] dark:border-neutral-800 pt-1">
                             <a href="/logout"
@@ -620,6 +648,11 @@
                             <span class="text-base">⚙️</span> <span>Settings</span>
                         </a>
                         {{end}}
+                        <!-- PWA Install in Mobile Drawer -->
+                        <button type="button" onclick="triggerPWAInstall()"
+                            class="pwa-install-trigger hidden w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition text-left cursor-pointer">
+                            <span class="text-base">📲</span> <span>Install Series TKD App</span>
+                        </button>
                         <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
                             <span class="text-base">🚪</span> <span>Sign Out</span>
                         </a>
@@ -1266,7 +1299,125 @@
             initSearchableSelects(target);
             syncAllUppercaseInputs(target);
         });
+
+        // ==========================================
+        // Progressive Web App (PWA) Engine
+        // ==========================================
+        let deferredPWAInstallPrompt = null;
+        let newWorkerInstance = null;
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((registration) => {
+                        registration.addEventListener('updatefound', () => {
+                            newWorkerInstance = registration.installing;
+                            if (newWorkerInstance) {
+                                newWorkerInstance.addEventListener('statechange', () => {
+                                    if (newWorkerInstance.state === 'installed' && navigator.serviceWorker.controller) {
+                                        const updateToast = document.getElementById('pwa-update-toast');
+                                        if (updateToast) updateToast.classList.remove('hidden');
+                                    }
+                                });
+                            }
+                        });
+                    })
+                    .catch((err) => {
+                        console.warn('STMS Service Worker registration note:', err);
+                    });
+            });
+        }
+
+        // Capture PWA Installation Prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPWAInstallPrompt = e;
+            // Reveal install triggers across desktop and mobile menus
+            document.querySelectorAll('.pwa-install-trigger').forEach((el) => {
+                el.classList.remove('hidden');
+            });
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPWAInstallPrompt = null;
+            document.querySelectorAll('.pwa-install-trigger').forEach((el) => {
+                el.classList.add('hidden');
+            });
+            console.log('STMS installed successfully as PWA');
+        });
+
+        function triggerPWAInstall() {
+            if (deferredPWAInstallPrompt) {
+                deferredPWAInstallPrompt.prompt();
+                deferredPWAInstallPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        deferredPWAInstallPrompt = null;
+                        document.querySelectorAll('.pwa-install-trigger').forEach((el) => {
+                            el.classList.add('hidden');
+                        });
+                    }
+                });
+            } else {
+                alert('Series TKD App: To install on this device, select "Add to Home Screen" or "Install App" in your browser menu.');
+            }
+        }
+
+        function refreshPWAUpdate() {
+            if (newWorkerInstance) {
+                newWorkerInstance.postMessage({ type: 'SKIP_WAITING' });
+            }
+            window.location.reload();
+        }
+
+        // Live Connectivity Monitoring
+        function syncOnlineStatus() {
+            const offlineBanner = document.getElementById('pwa-offline-banner');
+            if (!offlineBanner) return;
+            if (navigator.onLine) {
+                offlineBanner.classList.add('hidden');
+            } else {
+                offlineBanner.classList.remove('hidden');
+            }
+        }
+
+        window.addEventListener('online', () => {
+            syncOnlineStatus();
+        });
+
+        window.addEventListener('offline', () => {
+            syncOnlineStatus();
+        });
+
+        // Trigger connectivity check on failed HTMX requests
+        document.body.addEventListener('htmx:sendError', () => {
+            syncOnlineStatus();
+        });
     </script>
+
+    <!-- Floating PWA Offline Alert -->
+    <div id="pwa-offline-banner" class="hidden fixed bottom-16 lg:bottom-4 right-4 z-50 max-w-sm p-3.5 rounded-2xl bg-neutral-900/95 dark:bg-neutral-800/95 border border-amber-500/40 shadow-2xl backdrop-blur-md text-white flex items-center justify-between gap-3 animate-fade-in pointer-events-auto">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <span class="relative flex h-2.5 w-2.5 flex-shrink-0">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <p class="text-xs font-semibold text-amber-200 truncate">Offline: Check dojang WiFi</p>
+        </div>
+        <button type="button" onclick="window.location.reload()" class="btn-xs border border-amber-400/50 text-amber-300 hover:bg-amber-400/20 text-[10px] px-2 py-1 rounded-lg flex-shrink-0 font-bold uppercase tracking-wider cursor-pointer">Retry</button>
+    </div>
+
+    <!-- Floating PWA Update Available Notification -->
+    <div id="pwa-update-toast" class="hidden fixed bottom-16 lg:bottom-4 left-4 z-50 max-w-sm p-3.5 rounded-2xl bg-neutral-900/95 dark:bg-neutral-800/95 border border-red-500/40 shadow-2xl backdrop-blur-md text-white flex items-center justify-between gap-3 animate-fade-in pointer-events-auto">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-lg">🥋</span>
+            <div class="min-w-0">
+                <p class="text-xs font-bold text-white leading-tight">STMS Update Ready</p>
+                <p class="text-[10px] text-slate-300 truncate">New dojang version downloaded</p>
+            </div>
+        </div>
+        <button type="button" onclick="refreshPWAUpdate()" class="btn-xs bg-[#990303] hover:bg-[#7D0202] text-white text-[10px] px-2.5 py-1.5 rounded-lg flex-shrink-0 font-bold uppercase tracking-wider cursor-pointer">Reload</button>
+    </div>
 </body>
 
 </html>

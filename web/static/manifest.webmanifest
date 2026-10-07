@@ -1,0 +1,89 @@
+{
+  "id": "/",
+  "name": "Series Taekwondo Management System",
+  "short_name": "Series TKD",
+  "description": "Internal club and dojang operations, floor attendance, belt progression, and student management for Series Taekwondo.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#990303",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": [
+    "sports",
+    "productivity",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Live Attendance",
+      "short_name": "Attendance",
+      "description": "Floor check-in and active training sessions",
+      "url": "/sessions",
+      "icons": [
+        {
+          "src": "/static/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Student Directory",
+      "short_name": "Students",
+      "description": "Student roster, ranks, and safety clearance",
+      "url": "/students",
+      "icons": [
+        {
+          "src": "/static/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Operations Dashboard",
+      "short_name": "Dashboard",
+      "description": "Dojang overview, alerts, and operational telemetry",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/static/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

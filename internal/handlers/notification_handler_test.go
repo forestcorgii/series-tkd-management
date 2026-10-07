@@ -191,10 +191,21 @@ func TestNotificationHandler_NoDuplicateNotificationsDropdown(t *testing.T) {
 		t.Fatal("expected test students")
 	}
 
+	var targetStudent *models.Student
+	for _, s := range students {
+		if s.FullName == "Alex Vance" {
+			targetStudent = s
+			break
+		}
+	}
+	if targetStudent == nil {
+		targetStudent = students[0]
+	}
+
 	// Trigger a single check-in via HTTP
-	reqCheckIn := httptest.NewRequest("POST", fmt.Sprintf("/sessions/%s/checkin/%s", sess.ID, students[0].ID), nil)
+	reqCheckIn := httptest.NewRequest("POST", fmt.Sprintf("/sessions/%s/checkin/%s", sess.ID, targetStudent.ID), nil)
 	reqCheckIn.SetPathValue("id", sess.ID.String())
-	reqCheckIn.SetPathValue("student_id", students[0].ID.String())
+	reqCheckIn.SetPathValue("student_id", targetStudent.ID.String())
 	reqCheckIn.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
 	recCheckIn := httptest.NewRecorder()
 	app.AuthMiddleware(http.HandlerFunc(app.HandleCheckIn)).ServeHTTP(recCheckIn, reqCheckIn)

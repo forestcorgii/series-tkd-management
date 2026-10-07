@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B91C1C" />
+      <stop offset="40%" stop-color="#990303" />
+      <stop offset="100%" stop-color="#550000" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+    <linearGradient id="beltGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#111827" />
+      <stop offset="70%" stop-color="#1F2937" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background Shield / Squircle -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="#DC2626" stroke-width="4" stroke-opacity="0.4" />
+
+  <!-- Inner Subtle Accent Border -->
+  <rect x="28" y="28" width="456" height="456" rx="96" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.1" />
+
+  <!-- Monogram ST Group with Shadow -->
+  <g filter="url(#dropShadow)">
+    <!-- Stylized "S" -->
+    <path d="M 148 152 
+             C 148 136, 160 128, 186 128 
+             L 242 128 
+             L 242 172 
+             L 194 172 
+             C 184 172, 182 176, 182 186 
+             C 182 196, 188 200, 206 206 
+             L 230 214 
+             C 256 222, 268 238, 268 266 
+             C 268 300, 246 318, 200 318 
+             L 142 318 
+             L 142 272 
+             L 198 272 
+             C 214 272, 222 268, 222 258 
+             C 222 248, 214 244, 200 238 
+             L 174 230 
+             C 152 222, 148 200, 148 180 
+             Z" 
+          fill="#FFFDF4" />
+
+    <!-- Stylized "T" -->
+    <path d="M 276 128 
+             L 368 128 
+             L 368 172 
+             L 338 172 
+             L 338 318 
+             L 292 318 
+             L 292 172 
+             L 276 172 
+             Z" 
+          fill="#FFFDF4" />
+
+    <!-- Martial Arts Black Belt Base Bar -->
+    <rect x="136" y="348" width="240" height="28" rx="6" fill="url(#beltGrad)" stroke="#374151" stroke-width="1.5" />
+    
+    <!-- Belt Dan Rank Gold Stripes (Right end) -->
+    <rect x="338" y="348" width="6" height="28" fill="url(#goldGrad)" />
+    <rect x="348" y="348" width="6" height="28" fill="url(#goldGrad)" />
+    
+    <!-- Martial Arts Dynamic Strike / Slant Accent -->
+    <polygon points="356,128 368,128 350,154 338,154" fill="url(#goldGrad)" />
+  </g>
+
+  <!-- Subtitle Tag: SERIES TKD -->
+  <text x="256" y="416" 
+        font-family="'Outfit', 'Montserrat', 'Segoe UI', sans-serif" 
+        font-size="28" 
+        font-weight="900" 
+        letter-spacing="5" 
+        text-anchor="middle" 
+        fill="#FFFDF4" 
+        fill-opacity="0.95">SERIES TKD</text>
+</svg>
