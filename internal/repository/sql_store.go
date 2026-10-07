@@ -274,6 +274,62 @@ func (s *SQLStore) runMigrations() error {
 			user_agent TEXT DEFAULT '',
 			metadata TEXT DEFAULT '',
 			created_at TEXT NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS notification_settings (
+			id TEXT PRIMARY KEY,
+			push_enabled INTEGER NOT NULL DEFAULT 1,
+			sms_enabled INTEGER NOT NULL DEFAULT 1,
+			email_enabled INTEGER NOT NULL DEFAULT 1,
+			notify_admin_student_admitted INTEGER NOT NULL DEFAULT 1,
+			notify_admin_new_class_opened INTEGER NOT NULL DEFAULT 1,
+			notify_admin_staff_registered INTEGER NOT NULL DEFAULT 1,
+			notify_admin_student_injured INTEGER NOT NULL DEFAULT 1,
+			notify_admin_class_cancelled INTEGER NOT NULL DEFAULT 1,
+			notify_student_promotion_eligible INTEGER NOT NULL DEFAULT 1,
+			notify_student_injured INTEGER NOT NULL DEFAULT 1,
+			notify_student_evaluation_logged INTEGER NOT NULL DEFAULT 1,
+			notify_student_membership_changed INTEGER NOT NULL DEFAULT 1,
+			notify_student_safety_resolved INTEGER NOT NULL DEFAULT 1,
+			notify_student_class_cancelled INTEGER NOT NULL DEFAULT 1,
+			notify_student_pass_expiring INTEGER NOT NULL DEFAULT 1,
+			smtp_host TEXT DEFAULT '',
+			smtp_port INTEGER DEFAULT 587,
+			smtp_user TEXT DEFAULT '',
+			smtp_password TEXT DEFAULT '',
+			smtp_from TEXT DEFAULT '',
+			sms_provider TEXT DEFAULT 'simulated',
+			sms_api_key TEXT DEFAULT '',
+			sms_from_number TEXT DEFAULT '',
+			web_push_public_key TEXT DEFAULT '',
+			web_push_private_key TEXT DEFAULT '',
+			web_push_subject TEXT DEFAULT '',
+			updated_at TEXT NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS user_notification_preferences (
+			user_id TEXT PRIMARY KEY,
+			email_enabled INTEGER NOT NULL DEFAULT 1,
+			sms_enabled INTEGER NOT NULL DEFAULT 1,
+			push_enabled INTEGER NOT NULL DEFAULT 1,
+			updated_at TEXT NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS notifications (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			recipient_role TEXT DEFAULT '',
+			recipient_type TEXT NOT NULL,
+			recipient_name TEXT NOT NULL,
+			recipient_contact TEXT DEFAULT '',
+			channel TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			message TEXT NOT NULL,
+			metadata TEXT DEFAULT '',
+			status TEXT NOT NULL,
+			is_read INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL
 		);`
 	} else {
 		schema = `
@@ -452,6 +508,62 @@ func (s *SQLStore) runMigrations() error {
 			user_agent TEXT DEFAULT '',
 			metadata TEXT DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS notification_settings (
+			id UUID PRIMARY KEY,
+			push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			sms_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_student_admitted BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_new_class_opened BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_staff_registered BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_student_injured BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_class_cancelled BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_promotion_eligible BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_injured BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_evaluation_logged BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_membership_changed BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_safety_resolved BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_class_cancelled BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_pass_expiring BOOLEAN NOT NULL DEFAULT TRUE,
+			smtp_host TEXT DEFAULT '',
+			smtp_port INT DEFAULT 587,
+			smtp_user TEXT DEFAULT '',
+			smtp_password TEXT DEFAULT '',
+			smtp_from TEXT DEFAULT '',
+			sms_provider TEXT DEFAULT 'simulated',
+			sms_api_key TEXT DEFAULT '',
+			sms_from_number TEXT DEFAULT '',
+			web_push_public_key TEXT DEFAULT '',
+			web_push_private_key TEXT DEFAULT '',
+			web_push_subject TEXT DEFAULT '',
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS user_notification_preferences (
+			user_id UUID PRIMARY KEY,
+			email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			sms_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS notifications (
+			id UUID PRIMARY KEY,
+			user_id UUID,
+			recipient_role VARCHAR(50) DEFAULT '',
+			recipient_type VARCHAR(50) NOT NULL,
+			recipient_name VARCHAR(150) NOT NULL,
+			recipient_contact VARCHAR(150) DEFAULT '',
+			channel VARCHAR(30) NOT NULL,
+			event_type VARCHAR(50) NOT NULL,
+			title VARCHAR(200) NOT NULL,
+			message TEXT NOT NULL,
+			metadata TEXT DEFAULT '',
+			status VARCHAR(30) NOT NULL,
+			is_read BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);`
 	}
 
@@ -518,6 +630,80 @@ func (s *SQLStore) runMigrations() error {
 			metadata TEXT DEFAULT '',
 			created_at TEXT NOT NULL
 		)`)
+
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS notification_settings (
+			id TEXT PRIMARY KEY,
+			push_enabled INTEGER NOT NULL DEFAULT 1,
+			sms_enabled INTEGER NOT NULL DEFAULT 1,
+			email_enabled INTEGER NOT NULL DEFAULT 1,
+			notify_admin_student_admitted INTEGER NOT NULL DEFAULT 1,
+			notify_admin_new_class_opened INTEGER NOT NULL DEFAULT 1,
+			notify_admin_staff_registered INTEGER NOT NULL DEFAULT 1,
+			notify_admin_student_injured INTEGER NOT NULL DEFAULT 1,
+			notify_admin_class_cancelled INTEGER NOT NULL DEFAULT 1,
+			notify_student_promotion_eligible INTEGER NOT NULL DEFAULT 1,
+			notify_student_injured INTEGER NOT NULL DEFAULT 1,
+			notify_student_evaluation_logged INTEGER NOT NULL DEFAULT 1,
+			notify_student_membership_changed INTEGER NOT NULL DEFAULT 1,
+			notify_student_safety_resolved INTEGER NOT NULL DEFAULT 1,
+			notify_student_class_cancelled INTEGER NOT NULL DEFAULT 1,
+			notify_student_pass_expiring INTEGER NOT NULL DEFAULT 1,
+			smtp_host TEXT DEFAULT '',
+			smtp_port INTEGER DEFAULT 587,
+			smtp_user TEXT DEFAULT '',
+			smtp_password TEXT DEFAULT '',
+			smtp_from TEXT DEFAULT '',
+			sms_provider TEXT DEFAULT 'simulated',
+			sms_api_key TEXT DEFAULT '',
+			sms_from_number TEXT DEFAULT '',
+			web_push_public_key TEXT DEFAULT '',
+			web_push_private_key TEXT DEFAULT '',
+			web_push_subject TEXT DEFAULT '',
+			updated_at TEXT NOT NULL
+		)`)
+
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
+			user_id TEXT PRIMARY KEY,
+			email_enabled INTEGER NOT NULL DEFAULT 1,
+			sms_enabled INTEGER NOT NULL DEFAULT 1,
+			push_enabled INTEGER NOT NULL DEFAULT 1,
+			updated_at TEXT NOT NULL
+		)`)
+
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS notifications (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			recipient_role TEXT DEFAULT '',
+			recipient_type TEXT NOT NULL,
+			recipient_name TEXT NOT NULL,
+			recipient_contact TEXT DEFAULT '',
+			channel TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			message TEXT NOT NULL,
+			metadata TEXT DEFAULT '',
+			status TEXT NOT NULL,
+			is_read INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL
+		)`)
+
+		var notifSettingsCountSQLite int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM notification_settings`).Scan(&notifSettingsCountSQLite); err == nil && notifSettingsCountSQLite == 0 {
+			def := models.DefaultNotificationSettings()
+			_, _ = s.db.Exec(`INSERT INTO notification_settings (
+				id, push_enabled, sms_enabled, email_enabled,
+				notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
+				notify_admin_student_injured, notify_admin_class_cancelled,
+				notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
+				notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
+				notify_student_pass_expiring,
+				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+				sms_provider, sms_api_key, sms_from_number,
+				web_push_public_key, web_push_private_key, web_push_subject,
+				updated_at
+			) VALUES ($1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, '', 587, '', '', '', 'simulated', '', '', '', '', '', $2)`,
+				def.ID.String(), formatTimeForDB(time.Now()))
+		}
 
 		// Seed default categories if none exist in SQLite
 		var catCountSQLite int
@@ -638,6 +824,80 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS notification_settings (
+			id UUID PRIMARY KEY,
+			push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			sms_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_student_admitted BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_new_class_opened BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_staff_registered BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_student_injured BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_admin_class_cancelled BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_promotion_eligible BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_injured BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_evaluation_logged BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_membership_changed BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_safety_resolved BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_class_cancelled BOOLEAN NOT NULL DEFAULT TRUE,
+			notify_student_pass_expiring BOOLEAN NOT NULL DEFAULT TRUE,
+			smtp_host TEXT DEFAULT '',
+			smtp_port INT DEFAULT 587,
+			smtp_user TEXT DEFAULT '',
+			smtp_password TEXT DEFAULT '',
+			smtp_from TEXT DEFAULT '',
+			sms_provider TEXT DEFAULT 'simulated',
+			sms_api_key TEXT DEFAULT '',
+			sms_from_number TEXT DEFAULT '',
+			web_push_public_key TEXT DEFAULT '',
+			web_push_private_key TEXT DEFAULT '',
+			web_push_subject TEXT DEFAULT '',
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
+			user_id UUID PRIMARY KEY,
+			email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			sms_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS notifications (
+			id UUID PRIMARY KEY,
+			user_id UUID,
+			recipient_role VARCHAR(50) DEFAULT '',
+			recipient_type VARCHAR(50) NOT NULL,
+			recipient_name VARCHAR(150) NOT NULL,
+			recipient_contact VARCHAR(150) DEFAULT '',
+			channel VARCHAR(30) NOT NULL,
+			event_type VARCHAR(50) NOT NULL,
+			title VARCHAR(200) NOT NULL,
+			message TEXT NOT NULL,
+			metadata TEXT DEFAULT '',
+			status VARCHAR(30) NOT NULL,
+			is_read BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+
+		var notifSettingsCountPG int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM notification_settings`).Scan(&notifSettingsCountPG); err == nil && notifSettingsCountPG == 0 {
+			def := models.DefaultNotificationSettings()
+			_, _ = s.db.Exec(`INSERT INTO notification_settings (
+				id, push_enabled, sms_enabled, email_enabled,
+				notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
+				notify_admin_student_injured, notify_admin_class_cancelled,
+				notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
+				notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
+				notify_student_pass_expiring,
+				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+				sms_provider, sms_api_key, sms_from_number,
+				web_push_public_key, web_push_private_key, web_push_subject,
+				updated_at
+			) VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, '', 587, '', '', '', 'simulated', '', '', '', '', '', NOW())`,
+				def.ID.String())
+		}
+
 		// Seed default categories if none exist in Postgres
 		var catCountPG int
 		if err := s.db.QueryRow(`SELECT COUNT(*) FROM training_categories`).Scan(&catCountPG); err == nil && catCountPG == 0 {
@@ -672,6 +932,9 @@ func (s *SQLStore) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
 		`CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_safety_incidents_resolved ON safety_incidents(resolved)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_category ON audit_logs(category)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`,
@@ -3532,4 +3795,457 @@ func (s *SQLStore) GetAuditTelemetry() (*models.AuditTelemetry, error) {
 		ActiveUsers:     activeUsers,
 		SecurityActions: secCount,
 	}, nil
+}
+
+func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, error) {
+	query := `SELECT id, push_enabled, sms_enabled, email_enabled,
+		notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
+		notify_admin_student_injured, notify_admin_class_cancelled,
+		notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
+		notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
+		notify_student_pass_expiring,
+		COALESCE(smtp_host, ''), COALESCE(smtp_port, 587), COALESCE(smtp_user, ''), COALESCE(smtp_password, ''), COALESCE(smtp_from, ''),
+		COALESCE(sms_provider, 'simulated'), COALESCE(sms_api_key, ''), COALESCE(sms_from_number, ''),
+		COALESCE(web_push_public_key, ''), COALESCE(web_push_private_key, ''), COALESCE(web_push_subject, ''),
+		updated_at
+		FROM notification_settings LIMIT 1`
+
+	row := s.db.QueryRow(query)
+	var idStr string
+	var updatedVal interface{}
+	settings := &models.NotificationSettings{}
+
+	err := row.Scan(
+		&idStr,
+		&settings.PushEnabled,
+		&settings.SMSEnabled,
+		&settings.EmailEnabled,
+		&settings.NotifyAdminStudentAdmitted,
+		&settings.NotifyAdminNewClassOpened,
+		&settings.NotifyAdminStaffRegistered,
+		&settings.NotifyAdminStudentInjured,
+		&settings.NotifyAdminClassCancelled,
+		&settings.NotifyStudentPromotionEligible,
+		&settings.NotifyStudentInjured,
+		&settings.NotifyStudentEvaluationLogged,
+		&settings.NotifyStudentMembershipChanged,
+		&settings.NotifyStudentSafetyResolved,
+		&settings.NotifyStudentClassCancelled,
+		&settings.NotifyStudentPassExpiring,
+		&settings.SMTPHost,
+		&settings.SMTPPort,
+		&settings.SMTPUser,
+		&settings.SMTPPassword,
+		&settings.SMTPFrom,
+		&settings.SMSProvider,
+		&settings.SMSApiKey,
+		&settings.SMSFromNumber,
+		&settings.WebPushPublicKey,
+		&settings.WebPushPrivateKey,
+		&settings.WebPushSubject,
+		&updatedVal,
+	)
+	if err == sql.ErrNoRows {
+		def := models.DefaultNotificationSettings()
+		_ = s.UpdateNotificationSettings(def)
+		return def, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to query notification settings: %w", err)
+	}
+
+	settings.ID = uuid.Must(uuid.Parse(idStr))
+	settings.UpdatedAt, _ = parseTimeFlex(updatedVal)
+	return settings, nil
+}
+
+func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSettings) error {
+	if settings == nil {
+		return errors.New("notification settings cannot be nil")
+	}
+	if settings.ID == uuid.Nil {
+		settings.ID = uuid.New()
+	}
+	settings.UpdatedAt = time.Now()
+
+	var updatedVal interface{}
+	if s.driver == "sqlite" {
+		updatedVal = formatTimeForDB(settings.UpdatedAt)
+	} else {
+		updatedVal = settings.UpdatedAt
+	}
+
+	query := `UPDATE notification_settings SET
+		push_enabled = $1, sms_enabled = $2, email_enabled = $3,
+		notify_admin_student_admitted = $4, notify_admin_new_class_opened = $5, notify_admin_staff_registered = $6,
+		notify_admin_student_injured = $7, notify_admin_class_cancelled = $8,
+		notify_student_promotion_eligible = $9, notify_student_injured = $10, notify_student_evaluation_logged = $11,
+		notify_student_membership_changed = $12, notify_student_safety_resolved = $13, notify_student_class_cancelled = $14,
+		notify_student_pass_expiring = $15,
+		smtp_host = $16, smtp_port = $17, smtp_user = $18, smtp_password = $19, smtp_from = $20,
+		sms_provider = $21, sms_api_key = $22, sms_from_number = $23,
+		web_push_public_key = $24, web_push_private_key = $25, web_push_subject = $26,
+		updated_at = $27
+		WHERE id = $28`
+
+	res, err := s.db.Exec(query,
+		settings.PushEnabled, settings.SMSEnabled, settings.EmailEnabled,
+		settings.NotifyAdminStudentAdmitted, settings.NotifyAdminNewClassOpened, settings.NotifyAdminStaffRegistered,
+		settings.NotifyAdminStudentInjured, settings.NotifyAdminClassCancelled,
+		settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
+		settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
+		settings.NotifyStudentPassExpiring,
+		settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
+		settings.SMSProvider, settings.SMSApiKey, settings.SMSFromNumber,
+		settings.WebPushPublicKey, settings.WebPushPrivateKey, settings.WebPushSubject,
+		updatedVal, settings.ID.String(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update notification settings: %w", err)
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		insertQuery := `INSERT INTO notification_settings (
+			id, push_enabled, sms_enabled, email_enabled,
+			notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
+			notify_admin_student_injured, notify_admin_class_cancelled,
+			notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
+			notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
+			notify_student_pass_expiring,
+			smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+			sms_provider, sms_api_key, sms_from_number,
+			web_push_public_key, web_push_private_key, web_push_subject,
+			updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+			$17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+		)`
+		_, err = s.db.Exec(insertQuery,
+			settings.ID.String(),
+			settings.PushEnabled, settings.SMSEnabled, settings.EmailEnabled,
+			settings.NotifyAdminStudentAdmitted, settings.NotifyAdminNewClassOpened, settings.NotifyAdminStaffRegistered,
+			settings.NotifyAdminStudentInjured, settings.NotifyAdminClassCancelled,
+			settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
+			settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
+			settings.NotifyStudentPassExpiring,
+			settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
+			settings.SMSProvider, settings.SMSApiKey, settings.SMSFromNumber,
+			settings.WebPushPublicKey, settings.WebPushPrivateKey, settings.WebPushSubject,
+			updatedVal,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert notification settings: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *SQLStore) GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error) {
+	query := `SELECT user_id, email_enabled, sms_enabled, push_enabled, updated_at
+		FROM user_notification_preferences WHERE user_id = $1`
+
+	row := s.db.QueryRow(query, userID.String())
+	var idStr string
+	var updatedVal interface{}
+	prefs := &models.UserNotificationPreferences{}
+
+	err := row.Scan(&idStr, &prefs.EmailEnabled, &prefs.SMSEnabled, &prefs.PushEnabled, &updatedVal)
+	if err == sql.ErrNoRows {
+		return models.DefaultUserPreferences(userID), nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to query user notification preferences: %w", err)
+	}
+
+	prefs.UserID = uuid.Must(uuid.Parse(idStr))
+	prefs.UpdatedAt, _ = parseTimeFlex(updatedVal)
+	return prefs, nil
+}
+
+func (s *SQLStore) UpdateUserNotificationPreferences(prefs *models.UserNotificationPreferences) error {
+	if prefs == nil {
+		return errors.New("user preferences cannot be nil")
+	}
+	prefs.UpdatedAt = time.Now()
+
+	var updatedVal interface{}
+	if s.driver == "sqlite" {
+		updatedVal = formatTimeForDB(prefs.UpdatedAt)
+	} else {
+		updatedVal = prefs.UpdatedAt
+	}
+
+	query := `INSERT INTO user_notification_preferences (user_id, email_enabled, sms_enabled, push_enabled, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT(user_id) DO UPDATE SET
+		email_enabled = EXCLUDED.email_enabled,
+		sms_enabled = EXCLUDED.sms_enabled,
+		push_enabled = EXCLUDED.push_enabled,
+		updated_at = EXCLUDED.updated_at`
+
+	_, err := s.db.Exec(query, prefs.UserID.String(), prefs.EmailEnabled, prefs.SMSEnabled, prefs.PushEnabled, updatedVal)
+	if err != nil {
+		return fmt.Errorf("failed to upsert user notification preferences: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) CreateNotification(n *models.Notification) error {
+	if n == nil {
+		return errors.New("notification cannot be nil")
+	}
+	if n.ID == uuid.Nil {
+		n.ID = uuid.New()
+	}
+	if n.CreatedAt.IsZero() {
+		n.CreatedAt = time.Now()
+	}
+
+	var userIDStr sql.NullString
+	if n.UserID != nil && *n.UserID != uuid.Nil {
+		userIDStr = sql.NullString{String: n.UserID.String(), Valid: true}
+	}
+
+	var createdAtVal interface{}
+	if s.driver == "sqlite" {
+		createdAtVal = formatTimeForDB(n.CreatedAt)
+	} else {
+		createdAtVal = n.CreatedAt
+	}
+
+	query := `INSERT INTO notifications (
+		id, user_id, recipient_role, recipient_type, recipient_name, recipient_contact,
+		channel, event_type, title, message, metadata, status, is_read, created_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+
+	_, err := s.db.Exec(query,
+		n.ID.String(),
+		userIDStr,
+		string(n.RecipientRole),
+		n.RecipientType,
+		n.RecipientName,
+		n.RecipientContact,
+		string(n.Channel),
+		string(n.EventType),
+		n.Title,
+		n.Message,
+		n.Metadata,
+		string(n.Status),
+		n.IsRead,
+		createdAtVal,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert notification: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) GetNotifications(filter models.NotificationFilter) ([]*models.Notification, int, error) {
+	var whereClauses []string
+	var args []interface{}
+	argIdx := 1
+
+	if filter.UserID != nil && *filter.UserID != uuid.Nil {
+		if filter.Role != nil && *filter.Role != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR recipient_role = $%d)", argIdx, argIdx+1))
+			args = append(args, filter.UserID.String(), string(*filter.Role))
+			argIdx += 2
+		} else {
+			whereClauses = append(whereClauses, fmt.Sprintf("user_id = $%d", argIdx))
+			args = append(args, filter.UserID.String())
+			argIdx++
+		}
+	} else if filter.Role != nil && *filter.Role != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("recipient_role = $%d", argIdx))
+		args = append(args, string(*filter.Role))
+		argIdx++
+	}
+
+	if filter.Channel != nil && *filter.Channel != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("channel = $%d", argIdx))
+		args = append(args, string(*filter.Channel))
+		argIdx++
+	}
+
+	if filter.EventType != nil && *filter.EventType != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("event_type = $%d", argIdx))
+		args = append(args, string(*filter.EventType))
+		argIdx++
+	}
+
+	if filter.UnreadOnly {
+		if s.driver == "sqlite" {
+			whereClauses = append(whereClauses, "is_read = 0")
+		} else {
+			whereClauses = append(whereClauses, "is_read = FALSE")
+		}
+	}
+
+	whereSQL := ""
+	if len(whereClauses) > 0 {
+		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM notifications %s", whereSQL)
+	var total int
+	if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count notifications: %w", err)
+	}
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := fmt.Sprintf(`SELECT id, user_id, recipient_role, recipient_type, recipient_name, recipient_contact,
+		channel, event_type, title, message, metadata, status, is_read, created_at
+		FROM notifications %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, whereSQL, argIdx, argIdx+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query notifications: %w", err)
+	}
+	defer rows.Close()
+
+	var notifs []*models.Notification
+	for rows.Next() {
+		var idStr string
+		var nullUserID sql.NullString
+		var roleStr, chanStr, evStr, statStr string
+		var createdVal interface{}
+		n := &models.Notification{}
+
+		if err := rows.Scan(
+			&idStr,
+			&nullUserID,
+			&roleStr,
+			&n.RecipientType,
+			&n.RecipientName,
+			&n.RecipientContact,
+			&chanStr,
+			&evStr,
+			&n.Title,
+			&n.Message,
+			&n.Metadata,
+			&statStr,
+			&n.IsRead,
+			&createdVal,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan notification: %w", err)
+		}
+
+		n.ID = uuid.Must(uuid.Parse(idStr))
+		if nullUserID.Valid && nullUserID.String != "" {
+			uid, _ := uuid.Parse(nullUserID.String)
+			n.UserID = &uid
+		}
+		n.RecipientRole = models.UserRole(roleStr)
+		n.Channel = models.NotificationChannel(chanStr)
+		n.EventType = models.NotificationEventType(evStr)
+		n.Status = models.NotificationStatus(statStr)
+		n.CreatedAt, _ = parseTimeFlex(createdVal)
+
+		notifs = append(notifs, n)
+	}
+	return notifs, total, nil
+}
+
+func (s *SQLStore) GetUnreadNotificationCount(userID *uuid.UUID, role *models.UserRole) (int, error) {
+	var whereClauses []string
+	var args []interface{}
+	argIdx := 1
+
+	if s.driver == "sqlite" {
+		whereClauses = append(whereClauses, "is_read = 0")
+	} else {
+		whereClauses = append(whereClauses, "is_read = FALSE")
+	}
+
+	if userID != nil && *userID != uuid.Nil {
+		if role != nil && *role != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR recipient_role = $%d)", argIdx, argIdx+1))
+			args = append(args, userID.String(), string(*role))
+			argIdx += 2
+		} else {
+			whereClauses = append(whereClauses, fmt.Sprintf("user_id = $%d", argIdx))
+			args = append(args, userID.String())
+			argIdx++
+		}
+	} else if role != nil && *role != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("recipient_role = $%d", argIdx))
+		args = append(args, string(*role))
+		argIdx++
+	}
+
+	whereSQL := "WHERE " + strings.Join(whereClauses, " AND ")
+	query := fmt.Sprintf("SELECT COUNT(*) FROM notifications %s", whereSQL)
+
+	var count int
+	err := s.db.QueryRow(query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count unread notifications: %w", err)
+	}
+	return count, nil
+}
+
+func (s *SQLStore) MarkNotificationRead(id uuid.UUID) error {
+	var query string
+	if s.driver == "sqlite" {
+		query = "UPDATE notifications SET is_read = 1 WHERE id = $1"
+	} else {
+		query = "UPDATE notifications SET is_read = TRUE WHERE id = $1"
+	}
+
+	res, err := s.db.Exec(query, id.String())
+	if err != nil {
+		return fmt.Errorf("failed to mark notification as read: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *SQLStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.UserRole) error {
+	var whereClauses []string
+	var args []interface{}
+	argIdx := 1
+
+	if userID != nil && *userID != uuid.Nil {
+		if role != nil && *role != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR recipient_role = $%d)", argIdx, argIdx+1))
+			args = append(args, userID.String(), string(*role))
+			argIdx += 2
+		} else {
+			whereClauses = append(whereClauses, fmt.Sprintf("user_id = $%d", argIdx))
+			args = append(args, userID.String())
+			argIdx++
+		}
+	} else if role != nil && *role != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("recipient_role = $%d", argIdx))
+		args = append(args, string(*role))
+		argIdx++
+	}
+
+	setSQL := "is_read = 1"
+	if s.driver != "sqlite" {
+		setSQL = "is_read = TRUE"
+	}
+
+	query := fmt.Sprintf("UPDATE notifications SET %s", setSQL)
+	if len(whereClauses) > 0 {
+		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	_, err := s.db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to mark all notifications read: %w", err)
+	}
+	return nil
 }

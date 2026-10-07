@@ -11,6 +11,7 @@ type ProfileViewData struct {
 	CurrentUser   *models.User
 	Student       *models.Student
 	Coach         *models.Coach
+	Preferences   *models.UserNotificationPreferences
 	SuccessNotice string
 	ErrorMessage  string
 }
@@ -31,10 +32,16 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		coach, _ = a.store.GetCoachByID(*user.CoachID)
 	}
 
+	prefs, _ := a.notifSvc.GetUserPreferences(user.ID)
+	if prefs == nil {
+		prefs = models.DefaultUserPreferences(user.ID)
+	}
+
 	data := ProfileViewData{
 		CurrentUser: user,
 		Student:     student,
 		Coach:       coach,
+		Preferences: prefs,
 	}
 
 	if r.Method == http.MethodGet {
@@ -134,6 +141,18 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+
+	// Update personal notification preferences if present in form
+	if r.FormValue("has_notif_prefs") == "1" {
+		isPrefChecked := func(fieldName string) bool {
+			val := strings.TrimSpace(r.FormValue(fieldName))
+			return val == "on" || val == "true" || val == "1"
+		}
+		data.Preferences.EmailEnabled = isPrefChecked("pref_email")
+		data.Preferences.SMSEnabled = isPrefChecked("pref_sms")
+		data.Preferences.PushEnabled = isPrefChecked("pref_push")
+		_ = a.notifSvc.UpdateUserPreferences(data.Preferences)
 	}
 
 	data.SuccessNotice = "Profile updated successfully!"

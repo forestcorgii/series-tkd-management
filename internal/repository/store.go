@@ -129,6 +129,19 @@ type RepositoryStore interface {
 	CreateAuditLog(entry *models.AuditLog) error
 	GetAuditLogs(filter models.AuditLogFilter) ([]*models.AuditLog, int, error)
 	GetAuditTelemetry() (*models.AuditTelemetry, error)
+
+	// Notification Settings & User Preferences
+	GetNotificationSettings() (*models.NotificationSettings, error)
+	UpdateNotificationSettings(settings *models.NotificationSettings) error
+	GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error)
+	UpdateUserNotificationPreferences(prefs *models.UserNotificationPreferences) error
+
+	// Notifications
+	CreateNotification(n *models.Notification) error
+	GetNotifications(filter models.NotificationFilter) ([]*models.Notification, int, error)
+	GetUnreadNotificationCount(userID *uuid.UUID, role *models.UserRole) (int, error)
+	MarkNotificationRead(id uuid.UUID) error
+	MarkAllNotificationsRead(userID *uuid.UUID, role *models.UserRole) error
 }
 
 type SessionTokenRecord struct {
@@ -155,6 +168,9 @@ type MemoryStore struct {
 	locations           map[uuid.UUID]*models.Location
 	trainingCategories  map[uuid.UUID]*models.TrainingCategory
 	auditLogs           []*models.AuditLog
+	notificationSettings *models.NotificationSettings
+	userPreferences     map[uuid.UUID]*models.UserNotificationPreferences
+	notifications       []*models.Notification
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -175,6 +191,9 @@ func NewMemoryStore() *MemoryStore {
 		locations:           make(map[uuid.UUID]*models.Location),
 		trainingCategories:  make(map[uuid.UUID]*models.TrainingCategory),
 		auditLogs:           make([]*models.AuditLog, 0),
+		notificationSettings: models.DefaultNotificationSettings(),
+		userPreferences:     make(map[uuid.UUID]*models.UserNotificationPreferences),
+		notifications:       make([]*models.Notification, 0),
 	}
 	m.seedData()
 	return m
@@ -1704,5 +1723,162 @@ func (m *MemoryStore) GetAuditTelemetry() (*models.AuditTelemetry, error) {
 		ActiveUsers:     len(activeUsersMap),
 		SecurityActions: secCount,
 	}, nil
+}
+
+func (m *MemoryStore) GetNotificationSettings() (*models.NotificationSettings, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.notificationSettings == nil {
+		m.notificationSettings = models.DefaultNotificationSettings()
+	}
+	// Return a copy
+	cp := *m.notificationSettings
+	return &cp, nil
+}
+
+func (m *MemoryStore) UpdateNotificationSettings(settings *models.NotificationSettings) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if settings == nil {
+		return errors.New("notification settings cannot be nil")
+	}
+	settings.UpdatedAt = time.Now()
+	cp := *settings
+	m.notificationSettings = &cp
+	return nil
+}
+
+func (m *MemoryStore) GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	prefs, ok := m.userPreferences[userID]
+	if !ok {
+		return models.DefaultUserPreferences(userID), nil
+	}
+	cp := *prefs
+	return &cp, nil
+}
+
+func (m *MemoryStore) UpdateUserNotificationPreferences(prefs *models.UserNotificationPreferences) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if prefs == nil {
+		return errors.New("user preferences cannot be nil")
+	}
+	prefs.UpdatedAt = time.Now()
+	cp := *prefs
+	m.userPreferences[prefs.UserID] = &cp
+	return nil
+}
+
+func (m *MemoryStore) CreateNotification(n *models.Notification) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if n == nil {
+		return errors.New("notification cannot be nil")
+	}
+	if n.ID == uuid.Nil {
+		n.ID = uuid.New()
+	}
+	if n.CreatedAt.IsZero() {
+		n.CreatedAt = time.Now()
+	}
+
+	cp := *n
+	m.notifications = append([]*models.Notification{&cp}, m.notifications...)
+	return nil
+}
+
+func (m *MemoryStore) GetNotifications(filter models.NotificationFilter) ([]*models.Notification, int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matched []*models.Notification
+	for _, n := range m.notifications {
+		if filter.UserID != nil {
+			// Matches specific user or role broadcast
+			if n.UserID != nil && *n.UserID != *filter.UserID {
+				continue
+			}
+		}
+		if filter.Role != nil && n.RecipientRole != "" && n.RecipientRole != *filter.Role {
+			continue
+		}
+		if filter.Channel != nil && n.Channel != *filter.Channel {
+			continue
+		}
+		if filter.EventType != nil && n.EventType != *filter.EventType {
+			continue
+		}
+		if filter.UnreadOnly && n.IsRead {
+			continue
+		}
+		cp := *n
+		matched = append(matched, &cp)
+	}
+
+	total := len(matched)
+	if filter.Offset >= total {
+		return []*models.Notification{}, total, nil
+	}
+	end := total
+	if filter.Limit > 0 && filter.Offset+filter.Limit < end {
+		end = filter.Offset + filter.Limit
+	}
+	return matched[filter.Offset:end], total, nil
+}
+
+func (m *MemoryStore) GetUnreadNotificationCount(userID *uuid.UUID, role *models.UserRole) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, n := range m.notifications {
+		if n.IsRead {
+			continue
+		}
+		if userID != nil && n.UserID != nil && *n.UserID != *userID {
+			continue
+		}
+		if role != nil && n.RecipientRole != "" && n.RecipientRole != *role {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (m *MemoryStore) MarkNotificationRead(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, n := range m.notifications {
+		if n.ID == id {
+			n.IsRead = true
+			return nil
+		}
+	}
+	return ErrNotFound
+}
+
+func (m *MemoryStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.UserRole) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, n := range m.notifications {
+		if userID != nil && n.UserID != nil && *n.UserID != *userID {
+			continue
+		}
+		if role != nil && n.RecipientRole != "" && n.RecipientRole != *role {
+			continue
+		}
+		n.IsRead = true
+	}
+	return nil
 }
 

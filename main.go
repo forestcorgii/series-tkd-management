@@ -134,6 +134,14 @@ func main() {
 	mux.HandleFunc("PUT /settings/categories/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateCategory))
 	mux.HandleFunc("POST /settings/categories/{id}/delete", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteCategory))
 	mux.HandleFunc("DELETE /settings/categories/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteCategory))
+	mux.HandleFunc("POST /settings/notifications", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateNotificationSettings))
+
+	// Notifications Center & Delivery (Authenticated Users)
+	mux.HandleFunc("GET /api/notifications", app.RequireAuth(app.HandleGetNotificationsAPI))
+	mux.HandleFunc("GET /api/notifications/badge", app.RequireAuth(app.HandleNotificationBadge))
+	mux.HandleFunc("GET /api/notifications/dropdown", app.RequireAuth(app.HandleNotificationDropdown))
+	mux.HandleFunc("POST /api/notifications/{id}/read", app.RequireAuth(app.HandleMarkNotificationRead))
+	mux.HandleFunc("POST /api/notifications/mark-all-read", app.RequireAuth(app.HandleMarkAllNotificationsRead))
 
 	// Section 4 Role Guarded APIs
 	mux.HandleFunc("GET /api/student/readiness", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleOperationManager)(app.HandleAPIStudentReadiness))

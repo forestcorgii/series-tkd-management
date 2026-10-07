@@ -328,6 +328,71 @@
             </div>
         {{end}}
 
+        <!-- Personal Notification Preferences Card -->
+        <input type="hidden" name="has_notif_prefs" value="1" />
+        <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+            <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">Personal Notification Preferences</h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Notification preferences info">ⓘ</button>
+                        <div class="tooltip-content w-72">
+                            Configure which channels you receive dojang updates on. You can disable email and SMS alerts at any time. In-app alerts remain active in your top bar inbox.
+                        </div>
+                    </div>
+                </div>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Multi-Channel Alerts</span>
+            </div>
+
+            <p class="text-xs text-slate-600 dark:text-slate-400">
+                Choose how Series Taekwondo reaches you for class check-ins, belt promotion readiness, coach evaluations, injuries, and membership updates.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+                <!-- Push Notification Toggle -->
+                <label class="relative flex flex-col p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">🔔</span>
+                            <span class="font-bold text-xs text-slate-900 dark:text-white">Push Alerts</span>
+                        </div>
+                        <input type="checkbox" name="pref_push" class="h-4 w-4 rounded accent-[#990303]" {{if or (not .Preferences) .Preferences.PushEnabled}}checked{{end}}>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        Immediate device &amp; browser alerts for live dojang events.
+                    </p>
+                </label>
+
+                <!-- SMS Notification Toggle -->
+                <label class="relative flex flex-col p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">📱</span>
+                            <span class="font-bold text-xs text-slate-900 dark:text-white">SMS Text Alerts</span>
+                        </div>
+                        <input type="checkbox" name="pref_sms" class="h-4 w-4 rounded accent-[#990303]" {{if and .Preferences .Preferences.SMSEnabled}}checked{{end}}>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        Direct SMS notices to your contact number. <strong class="text-rose-600 dark:text-rose-400 font-semibold block mt-0.5">Can be disabled anytime.</strong>
+                    </p>
+                </label>
+
+                <!-- Email Notification Toggle -->
+                <label class="relative flex flex-col p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">📧</span>
+                            <span class="font-bold text-xs text-slate-900 dark:text-white">Email Notices</span>
+                        </div>
+                        <input type="checkbox" name="pref_email" class="h-4 w-4 rounded accent-[#990303]" {{if and .Preferences .Preferences.EmailEnabled}}checked{{end}}>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        Detailed email reports to your registered email. <strong class="text-rose-600 dark:text-rose-400 font-semibold block mt-0.5">Can be disabled anytime.</strong>
+                    </p>
+                </label>
+            </div>
+        </div>
+
         <!-- Account Security / Password Update (Available to all roles) -->
         <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
             <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center gap-2">

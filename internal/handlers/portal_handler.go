@@ -611,6 +611,10 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("HX-Trigger", "attendanceUpdated")
 
+	if a.notifSvc != nil && student != nil {
+		a.notifSvc.NotifyStudentAdmitted(session, student, true, student.FullName)
+	}
+
 	if isHTMXRequest(r) {
 		itemData.IsCheckedIn = true
 		itemData.IsSuccess = true
@@ -698,6 +702,18 @@ func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if a.notifSvc != nil {
+		st, _ := a.store.GetStudentByID(req.StudentID)
+		sess, _ := a.store.GetSessionByID(req.SessionID)
+		actorName := "Coach"
+		if user != nil && user.DisplayName != "" {
+			actorName = user.DisplayName
+		}
+		if st != nil && sess != nil {
+			a.notifSvc.NotifyStudentAdmitted(sess, st, false, actorName)
+		}
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -790,6 +806,28 @@ func (a *AppHandler) HandleAPICoachEvaluate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if a.notifSvc != nil {
+		st, _ := a.store.GetStudentByID(studentID)
+		coachName := "Coach"
+		if c, err := a.store.GetCoachByID(coachID); err == nil && c != nil {
+			coachName = c.FullName
+		}
+		if st != nil {
+			a.notifSvc.NotifyNewlyEvaluated(eval, st, coachName)
+
+			allAtts, _ := a.store.GetStudentAttendances(studentID)
+			allSessions, _ := a.store.GetAllSessions()
+			allSessionsMap := make(map[string]*models.TrainingSession, len(allSessions))
+			for _, s := range allSessions {
+				allSessionsMap[s.ID.String()] = s
+			}
+			readiness := a.promotionSvc.EvaluateReadiness(st, allAtts, allSessionsMap, eval)
+			if readiness.Status == services.StatusReady {
+				a.notifSvc.NotifyPromotionEligible(st)
+			}
+		}
+	}
+
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(w, `<div class="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-semibold">Evaluation score saved successfully!</div>`)
@@ -840,6 +878,17 @@ func (a *AppHandler) HandleAPISafetyFlag(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if a.notifSvc != nil {
+		st, _ := a.store.GetStudentByID(studentID)
+		cName := "Floor Staff"
+		if user != nil && user.DisplayName != "" {
+			cName = user.DisplayName
+		}
+		if st != nil {
+			a.notifSvc.NotifyStudentInjured(incident, st, cName)
+		}
+	}
+
 	a.LogAction(r, "SAFETY_INCIDENT_REPORT", models.AuditCategorySafety, "Student", studentID.String(), "", "Reported safety incident ("+incidentType+") with mat hold placed")
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -878,6 +927,18 @@ func (a *AppHandler) HandleAPISafetyResolve(w http.ResponseWriter, r *http.Reque
 	if err := a.store.ResolveSafetyIncident(incidentID, adminEmail); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if a.notifSvc != nil {
+		incidents, _ := a.store.GetSafetyIncidents(nil)
+		for _, inc := range incidents {
+			if inc.ID == incidentID {
+				if st, err := a.store.GetStudentByID(inc.StudentID); err == nil && st != nil {
+					a.notifSvc.NotifySafetyResolved(inc, st, adminEmail)
+				}
+				break
+			}
+		}
 	}
 
 	a.LogAction(r, "SAFETY_INCIDENT_RESOLVE", models.AuditCategorySafety, "SafetyIncident", incidentID.String(), "", "Resolved safety incident and cleared practitioner for mat floor")
@@ -986,6 +1047,14 @@ func (a *AppHandler) HandleAPIAdminSchedule(w http.ResponseWriter, r *http.Reque
 	if err := a.store.CreateSession(sess); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if a.notifSvc != nil {
+		cName := "Administrator"
+		if u := GetUserFromContext(r.Context()); u != nil && u.DisplayName != "" {
+			cName = u.DisplayName
+		}
+		a.notifSvc.NotifyNewClassOpened(sess, cName)
 	}
 
 	if r.Header.Get("HX-Request") == "true" {

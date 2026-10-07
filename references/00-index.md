@@ -9,4 +9,5 @@
 - [Testing & Verification Operations](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/testing-operations.md)
 - [UI & Operations Terminology Standards](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/terminology-standards.md)
 - [Performance Standards & Optimization Patterns](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/performance.md)
+- [Multi-Channel Notifications Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/notifications.md)
 

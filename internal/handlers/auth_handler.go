@@ -400,6 +400,10 @@ func (a *AppHandler) HandleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if a.notifSvc != nil && user != nil {
+		a.notifSvc.NotifyStaffRegistered(user)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -563,6 +567,12 @@ func (a *AppHandler) HandleRegisterSubmit(w http.ResponseWriter, r *http.Request
 	}
 
 	a.LogAction(r, "AUTH_STAFF_REGISTER", models.AuditCategoryAuth, "User", "", fullName, "New "+role+" account registered (pending approval): "+email)
+
+	if a.notifSvc != nil {
+		if u, err := a.store.GetUserByEmail(email); err == nil && u != nil {
+			a.notifSvc.NotifyStaffRegistered(u)
+		}
+	}
 
 	successMsg := "Registration submitted successfully! Your account is pending manager approval. You can log in once approved."
 	if isJSON {

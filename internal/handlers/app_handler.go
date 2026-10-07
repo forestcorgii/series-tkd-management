@@ -46,6 +46,7 @@ type AppHandler struct {
 	packageSvc       *services.PackageService
 	authSvc          *services.AuthService
 	auditSvc         *services.AuditService
+	notifSvc         *services.NotificationService
 	pageTemplates    map[string]*template.Template
 	partialTemplates *template.Template
 }
@@ -56,6 +57,7 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 	pkgSvc := services.NewPackageService()
 	authSvc := services.NewAuthService(store)
 	auditSvc := services.NewAuditService(store)
+	notifSvc := services.NewNotificationService(store)
 
 	app := &AppHandler{
 		store:        store,
@@ -64,6 +66,7 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 		packageSvc:   pkgSvc,
 		authSvc:      authSvc,
 		auditSvc:     auditSvc,
+		notifSvc:     notifSvc,
 	}
 
 	if err := app.parseTemplates(); err != nil {
@@ -75,6 +78,10 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 
 func (a *AppHandler) AuditService() *services.AuditService {
 	return a.auditSvc
+}
+
+func (a *AppHandler) NotificationService() *services.NotificationService {
+	return a.notifSvc
 }
 
 func (a *AppHandler) AuthService() *services.AuthService {

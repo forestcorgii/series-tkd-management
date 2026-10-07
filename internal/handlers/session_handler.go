@@ -796,6 +796,14 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 
 	a.LogAction(r, "SESSION_CREATE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType), fmt.Sprintf("Created %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
 
+	if a.notifSvc != nil {
+		creatorName := "Staff"
+		if u := GetUserFromContext(r.Context()); u != nil && u.DisplayName != "" {
+			creatorName = u.DisplayName
+		}
+		a.notifSvc.NotifyNewClassOpened(sess, creatorName)
+	}
+
 	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
 	if redirectURL == "" {
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
@@ -1220,6 +1228,12 @@ func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request)
 
 	a.LogAction(r, "SESSION_CANCEL", models.AuditCategorySessions, "Session", sessionID.String(), reason, fmt.Sprintf("Cancelled session %s: %s", sessionID.String(), reason))
 
+	if a.notifSvc != nil {
+		if sObj, err := a.store.GetSessionByID(sessionID); err == nil && sObj != nil {
+			a.notifSvc.NotifyClassCancelled(sObj, reason)
+		}
+	}
+
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Refresh", "true")
 		w.WriteHeader(http.StatusOK)
@@ -1330,6 +1344,17 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 	readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 
 	a.LogAction(r, "ATTENDANCE_CHECKIN", models.AuditCategoryAttendance, "Student", studentID.String(), st.FullName, fmt.Sprintf("Checked in student %s to session", st.FullName))
+
+	if a.notifSvc != nil && st != nil {
+		actorName := "Staff"
+		if u := GetUserFromContext(r.Context()); u != nil && u.DisplayName != "" {
+			actorName = u.DisplayName
+		}
+		a.notifSvc.NotifyStudentAdmitted(session, st, false, actorName)
+		if readiness.Status == services.StatusReady {
+			a.notifSvc.NotifyPromotionEligible(st)
+		}
+	}
 
 	data := struct {
 		Attendance *models.Attendance

@@ -261,6 +261,27 @@ func (a *AppHandler) HandleCreateEvaluation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if a.notifSvc != nil {
+		if st, err := a.store.GetStudentByID(studentID); err == nil && st != nil {
+			coachName := "Coach"
+			if c, err := a.store.GetCoachByID(coachID); err == nil && c != nil {
+				coachName = c.FullName
+			}
+			a.notifSvc.NotifyNewlyEvaluated(eval, st, coachName)
+
+			allAtts, _ := a.store.GetStudentAttendances(studentID)
+			allSessions, _ := a.store.GetAllSessions()
+			allSessionsMap := make(map[string]*models.TrainingSession, len(allSessions))
+			for _, s := range allSessions {
+				allSessionsMap[s.ID.String()] = s
+			}
+			readiness := a.promotionSvc.EvaluateReadiness(st, allAtts, allSessionsMap, eval)
+			if readiness.Status == services.StatusReady {
+				a.notifSvc.NotifyPromotionEligible(st)
+			}
+		}
+	}
+
 	a.LogAction(r, "EVALUATION_SUBMIT", models.AuditCategoryStudents, "Student", studentID.String(), "", "Submitted athletic radar evaluation for student")
 
 	http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)

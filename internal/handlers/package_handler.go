@@ -417,9 +417,16 @@ func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if _, err := a.AssignPackageFromForm(r, studentID); err != nil {
+	sp, err := a.AssignPackageFromForm(r, studentID)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if a.notifSvc != nil && sp != nil {
+		if st, err := a.store.GetStudentByID(studentID); err == nil && st != nil {
+			a.notifSvc.NotifyMembershipAwarded(sp, st, sp.TemplateTitle)
+		}
 	}
 
 	redirectURL := r.FormValue("redirect_url")
@@ -453,9 +460,17 @@ func (a *AppHandler) HandleRevokeStudentPackage(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	targetPkg, _ := a.store.GetStudentPackageByID(id)
+
 	if err := a.store.RevokeStudentPackage(id); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to revoke membership: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	if a.notifSvc != nil && targetPkg != nil {
+		if st, err := a.store.GetStudentByID(targetPkg.StudentID); err == nil && st != nil {
+			a.notifSvc.NotifyMembershipRevoked(targetPkg, st)
+		}
 	}
 
 	a.LogAction(r, "PACKAGE_REVOKE", models.AuditCategoryPackages, "StudentPackage", id.String(), "", "Revoked student package: "+id.String())

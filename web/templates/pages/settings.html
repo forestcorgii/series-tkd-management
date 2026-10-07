@@ -1,27 +1,41 @@
 {{template "layout.html" .}}
 
-{{define "title"}}Settings &bull; Training Categories &bull; Series Taekwondo{{end}}
+{{define "title"}}Settings &bull; Series Taekwondo{{end}}
 
 {{define "content"}}
 <div class="space-y-6">
-    <h1 class="sr-only">System Settings &amp; Training Categories</h1>
+    <h1 class="sr-only">System Settings &amp; Configuration</h1>
 
-    <!-- Compact Action Toolbar -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <span class="text-xs font-bold uppercase tracking-wider text-neutral-500">Settings</span>
-            <div class="has-tooltip inline-flex items-center">
-                <button type="button" class="tooltip-icon" aria-label="Settings guide">ⓘ</button>
-                <div class="tooltip-content w-64">
-                    Configure class disciplines, custom training categories, and visual badge colors for floor timetables and check-ins.
+    <!-- Action Toolbar & Tab Navigation -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-neutral-800 pb-4">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">System Settings</span>
+                <div class="has-tooltip inline-flex items-center">
+                    <button type="button" class="tooltip-icon" aria-label="Settings guide">ⓘ</button>
+                    <div class="tooltip-content w-72">
+                        Manage training disciplines, timetable color codes, and dojang-wide push, SMS, and email notification channels.
+                    </div>
                 </div>
             </div>
+            <h2 class="font-display font-extrabold text-xl sm:text-2xl text-slate-900 dark:text-white uppercase tracking-tight mt-0.5">
+                Dojang Configuration
+            </h2>
         </div>
-        <div class="flex items-center gap-2">
+
+        <!-- Tab Switcher -->
+        <div class="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 self-start sm:self-auto">
             <button type="button"
-                    onclick="openNewCategoryModal()"
-                    class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm">
-                <span>+</span> Add New Category
+                    id="tab-btn-categories"
+                    onclick="switchSettingsTab('categories')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-sm">
+                <span>🥋</span> Training Disciplines
+            </button>
+            <button type="button"
+                    id="tab-btn-notifications"
+                    onclick="switchSettingsTab('notifications')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                <span>🔔</span> Notification Channels
             </button>
         </div>
     </div>
@@ -46,109 +60,476 @@
     </div>
     {{end}}
 
-    <!-- High-Level Metrics Banner -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-            <div class="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-950/60 text-[#990303] dark:text-red-400 flex items-center justify-center text-lg flex-shrink-0">
-                🥋
+    <!-- ==================== TAB PANE 1: TRAINING CATEGORIES ==================== -->
+    <div id="pane-categories" class="space-y-6">
+        <!-- High-Level Metrics Banner -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
+                <div class="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-950/60 text-[#990303] dark:text-red-400 flex items-center justify-center text-lg flex-shrink-0">
+                    🥋
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Configured Categories</p>
+                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalCategories}}</p>
+                </div>
             </div>
-            <div>
-                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Configured Categories</p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalCategories}}</p>
+            <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
+                <div class="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-lg flex-shrink-0">
+                    📅
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Classes Conducted</p>
+                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalSessions}}</p>
+                </div>
             </div>
         </div>
-        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-            <div class="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-lg flex-shrink-0">
-                📅
+
+        <!-- Training Categories List Card -->
+        <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div class="p-3.5 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Training Disciplines</h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Category colors guide">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Colors define left borders on timetable cards, live roster tags, and schedule filters.
+                        </div>
+                    </div>
+                </div>
+                {{if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}
+                <button type="button"
+                        onclick="openNewCategoryModal()"
+                        class="btn btn-primary btn-sm flex items-center gap-1.5">
+                    <span>+</span> Add Category
+                </button>
+                {{end}}
             </div>
-            <div>
-                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Classes Conducted</p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalSessions}}</p>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs min-w-[600px]">
+                    <thead class="bg-slate-50 dark:bg-neutral-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
+                        <tr>
+                            <th class="py-3 px-4">Badge Preview</th>
+                            <th class="py-3 px-4">Category Name</th>
+                            <th class="py-3 px-4">Color Hex</th>
+                            <th class="py-3 px-4 text-center">Class Sessions</th>
+                            {{if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}
+                            <th class="py-3 px-4 text-right">Actions</th>
+                            {{end}}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-neutral-800/80 text-slate-700 dark:text-slate-300">
+                        {{if not .Categories}}
+                        <tr>
+                            <td colspan="{{if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}5{{else}}4{{end}}" class="py-8 text-center text-slate-500 italic">
+                                No training categories configured yet.
+                            </td>
+                        </tr>
+                        {{else}}
+                        {{range .Categories}}
+                        <tr class="hover:bg-slate-50/60 dark:hover:bg-neutral-800/40 transition">
+                            <td class="py-3.5 px-4 whitespace-nowrap">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border"
+                                      style="color: {{.Category.Color}}; background-color: {{.Category.Color}}15; border-color: {{.Category.Color}}40;">
+                                    <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: {{.Category.Color}};"></span>
+                                    {{.Category.Name}}
+                                </span>
+                            </td>
+                            <td class="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
+                                {{.Category.Name}}
+                            </td>
+                            <td class="py-3.5 px-4 font-mono text-xs font-semibold">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="w-4 h-4 rounded border border-black/10 dark:border-white/10 flex-shrink-0 shadow-xs" style="background-color: {{.Category.Color}};"></span>
+                                    <span>{{.Category.Color}}</span>
+                                </div>
+                            </td>
+                            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                <span class="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                                    {{.SessionsCount}} session{{if ne .SessionsCount 1}}s{{end}}
+                                </span>
+                            </td>
+                            {{if or $.CurrentUser.IsAdmin $.CurrentUser.IsOperationManager}}
+                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                                <div class="inline-flex items-center gap-1.5">
+                                    <button type="button"
+                                            onclick="openEditCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', '{{.Category.Color}}')"
+                                            class="btn btn-secondary btn-xs">
+                                        ✏️ Edit
+                                    </button>
+                                    <button type="button"
+                                            onclick="openDeleteCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', {{.SessionsCount}})"
+                                            class="btn btn-danger btn-xs">
+                                        🗑️ Delete
+                                    </button>
+                                </div>
+                            </td>
+                            {{end}}
+                        </tr>
+                        {{end}}
+                        {{end}}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- Training Categories List Card -->
-    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div class="p-3.5 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Training Disciplines</h2>
-                <div class="has-tooltip inline-flex items-center">
-                    <button type="button" class="tooltip-icon" aria-label="Category colors guide">ⓘ</button>
-                    <div class="tooltip-content w-64">
-                        Colors define left borders on timetable cards, live roster tags, and schedule filters.
+    <!-- ==================== TAB PANE 2: NOTIFICATION CHANNELS ==================== -->
+    <div id="pane-notifications" class="space-y-6 hidden">
+        {{if not (or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager)}}
+        <div class="glass-panel p-6 rounded-2xl border border-slate-200 dark:border-neutral-800 text-center">
+            <span class="text-3xl block mb-2">🔒</span>
+            <h3 class="font-display font-bold text-base text-slate-900 dark:text-white">Admin Privileges Required</h3>
+            <p class="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                Notification channel master settings and gateway configurations can only be adjusted by Dojang Administrators and Operation Managers. Personal alert preferences can be configured in your <a href="/profile" class="text-[#990303] underline font-semibold">User Profile</a>.
+            </p>
+        </div>
+        {{else}}
+        <form action="/settings/notifications" method="POST" class="space-y-6">
+            <!-- Channel Master Switches Card -->
+            <div class="glass-panel p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-neutral-800 pb-3">
+                    <div>
+                        <h3 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>📡</span> Global Communication Channels
+                        </h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Enable or disable outward messaging channels dojang-wide. You can disable email and SMS notifications at any time.
+                        </p>
+                    </div>
+                    <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-300 self-start sm:self-auto">
+                        Master Controls
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                    <!-- Web Push Notifications -->
+                    <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">🔔</span>
+                                <div>
+                                    <h4 class="font-bold text-xs text-slate-900 dark:text-white">Web Push</h4>
+                                    <span class="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">Browser &amp; Devices</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="push_enabled" class="sr-only peer" {{if or (not .NotificationSettings) .NotificationSettings.PushEnabled}}checked{{end}}>
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#990303]"></div>
+                            </label>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                            Instant pop-up notifications to connected coach tablets and student devices.
+                        </p>
+                    </div>
+
+                    <!-- SMS Text Messaging -->
+                    <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">📱</span>
+                                <div>
+                                    <h4 class="font-bold text-xs text-slate-900 dark:text-white">SMS Notifications</h4>
+                                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Can be disabled</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="sms_enabled" class="sr-only peer" {{if and .NotificationSettings .NotificationSettings.SMSEnabled}}checked{{end}}>
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                            </label>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                            High-priority SMS alerts for student injuries, check-ins, and emergency updates. Uncheck to disable.
+                        </p>
+                    </div>
+
+                    <!-- Email Messaging -->
+                    <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">📧</span>
+                                <div>
+                                    <h4 class="font-bold text-xs text-slate-900 dark:text-white">Email Notifications</h4>
+                                    <span class="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">Can be disabled</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="email_enabled" class="sr-only peer" {{if and .NotificationSettings .NotificationSettings.EmailEnabled}}checked{{end}}>
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                            Detailed email summaries, evaluation reports, and promotion readiness badges. Uncheck to disable.
+                        </p>
                     </div>
                 </div>
             </div>
-            <button type="button"
-                    onclick="openNewCategoryModal()"
-                    class="btn btn-secondary btn-xs flex items-center gap-1.5 self-start sm:self-auto">
-                <span>+</span> Add Category
-            </button>
-        </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs min-w-[600px]">
-                <thead class="bg-slate-50 dark:bg-neutral-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
-                    <tr>
-                        <th class="py-3 px-4">Badge Preview</th>
-                        <th class="py-3 px-4">Category Name</th>
-                        <th class="py-3 px-4">Color Hex</th>
-                        <th class="py-3 px-4 text-center">Class Sessions</th>
-                        <th class="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-neutral-800/80 text-slate-700 dark:text-slate-300">
-                    {{if not .Categories}}
-                    <tr>
-                        <td colspan="5" class="py-8 text-center text-slate-500 italic">
-                            No training categories configured yet. Click "Add New Category" above to create one.
-                        </td>
-                    </tr>
-                    {{else}}
-                    {{range .Categories}}
-                    <tr class="hover:bg-slate-50/60 dark:hover:bg-neutral-800/40 transition">
-                        <td class="py-3.5 px-4 whitespace-nowrap">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border"
-                                  style="color: {{.Category.Color}}; background-color: {{.Category.Color}}15; border-color: {{.Category.Color}}40;">
-                                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: {{.Category.Color}};"></span>
-                                {{.Category.Name}}
-                            </span>
-                        </td>
-                        <td class="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
-                            {{.Category.Name}}
-                        </td>
-                        <td class="py-3.5 px-4 font-mono text-xs font-semibold">
-                            <div class="flex items-center gap-1.5">
-                                <span class="w-4 h-4 rounded border border-black/10 dark:border-white/10 flex-shrink-0 shadow-xs" style="background-color: {{.Category.Color}};"></span>
-                                <span>{{.Category.Color}}</span>
+            <!-- Granular Event Triggers Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Group 1: Coach & Administrator Event Triggers -->
+                <div class="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm space-y-4">
+                    <div class="border-b border-slate-200 dark:border-neutral-800 pb-3 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+                                <span>🥋</span> Coach &amp; Staff Notifications
+                            </h3>
+                            <p class="text-[11px] text-slate-500">Alerts dispatched to floor instructors &amp; administrators</p>
+                        </div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-[#990303] bg-red-500/10 dark:text-red-400 px-2 py-0.5 rounded-full">
+                            Staff Floor
+                        </span>
+                    </div>
+
+                    <div class="space-y-3">
+                        <!-- Student Admitted / Self Admitted -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Student Check-In &amp; Self-Admit</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Notify coaches and admins when a student self-admits or is admitted to floor training.
+                                </p>
                             </div>
-                        </td>
-                        <td class="py-3.5 px-4 text-center whitespace-nowrap">
-                            <span class="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-[11px] text-slate-700 dark:text-slate-300">
-                                {{.SessionsCount}} session{{if ne .SessionsCount 1}}s{{end}}
-                            </span>
-                        </td>
-                        <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                            <div class="inline-flex items-center gap-1.5">
-                                <button type="button"
-                                        onclick="openEditCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', '{{.Category.Color}}')"
-                                        class="btn btn-secondary btn-xs">
-                                    ✏️ Edit
-                                </button>
-                                <button type="button"
-                                        onclick="openDeleteCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', {{.SessionsCount}})"
-                                        class="btn btn-danger btn-xs">
-                                    🗑️ Delete
-                                </button>
+                            <input type="checkbox" name="notify_admin_student_admitted" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyAdminStudentAdmitted}}checked{{end}}>
+                        </label>
+
+                        <!-- New Class Opened -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">New Class Session Opened</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Broadcast when an administrator schedules or opens a new floor training class.
+                                </p>
                             </div>
-                        </td>
-                    </tr>
-                    {{end}}
-                    {{end}}
-                </tbody>
-            </table>
-        </div>
+                            <input type="checkbox" name="notify_admin_new_class_opened" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyAdminNewClassOpened}}checked{{end}}>
+                        </label>
+
+                        <!-- Staff / Coach Registered -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Staff Registration Pending</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Alert operation managers when a coach or staff member creates an account requiring approval.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_admin_staff_registered" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyAdminStaffRegistered}}checked{{end}}>
+                        </label>
+
+                        <!-- Student Injured (Staff copy) -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Floor Injury / Safety Incident</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Urgent staff alert when a medical condition or physical injury is logged on the mat.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_admin_student_injured" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyAdminStudentInjured}}checked{{end}}>
+                        </label>
+
+                        <!-- Class Cancelled (Staff notice) -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Class Session Cancellation</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Notify supervising coaches when a scheduled session is called off or rescheduled.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_admin_class_cancelled" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyAdminClassCancelled}}checked{{end}}>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Group 2: Student & Guardian Event Triggers -->
+                <div class="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm space-y-4">
+                    <div class="border-b border-slate-200 dark:border-neutral-800 pb-3 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+                                <span>🏅</span> Student &amp; Guardian Notifications
+                            </h3>
+                            <p class="text-[11px] text-slate-500">Alerts dispatched directly to practitioners &amp; families</p>
+                        </div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-500/10 dark:text-blue-400 px-2 py-0.5 rounded-full">
+                            Practitioners
+                        </span>
+                    </div>
+
+                    <div class="space-y-3">
+                        <!-- Belt Promotion Eligibility -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Belt Promotion Readiness Achieved</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Notify student and guardian when attendance, time-in-rank, and curriculum criteria qualify for testing.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_student_promotion_eligible" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyStudentPromotionEligible}}checked{{end}}>
+                        </label>
+
+                        <!-- Student Injured (Guardian dispatch) -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Injury Alert to Emergency Contact</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Priority multi-channel alert dispatched immediately to emergency contact phone and email.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_student_injured" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyStudentInjured}}checked{{end}}>
+                        </label>
+
+                        <!-- Newly Evaluated (Ability Radar update) -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">New Ability Evaluation &amp; Radar Score</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Notify student when an instructor inputs a 6-factor athletic radar evaluation with remarks.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_student_evaluation_logged" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyStudentEvaluationLogged}}checked{{end}}>
+                        </label>
+
+                        <!-- Membership Awarded / Revoked -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Membership Pass Awarded / Revoked</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Notify student when an admin assigns a new membership pass or when credits are revoked.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_student_membership_changed" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyStudentMembershipChanged}}checked{{end}}>
+                        </label>
+
+                        <!-- Safety Incident Resolved -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Safety Clearance / Medical Resolved</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Notify student when an administrator clears an injury hold and certifies return to sparring.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_student_safety_resolved" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyStudentSafetyResolved}}checked{{end}}>
+                        </label>
+
+                        <!-- Class Cancelled (Student) -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Class Session Cancelled Alert</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Immediate notice to scheduled students when weather or dojang maintenance cancels a session.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_student_class_cancelled" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyStudentClassCancelled}}checked{{end}}>
+                        </label>
+
+                        <!-- Pass Expiring / Running Low -->
+                        <label class="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-100 dark:border-neutral-800/80 bg-slate-50/50 dark:bg-neutral-900/40 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                            <div class="min-w-0">
+                                <span class="font-bold text-xs text-slate-900 dark:text-white block">Pass Expiring / Low Balance Notice</span>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                    Reminder when membership sessions fall to 2 or fewer remaining, or validity expires within 7 days.
+                                </p>
+                            </div>
+                            <input type="checkbox" name="notify_student_pass_expiring" class="h-4 w-4 rounded accent-[#990303] mt-0.5" {{if or (not .NotificationSettings) .NotificationSettings.NotifyStudentPassExpiring}}checked{{end}}>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Provider & Gateway Configurations Card -->
+            <div class="glass-panel p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm space-y-5">
+                <div class="border-b border-slate-200 dark:border-neutral-800 pb-3 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>⚙️</span> Delivery Gateways &amp; Credentials
+                        </h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Configure SMTP server, SMS gateway provider, and Web Push VAPID parameters.
+                        </p>
+                    </div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-neutral-800 px-2.5 py-1 rounded-full">
+                        Secure Vault
+                    </span>
+                </div>
+
+                <!-- 1. Email (SMTP) Configuration -->
+                <div class="space-y-3">
+                    <h4 class="font-bold text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                        <span>📧</span> SMTP Mail Server Settings
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="form-label">SMTP Host</label>
+                            <input type="text" name="smtp_host" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPHost}}{{end}}" placeholder="smtp.gmail.com" class="form-input text-xs" />
+                        </div>
+                        <div>
+                            <label class="form-label">SMTP Port</label>
+                            <input type="number" name="smtp_port" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPPort}}{{else}}587{{end}}" placeholder="587" class="form-input text-xs" />
+                        </div>
+                        <div>
+                            <label class="form-label">From Address</label>
+                            <input type="email" name="smtp_from" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPFrom}}{{end}}" placeholder="notifications@seriestkd.com" class="form-input text-xs" />
+                        </div>
+                        <div>
+                            <label class="form-label">SMTP Username</label>
+                            <input type="text" name="smtp_user" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPUser}}{{end}}" placeholder="admin@seriestkd.com" class="form-input text-xs" />
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="form-label">SMTP Password / App Key</label>
+                            <input type="password" name="smtp_password" placeholder="Leave blank to keep existing password" class="form-input text-xs" autocomplete="new-password" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 dark:border-neutral-800 pt-4 space-y-3">
+                    <!-- 2. SMS Gateway Configuration -->
+                    <h4 class="font-bold text-xs uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <span>📱</span> SMS Gateway Provider
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="form-label">Provider</label>
+                            <select name="sms_provider" class="form-select text-xs">
+                                <option value="simulated" {{if or (not .NotificationSettings) (eq .NotificationSettings.SMSProvider "simulated")}}selected{{end}}>Simulated Console &amp; DB Log</option>
+                                <option value="twilio" {{if and .NotificationSettings (eq .NotificationSettings.SMSProvider "twilio")}}selected{{end}}>Twilio Programmable SMS</option>
+                                <option value="semaphore" {{if and .NotificationSettings (eq .NotificationSettings.SMSProvider "semaphore")}}selected{{end}}>Semaphore PH SMS Gateway</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">SMS Sender / From Number</label>
+                            <input type="text" name="sms_from_number" value="{{if .NotificationSettings}}{{.NotificationSettings.SMSFromNumber}}{{end}}" placeholder="+12025550199 or SERIES" class="form-input text-xs" />
+                        </div>
+                        <div>
+                            <label class="form-label">API Key / Auth Token</label>
+                            <input type="password" name="sms_api_key" placeholder="Leave blank to keep existing key" class="form-input text-xs" autocomplete="new-password" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 dark:border-neutral-800 pt-4 space-y-3">
+                    <!-- 3. Web Push VAPID Settings -->
+                    <h4 class="font-bold text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                        <span>🔔</span> Web Push (VAPID) Credentials
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="form-label">VAPID Public Key</label>
+                            <input type="text" name="web_push_public_key" value="{{if .NotificationSettings}}{{.NotificationSettings.WebPushPublicKey}}{{end}}" placeholder="BEl62iUYgUivxIkv69yViEuiBIa-Ib9-Skv..." class="form-input font-mono text-xs" />
+                        </div>
+                        <div>
+                            <label class="form-label">Contact Subject / Mailto</label>
+                            <input type="text" name="web_push_subject" value="{{if .NotificationSettings}}{{.NotificationSettings.WebPushSubject}}{{end}}" placeholder="mailto:admin@seriestkd.com" class="form-input text-xs" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-neutral-800">
+                    <button type="submit" class="btn btn-primary btn-md shadow-md">
+                        💾 Save Notification Channel Settings
+                    </button>
+                </div>
+            </div>
+        </form>
+        {{end}}
     </div>
 </div>
 
@@ -307,6 +688,39 @@
 </div>
 
 <script>
+    function switchSettingsTab(tab) {
+        const paneCategories = document.getElementById('pane-categories');
+        const paneNotifications = document.getElementById('pane-notifications');
+        const btnCategories = document.getElementById('tab-btn-categories');
+        const btnNotifications = document.getElementById('tab-btn-notifications');
+
+        if (tab === 'notifications') {
+            paneCategories.classList.add('hidden');
+            paneNotifications.classList.remove('hidden');
+
+            btnNotifications.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-sm';
+            btnCategories.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+            window.location.hash = 'notifications';
+        } else {
+            paneNotifications.classList.add('hidden');
+            paneCategories.classList.remove('hidden');
+
+            btnCategories.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-sm';
+            btnNotifications.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+            window.location.hash = 'categories';
+        }
+    }
+
+    // Auto-detect tab on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        const hash = window.location.hash.replace('#', '');
+        if (tabParam === 'notifications' || hash === 'notifications' || '{{.ActiveTab}}' === 'notifications') {
+            switchSettingsTab('notifications');
+        }
+    });
+
     function openNewCategoryModal() {
         document.getElementById('new-cat-name').value = '';
         document.getElementById('new-cat-picker').value = '#990303';
