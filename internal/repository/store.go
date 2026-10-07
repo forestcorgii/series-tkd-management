@@ -1801,12 +1801,14 @@ func (m *MemoryStore) GetNotifications(filter models.NotificationFilter) ([]*mod
 	var matched []*models.Notification
 	for _, n := range m.notifications {
 		if filter.UserID != nil {
-			// Matches specific user or role broadcast
-			if n.UserID != nil && *n.UserID != *filter.UserID {
+			if n.UserID == nil {
+				if filter.Role == nil || n.RecipientRole == "" || n.RecipientRole != *filter.Role {
+					continue
+				}
+			} else if *n.UserID != *filter.UserID {
 				continue
 			}
-		}
-		if filter.Role != nil && n.RecipientRole != "" && n.RecipientRole != *filter.Role {
+		} else if filter.Role != nil && n.RecipientRole != "" && n.RecipientRole != *filter.Role {
 			continue
 		}
 		if filter.Channel != nil && n.Channel != *filter.Channel {
@@ -1842,10 +1844,15 @@ func (m *MemoryStore) GetUnreadNotificationCount(userID *uuid.UUID, role *models
 		if n.IsRead {
 			continue
 		}
-		if userID != nil && n.UserID != nil && *n.UserID != *userID {
-			continue
-		}
-		if role != nil && n.RecipientRole != "" && n.RecipientRole != *role {
+		if userID != nil {
+			if n.UserID == nil {
+				if role == nil || n.RecipientRole == "" || n.RecipientRole != *role {
+					continue
+				}
+			} else if *n.UserID != *userID {
+				continue
+			}
+		} else if role != nil && n.RecipientRole != "" && n.RecipientRole != *role {
 			continue
 		}
 		count++

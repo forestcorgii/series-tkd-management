@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -160,5 +161,77 @@ func TestNotificationHandler_UpdateSettings_DisablingEmailAndSMS(t *testing.T) {
 	}
 	if saved.SMSProvider != "twilio" {
 		t.Errorf("expected SMS provider twilio, got %s", saved.SMSProvider)
+	}
+}
+
+func TestNotificationHandler_NoDuplicateNotificationsDropdown(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	token := uuid.New().String()
+	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
+
+	// Get a session and student
+	sessions, _ := store.GetAllSessions()
+	if len(sessions) == 0 {
+		t.Fatal("expected test sessions")
+	}
+	students, _ := store.GetAllStudents()
+	if len(students) == 0 {
+		t.Fatal("expected test students")
+	}
+
+	// Trigger a single check-in via HTTP
+	reqCheckIn := httptest.NewRequest("POST", fmt.Sprintf("/sessions/%s/checkin/%s", sessions[0].ID, students[0].ID), nil)
+	reqCheckIn.SetPathValue("id", sessions[0].ID.String())
+	reqCheckIn.SetPathValue("student_id", students[0].ID.String())
+	reqCheckIn.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recCheckIn := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleCheckIn)).ServeHTTP(recCheckIn, reqCheckIn)
+
+	// Fetch notifications for the manager
+	reqAPI := httptest.NewRequest("GET", "/api/notifications", nil)
+	reqAPI.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recAPI := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleGetNotificationsAPI)).ServeHTTP(recAPI, reqAPI)
+
+	var apiResp struct {
+		Notifications []*models.Notification `json:"notifications"`
+		Total         int                    `json:"total"`
+		UnreadCount   int                    `json:"unread_count"`
+	}
+	_ = json.Unmarshal(recAPI.Body.Bytes(), &apiResp)
+
+	// Verify that the manager receives EXACTLY 2 distinct notifications for this action
+	// (1 for EventStudentAdmitted + 1 for EventPromotionEligible), with ZERO channel duplicates
+	if apiResp.Total != 2 {
+		t.Fatalf("expected exactly 2 distinct event notifications for the manager, got %d", apiResp.Total)
+	}
+	if apiResp.UnreadCount != 2 {
+		t.Fatalf("expected unread count to be 2, got %d", apiResp.UnreadCount)
+	}
+
+	// Verify events are distinct
+	seenEvents := make(map[models.NotificationEventType]int)
+	for _, n := range apiResp.Notifications {
+		seenEvents[n.EventType]++
+	}
+	if seenEvents[models.EventStudentAdmitted] != 1 {
+		t.Errorf("expected exactly 1 EventStudentAdmitted, got %d", seenEvents[models.EventStudentAdmitted])
+	}
+	if seenEvents[models.EventPromotionEligible] != 1 {
+		t.Errorf("expected exactly 1 EventPromotionEligible, got %d", seenEvents[models.EventPromotionEligible])
+	}
+
+	// Verify the dropdown renders exactly 2 notification items
+	reqDropdown := httptest.NewRequest("GET", "/api/notifications/dropdown", nil)
+	reqDropdown.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recDropdown := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleNotificationDropdown)).ServeHTTP(recDropdown, reqDropdown)
+
+	dropdownHTML := recDropdown.Body.String()
+	countNotifItems := strings.Count(dropdownHTML, "id=\"notif-item-")
+	if countNotifItems != 2 {
+		t.Fatalf("expected exactly 2 notification items rendered in dropdown, got %d", countNotifItems)
 	}
 }

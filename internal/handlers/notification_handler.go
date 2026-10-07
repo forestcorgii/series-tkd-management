@@ -116,17 +116,20 @@ func (a *AppHandler) HandleNotificationDropdown(w http.ResponseWriter, r *http.R
 				unreadDot = `<span class="w-2 h-2 rounded-full bg-[#990303] flex-shrink-0 mt-1"></span>`
 			}
 
-			channelBadge := ""
-			switch n.Channel {
-			case models.ChannelSMS:
-				channelBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[9px]">SMS</span>`
-			case models.ChannelEmail:
-				channelBadge = `<span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold text-[9px]">EMAIL</span>`
-			case models.ChannelPush:
-				channelBadge = `<span class="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold text-[9px]">PUSH</span>`
-			default:
-				channelBadge = `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 font-bold text-[9px]">IN-APP</span>`
+			var channelBadges []string
+			for _, ch := range n.DispatchedChannels() {
+				switch ch {
+				case models.ChannelSMS:
+					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[9px]">SMS</span>`)
+				case models.ChannelEmail:
+					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold text-[9px]">EMAIL</span>`)
+				case models.ChannelPush:
+					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold text-[9px]">PUSH</span>`)
+				default:
+					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 font-bold text-[9px]">IN-APP</span>`)
+				}
 			}
+			channelBadge := strings.Join(channelBadges, " ")
 
 			sb.WriteString(fmt.Sprintf(`<div class="p-3 transition hover:bg-[#F4F1E4]/50 dark:hover:bg-neutral-800/60 flex items-start gap-2.5 %s" id="notif-item-%s">`, unreadBg, n.ID.String()))
 			sb.WriteString(fmt.Sprintf(`  <div class="text-base flex-shrink-0 mt-0.5">%s</div>`, n.Icon()))

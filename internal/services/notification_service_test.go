@@ -232,3 +232,78 @@ func TestNotificationService_MarkAsRead(t *testing.T) {
 		t.Errorf("expected 0 unread notifications, got %d", unread)
 	}
 }
+
+func TestNotificationService_NoDuplicateNotifications(t *testing.T) {
+	svc, store := setupTestNotificationService()
+
+	coachID := uuid.New()
+	coachUserID := uuid.New()
+	coach := &models.Coach{
+		ID:       coachID,
+		FullName: "Master Lee",
+		Email:    "lee@tkd.com",
+		Phone:    "+639170001111",
+		IsActive: true,
+	}
+	_ = store.CreateCoach(coach)
+	coachUser := &models.User{
+		ID:       coachUserID,
+		Email:    "lee@tkd.com",
+		Role:     models.RoleCoach,
+		CoachID:  &coachID,
+		IsActive: true,
+	}
+	_ = store.CreateUser(coachUser)
+
+	managerUserID := uuid.New()
+	managerUser := &models.User{
+		ID:          managerUserID,
+		Email:       "manager@tkd.com",
+		Role:        models.RoleOperationManager,
+		DisplayName: "Dojang Manager",
+		IsActive:    true,
+	}
+	_ = store.CreateUser(managerUser)
+
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		CoachID:      &coachID,
+		TrainingType: models.TrainingSparring,
+		SessionDate:  time.Now(),
+	}
+	_ = store.CreateSession(sess)
+
+	student := &models.Student{
+		ID:       uuid.New(),
+		FullName: "Jin Kazama",
+	}
+	_ = store.CreateStudent(student)
+
+	// Action: Student admitted to class
+	svc.NotifyStudentAdmitted(sess, student, false, "Staff")
+
+	// Verify that each distinct staff user received EXACTLY 1 notification (no duplicates across channels)
+	coachNotifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &coachUserID})
+	if len(coachNotifs) != 1 {
+		t.Fatalf("expected coach to have exactly 1 notification, got %d", len(coachNotifs))
+	}
+
+	managerNotifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &managerUserID})
+	if len(managerNotifs) != 1 {
+		t.Fatalf("expected manager to have exactly 1 notification, got %d", len(managerNotifs))
+	}
+
+	// Verify total notifications created for this action is exactly 4 (1 for coach, 1 for manager, plus 2 seeded admin/manager staff)
+	// NOT 16!
+	allNotifs, total, _ := svc.GetNotifications(models.NotificationFilter{})
+	if total != 4 || len(allNotifs) != 4 {
+		t.Fatalf("expected exactly 4 total notifications in system (1 per staff user), got %d", total)
+	}
+
+	// Verify debounce: rapid second invocation within 5s does not create duplicates
+	svc.NotifyStudentAdmitted(sess, student, false, "Staff")
+	_, totalAfterDebounce, _ := svc.GetNotifications(models.NotificationFilter{})
+	if totalAfterDebounce != 4 {
+		t.Fatalf("expected total notifications to remain 4 after rapid duplicate trigger, got %d", totalAfterDebounce)
+	}
+}

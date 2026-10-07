@@ -1,10 +1,12 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,11 +25,16 @@ type RecipientInfo struct {
 }
 
 type NotificationService struct {
-	store repository.RepositoryStore
+	store        repository.RepositoryStore
+	dedupMu      sync.Mutex
+	recentEvents map[string]time.Time
 }
 
 func NewNotificationService(store repository.RepositoryStore) *NotificationService {
-	return &NotificationService{store: store}
+	return &NotificationService{
+		store:        store,
+		recentEvents: make(map[string]time.Time),
+	}
 }
 
 // Settings management
@@ -79,7 +86,38 @@ func (s *NotificationService) MarkAllAsRead(userID *uuid.UUID, role *models.User
 	return s.store.MarkAllNotificationsRead(userID, role)
 }
 
-// Internal multi-channel dispatcher
+// deduplicateRecipients ensures no recipient appears twice (by UserID or by email/phone)
+func deduplicateRecipients(recipients []RecipientInfo) []RecipientInfo {
+	seenUsers := make(map[uuid.UUID]bool)
+	seenEmails := make(map[string]bool)
+	seenPhones := make(map[string]bool)
+	var deduped []RecipientInfo
+
+	for _, r := range recipients {
+		if r.UserID != nil && *r.UserID != uuid.Nil {
+			if seenUsers[*r.UserID] {
+				continue
+			}
+			seenUsers[*r.UserID] = true
+		} else if strings.TrimSpace(r.Email) != "" {
+			emailKey := strings.ToLower(strings.TrimSpace(r.Email))
+			if seenEmails[emailKey] {
+				continue
+			}
+			seenEmails[emailKey] = true
+		} else if strings.TrimSpace(r.Phone) != "" {
+			phoneKey := strings.TrimSpace(r.Phone)
+			if seenPhones[phoneKey] {
+				continue
+			}
+			seenPhones[phoneKey] = true
+		}
+		deduped = append(deduped, r)
+	}
+	return deduped
+}
+
+// Internal multi-channel dispatcher - creates EXACTLY ONE notification record per recipient
 func (s *NotificationService) dispatch(event models.NotificationEventType, recipients []RecipientInfo, title, message, metadata string) {
 	settings, err := s.store.GetNotificationSettings()
 	if err != nil || settings == nil {
@@ -90,9 +128,34 @@ func (s *NotificationService) dispatch(event models.NotificationEventType, recip
 		return
 	}
 
+	recipients = deduplicateRecipients(recipients)
 	now := time.Now()
 
+	// Purge stale debounce keys older than 60s
+	s.dedupMu.Lock()
+	for k, t := range s.recentEvents {
+		if now.Sub(t) > 60*time.Second {
+			delete(s.recentEvents, k)
+		}
+	}
+	s.dedupMu.Unlock()
+
 	for _, r := range recipients {
+		// In-flight debounce check: prevent duplicate notifications for same recipient and event within 5s
+		userKey := "none"
+		if r.UserID != nil {
+			userKey = r.UserID.String()
+		}
+		dedupKey := fmt.Sprintf("%s:%s:%s:%s:%s", event, userKey, r.Type, r.Email, title)
+
+		s.dedupMu.Lock()
+		if lastTime, exists := s.recentEvents[dedupKey]; exists && now.Sub(lastTime) < 5*time.Second {
+			s.dedupMu.Unlock()
+			continue
+		}
+		s.recentEvents[dedupKey] = now
+		s.dedupMu.Unlock()
+
 		var userPrefs *models.UserNotificationPreferences
 		if r.UserID != nil && *r.UserID != uuid.Nil {
 			prefs, err := s.store.GetUserNotificationPreferences(*r.UserID)
@@ -104,90 +167,55 @@ func (s *NotificationService) dispatch(event models.NotificationEventType, recip
 			userPrefs = models.DefaultUserPreferences(*r.UserID)
 		}
 
-		// 1. In-App Notification (always logged to repository if user/role exists)
-		inAppNotif := &models.Notification{
+		// Calculate active outward delivery channels
+		var dispatchedChannels []models.NotificationChannel
+		dispatchedChannels = append(dispatchedChannels, models.ChannelInApp)
+
+		if settings.IsChannelEnabled(models.ChannelPush) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelPush)) {
+			dispatchedChannels = append(dispatchedChannels, models.ChannelPush)
+			log.Printf("🔔 [PUSH NOTIFICATION] To: %s (%s) | %s: %s", r.Name, r.Role, title, message)
+		}
+
+		if settings.IsChannelEnabled(models.ChannelSMS) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelSMS)) && strings.TrimSpace(r.Phone) != "" {
+			dispatchedChannels = append(dispatchedChannels, models.ChannelSMS)
+			log.Printf("📱 [SMS NOTIFICATION] To: %s (%s) | Phone: %s | %s", r.Name, r.Type, r.Phone, message)
+		}
+
+		if settings.IsChannelEnabled(models.ChannelEmail) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelEmail)) && strings.TrimSpace(r.Email) != "" {
+			dispatchedChannels = append(dispatchedChannels, models.ChannelEmail)
+			log.Printf("✉️ [EMAIL NOTIFICATION] To: %s <%s> | %s: %s", r.Name, r.Email, title, message)
+		}
+
+		// Attach channels list into metadata JSON so UI can display multi-channel badges without separate DB rows
+		channelsJSON, _ := json.Marshal(dispatchedChannels)
+		metaWithChannels := metadata
+		if metaWithChannels == "" || metaWithChannels == "{}" {
+			metaWithChannels = fmt.Sprintf(`{"channels":%s}`, string(channelsJSON))
+		} else if strings.HasPrefix(metaWithChannels, "{") && strings.HasSuffix(metaWithChannels, "}") {
+			metaWithChannels = fmt.Sprintf(`{"channels":%s,%s`, string(channelsJSON), metaWithChannels[1:])
+		}
+
+		// All system notification records are stored under ChannelInApp
+		primaryChan := models.ChannelInApp
+
+		// Create EXACTLY ONE Notification entry in the repository for this recipient!
+		notif := &models.Notification{
 			ID:               uuid.New(),
 			UserID:           r.UserID,
 			RecipientRole:    r.Role,
 			RecipientType:    r.Type,
 			RecipientName:    r.Name,
 			RecipientContact: r.Email,
-			Channel:          models.ChannelInApp,
+			Channel:          primaryChan,
 			EventType:        event,
 			Title:            title,
 			Message:          message,
-			Metadata:         metadata,
+			Metadata:         metaWithChannels,
 			Status:           models.StatusSent,
 			IsRead:           false,
 			CreatedAt:        now,
 		}
-		_ = s.store.CreateNotification(inAppNotif)
-
-		// 2. Push Notification
-		if settings.IsChannelEnabled(models.ChannelPush) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelPush)) {
-			pushNotif := &models.Notification{
-				ID:               uuid.New(),
-				UserID:           r.UserID,
-				RecipientRole:    r.Role,
-				RecipientType:    r.Type,
-				RecipientName:    r.Name,
-				RecipientContact: r.Email,
-				Channel:          models.ChannelPush,
-				EventType:        event,
-				Title:            title,
-				Message:          message,
-				Metadata:         metadata,
-				Status:           models.StatusSimulated,
-				IsRead:           false,
-				CreatedAt:        now,
-			}
-			_ = s.store.CreateNotification(pushNotif)
-			log.Printf("🔔 [PUSH NOTIFICATION] To: %s (%s) | %s: %s", r.Name, r.Role, title, message)
-		}
-
-		// 3. SMS Notification (strictly can be disabled globally and per-user)
-		if settings.IsChannelEnabled(models.ChannelSMS) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelSMS)) && strings.TrimSpace(r.Phone) != "" {
-			smsNotif := &models.Notification{
-				ID:               uuid.New(),
-				UserID:           r.UserID,
-				RecipientRole:    r.Role,
-				RecipientType:    r.Type,
-				RecipientName:    r.Name,
-				RecipientContact: r.Phone,
-				Channel:          models.ChannelSMS,
-				EventType:        event,
-				Title:            title,
-				Message:          message,
-				Metadata:         metadata,
-				Status:           models.StatusSimulated,
-				IsRead:           false,
-				CreatedAt:        now,
-			}
-			_ = s.store.CreateNotification(smsNotif)
-			log.Printf("📱 [SMS NOTIFICATION] To: %s (%s) | Phone: %s | %s", r.Name, r.Type, r.Phone, message)
-		}
-
-		// 4. Email Notification (strictly can be disabled globally and per-user)
-		if settings.IsChannelEnabled(models.ChannelEmail) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelEmail)) && strings.TrimSpace(r.Email) != "" {
-			emailNotif := &models.Notification{
-				ID:               uuid.New(),
-				UserID:           r.UserID,
-				RecipientRole:    r.Role,
-				RecipientType:    r.Type,
-				RecipientName:    r.Name,
-				RecipientContact: r.Email,
-				Channel:          models.ChannelEmail,
-				EventType:        event,
-				Title:            title,
-				Message:          message,
-				Metadata:         metadata,
-				Status:           models.StatusSimulated,
-				IsRead:           false,
-				CreatedAt:        now,
-			}
-			_ = s.store.CreateNotification(emailNotif)
-			log.Printf("✉️ [EMAIL NOTIFICATION] To: %s <%s> | %s: %s", r.Name, r.Email, title, message)
-		}
+		_ = s.store.CreateNotification(notif)
 	}
 }
 
@@ -387,7 +415,8 @@ func (s *NotificationService) NotifyPassExpiring(student *models.Student, pkg *m
 
 func (s *NotificationService) getCoachAndAdminRecipients(leadCoachID *uuid.UUID) []RecipientInfo {
 	var list []RecipientInfo
-	added := make(map[string]bool)
+	seenUsers := make(map[uuid.UUID]bool)
+	seenEmails := make(map[string]bool)
 
 	// Lead coach if specified
 	if leadCoachID != nil && *leadCoachID != uuid.Nil {
@@ -401,6 +430,12 @@ func (s *NotificationService) getCoachAndAdminRecipients(leadCoachID *uuid.UUID)
 					}
 				}
 			}
+			if coachUserID != nil {
+				seenUsers[*coachUserID] = true
+			}
+			if coach.Email != "" {
+				seenEmails[strings.ToLower(strings.TrimSpace(coach.Email))] = true
+			}
 			list = append(list, RecipientInfo{
 				UserID: coachUserID,
 				Role:   models.RoleCoach,
@@ -409,15 +444,19 @@ func (s *NotificationService) getCoachAndAdminRecipients(leadCoachID *uuid.UUID)
 				Email:  coach.Email,
 				Phone:  coach.Phone,
 			})
-			added[coach.Email] = true
 		}
 	}
 
 	// All active Admins and Operation Managers
 	if admins, err := s.store.GetUsersByRole(models.RoleAdmin); err == nil {
 		for _, u := range admins {
-			if !u.IsActive || added[u.Email] {
+			emailLower := strings.ToLower(strings.TrimSpace(u.Email))
+			if !u.IsActive || seenUsers[u.ID] || (emailLower != "" && seenEmails[emailLower]) {
 				continue
+			}
+			seenUsers[u.ID] = true
+			if emailLower != "" {
+				seenEmails[emailLower] = true
 			}
 			list = append(list, RecipientInfo{
 				UserID: &u.ID,
@@ -426,14 +465,18 @@ func (s *NotificationService) getCoachAndAdminRecipients(leadCoachID *uuid.UUID)
 				Name:   u.DisplayName,
 				Email:  u.Email,
 			})
-			added[u.Email] = true
 		}
 	}
 
 	if managers, err := s.store.GetUsersByRole(models.RoleOperationManager); err == nil {
 		for _, u := range managers {
-			if !u.IsActive || added[u.Email] {
+			emailLower := strings.ToLower(strings.TrimSpace(u.Email))
+			if !u.IsActive || seenUsers[u.ID] || (emailLower != "" && seenEmails[emailLower]) {
 				continue
+			}
+			seenUsers[u.ID] = true
+			if emailLower != "" {
+				seenEmails[emailLower] = true
 			}
 			list = append(list, RecipientInfo{
 				UserID: &u.ID,
@@ -442,7 +485,6 @@ func (s *NotificationService) getCoachAndAdminRecipients(leadCoachID *uuid.UUID)
 				Name:   u.DisplayName,
 				Email:  u.Email,
 			})
-			added[u.Email] = true
 		}
 	}
 
@@ -451,10 +493,18 @@ func (s *NotificationService) getCoachAndAdminRecipients(leadCoachID *uuid.UUID)
 
 func (s *NotificationService) getManagerRecipients() []RecipientInfo {
 	var list []RecipientInfo
+	seenUsers := make(map[uuid.UUID]bool)
+	seenEmails := make(map[string]bool)
+
 	if managers, err := s.store.GetUsersByRole(models.RoleOperationManager); err == nil {
 		for _, u := range managers {
-			if !u.IsActive {
+			emailLower := strings.ToLower(strings.TrimSpace(u.Email))
+			if !u.IsActive || seenUsers[u.ID] || (emailLower != "" && seenEmails[emailLower]) {
 				continue
+			}
+			seenUsers[u.ID] = true
+			if emailLower != "" {
+				seenEmails[emailLower] = true
 			}
 			list = append(list, RecipientInfo{
 				UserID: &u.ID,
@@ -498,14 +548,17 @@ func (s *NotificationService) getStudentAndGuardianRecipients(student *models.St
 	})
 
 	// Guardian / Emergency Contact
-	if strings.TrimSpace(student.EmergencyPhone) != "" || strings.TrimSpace(student.EmergencyName) != "" {
+	emergencyPhone := strings.TrimSpace(student.EmergencyPhone)
+	emergencyName := strings.TrimSpace(student.EmergencyName)
+	if emergencyPhone != "" || emergencyName != "" {
+		// UserID is set to nil and Role to "" so guardian alert does NOT duplicate in the student's personal account
 		list = append(list, RecipientInfo{
-			UserID: studentUserID,
-			Role:   models.RoleStudent,
+			UserID: nil,
+			Role:   "",
 			Type:   "GUARDIAN",
-			Name:   fmt.Sprintf("%s (Guardian for %s)", student.EmergencyName, student.FullName),
-			Email:  studentEmail,
-			Phone:  student.EmergencyPhone,
+			Name:   fmt.Sprintf("%s (Guardian for %s)", emergencyName, student.FullName),
+			Email:  "", // Emergency contact is notified via SMS/phone directly
+			Phone:  emergencyPhone,
 		})
 	}
 

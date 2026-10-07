@@ -4046,7 +4046,7 @@ func (s *SQLStore) GetNotifications(filter models.NotificationFilter) ([]*models
 
 	if filter.UserID != nil && *filter.UserID != uuid.Nil {
 		if filter.Role != nil && *filter.Role != "" {
-			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR recipient_role = $%d)", argIdx, argIdx+1))
+			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR (user_id IS NULL AND recipient_role = $%d))", argIdx, argIdx+1))
 			args = append(args, filter.UserID.String(), string(*filter.Role))
 			argIdx += 2
 		} else {
@@ -4168,7 +4168,7 @@ func (s *SQLStore) GetUnreadNotificationCount(userID *uuid.UUID, role *models.Us
 
 	if userID != nil && *userID != uuid.Nil {
 		if role != nil && *role != "" {
-			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR recipient_role = $%d)", argIdx, argIdx+1))
+			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR (user_id IS NULL AND recipient_role = $%d))", argIdx, argIdx+1))
 			args = append(args, userID.String(), string(*role))
 			argIdx += 2
 		} else {
@@ -4219,7 +4219,7 @@ func (s *SQLStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.User
 
 	if userID != nil && *userID != uuid.Nil {
 		if role != nil && *role != "" {
-			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR recipient_role = $%d)", argIdx, argIdx+1))
+			whereClauses = append(whereClauses, fmt.Sprintf("(user_id = $%d OR (user_id IS NULL AND recipient_role = $%d))", argIdx, argIdx+1))
 			args = append(args, userID.String(), string(*role))
 			argIdx += 2
 		} else {

@@ -1,6 +1,8 @@
 package models
 
 import (
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -215,6 +217,24 @@ func (n *Notification) MarkAsRead() {
 	if n != nil {
 		n.IsRead = true
 	}
+}
+
+func (n *Notification) DispatchedChannels() []NotificationChannel {
+	if n == nil {
+		return nil
+	}
+	if strings.Contains(n.Metadata, `"channels"`) {
+		var meta struct {
+			Channels []NotificationChannel `json:"channels"`
+		}
+		if err := json.Unmarshal([]byte(n.Metadata), &meta); err == nil && len(meta.Channels) > 0 {
+			return meta.Channels
+		}
+	}
+	if n.Channel != "" {
+		return []NotificationChannel{n.Channel}
+	}
+	return []NotificationChannel{ChannelInApp}
 }
 
 func (n *Notification) Icon() string {
