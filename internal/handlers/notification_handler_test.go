@@ -171,23 +171,37 @@ func TestNotificationHandler_NoDuplicateNotificationsDropdown(t *testing.T) {
 	token := uuid.New().String()
 	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
 
-	// Get a session and student
-	sessions, _ := store.GetAllSessions()
-	if len(sessions) == 0 {
-		t.Fatal("expected test sessions")
+	coaches, _ := store.GetAllCoaches()
+	var coachID *uuid.UUID
+	if len(coaches) > 0 {
+		coachID = &coaches[0].ID
 	}
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "10:00",
+		EndTime:      "11:30",
+		CoachID:      coachID,
+		TrainingType: models.TrainingSparring,
+	}
+	_ = store.CreateSession(sess)
+
 	students, _ := store.GetAllStudents()
 	if len(students) == 0 {
 		t.Fatal("expected test students")
 	}
 
 	// Trigger a single check-in via HTTP
-	reqCheckIn := httptest.NewRequest("POST", fmt.Sprintf("/sessions/%s/checkin/%s", sessions[0].ID, students[0].ID), nil)
-	reqCheckIn.SetPathValue("id", sessions[0].ID.String())
+	reqCheckIn := httptest.NewRequest("POST", fmt.Sprintf("/sessions/%s/checkin/%s", sess.ID, students[0].ID), nil)
+	reqCheckIn.SetPathValue("id", sess.ID.String())
 	reqCheckIn.SetPathValue("student_id", students[0].ID.String())
 	reqCheckIn.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
 	recCheckIn := httptest.NewRecorder()
 	app.AuthMiddleware(http.HandlerFunc(app.HandleCheckIn)).ServeHTTP(recCheckIn, reqCheckIn)
+
+	if recCheckIn.Code != http.StatusOK {
+		t.Fatalf("expected check-in status 200, got %d: %s", recCheckIn.Code, recCheckIn.Body.String())
+	}
 
 	// Fetch notifications for the manager
 	reqAPI := httptest.NewRequest("GET", "/api/notifications", nil)
@@ -202,8 +216,8 @@ func TestNotificationHandler_NoDuplicateNotificationsDropdown(t *testing.T) {
 	}
 	_ = json.Unmarshal(recAPI.Body.Bytes(), &apiResp)
 
-	// Verify that the manager receives EXACTLY 2 distinct notifications for this action
-	// (1 for EventStudentAdmitted + 1 for EventPromotionEligible), with ZERO channel duplicates
+	// Verify that the manager receives EXACTLY 2 distinct event notifications for this action
+	// (1 for EventStudentAdmitted + 1 for EventPromotionEligible), with ZERO channel duplicates (previously 8 notifications)
 	if apiResp.Total != 2 {
 		t.Fatalf("expected exactly 2 distinct event notifications for the manager, got %d", apiResp.Total)
 	}
@@ -211,7 +225,6 @@ func TestNotificationHandler_NoDuplicateNotificationsDropdown(t *testing.T) {
 		t.Fatalf("expected unread count to be 2, got %d", apiResp.UnreadCount)
 	}
 
-	// Verify events are distinct
 	seenEvents := make(map[models.NotificationEventType]int)
 	for _, n := range apiResp.Notifications {
 		seenEvents[n.EventType]++
