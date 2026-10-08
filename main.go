@@ -275,6 +275,9 @@ func main() {
 		fs.ServeHTTP(w, r)
 	})))
 
+	// Object storage files (Railway S3 proxy or local uploads)
+	mux.HandleFunc("GET /storage/{key...}", app.HandleServeStorage)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

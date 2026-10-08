@@ -101,6 +101,8 @@ type RepositoryStore interface {
 	GetUserByUsername(username string) (*models.User, error)
 	GetUserByIdentifier(identifier string) (*models.User, error)
 	GetUserByID(id uuid.UUID) (*models.User, error)
+	GetUserByStudentID(studentID uuid.UUID) (*models.User, error)
+	GetUserByCoachID(coachID uuid.UUID) (*models.User, error)
 	GetUsersByRole(role models.UserRole) ([]*models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
@@ -1125,6 +1127,28 @@ func (m *MemoryStore) GetUserByID(id uuid.UUID) (*models.User, error) {
 	return u, nil
 }
 
+func (m *MemoryStore) GetUserByStudentID(studentID uuid.UUID) (*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, u := range m.users {
+		if u.StudentID != nil && *u.StudentID == studentID {
+			return u, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MemoryStore) GetUserByCoachID(coachID uuid.UUID) (*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, u := range m.users {
+		if u.CoachID != nil && *u.CoachID == coachID {
+			return u, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 func (m *MemoryStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1188,6 +1212,7 @@ func (m *MemoryStore) UpdateUser(u *models.User) error {
 	existing.PasswordHash = u.PasswordHash
 	existing.IsActive = u.IsActive
 	existing.DisplayName = u.DisplayName
+	existing.ProfilePictureURL = u.ProfilePictureURL
 	existing.UpdatedAt = time.Now()
 	return nil
 }

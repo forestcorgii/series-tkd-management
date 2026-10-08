@@ -41,7 +41,8 @@ type User struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 
 	// Enriched fields for view convenience
-	DisplayName  string     `json:"display_name,omitempty"`
+	DisplayName       string `json:"display_name,omitempty"`
+	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 }
 
 type PasswordResetToken struct {

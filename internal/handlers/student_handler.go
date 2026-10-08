@@ -21,6 +21,7 @@ type StudentListItem struct {
 	ActivePackage    *models.StudentPackage
 	LatestEvaluation *models.StudentEvaluation
 	SVGRadarPolygon  string
+	ProfilePictureURL string
 }
 
 type StudentsPageData struct {
@@ -76,12 +77,18 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 			polygon = latestEval.ToSVGPolygon(100, 100, 80)
 		}
 
+		var picURL string
+		if u, _ := a.store.GetUserByStudentID(st.ID); u != nil && u.ProfilePictureURL != "" {
+			picURL = u.ProfilePictureURL
+		}
+
 		items = append(items, StudentListItem{
-			Student:          st,
-			Readiness:        readiness,
-			ActivePackage:    activePkg,
-			LatestEvaluation: latestEval,
-			SVGRadarPolygon:  polygon,
+			Student:           st,
+			Readiness:         readiness,
+			ActivePackage:     activePkg,
+			LatestEvaluation:  latestEval,
+			SVGRadarPolygon:   polygon,
+			ProfilePictureURL: picURL,
 		})
 	}
 
@@ -147,24 +154,31 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 		polygon = latestEval.ToSVGPolygon(100, 100, 80)
 	}
 
+	var studentPicURL string
+	if u, _ := a.store.GetUserByStudentID(student.ID); u != nil && u.ProfilePictureURL != "" {
+		studentPicURL = u.ProfilePictureURL
+	}
+
 	data := struct {
-		CurrentUser      *models.User
-		Student          *models.Student
-		Readiness        services.PromotionReadiness
-		Packages         []*models.StudentPackage
-		LatestEvaluation *models.StudentEvaluation
-		Evaluations      []*models.StudentEvaluation
-		Coaches          []*models.Coach
-		SVGRadarPolygon  string
+		CurrentUser       *models.User
+		Student           *models.Student
+		Readiness         services.PromotionReadiness
+		Packages          []*models.StudentPackage
+		LatestEvaluation  *models.StudentEvaluation
+		Evaluations       []*models.StudentEvaluation
+		Coaches           []*models.Coach
+		SVGRadarPolygon   string
+		ProfilePictureURL string
 	}{
-		CurrentUser:      user,
-		Student:          student,
-		Readiness:        readiness,
-		Packages:         pkgs,
-		LatestEvaluation: latestEval,
-		Evaluations:      evals,
-		Coaches:          coaches,
-		SVGRadarPolygon:  polygon,
+		CurrentUser:       user,
+		Student:           student,
+		Readiness:         readiness,
+		Packages:          pkgs,
+		LatestEvaluation:  latestEval,
+		Evaluations:       evals,
+		Coaches:           coaches,
+		SVGRadarPolygon:   polygon,
+		ProfilePictureURL: studentPicURL,
 	}
 
 	a.RenderPage(w, "student_detail.html", data)

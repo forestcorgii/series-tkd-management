@@ -133,8 +133,14 @@
                         <!-- Instructor Info -->
                         <td class="py-3.5 px-4">
                             <div class="flex items-center gap-3">
-                                <div class="h-10 w-10 rounded-xl {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else if .IsPendingApproval}}bg-amber-500 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center font-display font-extrabold text-[10px] leading-tight text-center px-1 shadow-sm flex-shrink-0">
-                                    {{.Coach.FullName}}
+                                <div class="h-10 w-10 rounded-xl overflow-hidden {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else if .IsPendingApproval}}bg-amber-500 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center shadow-sm flex-shrink-0">
+                                    {{if .ProfilePictureURL}}
+                                        <img src="{{.ProfilePictureURL}}" alt="{{.Coach.FullName}}" class="w-full h-full object-cover" />
+                                    {{else}}
+                                        <svg class="w-6 h-6 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                            <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                                        </svg>
+                                    {{end}}
                                 </div>
                                 <div>
                                     <div class="font-display font-bold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
@@ -245,8 +251,14 @@
     <div class="modal-dialog max-w-lg">
         <div class="modal-header">
             <div class="flex items-center gap-3">
-                <div class="h-12 w-12 rounded-xl {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else if .IsPendingApproval}}bg-amber-500 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center font-display font-extrabold text-xs text-center px-1 shadow-md">
-                    {{.Coach.FullName}}
+                <div class="h-12 w-12 rounded-xl overflow-hidden {{if .Coach.IsActive}}bg-gradient-to-tr from-indigo-500 to-purple-600 text-white{{else if .IsPendingApproval}}bg-amber-500 text-white{{else}}bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400{{end}} flex items-center justify-center shadow-md flex-shrink-0">
+                    {{if .ProfilePictureURL}}
+                        <img src="{{.ProfilePictureURL}}" alt="{{.Coach.FullName}}" class="w-full h-full object-cover" />
+                    {{else}}
+                        <svg class="w-7 h-7 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                        </svg>
+                    {{end}}
                 </div>
                 <div>
                     <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white leading-tight">{{.Coach.FullName}}</h3>

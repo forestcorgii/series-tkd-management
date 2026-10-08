@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"series-tkd-management/internal/models"
 )
@@ -52,6 +55,74 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+
+	// Parse multipart form up to 5MB to handle photo uploads
+	if err := r.ParseMultipartForm(5 << 20); err != nil && err != http.ErrNotMultipart {
+		data.ErrorMessage = "Failed to process form or upload exceeded 5MB limit: " + err.Error()
+		a.RenderPage(w, "profile.html", data)
+		return
+	}
+
+	// Handle Avatar Removal
+	if r.FormValue("remove_avatar") == "1" || r.FormValue("remove_avatar") == "true" {
+		if user.ProfilePictureURL != "" {
+			oldURL := user.ProfilePictureURL
+			user.ProfilePictureURL = ""
+			if err := a.store.UpdateUser(user); err != nil {
+				data.ErrorMessage = "Failed to remove profile photo: " + err.Error()
+				a.RenderPage(w, "profile.html", data)
+				return
+			}
+			if a.storage != nil {
+				_ = a.storage.Delete(r.Context(), oldURL)
+			}
+			a.LogAction(r, "PROFILE_AVATAR_REMOVE", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User removed their profile picture")
+		}
+	}
+
+	// Handle Avatar Upload
+	avatarFile, avatarHeader, err := r.FormFile("avatar")
+	if err == nil && avatarFile != nil {
+		defer avatarFile.Close()
+
+		if avatarHeader.Size > 5<<20 {
+			data.ErrorMessage = "Profile photo exceeds maximum limit of 5MB."
+			a.RenderPage(w, "profile.html", data)
+			return
+		}
+
+		ext := strings.ToLower(filepath.Ext(avatarHeader.Filename))
+		allowedExts := map[string]string{
+			".jpg":  "image/jpeg",
+			".jpeg": "image/jpeg",
+			".png":  "image/png",
+			".webp": "image/webp",
+			".gif":  "image/gif",
+		}
+		contentType, valid := allowedExts[ext]
+		if !valid {
+			data.ErrorMessage = "Invalid image file type. Please upload a JPG, PNG, WEBP, or GIF image."
+			a.RenderPage(w, "profile.html", data)
+			return
+		}
+
+		if a.storage != nil {
+			key := fmt.Sprintf("avatars/user-%s-%d%s", user.ID.String(), time.Now().Unix(), ext)
+			uploadURL, err := a.storage.Upload(r.Context(), key, avatarFile, contentType)
+			if err != nil {
+				data.ErrorMessage = "Failed to upload profile picture: " + err.Error()
+				a.RenderPage(w, "profile.html", data)
+				return
+			}
+			user.ProfilePictureURL = uploadURL
+			if err := a.store.UpdateUser(user); err != nil {
+				data.ErrorMessage = "Failed to save profile picture URL: " + err.Error()
+				a.RenderPage(w, "profile.html", data)
+				return
+			}
+			a.LogAction(r, "PROFILE_AVATAR_UPLOAD", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User uploaded a new profile picture")
+		}
 	}
 
 	// Process updates based on user role

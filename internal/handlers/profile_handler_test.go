@@ -1,9 +1,12 @@
 package handlers_test
 
 import (
+	"bytes"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +16,7 @@ import (
 	"series-tkd-management/internal/handlers"
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
+	"series-tkd-management/internal/storage"
 )
 
 func TestProfileHandler_StudentFlow(t *testing.T) {
@@ -285,5 +289,127 @@ func TestProfileHandler_CoachAndAdminFlow(t *testing.T) {
 	}
 	if !updatedAdmin.CheckPassword("newsecurepass") {
 		t.Errorf("expected updated password to verify successfully")
+	}
+}
+
+func TestProfileHandler_AvatarUploadAndRemoval(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	tempDir, err := os.MkdirTemp("", "avatar_test_*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	mockStorage, err := storage.NewLocalStorage(tempDir, "/static/uploads/avatars")
+	if err != nil {
+		t.Fatalf("failed to initialize mock storage: %v", err)
+	}
+	app.SetStorage(mockStorage)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:          userID,
+		Email:       "avatar.user@seriestkd.com",
+		Role:        models.RoleAdmin,
+		IsActive:    true,
+		DisplayName: "Avatar Tester",
+	}
+	_ = user.SetPassword("admin123")
+	if err := store.CreateUser(user); err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	withSession := func(req *http.Request, u *models.User) *http.Request {
+		token := uuid.New().String()
+		_ = store.CreateSessionToken(token, u.ID, time.Now().Add(time.Hour))
+		req.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+		return req
+	}
+
+	executeHandler := func(rec *httptest.ResponseRecorder, req *http.Request) {
+		app.AuthMiddleware(http.HandlerFunc(app.HandleProfile)).ServeHTTP(rec, req)
+	}
+
+	// 1. Upload a valid PNG avatar
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("avatar", "profile.png")
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	_, _ = part.Write([]byte("fake png binary data"))
+	_ = writer.WriteField("display_name", "Avatar Tester Updated")
+	_ = writer.Close()
+
+	req := httptest.NewRequest("POST", "/profile", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req = withSession(req, user)
+	rec := httptest.NewRecorder()
+	executeHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK after avatar upload, got %d", rec.Code)
+	}
+
+	updatedUser, _ := store.GetUserByID(userID)
+	if updatedUser.ProfilePictureURL == "" {
+		t.Fatalf("expected ProfilePictureURL to be populated, but got empty")
+	}
+	if !strings.HasPrefix(updatedUser.ProfilePictureURL, "/static/uploads/avatars/") {
+		t.Errorf("expected URL to start with /static/uploads/avatars/, got %s", updatedUser.ProfilePictureURL)
+	}
+
+	// 2. GET /profile to ensure the avatar URL is rendered in HTML
+	req = httptest.NewRequest("GET", "/profile", nil)
+	req = withSession(req, updatedUser)
+	rec = httptest.NewRecorder()
+	executeHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on GET /profile, got %d", rec.Code)
+	}
+	respHTML := rec.Body.String()
+	if !strings.Contains(respHTML, updatedUser.ProfilePictureURL) {
+		t.Errorf("expected GET /profile HTML to contain avatar URL %q", updatedUser.ProfilePictureURL)
+	}
+
+	// 3. Remove avatar
+	removeForm := url.Values{}
+	removeForm.Set("remove_avatar", "1")
+	req = httptest.NewRequest("POST", "/profile", strings.NewReader(removeForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = withSession(req, updatedUser)
+	rec = httptest.NewRecorder()
+	executeHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on avatar removal, got %d", rec.Code)
+	}
+
+	userAfterRemoval, _ := store.GetUserByID(userID)
+	if userAfterRemoval.ProfilePictureURL != "" {
+		t.Errorf("expected ProfilePictureURL to be empty after removal, got %q", userAfterRemoval.ProfilePictureURL)
+	}
+
+	// 4. Test uploading an invalid file extension (e.g. .exe)
+	badBody := &bytes.Buffer{}
+	badWriter := multipart.NewWriter(badBody)
+	badPart, _ := badWriter.CreateFormFile("avatar", "danger.exe")
+	_, _ = badPart.Write([]byte("not an image"))
+	_ = badWriter.Close()
+
+	req = httptest.NewRequest("POST", "/profile", badBody)
+	req.Header.Set("Content-Type", badWriter.FormDataContentType())
+	req = withSession(req, userAfterRemoval)
+	rec = httptest.NewRecorder()
+	executeHandler(rec, req)
+
+	if !strings.Contains(rec.Body.String(), "Invalid image file type") {
+		t.Errorf("expected error message about invalid image file type, got: %s", rec.Body.String())
 	}
 }

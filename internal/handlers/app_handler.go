@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
 	"series-tkd-management/internal/services"
+	"series-tkd-management/internal/storage"
 )
 
 var (
@@ -41,6 +43,7 @@ func FormatPHTime(t time.Time) string {
 
 type AppHandler struct {
 	store            repository.RepositoryStore
+	storage          storage.FileStorage
 	promotionSvc     *services.PromotionService
 	payrollSvc       *services.PayrollService
 	packageSvc       *services.PackageService
@@ -61,6 +64,7 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 
 	app := &AppHandler{
 		store:        store,
+		storage:      storage.NewStorageFromEnv(),
 		promotionSvc: promSvc,
 		payrollSvc:   paySvc,
 		packageSvc:   pkgSvc,
@@ -74,6 +78,14 @@ func NewAppHandler(store repository.RepositoryStore) (*AppHandler, error) {
 	}
 
 	return app, nil
+}
+
+func (a *AppHandler) Storage() storage.FileStorage {
+	return a.storage
+}
+
+func (a *AppHandler) SetStorage(s storage.FileStorage) {
+	a.storage = s
 }
 
 func (a *AppHandler) AuditService() *services.AuditService {
@@ -366,4 +378,36 @@ func (a *AppHandler) LogAction(r *http.Request, action string, category models.A
 	}
 
 	_ = a.auditSvc.Log(entry)
+}
+
+// HandleServeStorage streams files stored in the configured FileStorage backend (local or Railway S3).
+func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) {
+	if a.storage == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	key := r.PathValue("key")
+	if key == "" {
+		key = strings.TrimPrefix(r.URL.Path, "/storage/")
+	}
+	key = strings.TrimLeft(key, "/")
+
+	if key == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	rc, contentType, err := a.storage.Get(r.Context(), key)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer rc.Close()
+
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = io.Copy(w, rc)
 }

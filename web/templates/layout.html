@@ -462,8 +462,17 @@
                         title="User Menu & Settings"
                         aria-expanded="false"
                         aria-haspopup="true"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-neutral-100 hover:bg-[#F4F1E4] dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-[#E5E3D8] dark:border-neutral-800 transition text-xs shadow-sm cursor-pointer select-none">
-                        <span class="font-bold text-black dark:text-white truncate max-w-[110px] sm:max-w-[160px]">
+                        class="inline-flex items-center gap-2 px-2 py-1 rounded-xl bg-neutral-100 hover:bg-[#F4F1E4] dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-[#E5E3D8] dark:border-neutral-800 transition text-xs shadow-sm cursor-pointer select-none">
+                        <div class="h-6 w-6 rounded-lg overflow-hidden bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center flex-shrink-0 shadow-xs border border-red-500/30">
+                            {{if $user.ProfilePictureURL}}
+                                <img src="{{$user.ProfilePictureURL}}" alt="Profile" class="w-full h-full object-cover" />
+                            {{else}}
+                                <svg class="w-3.5 h-3.5 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                    <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                                </svg>
+                            {{end}}
+                        </div>
+                        <span class="font-bold text-black dark:text-white truncate max-w-[100px] sm:max-w-[150px]">
                             {{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}
                         </span>
                         <svg class="w-3.5 h-3.5 text-slate-500 transition-transform duration-200" id="profile-menu-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -473,17 +482,28 @@
 
                     <!-- Submenu Dropdown -->
                     <div id="profile-menu-dropdown"
-                        class="hidden absolute right-0 top-full mt-2 w-52 rounded-xl bg-white dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 shadow-2xl py-1.5 z-50">
-                        <div class="px-3.5 py-2 border-b border-[#E5E3D8] dark:border-neutral-800">
-                            <p class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Signed in as</p>
-                            <p class="text-xs font-bold text-slate-900 dark:text-white truncate mt-0.5">{{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}</p>
-                            <span class="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase
-                                {{if $user.IsOperationManager}}bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30
-                                {{else if $user.IsAdmin}}bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30
-                                {{else if $user.IsCoach}}bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30
-                                {{else}}bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30{{end}}">
-                                {{if $user.IsOperationManager}}Operation Manager{{else if $user.IsAdmin}}Admin{{else if $user.IsCoach}}Coach{{else}}Student{{end}}
-                            </span>
+                        class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl bg-white dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 shadow-2xl py-1.5 z-50">
+                        <div class="px-3.5 py-2.5 border-b border-[#E5E3D8] dark:border-neutral-800 flex items-center gap-2.5">
+                            <div class="h-9 w-9 rounded-xl overflow-hidden bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center flex-shrink-0 shadow-sm border border-red-500/30">
+                                {{if $user.ProfilePictureURL}}
+                                    <img src="{{$user.ProfilePictureURL}}" alt="Profile" class="w-full h-full object-cover" />
+                                {{else}}
+                                    <svg class="w-5 h-5 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                        <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                                    </svg>
+                                {{end}}
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Signed in as</p>
+                                <p class="text-xs font-bold text-slate-900 dark:text-white truncate mt-0.5">{{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}</p>
+                                <span class="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase
+                                    {{if $user.IsOperationManager}}bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30
+                                    {{else if $user.IsAdmin}}bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30
+                                    {{else if $user.IsCoach}}bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30
+                                    {{else}}bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30{{end}}">
+                                    {{if $user.IsOperationManager}}Operation Manager{{else if $user.IsAdmin}}Admin{{else if $user.IsCoach}}Coach{{else}}Student{{end}}
+                                </span>
+                            </div>
                         </div>
                         <div class="py-1">
                             <a href="/profile"
@@ -576,8 +596,14 @@
             <!-- Drawer Header -->
             <div class="p-4 border-b border-[#E5E3D8] dark:border-neutral-800 flex items-center justify-between">
                 <div class="flex items-center space-x-3 min-w-0">
-                    <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-sm flex-shrink-0 shadow-md">
-                        ST
+                    <div class="h-10 w-10 rounded-xl overflow-hidden bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center flex-shrink-0 shadow-md border border-red-500/30">
+                        {{if $user.ProfilePictureURL}}
+                            <img src="{{$user.ProfilePictureURL}}" alt="Profile" class="w-full h-full object-cover" />
+                        {{else}}
+                            <svg class="w-6 h-6 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                            </svg>
+                        {{end}}
                     </div>
                     <div class="min-w-0">
                         <p class="font-bold text-xs text-slate-900 dark:text-white truncate">{{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}</p>

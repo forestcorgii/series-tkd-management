@@ -11,4 +11,5 @@
 - [Performance Standards & Optimization Patterns](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/performance.md)
 - [Multi-Channel Notifications Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/notifications.md)
 - [PWA & Offline Resilience Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/pwa-mobile-offline.md)
+- [Profile Picture & Railway Bucket Storage Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/profile-picture-storage.md)
 

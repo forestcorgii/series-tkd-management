@@ -48,13 +48,13 @@
     <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div class="flex items-center space-x-3.5 sm:space-x-4">
-                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
-                    {{if .CurrentUser.DisplayName}}
-                        {{printf "%.1s" .CurrentUser.DisplayName}}
-                    {{else if .CurrentUser.Email}}
-                        {{printf "%.1s" .CurrentUser.Email}}
+                <div class="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl overflow-hidden bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border-2 border-red-500/30 flex-shrink-0">
+                    {{if .CurrentUser.ProfilePictureURL}}
+                        <img src="{{.CurrentUser.ProfilePictureURL}}" alt="{{if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}{{.CurrentUser.Email}}{{end}}" class="w-full h-full object-cover" />
                     {{else}}
-                        ST
+                        <svg class="w-9 h-9 sm:w-11 sm:h-11 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                        </svg>
                     {{end}}
                 </div>
                 <div>
@@ -101,7 +101,62 @@
     </div>
 
     <!-- Main Profile Edit Form -->
-    <form action="/profile" method="POST" class="space-y-6">
+    <form action="/profile" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <!-- Profile Picture Upload Card -->
+        <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md space-y-4">
+            <div class="border-b border-[#E5E3D8] dark:border-neutral-800 pb-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">Profile Photo</h2>
+                    <div class="has-tooltip inline-flex items-center">
+                        <button type="button" class="tooltip-icon" aria-label="Profile photo note">ⓘ</button>
+                        <div class="tooltip-content w-64">
+                            Upload your personal photo. It will be displayed on the top navigation bar, session rosters, and profile cards.
+                        </div>
+                    </div>
+                </div>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">JPG, PNG, WEBP (Max 5MB)</span>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center gap-5">
+                <!-- Photo Preview Container -->
+                <div class="relative group flex-shrink-0">
+                    <div id="avatar-preview-box" class="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl overflow-hidden bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center shadow-md border-2 border-slate-200 dark:border-neutral-700">
+                        {{if .CurrentUser.ProfilePictureURL}}
+                            <img id="avatar-preview-img" src="{{.CurrentUser.ProfilePictureURL}}" alt="Profile photo" class="w-full h-full object-cover" />
+                            <svg id="avatar-preview-svg" class="hidden w-12 h-12 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                            </svg>
+                        {{else}}
+                            <img id="avatar-preview-img" src="" alt="Profile photo preview" class="hidden w-full h-full object-cover" />
+                            <svg id="avatar-preview-svg" class="w-12 h-12 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+                            </svg>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- Upload Input and Actions -->
+                <div class="flex-1 space-y-2.5 w-full">
+                    <div>
+                        <label class="form-label block mb-1">Choose Photo</label>
+                        <input type="file" name="avatar" id="avatar-file-input"
+                               accept="image/png,image/jpeg,image/webp,image/gif"
+                               onchange="previewAvatar(this)"
+                               class="block w-full text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#990303] file:text-white hover:file:bg-[#7D0202] file:cursor-pointer cursor-pointer border border-slate-300 dark:border-neutral-700 rounded-xl bg-slate-50 dark:bg-neutral-900 p-1" />
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Direct upload to bucket storage. Recommended square image.</p>
+                    </div>
+
+                    {{if .CurrentUser.ProfilePictureURL}}
+                    <div class="pt-1">
+                        <label class="inline-flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400 cursor-pointer">
+                            <input type="checkbox" name="remove_avatar" value="1" onchange="toggleAvatarRemoval(this)" class="rounded text-rose-600 focus:ring-rose-500 h-4 w-4" />
+                            <span>Remove photo and revert to person icon</span>
+                        </label>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
         {{if .CurrentUser.IsStudent}}
             {{if .Student}}
             <!-- Student Personal Information Card -->
@@ -430,4 +485,39 @@
         </div>
     </form>
 </div>
+
+<script>
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+            alert("File is too large. Profile photos must be 5MB or smaller.");
+            input.value = "";
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('avatar-preview-img');
+            const svg = document.getElementById('avatar-preview-svg');
+            if (img && svg) {
+                img.src = e.target.result;
+                img.classList.remove('hidden');
+                svg.classList.add('hidden');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function toggleAvatarRemoval(checkbox) {
+    const previewBox = document.getElementById('avatar-preview-box');
+    if (previewBox) {
+        if (checkbox.checked) {
+            previewBox.classList.add('opacity-30', 'grayscale');
+        } else {
+            previewBox.classList.remove('opacity-30', 'grayscale');
+        }
+    }
+}
+</script>
 {{end}}

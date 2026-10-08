@@ -18,6 +18,7 @@ type CoachListItem struct {
 	Coach             *models.Coach
 	Payroll           services.CoachPayrollSummary
 	IsPendingApproval bool
+	ProfilePictureURL string
 }
 
 type CoachesPageData struct {
@@ -56,6 +57,13 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 	items := make([]CoachListItem, 0, len(coaches))
 	for _, c := range coaches {
 		isPending := false
+		var picURL string
+		if u, _ := a.store.GetUserByCoachID(c.ID); u != nil && u.ProfilePictureURL != "" {
+			picURL = u.ProfilePictureURL
+		} else if u, _ := a.store.GetUserByEmail(c.Email); u != nil && u.ProfilePictureURL != "" {
+			picURL = u.ProfilePictureURL
+		}
+
 		if c.IsActive {
 			active++
 		} else {
@@ -75,6 +83,7 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 			Coach:             c,
 			Payroll:           summary,
 			IsPendingApproval: isPending,
+			ProfilePictureURL: picURL,
 		})
 	}
 
