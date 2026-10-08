@@ -99,6 +99,7 @@ func NewStorageFromEnv() FileStorage {
 	endpoint := getFirstEnv("AWS_ENDPOINT_URL_S3", "ENDPOINT", "AWS_ENDPOINT_URL", "BUCKET_ENDPOINT", "AWS_ENDPOINT", "S3_ENDPOINT")
 	region := getFirstEnv("AWS_REGION", "REGION", "AWS_DEFAULT_REGION", "BUCKET_REGION")
 	publicURL := getFirstEnv("BUCKET_PUBLIC_URL", "BUCKET_PUBLIC_UR", "S3_PUBLIC_URL", "PUBLIC_URL")
+	forcePathStyle := strings.ToLower(getFirstEnv("FORCE_PATH_STYLE", "S3_FORCE_PATH_STYLE", "AWS_S3_FORCE_PATH_STYLE")) == "true"
 
 	// Railway Buckets default to storage.railway.app and region "auto" if not explicitly specified
 	if endpoint == "" {
@@ -116,12 +117,13 @@ func NewStorageFromEnv() FileStorage {
 			log.Printf("🔒 Private bucket mode: serving assets via internal signed proxy (/storage/{key})")
 		}
 		return NewS3Storage(S3Config{
-			Bucket:    bucket,
-			Endpoint:  endpoint,
-			Region:    region,
-			AccessKey: accessKey,
-			SecretKey: secretKey,
-			PublicURL: publicURL,
+			Bucket:         bucket,
+			Endpoint:       endpoint,
+			Region:         region,
+			AccessKey:      accessKey,
+			SecretKey:      secretKey,
+			PublicURL:      publicURL,
+			ForcePathStyle: forcePathStyle,
 		})
 	}
 

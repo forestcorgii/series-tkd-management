@@ -50,4 +50,17 @@
   - **Public URL Omitted (Railway Default)**: If `BUCKET_PUBLIC_URL` is omitted, uploads return `/storage/{key}` and are served securely via `GET /storage/{key...}` using AWS SigV4 authenticated `GET` streaming with 24-hour browser caching headers (`Cache-Control: public, max-age=86400`).
   - **Local Fallback**: If bucket or credentials are not provided, files are stored on local disk under `web/static/uploads/avatars/`.
 
+### Context: Railway Bucket Virtual-Hosted Style vs Path-Style (`NoSuchBucket` Fix)
 
+* **Problem**:
+  When uploading an avatar to Railway Object Storage, the server returned:
+  `NoSuchBucket: The specified bucket does not exist (BucketName: stashed-suitcase, Resource: /stashed-suitcase/avatars/...)`.
+  Railway Buckets (backed by modern multi-tenant S3 infrastructure) reject **path-style** URLs (`https://storage.railway.app/{bucket}/{key}`) because the root endpoint without a bucket subdomain has no tenant routing context and looks for a root-level bucket named `{bucket}`.
+
+* **Enforced Solution**:
+  1. `S3Storage.buildTarget` uses **Virtual-Hosted Style addressing** by default:
+     - Host: `{bucket}.{endpoint_host}` (e.g., `stashed-suitcase.storage.railway.app`, which resolves to `t3.storage.dev`).
+     - Request Path & Canonical URI: `/{key}` (e.g., `/avatars/user-xxx.jpg`).
+     - Target URL: `https://{bucket}.{endpoint_host}/{key}`.
+  2. Automatic Fallback to Path-Style:
+     - Only activated if the host is `localhost`, an IP address (e.g. `127.0.0.1:9000`), or if `FORCE_PATH_STYLE=true` is explicitly set.

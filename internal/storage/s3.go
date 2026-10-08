@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,12 +17,13 @@ import (
 )
 
 type S3Config struct {
-	Bucket    string
-	Endpoint  string
-	Region    string
-	AccessKey string
-	SecretKey string
-	PublicURL string
+	Bucket         string
+	Endpoint       string
+	Region         string
+	AccessKey      string
+	SecretKey      string
+	PublicURL      string
+	ForcePathStyle bool
 }
 
 type S3Storage struct {
@@ -170,6 +172,17 @@ func (s *S3Storage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+func isIPOrLocalhost(host string) bool {
+	h := host
+	if colon := strings.Index(h, ":"); colon != -1 {
+		h = h[:colon]
+	}
+	if h == "localhost" {
+		return true
+	}
+	return net.ParseIP(h) != nil
+}
+
 func (s *S3Storage) buildTarget(key string) (targetURL, host, canonicalURI string, err error) {
 	ep := s.cfg.Endpoint
 	if !strings.HasPrefix(ep, "http://") && !strings.HasPrefix(ep, "https://") {
@@ -181,14 +194,33 @@ func (s *S3Storage) buildTarget(key string) (targetURL, host, canonicalURI strin
 		return "", "", "", fmt.Errorf("invalid s3 endpoint %s: %w", ep, err)
 	}
 
-	host = parsed.Host
-	// Path-style: /{bucket}/{key}
-	basePath := strings.TrimSuffix(parsed.Path, "/")
-	canonicalURI = fmt.Sprintf("%s/%s/%s", basePath, s.cfg.Bucket, key)
-	if !strings.HasPrefix(canonicalURI, "/") {
-		canonicalURI = "/" + canonicalURI
+	rawHost := parsed.Host
+	cleanKey := strings.TrimLeft(key, "/")
+
+	// Check if path style is forced (via config, IP address, or localhost)
+	usePathStyle := s.cfg.ForcePathStyle || isIPOrLocalhost(rawHost)
+
+	if usePathStyle {
+		host = rawHost
+		basePath := strings.TrimSuffix(parsed.Path, "/")
+		canonicalURI = fmt.Sprintf("%s/%s/%s", basePath, s.cfg.Bucket, cleanKey)
+		if !strings.HasPrefix(canonicalURI, "/") {
+			canonicalURI = "/" + canonicalURI
+		}
+		targetURL = fmt.Sprintf("%s://%s%s", parsed.Scheme, host, canonicalURI)
+		return targetURL, host, canonicalURI, nil
 	}
 
+	// Virtual-hosted style (standard for Railway, AWS S3, Cloudflare R2):
+	// Subdomain: {bucket}.{endpoint_host}
+	// Path: /{key}
+	if strings.HasPrefix(strings.ToLower(rawHost), strings.ToLower(s.cfg.Bucket)+".") {
+		host = rawHost
+	} else {
+		host = fmt.Sprintf("%s.%s", s.cfg.Bucket, rawHost)
+	}
+
+	canonicalURI = "/" + cleanKey
 	targetURL = fmt.Sprintf("%s://%s%s", parsed.Scheme, host, canonicalURI)
 	return targetURL, host, canonicalURI, nil
 }

@@ -67,13 +67,41 @@ func TestS3Storage_Signing(t *testing.T) {
 		t.Fatalf("buildTarget failed: %v", err)
 	}
 
-	if host != "storage.railway.app" {
+	// Virtual-hosted style required by Railway & modern S3
+	if host != "series-bucket.storage.railway.app" {
+		t.Errorf("unexpected host: %s", host)
+	}
+	if canonicalURI != "/avatars/user-1.jpg" {
+		t.Errorf("unexpected canonical URI: %s", canonicalURI)
+	}
+	if target != "https://series-bucket.storage.railway.app/avatars/user-1.jpg" {
+		t.Errorf("unexpected target: %s", target)
+	}
+}
+
+func TestS3Storage_ForcePathStyle(t *testing.T) {
+	cfg := S3Config{
+		Bucket:         "series-bucket",
+		Endpoint:       "http://127.0.0.1:9000",
+		Region:         "auto",
+		AccessKey:      "test-access-key",
+		SecretKey:      "test-secret-key",
+		ForcePathStyle: true,
+	}
+
+	s3 := NewS3Storage(cfg)
+	target, host, canonicalURI, err := s3.buildTarget("avatars/user-1.jpg")
+	if err != nil {
+		t.Fatalf("buildTarget failed: %v", err)
+	}
+
+	if host != "127.0.0.1:9000" {
 		t.Errorf("unexpected host: %s", host)
 	}
 	if canonicalURI != "/series-bucket/avatars/user-1.jpg" {
 		t.Errorf("unexpected canonical URI: %s", canonicalURI)
 	}
-	if target != "https://storage.railway.app/series-bucket/avatars/user-1.jpg" {
+	if target != "http://127.0.0.1:9000/series-bucket/avatars/user-1.jpg" {
 		t.Errorf("unexpected target: %s", target)
 	}
 }
