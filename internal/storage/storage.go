@@ -82,18 +82,25 @@ func (l *LocalStorage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// NewStorageFromEnv initializes S3 storage if Railway Bucket credentials are configured;
+// NewStorageFromEnv initializes S3 storage if Railway Bucket or AWS S3 credentials are configured;
 // otherwise it falls back to LocalStorage under web/static/uploads/avatars.
+//
+// Prioritized Environment Variables:
+//   - BUCKET_NAME (alias: BUCKET, AWS_S3_BUCKET_NAME)
+//   - AWS_ACCESS_KEY_ID (alias: ACCESS_KEY_ID)
+//   - AWS_SECRET_ACCESS_KEY (alias: SECRET_ACCESS_KEY)
+//   - AWS_ENDPOINT_URL_S3 (alias: ENDPOINT, AWS_ENDPOINT_URL; defaults to https://storage.railway.app)
+//   - AWS_REGION (alias: REGION, AWS_DEFAULT_REGION; defaults to auto)
+//   - BUCKET_PUBLIC_URL (optional; alias: BUCKET_PUBLIC_UR, S3_PUBLIC_URL, PUBLIC_URL)
 func NewStorageFromEnv() FileStorage {
-	// Support all Railway and AWS S3 environment variable aliases
 	bucket := getFirstEnv("BUCKET_NAME", "BUCKET", "AWS_S3_BUCKET_NAME", "AWS_BUCKET_NAME", "S3_BUCKET_NAME", "S3_BUCKET")
-	accessKey := getFirstEnv("ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", "BUCKET_ACCESS_KEY_ID", "AWS_ACCESS_KEY")
-	secretKey := getFirstEnv("SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", "BUCKET_SECRET_ACCESS_KEY", "AWS_SECRET_KEY")
-	endpoint := getFirstEnv("ENDPOINT", "AWS_ENDPOINT_URL_S3", "AWS_ENDPOINT_URL", "BUCKET_ENDPOINT", "AWS_ENDPOINT", "S3_ENDPOINT")
-	region := getFirstEnv("REGION", "AWS_REGION", "AWS_DEFAULT_REGION", "BUCKET_REGION")
-	publicURL := getFirstEnv("BUCKET_PUBLIC_URL", "S3_PUBLIC_URL", "PUBLIC_URL")
+	accessKey := getFirstEnv("AWS_ACCESS_KEY_ID", "ACCESS_KEY_ID", "BUCKET_ACCESS_KEY_ID", "AWS_ACCESS_KEY")
+	secretKey := getFirstEnv("AWS_SECRET_ACCESS_KEY", "SECRET_ACCESS_KEY", "BUCKET_SECRET_ACCESS_KEY", "AWS_SECRET_KEY")
+	endpoint := getFirstEnv("AWS_ENDPOINT_URL_S3", "ENDPOINT", "AWS_ENDPOINT_URL", "BUCKET_ENDPOINT", "AWS_ENDPOINT", "S3_ENDPOINT")
+	region := getFirstEnv("AWS_REGION", "REGION", "AWS_DEFAULT_REGION", "BUCKET_REGION")
+	publicURL := getFirstEnv("BUCKET_PUBLIC_URL", "BUCKET_PUBLIC_UR", "S3_PUBLIC_URL", "PUBLIC_URL")
 
-	// Railway Buckets default to storage.railway.app and region "auto"
+	// Railway Buckets default to storage.railway.app and region "auto" if not explicitly specified
 	if endpoint == "" {
 		endpoint = "https://storage.railway.app"
 	}
@@ -103,6 +110,11 @@ func NewStorageFromEnv() FileStorage {
 
 	if bucket != "" && accessKey != "" && secretKey != "" {
 		log.Printf("☁️ Railway Object Storage / S3 enabled for bucket: %s (endpoint: %s, region: %s)", bucket, endpoint, region)
+		if publicURL != "" {
+			log.Printf("🌐 Bucket public URL configured: %s", publicURL)
+		} else {
+			log.Printf("🔒 Private bucket mode: serving assets via internal signed proxy (/storage/{key})")
+		}
 		return NewS3Storage(S3Config{
 			Bucket:    bucket,
 			Endpoint:  endpoint,

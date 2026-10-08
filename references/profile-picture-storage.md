@@ -33,18 +33,21 @@
        - **Coaches Roster (`coaches.html`)**: Coach list row and detail modal avatars.
        - **Students Roster (`student_table_rows.html` & `student_detail.html`)**: Student list rows and profile hero card.
 
-### Context: Railway Bucket Zero-Config Storage with Private Bucket Proxying
+### Context: Railway Bucket & AWS S3 Storage Environment Configuration
 
-* **Problem**:
-  On Railway Object Storage, only **bucket name** (`BUCKET_NAME` / `BUCKET`), **access key** (`ACCESS_KEY_ID` / `AWS_ACCESS_KEY_ID`), and **secret key** (`SECRET_ACCESS_KEY` / `AWS_SECRET_ACCESS_KEY`) are available. No public URL or custom CDN domain is provided. Railway S3 buckets (`storage.railway.app`) are strictly private by default; direct browser requests to `https://storage.railway.app/{bucket}/{key}` fail with HTTP `403 Forbidden`.
+* **Environment Variables**:
+  | Variable Name | Purpose | Default / Fallback |
+  |---|---|---|
+  | `BUCKET_NAME` | S3 bucket identifier | Fallback alias: `BUCKET` |
+  | `AWS_ACCESS_KEY_ID` | Storage access credential | Fallback alias: `ACCESS_KEY_ID` |
+  | `AWS_SECRET_ACCESS_KEY` | Storage secret key | Fallback alias: `SECRET_ACCESS_KEY` |
+  | `AWS_ENDPOINT_URL_S3` | Custom S3 endpoint URL | Fallback alias: `ENDPOINT`; Defaults to `https://storage.railway.app` |
+  | `AWS_REGION` | S3 region identifier | Fallback alias: `REGION`; Defaults to `auto` |
+  | `BUCKET_PUBLIC_URL` | Optional public CDN/Bucket URL | Fallback alias: `BUCKET_PUBLIC_UR`, `S3_PUBLIC_URL` |
 
-* **Enforced Solution**:
-  1. **Zero-Configuration Defaults**:
-     - `storage.NewStorageFromEnv()` defaults `endpoint` to `https://storage.railway.app` and `region` to `auto` when only bucket name, access key, and secret key are set.
-     - Supports all common variable names (`BUCKET`, `BUCKET_NAME`, `ACCESS_KEY_ID`, `AWS_ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `AWS_SECRET_ACCESS_KEY`).
-  2. **Internal Proxy Route (`GET /storage/{key...}`)**:
-     - When `PublicURL` is empty, `S3Storage.Upload(...)` returns the local path `/storage/{key}` (e.g. `/storage/avatars/user-xxx.png`).
-     - `HandleServeStorage` on `GET /storage/{key...}` fetches the object from Railway S3 using an AWS SigV4 signed `GET` request via `a.storage.Get(r.Context(), key)` and streams the bytes directly to the browser.
-     - Adds `Cache-Control: public, max-age=86400` so client browsers cache avatar images for 24 hours, minimizing redundant S3 requests.
-     - Transparently works with `LocalStorage` during local development as well.
+* **Behavior**:
+  - **Public URL Provided**: If `BUCKET_PUBLIC_URL` is configured, uploads return direct URLs (e.g. `https://cdn.example.com/avatars/user-xxx.png`).
+  - **Public URL Omitted (Railway Default)**: If `BUCKET_PUBLIC_URL` is omitted, uploads return `/storage/{key}` and are served securely via `GET /storage/{key...}` using AWS SigV4 authenticated `GET` streaming with 24-hour browser caching headers (`Cache-Control: public, max-age=86400`).
+  - **Local Fallback**: If bucket or credentials are not provided, files are stored on local disk under `web/static/uploads/avatars/`.
+
 
