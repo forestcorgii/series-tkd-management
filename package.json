@@ -1,0 +1,13 @@
+{
+  "name": "series-tkd-management",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Series Taekwondo Management System",
+  "scripts": {
+    "build:css": "tailwindcss -i ./web/static/css/input.css -o ./web/static/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./web/static/css/input.css -o ./web/static/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

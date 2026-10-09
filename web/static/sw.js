@@ -1,10 +1,11 @@
 // Series Taekwondo Management System (STMS) - Progressive Web App Service Worker
-const CACHE_VERSION = 'stms-v2';
+const CACHE_VERSION = 'stms-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 const PRECACHE_ASSETS = [
     '/offline',
     '/manifest.webmanifest',
+    '/static/css/tailwind.css',
     '/static/icons/icon-192.png',
     '/static/icons/icon-512.png',
     '/static/icons/icon-maskable-192.png',
@@ -93,7 +94,6 @@ self.addEventListener('fetch', (event) => {
         url.pathname.startsWith('/static/') ||
         url.hostname.includes('fonts.googleapis.com') ||
         url.hostname.includes('fonts.gstatic.com') ||
-        url.hostname.includes('cdn.tailwindcss.com') ||
         url.hostname.includes('unpkg.com');
 
     if (isStaticAsset) {

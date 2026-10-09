@@ -6,3 +6,4 @@ out.exe
 *.db*
 web/static/uploads/*
 !web/static/uploads/.gitkeep
+node_modules/
