@@ -281,10 +281,18 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	allUsers, _ := a.store.GetAllUsers()
+	userByEmail := make(map[string]*models.User, len(allUsers))
+	for _, u := range allUsers {
+		if u.Email != "" {
+			userByEmail[strings.ToLower(strings.TrimSpace(u.Email))] = u
+		}
+	}
+
 	pendingCoaches := 0
 	for _, c := range coaches {
 		if !c.IsActive {
-			u, _ := a.store.GetUserByEmail(c.Email)
+			u := userByEmail[strings.ToLower(strings.TrimSpace(c.Email))]
 			if u != nil && u.LastLoginAt == nil {
 				pendingCoaches++
 			}

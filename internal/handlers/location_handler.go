@@ -49,16 +49,13 @@ func (a *AppHandler) HandleLocations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	attendanceCounts := make(map[uuid.UUID]int)
-	totalAtt := 0
-	for _, s := range sessions {
-		atts, _ := a.store.GetSessionAttendances(s.ID)
-		totalAtt += len(atts)
-		for _, att := range atts {
-			if att.LocationID != nil {
-				attendanceCounts[*att.LocationID]++
-			} else if locID, ok := sessionLocationMap[s.ID]; ok {
-				attendanceCounts[locID]++
-			}
+	allAttendances, _ := a.store.GetAllAttendances()
+	totalAtt := len(allAttendances)
+	for _, att := range allAttendances {
+		if att.LocationID != nil {
+			attendanceCounts[*att.LocationID]++
+		} else if locID, ok := sessionLocationMap[att.SessionID]; ok {
+			attendanceCounts[locID]++
 		}
 	}
 

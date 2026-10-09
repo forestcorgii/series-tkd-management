@@ -723,15 +723,20 @@
         }
     }
 
-    // Auto-detect tab on page load
-    document.addEventListener('DOMContentLoaded', function() {
+    // Auto-detect tab on page load & boosted navigation
+    function initSettingsTab() {
         const urlParams = new URLSearchParams(window.location.search);
         const tabParam = urlParams.get('tab');
         const hash = window.location.hash.replace('#', '');
         if (tabParam === 'notifications' || hash === 'notifications' || '{{.ActiveTab}}' === 'notifications') {
             switchSettingsTab('notifications');
         }
-    });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSettingsTab);
+    } else {
+        initSettingsTab();
+    }
 
     function openNewCategoryModal() {
         document.getElementById('new-cat-name').value = '';

@@ -42,10 +42,10 @@ func (a *AppHandler) HandlePackages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	groupedPkgs, _ := a.store.GetAllStudentPackagesGrouped()
 	var studentPackages []StudentPackageViewItem
 	for _, st := range students {
-		pkgs, _ := a.store.GetStudentPackages(st.ID)
-		for _, p := range pkgs {
+		for _, p := range groupedPkgs[st.ID] {
 			studentPackages = append(studentPackages, StudentPackageViewItem{
 				Package:     p,
 				StudentName: st.FullName,

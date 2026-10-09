@@ -54,20 +54,33 @@ func (a *AppHandler) HandleCoaches(w http.ResponseWriter, r *http.Request) {
 	pending := 0
 	inactive := 0
 	certified := 0
+	users, _ := a.store.GetAllUsers()
+	coachUserByCoachID := make(map[uuid.UUID]*models.User, len(users))
+	coachUserByEmail := make(map[string]*models.User, len(users))
+	for _, u := range users {
+		if u.CoachID != nil {
+			coachUserByCoachID[*u.CoachID] = u
+		}
+		if u.Email != "" {
+			coachUserByEmail[strings.ToLower(strings.TrimSpace(u.Email))] = u
+		}
+	}
+
 	items := make([]CoachListItem, 0, len(coaches))
 	for _, c := range coaches {
 		isPending := false
 		var picURL string
-		if u, _ := a.store.GetUserByCoachID(c.ID); u != nil && u.ProfilePictureURL != "" {
+		normEmail := strings.ToLower(strings.TrimSpace(c.Email))
+		if u := coachUserByCoachID[c.ID]; u != nil && u.ProfilePictureURL != "" {
 			picURL = u.ProfilePictureURL
-		} else if u, _ := a.store.GetUserByEmail(c.Email); u != nil && u.ProfilePictureURL != "" {
+		} else if u := coachUserByEmail[normEmail]; u != nil && u.ProfilePictureURL != "" {
 			picURL = u.ProfilePictureURL
 		}
 
 		if c.IsActive {
 			active++
 		} else {
-			u, _ := a.store.GetUserByEmail(c.Email)
+			u := coachUserByEmail[normEmail]
 			if u != nil && u.LastLoginAt == nil {
 				isPending = true
 				pending++

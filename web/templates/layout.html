@@ -38,11 +38,11 @@
         rel="stylesheet">
     <!-- Tailwind CSS (Compiled Production Stylesheet) -->
     <link rel="stylesheet" href="/static/css/tailwind.css">
-    <!-- HTMX 1.9.10 -->
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- HTMX 1.9.10 (Locally Vendored) -->
+    <script src="/static/js/htmx.min.js"></script>
 </head>
 
-<body
+<body hx-boost="true"
     class="h-full flex flex-col font-sans antialiased bg-[#FFFDF4] text-[#000000] dark:bg-[#000000] dark:text-[#FFFDF4] transition-colors duration-200 overflow-x-hidden w-full max-w-full">
     <!-- Top Navigation Header -->
     <header class="sticky top-0 z-50 glass-panel border-b border-[#E5E3D8] dark:border-neutral-800 px-3 sm:px-6 py-3 w-full max-w-full">
@@ -248,7 +248,7 @@
                             </button>
                         </div>
                         <div class="border-t border-[#E5E3D8] dark:border-neutral-800 pt-1">
-                            <a href="/logout"
+                            <a href="/logout" hx-boost="false"
                                 class="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
                                 <svg class="w-4 h-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -258,7 +258,7 @@
                         </div>
                     </div>
 
-                    <a href="/logout" title="Sign Out"
+                    <a href="/logout" hx-boost="false" title="Sign Out"
                         class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition text-xs font-semibold">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -411,7 +411,7 @@
                             class="pwa-install-trigger hidden w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition text-left cursor-pointer">
                             <span class="text-base">📲</span> <span>Install Series TKD App</span>
                         </button>
-                        <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+                        <a href="/logout" hx-boost="false" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
                             <span class="text-base">🚪</span> <span>Sign Out</span>
                         </a>
                     </div>
@@ -509,6 +509,8 @@
             }
         }
         window.addEventListener('DOMContentLoaded', syncThemeUI);
+        document.addEventListener('htmx:load', syncThemeUI);
+        document.addEventListener('htmx:afterSwap', syncThemeUI);
 
         // --- Mobile Navigation Drawer Engine ---
         function toggleMobileDrawer(open) {
@@ -536,6 +538,11 @@
         }
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') toggleMobileDrawer(false);
+        });
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#mobile-nav-panel a')) {
+                toggleMobileDrawer(false);
+            }
         });
 
         // --- Touch & Click Tooltip Engine ---
@@ -1077,11 +1084,6 @@
             syncAllUppercaseInputs(document);
         });
         document.addEventListener('htmx:afterSwap', (e) => {
-            const target = e.detail.target || e.target;
-            initSearchableSelects(target);
-            syncAllUppercaseInputs(target);
-        });
-        document.addEventListener('htmx:afterProcess', (e) => {
             const target = e.detail.target || e.target;
             initSearchableSelects(target);
             syncAllUppercaseInputs(target);

@@ -57,6 +57,14 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	packagesMap, _ := a.store.GetAllStudentPackagesGrouped()
 	now := time.Now()
 
+	users, _ := a.store.GetAllUsers()
+	studentPicMap := make(map[uuid.UUID]string, len(users))
+	for _, u := range users {
+		if u.StudentID != nil && u.ProfilePictureURL != "" {
+			studentPicMap[*u.StudentID] = u.ProfilePictureURL
+		}
+	}
+
 	items := make([]StudentListItem, 0, len(students))
 	for _, st := range students {
 		atts := studentAttendancesMap[st.ID]
@@ -77,10 +85,7 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 			polygon = latestEval.ToSVGPolygon(100, 100, 80)
 		}
 
-		var picURL string
-		if u, _ := a.store.GetUserByStudentID(st.ID); u != nil && u.ProfilePictureURL != "" {
-			picURL = u.ProfilePictureURL
-		}
+		picURL := studentPicMap[st.ID]
 
 		items = append(items, StudentListItem{
 			Student:           st,

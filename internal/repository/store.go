@@ -106,6 +106,7 @@ type RepositoryStore interface {
 	GetUserByStudentID(studentID uuid.UUID) (*models.User, error)
 	GetUserByCoachID(coachID uuid.UUID) (*models.User, error)
 	GetUsersByRole(role models.UserRole) ([]*models.User, error)
+	GetAllUsers() ([]*models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
 	ToggleUserActive(userID uuid.UUID, isActive bool) error
@@ -1230,6 +1231,20 @@ func (m *MemoryStore) GetUsersByRole(role models.UserRole) ([]*models.User, erro
 		if u.Role == role {
 			result = append(result, u)
 		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+	return result, nil
+}
+
+func (m *MemoryStore) GetAllUsers() ([]*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*models.User
+	for _, u := range m.users {
+		result = append(result, u)
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].CreatedAt.After(result[j].CreatedAt)

@@ -957,6 +957,8 @@ func (s *SQLStore) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_evaluations_student_date ON student_evaluations(student_id, evaluation_date DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_students_active_name ON students(is_active, full_name)`,
 		`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_student_id ON users(student_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_coach_id ON users(coach_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_safety_incidents_resolved ON safety_incidents(resolved)`,
 		`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`,
@@ -3436,6 +3438,25 @@ func (s *SQLStore) DeleteUser(userID uuid.UUID) error {
 func (s *SQLStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
 	query := userSelectFields + ` WHERE u.role = $1 ORDER BY u.created_at DESC`
 	rows, err := s.db.Query(query, string(role))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*models.User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func (s *SQLStore) GetAllUsers() ([]*models.User, error) {
+	query := userSelectFields + ` ORDER BY u.created_at DESC`
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
