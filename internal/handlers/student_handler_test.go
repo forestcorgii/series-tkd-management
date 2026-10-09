@@ -368,3 +368,42 @@ func TestStudentHandler_HandleCreateStudent_WithoutPackage(t *testing.T) {
 	}
 }
 
+func TestStudentHandler_HandleStudents_BoostedNavigation(t *testing.T) {
+	app, _ := setupTestApp(t)
+
+	// Boosted page navigation sends both HX-Request and HX-Boosted
+	req := httptest.NewRequest(http.MethodGet, "/students", nil)
+	req.Header.Set("HX-Request", "true")
+	req.Header.Set("HX-Boosted", "true")
+	rec := httptest.NewRecorder()
+
+	app.HandleStudents(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for boosted navigation, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	// Must contain the full page shell with navigation header
+	if !strings.Contains(body, "SERIES TAEKWONDO") {
+		t.Errorf("expected full layout with navbar header in boosted response, got partial without it")
+	}
+	if !strings.Contains(body, "<header") {
+		t.Errorf("expected <header> tag in boosted response")
+	}
+
+	// Normal HTMX filter/search request without HX-Boosted returns partial
+	reqPartial := httptest.NewRequest(http.MethodGet, "/students?query=Carlos", nil)
+	reqPartial.Header.Set("HX-Request", "true")
+	recPartial := httptest.NewRecorder()
+
+	app.HandleStudents(recPartial, reqPartial)
+	if recPartial.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for partial search, got %d", recPartial.Code)
+	}
+	partialBody := recPartial.Body.String()
+	if strings.Contains(partialBody, "<!DOCTYPE html>") || strings.Contains(partialBody, "<header") {
+		t.Errorf("expected partial response without layout shell for search request")
+	}
+}
+
+

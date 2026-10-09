@@ -54,4 +54,6 @@ STMS operates on floor tablets and mobile devices with varying network stability
   4. **Batch User Lookups (`GetAllUsers`)**: Added `GetAllUsers()` to `RepositoryStore` and indexed user mappings by `student_id`, `coach_id`, and `email` before rendering loops in `HandleStudents`, `HandleCoaches`, and `HandleAdminPortal`.
   5. **Pre-Aggregated Package & Attendance Queries**: Swapped loop queries in `HandlePackages` to `GetAllStudentPackagesGrouped()` and in `HandleLocations` to `GetAllAttendances()`.
   6. **Foreign Key Indexes**: Added `idx_users_student_id` and `idx_users_coach_id` to database migrations.
+  7. **Boosted Navigation vs. Filter Partials Invariant**: In handlers that support both full-page loads and targeted filter/search partials (`HandleStudents`, `HandleSessions`), never inspect only `HX-Request: true`. Boosted navigations send both `HX-Request: true` AND `HX-Boosted: true`. The handler must check `r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"` before returning partial snippets to ensure boosted page navigation receives the full layout shell (navbar, header, modals).
+
 

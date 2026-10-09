@@ -109,7 +109,7 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 		ErrorNotice:   r.URL.Query().Get("error"),
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
 		a.RenderPartial(w, "student_table_rows.html", data)
 		return
 	}

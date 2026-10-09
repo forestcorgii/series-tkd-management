@@ -779,7 +779,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		PageNumbers:        pageNumbers,
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
 		a.RenderPartial(w, "session_cards.html", data)
 		return
 	}

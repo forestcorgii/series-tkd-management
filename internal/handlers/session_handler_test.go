@@ -101,6 +101,26 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 		}
 	})
 
+	t.Run("HandleSessions renders full page for boosted navigation", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+		req.Header.Set("HX-Request", "true")
+		req.Header.Set("HX-Boosted", "true")
+		rec := httptest.NewRecorder()
+
+		app.HandleSessions(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, "SERIES TAEKWONDO") {
+			t.Errorf("expected full layout with navbar in boosted response")
+		}
+		if !strings.Contains(body, "<header") {
+			t.Errorf("expected <header> tag in boosted response")
+		}
+	})
+
 	t.Run("HandleSessions filters out non-matching criteria", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/sessions?category=NonExistent", nil)
 		req.Header.Set("HX-Request", "true")
