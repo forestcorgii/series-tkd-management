@@ -652,9 +652,319 @@
     </div>
 </div>
 
+<!-- Modal: Reschedule Session Confirmation -->
+<div id="reschedule-session-modal" class="modal-backdrop hidden" onclick="if(event.target === this) closeRescheduleModal()">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <div class="flex items-center gap-2">
+                <span class="text-base">📅</span>
+                <h3 class="font-display font-bold text-base text-slate-900 dark:text-white">Reschedule Schedule Entry</h3>
+            </div>
+            <button type="button" onclick="closeRescheduleModal()" class="modal-close">&times;</button>
+        </div>
+
+        <form id="reschedule-session-form" method="POST" action="" class="space-y-4 p-5">
+            <input type="hidden" name="redirect_url" id="reschedule-redirect-url" value="/sessions">
+
+            <!-- Summary comparison badge -->
+            <div class="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <span id="reschedule-modal-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300">
+                        Class
+                    </span>
+                    <span id="reschedule-modal-meta" class="text-xs text-slate-500 dark:text-slate-400 font-medium truncate"></span>
+                </div>
+                <h4 id="reschedule-modal-title" class="font-display font-bold text-sm text-slate-900 dark:text-white truncate"></h4>
+
+                <!-- Comparison grid: Previous vs New -->
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-xs">
+                    <div class="p-2 rounded-lg bg-slate-100 dark:bg-neutral-800/60 space-y-0.5">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block">Original</span>
+                        <p id="reschedule-modal-orig-date" class="font-semibold text-slate-700 dark:text-slate-300"></p>
+                        <p id="reschedule-modal-orig-time" class="font-mono text-[11px] text-slate-500 dark:text-slate-400"></p>
+                    </div>
+                    <div class="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 space-y-0.5">
+                        <span class="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 block">New Time</span>
+                        <p id="reschedule-modal-new-date" class="font-bold text-slate-900 dark:text-white"></p>
+                        <p id="reschedule-modal-new-time" class="font-mono text-[11px] font-bold text-[#990303] dark:text-[#DC2626]"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editable fields for date, start time, end time -->
+            <div class="space-y-3">
+                <div>
+                    <label class="form-label text-xs">Date</label>
+                    <input type="date"
+                           name="session_date"
+                           id="reschedule-input-date"
+                           required
+                           class="form-input text-xs sm:text-sm"
+                           onchange="updateReschedulePreview()">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label text-xs">Start Time</label>
+                        <input type="time"
+                               name="start_time"
+                               id="reschedule-input-start"
+                               required
+                               class="form-input text-xs sm:text-sm"
+                               oninput="onRescheduleStartChange()">
+                    </div>
+                    <div>
+                        <label class="form-label text-xs">End Time</label>
+                        <input type="time"
+                               name="end_time"
+                               id="reschedule-input-end"
+                               required
+                               class="form-input text-xs sm:text-sm"
+                               onchange="updateReschedulePreview()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer pt-3">
+                <button type="button" onclick="closeRescheduleModal()" class="btn btn-secondary btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" id="reschedule-submit-btn" class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm">
+                    <span>✓</span> Confirm Reschedule
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 const isOperationManager = {{if and $user $user.IsOperationManager}}true{{else}}false{{end}};
 let currentSelectedDate = '{{.SelectedDate}}' || new Date().toISOString().split('T')[0];
+
+// Calendar Drag & Drop Rescheduling Support
+let draggedCalendarCard = null;
+let isCalendarDragging = false;
+let draggedSessionDuration = 60; // minutes
+let currentRescheduleDuration = 60; // minutes
+
+function parseTimeToMinutes(t) {
+    if (!t) return 0;
+    const parts = t.split(':');
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    return h * 60 + m;
+}
+
+function minutesToTimeString(totalMinutes) {
+    totalMinutes = Math.max(0, Math.min(23 * 60 + 59, totalMinutes));
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
+}
+
+function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+    } catch (e) {}
+    return dateStr;
+}
+
+function formatDisplayTime12(time24) {
+    if (!time24) return '';
+    const parts = time24.split(':');
+    let h = parseInt(parts[0], 10) || 0;
+    const m = parts[1] || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    return h + ':' + m + ' ' + ampm;
+}
+
+function onCalendarCardDragStart(event, cardEl) {
+    const d = cardEl.dataset;
+    if (d.cancelled === 'true') {
+        event.preventDefault();
+        return false;
+    }
+    isCalendarDragging = true;
+    draggedCalendarCard = {
+        id: d.id,
+        title: d.title || d.type,
+        type: d.type,
+        entryType: d.entryType || 'class',
+        dateRaw: d.dateRaw,
+        date: d.date,
+        start: d.start,
+        end: d.end,
+        time: d.time,
+        coach: d.coach,
+        staff: d.staff,
+        location: d.location
+    };
+
+    const startM = parseTimeToMinutes(d.start);
+    const endM = parseTimeToMinutes(d.end);
+    draggedSessionDuration = endM > startM ? (endM - startM) : 60;
+
+    event.dataTransfer.setData('text/plain', d.id);
+    event.dataTransfer.effectAllowed = 'move';
+    cardEl.classList.add('opacity-40', 'scale-[0.98]', 'ring-2', 'ring-[#990303]');
+}
+
+function onCalendarCardDragEnd(event, cardEl) {
+    cardEl.classList.remove('opacity-40', 'scale-[0.98]', 'ring-2', 'ring-[#990303]');
+    setTimeout(() => {
+        isCalendarDragging = false;
+        draggedCalendarCard = null;
+    }, 50);
+}
+
+function onCalendarSlotDragOver(event) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+    }
+}
+
+function onCalendarSlotDragEnter(event, slotEl) {
+    event.preventDefault();
+    slotEl.classList.add('!bg-rose-100', 'dark:!bg-rose-950/80', 'ring-2', 'ring-inset', 'ring-[#990303]');
+}
+
+function onCalendarSlotDragLeave(event, slotEl) {
+    slotEl.classList.remove('!bg-rose-100', 'dark:!bg-rose-950/80', 'ring-2', 'ring-inset', 'ring-[#990303]');
+}
+
+function onCalendarHeaderDragEnter(event, headerEl) {
+    event.preventDefault();
+    headerEl.classList.add('!bg-rose-100', 'dark:!bg-rose-950/80', 'ring-2', 'ring-inset', 'ring-[#990303]');
+}
+
+function onCalendarHeaderDragLeave(event, headerEl) {
+    headerEl.classList.remove('!bg-rose-100', 'dark:!bg-rose-950/80', 'ring-2', 'ring-inset', 'ring-[#990303]');
+}
+
+function onCalendarSlotDrop(event, slotEl) {
+    event.preventDefault();
+    slotEl.classList.remove('!bg-rose-100', 'dark:!bg-rose-950/80', 'ring-2', 'ring-inset', 'ring-[#990303]');
+    if (!draggedCalendarCard) return;
+
+    const targetDate = slotEl.getAttribute('data-drop-date');
+    const targetStartTime = slotEl.getAttribute('data-drop-time');
+    if (!targetDate || !targetStartTime) return;
+
+    if (targetDate === draggedCalendarCard.dateRaw && targetStartTime === draggedCalendarCard.start) {
+        return;
+    }
+
+    const targetStartMin = parseTimeToMinutes(targetStartTime);
+    const targetEndMin = targetStartMin + draggedSessionDuration;
+    const targetEndTime = minutesToTimeString(targetEndMin);
+
+    openRescheduleModal(draggedCalendarCard, targetDate, targetStartTime, targetEndTime);
+}
+
+function onCalendarHeaderDrop(event, headerEl) {
+    event.preventDefault();
+    headerEl.classList.remove('!bg-rose-100', 'dark:!bg-rose-950/80', 'ring-2', 'ring-inset', 'ring-[#990303]');
+    if (!draggedCalendarCard) return;
+
+    const targetDate = headerEl.getAttribute('data-drop-date');
+    if (!targetDate) return;
+
+    if (targetDate === draggedCalendarCard.dateRaw) {
+        return;
+    }
+
+    openRescheduleModal(draggedCalendarCard, targetDate, draggedCalendarCard.start, draggedCalendarCard.end);
+}
+
+function openRescheduleModal(sess, targetDate, targetStartTime, targetEndTime) {
+    const form = document.getElementById('reschedule-session-form');
+    if (!form) return;
+    form.action = '/sessions/' + sess.id + '/reschedule';
+
+    const redUrl = document.getElementById('reschedule-redirect-url');
+    if (redUrl) redUrl.value = '/sessions?date=' + targetDate;
+
+    const titleEl = document.getElementById('reschedule-modal-title');
+    if (titleEl) titleEl.textContent = sess.title || sess.type;
+
+    const badgeEl = document.getElementById('reschedule-modal-badge');
+    if (badgeEl) {
+        let label = 'Class';
+        if (sess.entryType === 'duty') label = '🛡️ On-Duty';
+        else if (sess.entryType === 'open_session') label = '🔓 Free Session';
+        else if (sess.entryType === 'event') label = '🏆 Event';
+        badgeEl.textContent = label;
+    }
+
+    const metaEl = document.getElementById('reschedule-modal-meta');
+    if (metaEl) {
+        metaEl.textContent = sess.entryType === 'duty' ? (sess.staff || 'Staff') : (sess.coach || 'Unassigned');
+    }
+
+    const origDateEl = document.getElementById('reschedule-modal-orig-date');
+    if (origDateEl) origDateEl.textContent = formatDisplayDate(sess.dateRaw);
+    const origTimeEl = document.getElementById('reschedule-modal-orig-time');
+    if (origTimeEl) origTimeEl.textContent = formatDisplayTime12(sess.start) + ' – ' + formatDisplayTime12(sess.end);
+
+    const inDate = document.getElementById('reschedule-input-date');
+    if (inDate) inDate.value = targetDate;
+    const inStart = document.getElementById('reschedule-input-start');
+    if (inStart) inStart.value = targetStartTime;
+    const inEnd = document.getElementById('reschedule-input-end');
+    if (inEnd) inEnd.value = targetEndTime;
+
+    const sMin = parseTimeToMinutes(targetStartTime);
+    const eMin = parseTimeToMinutes(targetEndTime);
+    currentRescheduleDuration = eMin > sMin ? (eMin - sMin) : 60;
+
+    updateReschedulePreview();
+
+    const modal = document.getElementById('reschedule-session-modal');
+    if (modal) modal.classList.remove('hidden');
+
+    setTimeout(() => {
+        const submitBtn = document.getElementById('reschedule-submit-btn');
+        if (submitBtn) submitBtn.focus();
+    }, 100);
+}
+
+function onRescheduleStartChange() {
+    const inStart = document.getElementById('reschedule-input-start');
+    const inEnd = document.getElementById('reschedule-input-end');
+    if (inStart && inEnd && inStart.value) {
+        const startMin = parseTimeToMinutes(inStart.value);
+        inEnd.value = minutesToTimeString(startMin + currentRescheduleDuration);
+    }
+    updateReschedulePreview();
+}
+
+function updateReschedulePreview() {
+    const inDate = document.getElementById('reschedule-input-date');
+    const inStart = document.getElementById('reschedule-input-start');
+    const inEnd = document.getElementById('reschedule-input-end');
+    const redUrl = document.getElementById('reschedule-redirect-url');
+    if (inDate && redUrl) {
+        redUrl.value = '/sessions?date=' + inDate.value;
+    }
+    const newDateEl = document.getElementById('reschedule-modal-new-date');
+    if (newDateEl && inDate) newDateEl.textContent = formatDisplayDate(inDate.value);
+    const newTimeEl = document.getElementById('reschedule-modal-new-time');
+    if (newTimeEl && inStart && inEnd) {
+        newTimeEl.textContent = formatDisplayTime12(inStart.value) + ' – ' + formatDisplayTime12(inEnd.value);
+    }
+}
+
+function closeRescheduleModal() {
+    const modal = document.getElementById('reschedule-session-modal');
+    if (modal) modal.classList.add('hidden');
+}
 
 function calculateEndTime() {
     const startInput = document.getElementById('modal-start-time');
@@ -989,6 +1299,7 @@ function closeCancelModal() {
 
 function openClassInfoFromCard(cardEl) {
     if (!cardEl) return;
+    if (isCalendarDragging) return;
     const d = cardEl.dataset;
     const entryType = d.entryType || 'class';
     

@@ -241,6 +241,7 @@ func main() {
 	mux.HandleFunc("POST /sessions", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateSession))
 	mux.HandleFunc("POST /sessions/{id}/edit", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateSession))
 	mux.HandleFunc("PUT /sessions/{id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateSession))
+	mux.HandleFunc("POST /sessions/{id}/reschedule", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRescheduleSession))
 	mux.HandleFunc("POST /sessions/{id}/delete", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteSession))
 	mux.HandleFunc("DELETE /sessions/{id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteSession))
 	mux.HandleFunc("POST /sessions/{id}/cancel", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCancelSession))

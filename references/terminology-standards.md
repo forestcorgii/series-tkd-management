@@ -131,3 +131,16 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
   - **Domain Model:** [StudentEvaluation](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go) with `Sparring`, `Flexibility`, `Poomsae`.
   - **Backward Compatibility:** `GetSparring()`, `GetFlexibility()`, `GetPoomsae()`, and `SyncLegacyFields()` ensure existing records, SQL tables, and tests preserve full interoperability.
   - **Polygon Math:** Equilateral triangle concentric grids at scores 10, 8, 6, 4, 2 with [ToSVGPolygon](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go) generating 3-point SVG polygon coordinates.
+
+---
+
+## 9. Interactive Calendar Drag-and-Drop Rescheduling
+
+### Context: Floor Calendar Drag-and-Drop Operations
+- **Problem**: Moving sessions, duty shifts, or events required opening edit dialogs and manually typing new dates and times, slowing down front-desk floor operations.
+- **Enforced Solution**:
+  - **Native Drag & Drop**: Session cards feature `draggable="true"` (except when cancelled), visual grab cursors (`cursor-grab active:cursor-grabbing`), and drag-state opacity highlights.
+  - **Drop Zones**: Both 30-minute time slot buttons (`:00` and `:30`) and day column headers serve as active drop targets with interactive dragover styling (`!bg-rose-100 ring-2 ring-[#990303]`).
+  - **Duration Preservation**: Dropping on a time slot automatically preserves the original duration (`newEnd = newStart + duration`), while dropping onto a day header keeps the existing time window and shifts only the date.
+  - **Confirmation Dialog**: Dropping opens a streamlined `#reschedule-session-modal` displaying original vs new schedules with Enter-to-confirm keyboard accessibility.
+  - **Server Endpoint**: [HandleRescheduleSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) mounted at `POST /sessions/{id}/reschedule` securely updates only date and times while leaving assigned staff, coaches, locations, rates, and student attendances intact. Supports both `HX-Redirect` and standard HTTP 303 redirects.

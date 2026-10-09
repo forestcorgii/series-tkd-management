@@ -1883,5 +1883,170 @@ func TestDynamicCalendar_EventsDutyAndOpenSessions(t *testing.T) {
 	})
 }
 
+func TestSessionHandler_RescheduleSession(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	coach := &models.Coach{
+		ID:        uuid.New(),
+		FullName:  "Coach Kim",
+		Email:     "kim@example.com",
+		BeltRank:  "4th Dan",
+		IsActive:  true,
+		CreatedAt: time.Now(),
+	}
+	_ = store.CreateCoach(coach)
+
+	origDate, _ := time.Parse("2006-01-02", "2026-10-15")
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  origDate,
+		StartTime:    "14:00",
+		EndTime:      "15:30", // 90 min duration
+		CoachID:      &coach.ID,
+		CoachName:    coach.FullName,
+		TrainingType: models.TrainingPoomsae,
+		Notes:        "Keep focus on balance",
+		CreatedAt:    time.Now(),
+	}
+	_ = store.CreateSession(sess)
+
+	t.Run("successfully reschedule session with explicit end time", func(t *testing.T) {
+		form := url.Values{
+			"session_date": {"2026-10-16"},
+			"start_time":   {"16:00"},
+			"end_time":     {"17:30"},
+		}
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/reschedule", sess.ID), strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", sess.ID.String())
+		rec := httptest.NewRecorder()
+
+		app.HandleRescheduleSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d: %s", rec.Code, rec.Body.String())
+		}
+		expectedLoc := "/sessions?date=2026-10-16"
+		if rec.Header().Get("Location") != expectedLoc {
+			t.Errorf("expected redirect to %s, got %s", expectedLoc, rec.Header().Get("Location"))
+		}
+
+		updated, err := store.GetSessionByID(sess.ID)
+		if err != nil {
+			t.Fatalf("failed to retrieve session: %v", err)
+		}
+		if updated.SessionDate.Format("2006-01-02") != "2026-10-16" {
+			t.Errorf("expected date 2026-10-16, got %s", updated.SessionDate.Format("2006-01-02"))
+		}
+		if updated.StartTime != "16:00" || updated.EndTime != "17:30" {
+			t.Errorf("expected time 16:00-17:30, got %s-%s", updated.StartTime, updated.EndTime)
+		}
+		// Preserved attributes
+		if updated.CoachID == nil || *updated.CoachID != coach.ID {
+			t.Errorf("expected coach ID to be preserved")
+		}
+		if updated.Notes != "Keep focus on balance" {
+			t.Errorf("expected notes to be preserved, got %s", updated.Notes)
+		}
+	})
+
+	t.Run("auto-calculate end time preserving duration when end_time omitted", func(t *testing.T) {
+		// Session currently 16:00 to 17:30 (90 min). Reschedule start to 10:00 without end_time:
+		form := url.Values{
+			"session_date": {"2026-10-17"},
+			"start_time":   {"10:00"},
+		}
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/reschedule", sess.ID), strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", sess.ID.String())
+		rec := httptest.NewRecorder()
+
+		app.HandleRescheduleSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 SeeOther, got %d: %s", rec.Code, rec.Body.String())
+		}
+		updated, _ := store.GetSessionByID(sess.ID)
+		if updated.StartTime != "10:00" || updated.EndTime != "11:30" {
+			t.Errorf("expected preserved 90 min duration 10:00-11:30, got %s-%s", updated.StartTime, updated.EndTime)
+		}
+	})
+
+	t.Run("HX-Request receives HX-Redirect header", func(t *testing.T) {
+		form := url.Values{
+			"session_date": {"2026-10-18"},
+			"start_time":   {"09:00"},
+			"end_time":     {"10:00"},
+		}
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/reschedule", sess.ID), strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("HX-Request", "true")
+		req.SetPathValue("id", sess.ID.String())
+		rec := httptest.NewRecorder()
+
+		app.HandleRescheduleSession(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK for HX-Request, got %d", rec.Code)
+		}
+		if rec.Header().Get("HX-Redirect") != "/sessions?date=2026-10-18" {
+			t.Errorf("expected HX-Redirect header to /sessions?date=2026-10-18, got %s", rec.Header().Get("HX-Redirect"))
+		}
+	})
+
+	t.Run("rejects reschedule for cancelled sessions", func(t *testing.T) {
+		cancelledSess := &models.TrainingSession{
+			ID:                 uuid.New(),
+			SessionDate:        origDate,
+			StartTime:          "14:00",
+			EndTime:            "15:00",
+			TrainingType:       models.TrainingSparring,
+			IsCancelled:        true,
+			CancellationReason: "Typhoon signal",
+			CreatedAt:          time.Now(),
+		}
+		_ = store.CreateSession(cancelledSess)
+
+		form := url.Values{
+			"session_date": {"2026-10-19"},
+			"start_time":   {"14:00"},
+		}
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/reschedule", cancelledSess.ID), strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", cancelledSess.ID.String())
+		rec := httptest.NewRecorder()
+
+		app.HandleRescheduleSession(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "Cannot reschedule a cancelled session") {
+			t.Errorf("expected cancellation rejection message, got: %s", rec.Body.String())
+		}
+	})
+
+	t.Run("rejects invalid date", func(t *testing.T) {
+		form := url.Values{
+			"session_date": {"invalid-date"},
+			"start_time":   {"14:00"},
+		}
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/reschedule", sess.ID), strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", sess.ID.String())
+		rec := httptest.NewRecorder()
+
+		app.HandleRescheduleSession(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 Bad Request, got %d", rec.Code)
+		}
+	})
+}
+
 
 

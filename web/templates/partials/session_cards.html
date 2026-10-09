@@ -50,7 +50,7 @@
                 <span>+</span> Schedule Class
             </button>
             <span class="text-xs text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
-                💡 Click any class card to view info, or empty slot to schedule
+                💡 Drag cards to reschedule, click card for info, or click slot to schedule
             </span>
         </div>
     </div>
@@ -68,7 +68,12 @@
 
                     <!-- 7 Day Headers -->
                     {{range .Calendar.Days}}
-                    <div class="p-2 sm:p-2.5 text-center border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 transition-colors {{if .IsToday}}bg-rose-50/40 dark:bg-rose-950/20{{end}}">
+                    <div class="calendar-day-dropzone p-2 sm:p-2.5 text-center border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 transition-colors {{if .IsToday}}bg-rose-50/40 dark:bg-rose-950/20{{end}}"
+                         data-drop-date="{{.DateString}}"
+                         ondragover="onCalendarSlotDragOver(event)"
+                         ondragenter="onCalendarHeaderDragEnter(event, this)"
+                         ondragleave="onCalendarHeaderDragLeave(event, this)"
+                         ondrop="onCalendarHeaderDrop(event, this)">
                         <span class="text-[11px] font-bold uppercase tracking-wider block {{if .IsToday}}text-[#990303] dark:text-[#DC2626]{{else}}text-slate-500 dark:text-slate-400{{end}}">
                             {{.DayShort}}
                         </span>
@@ -127,7 +132,13 @@
                                     <!-- Top Half (:00 slot) -->
                                     <button type="button"
                                             onclick="openNewSessionModal('{{$day.DateString}}', '{{$h.Time24}}')"
-                                            class="h-[30px] w-full border-b border-dashed border-slate-100/90 dark:border-slate-800/40 hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
+                                            data-drop-date="{{$day.DateString}}"
+                                            data-drop-time="{{$h.Time24}}"
+                                            ondragover="onCalendarSlotDragOver(event)"
+                                            ondragenter="onCalendarSlotDragEnter(event, this)"
+                                            ondragleave="onCalendarSlotDragLeave(event, this)"
+                                            ondrop="onCalendarSlotDrop(event, this)"
+                                            class="calendar-slot-dropzone h-[30px] w-full border-b border-dashed border-slate-100/90 dark:border-slate-800/40 hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
                                             title="Schedule at {{$h.Time24}} on {{$day.DayName}}">
                                         <span class="text-[10px] font-mono font-medium group-hover/slot:text-[#990303] dark:group-hover/slot:text-[#DC2626]">
                                             + {{$h.Time24}}
@@ -140,7 +151,13 @@
                                     <!-- Bottom Half (:30 slot) -->
                                     <button type="button"
                                             onclick="openNewSessionModal('{{$day.DateString}}', '{{printf "%02d:30" $h.Hour}}')"
-                                            class="h-[30px] w-full hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
+                                            data-drop-date="{{$day.DateString}}"
+                                            data-drop-time="{{printf "%02d:30" $h.Hour}}"
+                                            ondragover="onCalendarSlotDragOver(event)"
+                                            ondragenter="onCalendarSlotDragEnter(event, this)"
+                                            ondragleave="onCalendarSlotDragLeave(event, this)"
+                                            ondrop="onCalendarSlotDrop(event, this)"
+                                            class="calendar-slot-dropzone h-[30px] w-full hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
                                             title="Schedule at {{printf "%02d:30" $h.Hour}} on {{$day.DayName}}">
                                         <span class="text-[10px] font-mono font-medium group-hover/slot:text-[#990303] dark:group-hover/slot:text-[#DC2626]">
                                             + {{printf "%02d:30" $h.Hour}}
@@ -156,9 +173,10 @@
                             <!-- Plotted Session Cards (Google Calendar Spanning Cards) -->
                             <div class="absolute inset-0 z-10 pointer-events-none">
                                 {{range $day.Sessions}}
-                                <div class="absolute rounded-lg border shadow-xs transition-all hover:shadow-xl hover:z-30 hover:border-slate-400 dark:hover:border-neutral-600 cursor-pointer overflow-hidden flex flex-col justify-between p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed{{else}}bg-white/95 dark:bg-neutral-900/90 border-slate-200 dark:border-neutral-800 border-l-4{{end}}"
+                                <div class="calendar-session-card absolute rounded-lg border shadow-xs transition-all hover:shadow-xl hover:z-30 hover:border-slate-400 dark:hover:border-neutral-600 overflow-hidden flex flex-col justify-between p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed cursor-pointer{{else}}bg-white/95 dark:bg-neutral-900/90 border-slate-200 dark:border-neutral-800 border-l-4 cursor-grab active:cursor-grabbing{{end}}"
                                      style="top: {{.TopOffset}}px; height: {{.CardHeight}}px; left: calc({{.LeftPercent}}% + 2px); width: calc({{.WidthPercent}}% - 4px); {{if and (not .Session.IsCancelled) .CategoryColor}}border-left-color: {{.CategoryColor}};{{end}}"
                                      onclick="openClassInfoFromCard(this)"
+                                     {{if not .Session.IsCancelled}}draggable="true" ondragstart="onCalendarCardDragStart(event, this)" ondragend="onCalendarCardDragEnd(event, this)"{{end}}
                                      data-entry-type="{{.Session.EntryType}}"
                                      data-title="{{.DisplayTitle}}"
                                      data-id="{{.Session.ID}}"

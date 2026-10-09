@@ -1080,6 +1080,118 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
+func calculateRescheduledEndTime(newStart, origStart, origEnd string) string {
+	sParts := strings.Split(origStart, ":")
+	eParts := strings.Split(origEnd, ":")
+	durMinutes := 60
+	if len(sParts) >= 2 && len(eParts) >= 2 {
+		sh, _ := strconv.Atoi(sParts[0])
+		sm, _ := strconv.Atoi(sParts[1])
+		eh, _ := strconv.Atoi(eParts[0])
+		em, _ := strconv.Atoi(eParts[1])
+		diff := (eh*60 + em) - (sh*60 + sm)
+		if diff > 0 && diff <= 12*60 {
+			durMinutes = diff
+		}
+	}
+	nsParts := strings.Split(newStart, ":")
+	if len(nsParts) >= 2 {
+		nsh, _ := strconv.Atoi(nsParts[0])
+		nsm, _ := strconv.Atoi(nsParts[1])
+		totMin := nsh*60 + nsm + durMinutes
+		if totMin >= 24*60 {
+			totMin = 23*60 + 59
+		}
+		return fmt.Sprintf("%02d:%02d", totMin/60, totMin%60)
+	}
+	return newStart
+}
+
+// HandleRescheduleSession updates a session's date, start time, and end time via drag-and-drop or modal.
+// It preserves all assigned coaches, staff, location, rates, notes, and registration rosters.
+func (a *AppHandler) HandleRescheduleSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimPrefix(r.URL.Path, "/sessions/")
+		idStr = strings.TrimSuffix(idStr, "/reschedule")
+	}
+	sessionID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid session ID", http.StatusBadRequest)
+		return
+	}
+
+	sess, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+
+	if sess.IsCancelled {
+		http.Error(w, "Cannot reschedule a cancelled session", http.StatusBadRequest)
+		return
+	}
+
+	_ = r.ParseForm()
+
+	dateStr := strings.TrimSpace(r.FormValue("session_date"))
+	if dateStr == "" {
+		http.Error(w, "Session date is required", http.StatusBadRequest)
+		return
+	}
+	sessDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		http.Error(w, "Invalid session date format (expected YYYY-MM-DD)", http.StatusBadRequest)
+		return
+	}
+
+	startTime := strings.TrimSpace(r.FormValue("start_time"))
+	if startTime == "" {
+		http.Error(w, "Start time is required", http.StatusBadRequest)
+		return
+	}
+
+	endTime := strings.TrimSpace(r.FormValue("end_time"))
+	if endTime == "" {
+		endTime = calculateRescheduledEndTime(startTime, sess.StartTime, sess.EndTime)
+	}
+
+	oldDate := sess.SessionDate
+	oldStart := sess.StartTime
+	oldEnd := sess.EndTime
+
+	sess.SessionDate = sessDate
+	sess.StartTime = startTime
+	sess.EndTime = endTime
+
+	if err := a.store.UpdateSession(sess); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	a.LogAction(r, "SESSION_RESCHEDULE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType),
+		fmt.Sprintf("Rescheduled %s from %s %s-%s to %s %s-%s",
+			sess.DisplayTitle(),
+			oldDate.Format("2006-01-02"), oldStart, oldEnd,
+			sess.SessionDate.Format("2006-01-02"), sess.StartTime, sess.EndTime))
+
+	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
+	if redirectURL == "" || redirectURL == "/sessions" {
+		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
+	}
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
 func (a *AppHandler) HandleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
