@@ -1092,8 +1092,8 @@
         // ==========================================
         // Progressive Web App (PWA) Engine
         // ==========================================
-        let deferredPWAInstallPrompt = null;
-        let newWorkerInstance = null;
+        var deferredPWAInstallPrompt = window.deferredPWAInstallPrompt || null;
+        var newWorkerInstance = window.newWorkerInstance || null;
 
         // Register Service Worker
         if ('serviceWorker' in navigator) {
@@ -1102,6 +1102,7 @@
                     .then((registration) => {
                         registration.addEventListener('updatefound', () => {
                             newWorkerInstance = registration.installing;
+                            window.newWorkerInstance = newWorkerInstance;
                             if (newWorkerInstance) {
                                 newWorkerInstance.addEventListener('statechange', () => {
                                     if (newWorkerInstance.state === 'installed' && navigator.serviceWorker.controller) {
@@ -1122,6 +1123,7 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPWAInstallPrompt = e;
+            window.deferredPWAInstallPrompt = e;
             // Reveal install triggers across desktop and mobile menus
             document.querySelectorAll('.pwa-install-trigger').forEach((el) => {
                 el.classList.remove('hidden');
@@ -1130,6 +1132,7 @@
 
         window.addEventListener('appinstalled', () => {
             deferredPWAInstallPrompt = null;
+            window.deferredPWAInstallPrompt = null;
             document.querySelectorAll('.pwa-install-trigger').forEach((el) => {
                 el.classList.add('hidden');
             });
@@ -1142,6 +1145,7 @@
                 deferredPWAInstallPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
                         deferredPWAInstallPrompt = null;
+                        window.deferredPWAInstallPrompt = null;
                         document.querySelectorAll('.pwa-install-trigger').forEach((el) => {
                             el.classList.add('hidden');
                         });

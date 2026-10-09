@@ -737,14 +737,14 @@
 </div>
 
 <script>
-const isOperationManager = {{if and $user $user.IsOperationManager}}true{{else}}false{{end}};
-let currentSelectedDate = '{{.SelectedDate}}' || new Date().toISOString().split('T')[0];
+var isOperationManager = {{if and $user $user.IsOperationManager}}true{{else}}false{{end}};
+var currentSelectedDate = '{{.SelectedDate}}' || new Date().toISOString().split('T')[0];
 
 // Calendar Drag & Drop Rescheduling Support
-let draggedCalendarCard = null;
-let isCalendarDragging = false;
-let draggedSessionDuration = 60; // minutes
-let currentRescheduleDuration = 60; // minutes
+var draggedCalendarCard = null;
+var isCalendarDragging = false;
+var draggedSessionDuration = 60; // minutes
+var currentRescheduleDuration = 60; // minutes
 
 function parseTimeToMinutes(t) {
     if (!t) return 0;
