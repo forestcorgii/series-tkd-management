@@ -287,7 +287,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		dateParam = strings.TrimSpace(r.URL.Query().Get("week_date"))
 	}
 
-	today := time.Now()
+	today := time.Now().In(phLocation)
 	todayStr := today.Format("2006-01-02")
 	refDate := today
 
@@ -324,31 +324,12 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dateParam != "" {
-		if t, err := time.Parse("2006-01-02", dateParam); err == nil {
+		if t, err := time.ParseInLocation("2006-01-02", dateParam, phLocation); err == nil {
 			refDate = t
 		}
-	} else if len(allMatching) > 0 {
-		// If no date specified, check if today's week has sessions.
-		// If not, but matching sessions exist, center on the first matching session's week.
-		todayWeekday := today.Weekday()
-		todayOffset := (int(todayWeekday) + 6) % 7
-		currWeekStart := time.Date(today.Year(), today.Month(), today.Day()-todayOffset, 0, 0, 0, 0, today.Location())
-		currWeekEnd := currWeekStart.AddDate(0, 0, 6)
-		currStartStr := currWeekStart.Format("2006-01-02")
-		currEndStr := currWeekEnd.Format("2006-01-02")
-
-		hasCurrentWeekSession := false
-		for _, s := range allMatching {
-			sDate := s.SessionDate.Format("2006-01-02")
-			if sDate >= currStartStr && sDate <= currEndStr {
-				hasCurrentWeekSession = true
-				break
-			}
-		}
-		if !hasCurrentWeekSession {
-			refDate = allMatching[0].SessionDate
-		}
 	}
+	// Note: When dateParam is empty (e.g. on opening attendance), refDate always remains 'today',
+	// ensuring the calendar always centers on the current week.
 
 	// Compute Monday-to-Sunday week boundary for refDate
 	weekday := refDate.Weekday()
@@ -610,7 +591,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	now := time.Now()
+	now := time.Now().In(phLocation)
 	nowTotalMin := now.Hour()*60 + now.Minute()
 	minTotalMin := minHour * 60
 	maxTotalMin := (maxHour + 1) * 60

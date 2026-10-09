@@ -1538,5 +1538,38 @@ function clearFilters() {
     if (form) form.reset();
     htmx.ajax('GET', '/sessions', {target: '#classes-container', swap: 'innerHTML'});
 }
+
+function scrollToCurrentDayOnMobile() {
+    // Only scroll horizontally if container is overflowing (mobile / tablet viewport)
+    const container = document.getElementById('calendar-scroll-container');
+    if (!container) return;
+
+    if (container.scrollWidth <= container.clientWidth) return;
+
+    const todayHeader = container.querySelector('.calendar-today-header, [data-today="true"]');
+    if (!todayHeader) return;
+
+    // Calculate left position relative to scroll container, taking 72px time gutter into account
+    const containerRect = container.getBoundingClientRect();
+    const todayRect = todayHeader.getBoundingClientRect();
+    const scrollLeftTarget = container.scrollLeft + (todayRect.left - containerRect.left) - 72; // keep time gutter visible or align today
+
+    container.scrollTo({
+        left: Math.max(0, scrollLeftTarget),
+        behavior: 'smooth'
+    });
+}
+
+// Automatically scroll on initial page load
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(scrollToCurrentDayOnMobile, 150);
+});
+
+// Also trigger after HTMX swap for classes container (e.g. week navigation or filter)
+document.body.addEventListener('htmx:afterSwap', (evt) => {
+    if (evt.detail && (evt.detail.target.id === 'classes-container' || evt.detail.target.closest('#classes-container'))) {
+        setTimeout(scrollToCurrentDayOnMobile, 100);
+    }
+});
 </script>
 {{end}}
