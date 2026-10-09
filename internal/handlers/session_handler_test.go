@@ -1656,5 +1656,232 @@ func TestHandleSearchStudent_BlankInputPaginationAndNoReadiness(t *testing.T) {
 	}
 }
 
+func TestDynamicCalendar_EventsDutyAndOpenSessions(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	coach := &models.Coach{
+		ID:        uuid.New(),
+		FullName:  "Coach Jin",
+		BeltRank:  "4th Dan",
+		Email:     "jin@seriestkd.com",
+		Phone:     "09170001111",
+		IsActive:  true,
+		CreatedAt: time.Now(),
+	}
+	_ = store.CreateCoach(coach)
+
+	adminUser := &models.User{
+		ID:           uuid.New(),
+		Email:        "lead-admin@seriestkd.com",
+		DisplayName:  "Admin Clara",
+		Role:         models.RoleAdmin,
+		PasswordHash: "dummyhash",
+		IsActive:     true,
+		CreatedAt:    time.Now(),
+	}
+	_ = store.CreateUser(adminUser)
+
+	testDate := "2026-10-25"
+
+	// 1. Create Special Event Schedule
+	t.Run("Create Event with Title and Verify Calendar Rendering", func(t *testing.T) {
+		form := url.Values{
+			"entry_type":   {"event"},
+			"title":        {"Fall Belt Promotion Examination"},
+			"session_date": {testDate},
+			"start_time":   {"09:00"},
+			"end_time":     {"12:00"},
+			"coach_id":     {coach.ID.String()},
+			"notes":        {"Formal poomsae and board breaking evaluation."},
+		}
+		req := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		app.HandleCreateSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d", rec.Code)
+		}
+
+		sessions, err := store.GetAllSessions()
+		if err != nil || len(sessions) == 0 {
+			t.Fatalf("expected created session, got error: %v", err)
+		}
+		var eventSess *models.TrainingSession
+		for i := range sessions {
+			if sessions[i].Title == "Fall Belt Promotion Examination" {
+				eventSess = sessions[i]
+				break
+			}
+		}
+		if eventSess == nil {
+			t.Fatalf("expected event session with title 'Fall Belt Promotion Examination'")
+		}
+		if !eventSess.IsEvent() {
+			t.Errorf("expected IsEvent() to be true, got entry_type=%s", eventSess.EntryType)
+		}
+
+		// Verify calendar renders the event and badge
+		reqCal := httptest.NewRequest(http.MethodGet, "/sessions?date="+testDate, nil)
+		recCal := httptest.NewRecorder()
+		app.HandleSessions(recCal, reqCal)
+
+		if recCal.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK from calendar, got %d", recCal.Code)
+		}
+		body := recCal.Body.String()
+		if !strings.Contains(body, "Fall Belt Promotion Examination") {
+			t.Errorf("expected event title in calendar page output")
+		}
+		if !strings.Contains(body, "EVENT") {
+			t.Errorf("expected 'EVENT' badge in calendar page output")
+		}
+	})
+
+	// 2. Create On-Duty Schedule with Multi-Select Staff
+	t.Run("Create On-Duty Shift with Multi-Staff Selection", func(t *testing.T) {
+		form := url.Values{
+			"entry_type":         {"duty"},
+			"title":              {"Front Desk & Mat Operations Shift"},
+			"session_date":       {testDate},
+			"start_time":         {"13:00"},
+			"end_time":           {"17:00"},
+			"assigned_staff_ids": {coach.ID.String(), adminUser.ID.String()},
+			"notes":              {"Facility opening, equipment sanitation, student intake."},
+		}
+		req := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		app.HandleCreateSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d", rec.Code)
+		}
+
+		sessions, _ := store.GetAllSessions()
+		var dutySess *models.TrainingSession
+		for i := range sessions {
+			if sessions[i].Title == "Front Desk & Mat Operations Shift" {
+				dutySess = sessions[i]
+				break
+			}
+		}
+		if dutySess == nil {
+			t.Fatalf("expected duty session to be created")
+		}
+		if !dutySess.IsDuty() {
+			t.Errorf("expected IsDuty() to be true, got %s", dutySess.EntryType)
+		}
+		if len(dutySess.AssignedStaff) != 2 {
+			t.Fatalf("expected 2 assigned staff members, got %d", len(dutySess.AssignedStaff))
+		}
+		staffSummary := dutySess.StaffSummary()
+		if !strings.Contains(staffSummary, "Coach Jin") || !strings.Contains(staffSummary, "Admin Clara") {
+			t.Errorf("expected both Coach Jin and Admin Clara in staff summary, got: %v", staffSummary)
+		}
+	})
+
+	// 3. Create Free / Open Session with Student Zero-Credit Deduction & Guest Check-In
+	t.Run("Free Open Session Bypasses Package Deduction and Admits Guests", func(t *testing.T) {
+		student := &models.Student{
+			ID:          uuid.New(),
+			FullName:    "Ken Masters",
+			CurrentBelt: models.BeltLowYellow,
+			IsActive:    true,
+			CreatedAt:   time.Now(),
+		}
+		_ = store.CreateStudent(student)
+
+		tpls, _ := store.GetPackageTemplates()
+		rem := 5
+		pkg := &models.StudentPackage{
+			ID:                uuid.New(),
+			StudentID:         student.ID,
+			TemplateID:        tpls[0].ID,
+			TotalSessions:     &rem,
+			RemainingSessions: &rem,
+			PurchaseDate:      time.Now(),
+			ExpiryDate:        time.Now().AddDate(0, 1, 0),
+			PaymentStatus:     "paid",
+			CreatedAt:         time.Now(),
+		}
+		_ = store.AssignPackage(pkg)
+
+		form := url.Values{
+			"entry_type":   {"open_session"},
+			"title":        {"Sunday Open Floor & Free Sparring"},
+			"session_date": {testDate},
+			"start_time":   {"17:00"},
+			"end_time":     {"19:00"},
+			"coach_id":     {coach.ID.String()},
+			"notes":        {"Free mat access for all students, staff, and visiting martial artists."},
+		}
+		req := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		app.HandleCreateSession(rec, req)
+
+		sessions, _ := store.GetAllSessions()
+		var openSess *models.TrainingSession
+		for i := range sessions {
+			if sessions[i].Title == "Sunday Open Floor & Free Sparring" {
+				openSess = sessions[i]
+				break
+			}
+		}
+		if openSess == nil {
+			t.Fatalf("expected open session to be created")
+		}
+		if !openSess.IsOpenSession() {
+			t.Errorf("expected IsOpenSession() to be true")
+		}
+
+		// Check in student to open session
+		reqCheckIn := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin/%s", openSess.ID, student.ID), nil)
+		recCheckIn := httptest.NewRecorder()
+		app.HandleCheckIn(recCheckIn, reqCheckIn)
+
+		if recCheckIn.Code != http.StatusOK {
+			t.Fatalf("expected check-in 200 OK, got %d: %s", recCheckIn.Code, recCheckIn.Body.String())
+		}
+		checkInBody := recCheckIn.Body.String()
+		if !strings.Contains(checkInBody, "Free Admission") && !strings.Contains(checkInBody, "Free") {
+			t.Errorf("expected Free admission label in checkin row, got:\n%s", checkInBody)
+		}
+
+		// Verify student package was NOT decremented
+		updatedPkgs, _ := store.GetStudentPackages(student.ID)
+		if *updatedPkgs[0].RemainingSessions != 5 {
+			t.Errorf("expected remaining sessions to stay 5 (zero deduction), got %d", *updatedPkgs[0].RemainingSessions)
+		}
+
+		// Admit a Guest Attendee
+		guestForm := url.Values{
+			"attendee_type": {"guest"},
+			"attendee_name": {"Sensei Ryu (Guest Instructor)"},
+			"attendee_role": {"Visiting Master"},
+		}
+		reqGuest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin-attendee", openSess.ID), strings.NewReader(guestForm.Encode()))
+		reqGuest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		recGuest := httptest.NewRecorder()
+		app.HandleCheckInAttendee(recGuest, reqGuest)
+
+		if recGuest.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK from guest check-in, got %d: %s", recGuest.Code, recGuest.Body.String())
+		}
+		guestBody := recGuest.Body.String()
+		if !strings.Contains(guestBody, "Sensei Ryu (Guest Instructor)") {
+			t.Errorf("expected guest name in returned row, got:\n%s", guestBody)
+		}
+		if !strings.Contains(strings.ToUpper(guestBody), "GUEST") {
+			t.Errorf("expected GUEST badge in checkin row")
+		}
+	})
+}
+
 
 

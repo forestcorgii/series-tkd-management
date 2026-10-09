@@ -105,3 +105,16 @@
   * **Polymorphic Joining**: Queries in `SQLStore` continue to join across both tables (`LEFT JOIN users u ON ts.admin_id = u.id LEFT JOIN coaches ca ON ts.admin_id = ca.id`), supporting both user accounts and legacy coach references.
   * **Cascading Nullification**: Deleting a user in `SQLStore` or `MemoryStore` safely nullifies `training_sessions.admin_id = NULL` for all associated sessions.
 
+### Context: Dynamic Calendar — Unified Schedule Architecture, Multi-Staff Duty, and Free Sessions
+
+* **Problem**:
+  1. The calendar previously only supported rigid class schedules (`training_type`), without support for non-class events (Belt Promotion Exams, Tournaments, Seminars), multi-user staff shifts (on-duty coaches and administrators), or free / open mat sessions.
+  2. Front desk check-ins strictly deducted student package credits or applied fixed fees, with no ability to admit students freely to open mats or admit non-student attendees (guest instructors, visiting martial artists, or on-duty staff).
+* **Enforced Solution**:
+  * **Unified Schedule Domain Model**: Augmented [TrainingSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) with `EntryType` enum (`class`, `event`, `duty`, `open_session`), custom `Title`, and `AssignedStaff` slice (`[]*SessionStaff` containing `ID`, `Name`, `Role`).
+  * **Database Persistence**: Added `entry_type VARCHAR(30) DEFAULT 'class'`, `title VARCHAR(200)`, and `assigned_staff JSON/TEXT` to `training_sessions` in PostgreSQL and SQLite. In `attendance`, added `attendee_type VARCHAR(30) DEFAULT 'student'`, `attendee_name VARCHAR(150)`, and `attendee_role VARCHAR(80)` while permitting `student_id` to be nullable for guests.
+  * **Zero-Deduction Package Bypass**: In `HandleCheckIn`, sessions where `session.IsOpenSession()` bypass package deduction rules, admitting students freely without credit decrements.
+  * **Guest & Staff Check-In Route**: Introduced `POST /sessions/{id}/checkin-attendee` admitting external guests or duty staff, rendered immediately into the HTMX attendance roster with distinct role badges.
+  * **Segmented Interactive Modals**: Scheduling and edit modals in [sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html) utilize a segmented switcher (`🥋 Class`, `🔓 Free / Open`, `🛡️ On-Duty`, `🏆 Event`) dynamically toggling custom title inputs, multi-select staff checklists, categories, and rates.
+
+

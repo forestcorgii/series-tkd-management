@@ -2,30 +2,54 @@
 <tr class="hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition">
     <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">
         <div class="flex items-center gap-1.5">
+            {{if and .Attendance.StudentID (ne .Attendance.StudentID.String "00000000-0000-0000-0000-000000000000")}}
             <a href="/students/{{.Attendance.StudentID}}" target="_blank" class="hover:underline text-emerald-600 dark:text-emerald-400">
-                {{.Attendance.StudentName}}
+                {{.Attendance.DisplayName}}
             </a>
             {{if eq .Readiness.Status "READY"}}
             <span class="text-xs" title="Ready for promotion">🟢</span>
             {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
             <span class="text-xs" title="Pre-test eligible">🟡</span>
-            {{else}}
+            {{else if ne .Readiness.Status ""}}
             <span class="text-xs" title="Developing">🔴</span>
+            {{end}}
+            {{else}}
+            <span class="text-slate-900 dark:text-white">
+                {{.Attendance.DisplayName}}
+            </span>
             {{end}}
         </div>
     </td>
     <td class="py-3 px-3">
-        <span class="badge-belt">
-            {{.Attendance.StudentBelt}}
+        {{if .Attendance.IsStaff}}
+        <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            🛡️ {{if .Attendance.AttendeeRole}}{{.Attendance.AttendeeRole}} (Staff){{else}}Staff{{end}}
         </span>
+        {{else if .Attendance.IsGuest}}
+        <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+            👤 {{if .Attendance.AttendeeRole}}{{.Attendance.AttendeeRole}} (Guest){{else}}Guest{{end}}
+        </span>
+        {{else}}
+        <span class="badge-belt">
+            {{.Attendance.DisplayRole}}
+        </span>
+        {{end}}
     </td>
     <td class="py-3 px-3 text-xs text-slate-700 dark:text-slate-300 font-medium">
         {{if .Attendance.SessionRate}}
             <span class="inline-flex items-center gap-1 text-sky-700 dark:text-sky-300 font-semibold bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800">
                 <span>🏫</span> Fix Rate: ₱{{formatCurrency .Attendance.SessionRate}}
             </span>
+        {{else if or (and .Session .Session.IsOpenSession) (and .Attendance (eq .Attendance.PackageTitle "Free Open Session"))}}
+            <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                🔓 Free Admission
+            </span>
         {{else if .Attendance.PackageTitle}}
             <span class="text-emerald-600 dark:text-emerald-300 font-semibold">{{.Attendance.PackageTitle}}</span>
+        {{else if or .Attendance.IsGuest .Attendance.IsStaff}}
+            <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                🔓 Free Admission
+            </span>
         {{else}}
             <span class="text-amber-700 dark:text-amber-400 italic">Manual Override Entry</span>
         {{end}}
@@ -35,16 +59,12 @@
     </td>
     <td class="py-3 px-3 text-right">
         <button type="button"
-                hx-post="/sessions/{{.Attendance.SessionID}}/attendance/{{.Attendance.StudentID}}/remove"
+                hx-post="/sessions/{{.Attendance.SessionID}}/attendance/{{if and .Attendance.StudentID (ne .Attendance.StudentID.String "00000000-0000-0000-0000-000000000000")}}{{.Attendance.StudentID}}{{else}}{{.Attendance.ID}}{{end}}/remove"
                 hx-target="closest tr"
                 hx-swap="outerHTML swap:300ms"
-                {{if .Attendance.SessionRate}}
-                hx-confirm="Remove {{.Attendance.StudentName}} from this class attendance?"
-                {{else}}
-                hx-confirm="Remove {{.Attendance.StudentName}} from this class attendance? If a membership class was deducted, 1 class will be refunded."
-                {{end}}
+                hx-confirm="Remove {{.Attendance.DisplayName}} from this roster?"
                 class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900 rounded-lg transition"
-                title="Remove student">
+                title="Remove attendee">
             <span>✖</span> Remove
         </button>
     </td>

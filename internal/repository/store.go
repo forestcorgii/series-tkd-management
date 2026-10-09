@@ -26,6 +26,7 @@ type SessionFilter struct {
 	Date         string // "YYYY-MM-DD"
 	StartDate    string // "YYYY-MM-DD"
 	EndDate      string // "YYYY-MM-DD"
+	EntryType    string // "class", "event", "duty", "open_session"
 }
 
 type RepositoryStore interface {
@@ -83,6 +84,7 @@ type RepositoryStore interface {
 	GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error)
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
 	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
+	CheckInAttendee(sessionID uuid.UUID, attendeeType string, attendeeID *uuid.UUID, attendeeName, attendeeRole string, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
 	RemoveAttendance(sessionID, studentID uuid.UUID) error
 
 	// Batch Optimizations
@@ -643,8 +645,14 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 
 	result := make([]*models.TrainingSession, 0, len(m.sessions))
 	for _, s := range m.sessions {
-		if filter.CoachID != nil && (s.CoachID == nil || *s.CoachID != *filter.CoachID) {
-			continue
+		if filter.CoachID != nil {
+			matchesCoach := s.CoachID != nil && *s.CoachID == *filter.CoachID
+			if !matchesCoach && s.HasAssignedStaffID(filter.CoachID.String()) {
+				matchesCoach = true
+			}
+			if !matchesCoach {
+				continue
+			}
 		}
 		if filter.LocationID != nil {
 			if s.LocationID == nil || *s.LocationID != *filter.LocationID {
@@ -665,6 +673,15 @@ func (m *MemoryStore) GetSessions(filter SessionFilter) ([]*models.TrainingSessi
 		}
 		if filter.TrainingType != "" && string(s.TrainingType) != filter.TrainingType {
 			continue
+		}
+		if filter.EntryType != "" {
+			if filter.EntryType == "class" {
+				if !s.IsClass() {
+					continue
+				}
+			} else if string(s.EntryType) != filter.EntryType {
+				continue
+			}
 		}
 		if filter.Date != "" {
 			dateStr := s.SessionDate.Format("2006-01-02")
@@ -779,6 +796,9 @@ func (m *MemoryStore) UpdateSession(sess *models.TrainingSession) error {
 	existing.TrainingType = sess.TrainingType
 	existing.Notes = sess.Notes
 	existing.SessionRate = sess.SessionRate
+	existing.EntryType = sess.EntryType
+	existing.Title = sess.Title
+	existing.AssignedStaff = sess.AssignedStaff
 	return nil
 }
 
@@ -868,24 +888,42 @@ func (m *MemoryStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Atte
 	return result, nil
 }
 
-func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+func (m *MemoryStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, attendeeID *uuid.UUID, attendeeName, attendeeRole string, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if attendeeType == "" {
+		attendeeType = "student"
+	}
+
 	// Check if already checked in
 	for _, a := range m.attendances {
-		if a.SessionID == sessionID && a.StudentID == studentID {
-			return nil, ErrAlreadyInRoster
+		if a.SessionID == sessionID {
+			if attendeeType == "student" && attendeeID != nil && a.StudentID == *attendeeID {
+				return nil, ErrAlreadyInRoster
+			}
+			if attendeeID != nil && a.StudentID == *attendeeID {
+				return nil, ErrAlreadyInRoster
+			}
+			if attendeeName != "" && a.AttendeeName == attendeeName {
+				return nil, ErrAlreadyInRoster
+			}
 		}
 	}
 
 	att := &models.Attendance{
 		ID:               uuid.New(),
 		SessionID:        sessionID,
-		StudentID:        studentID,
 		StudentPackageID: packageID,
 		SessionRate:      sessionRate,
 		CheckedInAt:      time.Now(),
+		AttendeeType:     attendeeType,
+		AttendeeName:     attendeeName,
+		AttendeeRole:     attendeeRole,
+	}
+
+	if attendeeID != nil {
+		att.StudentID = *attendeeID
 	}
 
 	if sess, ok := m.sessions[sessionID]; ok && sess.LocationID != nil {
@@ -896,20 +934,54 @@ func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *
 		}
 	}
 
-	if st, ok := m.students[studentID]; ok {
-		att.StudentName = st.FullName
-		att.StudentBelt = st.CurrentBelt
-	}
-	if packageID != nil {
-		if sp, ok := m.studentPackages[*packageID]; ok {
-			if tpl, ok2 := m.packageTemplates[sp.TemplateID]; ok2 {
-				att.PackageTitle = tpl.Title
+	if attendeeType == "student" && attendeeID != nil {
+		if st, ok := m.students[*attendeeID]; ok {
+			att.StudentName = st.FullName
+			att.StudentBelt = st.CurrentBelt
+			if att.AttendeeName == "" {
+				att.AttendeeName = st.FullName
+			}
+			if att.AttendeeRole == "" {
+				att.AttendeeRole = string(st.CurrentBelt)
+			}
+		}
+		if packageID != nil {
+			if sp, ok := m.studentPackages[*packageID]; ok {
+				if tpl, ok2 := m.packageTemplates[sp.TemplateID]; ok2 {
+					att.PackageTitle = tpl.Title
+				}
+			}
+		}
+	} else if attendeeType == "coach" && attendeeID != nil {
+		if c, ok := m.coaches[*attendeeID]; ok {
+			if att.AttendeeName == "" {
+				att.AttendeeName = c.FullName
+			}
+			if att.AttendeeRole == "" {
+				att.AttendeeRole = "Coach"
+			}
+		}
+	} else if attendeeType == "admin" && attendeeID != nil {
+		if u, ok := m.users[*attendeeID]; ok {
+			if att.AttendeeName == "" {
+				if u.DisplayName != "" {
+					att.AttendeeName = u.DisplayName
+				} else {
+					att.AttendeeName = u.Email
+				}
+			}
+			if att.AttendeeRole == "" {
+				att.AttendeeRole = string(u.Role)
 			}
 		}
 	}
 
 	m.attendances[att.ID] = att
 	return att, nil
+}
+
+func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+	return m.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
 }
 
 func (m *MemoryStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
@@ -920,7 +992,7 @@ func (m *MemoryStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
 	var targetPkgID *uuid.UUID
 	found := false
 	for id, a := range m.attendances {
-		if a.SessionID == sessionID && a.StudentID == studentID {
+		if a.SessionID == sessionID && (a.StudentID == studentID || id == studentID) {
 			targetID = id
 			targetPkgID = a.StudentPackageID
 			found = true

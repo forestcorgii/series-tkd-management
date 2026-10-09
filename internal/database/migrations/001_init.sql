@@ -77,6 +77,9 @@ CREATE TABLE IF NOT EXISTS training_sessions (
     session_rate NUMERIC(10, 2),
     training_type VARCHAR(50) NOT NULL, -- 'Poomsae', 'Sparring', 'Conditioning', etc.
     notes TEXT,
+    entry_type VARCHAR(30) NOT NULL DEFAULT 'class', -- 'class', 'event', 'duty', 'open_session'
+    title VARCHAR(200) DEFAULT '',
+    assigned_staff TEXT DEFAULT '[]',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -84,12 +87,14 @@ CREATE TABLE IF NOT EXISTS training_sessions (
 CREATE TABLE IF NOT EXISTS attendance (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
-    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     student_package_id UUID REFERENCES student_packages(id),
     location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
     session_rate NUMERIC(10, 2),
     checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT unique_student_session UNIQUE (session_id, student_id)
+    attendee_type VARCHAR(20) NOT NULL DEFAULT 'student', -- 'student', 'coach', 'admin', 'guest'
+    attendee_name VARCHAR(120) DEFAULT '',
+    attendee_role VARCHAR(50) DEFAULT ''
 );
 
 -- Student Ability Evaluations (Radar Chart Source)

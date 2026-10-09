@@ -34,7 +34,19 @@
                   hx-trigger="change, input delay:250ms"
                   class="space-y-3 sm:space-y-0">
                 <input type="hidden" name="view" value="{{.ViewMode}}">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+                    <!-- Schedule Type Filter -->
+                    <div>
+                        <label class="form-label text-[11px]">Filter by Type</label>
+                        <select name="entry_type" class="form-select text-xs">
+                            <option value="">All Types</option>
+                            <option value="class" {{if eq $.FilterEntryType "class"}}selected{{end}}>🥋 Classes</option>
+                            <option value="open_session" {{if eq $.FilterEntryType "open_session"}}selected{{end}}>🔓 Free / Open</option>
+                            <option value="duty" {{if eq $.FilterEntryType "duty"}}selected{{end}}>🛡️ Staff On-Duty</option>
+                            <option value="event" {{if eq $.FilterEntryType "event"}}selected{{end}}>🏆 Events</option>
+                        </select>
+                    </div>
+
                     <!-- Coach Filter -->
                     <div>
                         <label class="form-label text-[11px]">Filter by Coach</label>
@@ -97,19 +109,63 @@
     </div>
 </div>
 
-<!-- Modal: New Session (Date, Start Time, and End Time with auto 2-hour calculation) -->
+<!-- Modal: New Schedule Item (Unified Scheduling with Segmented Switcher) -->
 <div id="new-session-modal" class="modal-backdrop hidden">
     <div class="modal-dialog max-w-lg">
         <div class="modal-header">
-            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Schedule Training Class</h3>
+            <h3 id="new-modal-header-title" class="font-display font-bold text-lg text-slate-900 dark:text-white">Schedule Calendar Item</h3>
             <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="modal-close">&times;</button>
         </div>
-        <form action="/sessions" method="POST" class="space-y-4">
+
+        <!-- Segmented Type Switcher -->
+        <div class="p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+            <label class="form-label text-[11px] mb-1.5 block">Schedule Type</label>
+            <div class="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-center">
+                <button type="button"
+                        id="new-type-btn-class"
+                        onclick="setNewSessionEntryType('class')"
+                        class="new-type-btn py-1.5 rounded-lg transition-all shadow-xs bg-[#990303] text-white">
+                    🥋 Class
+                </button>
+                <button type="button"
+                        id="new-type-btn-open_session"
+                        onclick="setNewSessionEntryType('open_session')"
+                        class="new-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    🔓 Free / Open
+                </button>
+                <button type="button"
+                        id="new-type-btn-duty"
+                        onclick="setNewSessionEntryType('duty')"
+                        class="new-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    🛡️ On-Duty
+                </button>
+                <button type="button"
+                        id="new-type-btn-event"
+                        onclick="setNewSessionEntryType('event')"
+                        class="new-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    🏆 Event
+                </button>
+            </div>
+        </div>
+
+        <form action="/sessions" method="POST" class="space-y-4 p-5">
             <input type="hidden" name="redirect_url" id="modal-redirect-url" value="/sessions">
+            <input type="hidden" name="entry_type" id="modal-entry-type" value="class">
+
+            <!-- Title Field (Dynamic for Event, Duty, Open Session) -->
+            <div id="new-modal-title-group" class="hidden">
+                <label id="new-modal-title-label" class="form-label">Title / Name</label>
+                <input type="text"
+                       name="title"
+                       id="new-modal-title-input"
+                       placeholder="e.g. Belt Promotion Testing, Morning Floor Shift..."
+                       class="form-input text-xs sm:text-sm">
+            </div>
+
             <!-- Date, Start Time, and End Time on ONE line -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                    <label class="form-label">Class Date</label>
+                    <label class="form-label">Date</label>
                     <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('modal-redirect-url')) document.getElementById('modal-redirect-url').value = '/sessions?date=' + this.value;">
                 </div>
                 <div>
@@ -128,26 +184,57 @@
                 </div>
             </div>
 
-            <div>
-                <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
-                    <option value="">None / Unassigned</option>
+            <!-- Staff Multi-Select (For On-Duty Shifts) -->
+            <div id="new-modal-duty-staff-group" class="hidden space-y-1.5">
+                <label class="form-label flex items-center justify-between">
+                    <span>Assigned On-Duty Staff</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
+                </label>
+                <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
                     {{range .Coaches}}
                     {{if .IsActive}}
-                    <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                        <span class="font-medium text-slate-800 dark:text-slate-200">{{.FullName}}</span>
+                        <span class="text-[10px] text-slate-500">({{.BeltRank}})</span>
+                    </label>
                     {{end}}
                     {{end}}
-                </select>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">Administrators &amp; Managers</span>
+                    {{range .Admins}}
+                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                        <span class="font-medium text-slate-800 dark:text-slate-200">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}</span>
+                        <span class="text-[10px] text-slate-500">({{.Role}})</span>
+                    </label>
+                    {{end}}
+                </div>
             </div>
 
-            <div>
-                <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
-                    <option value="">None / Unassigned</option>
-                    {{range .Admins}}
-                    <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
-                    {{end}}
-                </select>
+            <!-- Single Coach & Admin (For Classes & Events) -->
+            <div id="new-modal-single-staff-group" class="space-y-4">
+                <div>
+                    <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                        <option value="">None / Unassigned</option>
+                        {{range .Coaches}}
+                        {{if .IsActive}}
+                        <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                        {{end}}
+                        {{end}}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                        <option value="">None / Unassigned</option>
+                        {{range .Admins}}
+                        <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                        {{end}}
+                    </select>
+                </div>
             </div>
 
             <div>
@@ -160,8 +247,8 @@
                 </select>
             </div>
 
-            <div>
-                <label class="form-label">Training Category</label>
+            <div id="new-modal-category-group">
+                <label class="form-label">Category</label>
                 <select name="training_type" class="form-select">
                     {{range .TrainingCategories}}
                     <option value="{{.Name}}">{{.Name}}</option>
@@ -169,7 +256,7 @@
                 </select>
             </div>
 
-            <div>
+            <div id="new-modal-rate-group">
                 <label class="form-label flex items-center justify-between">
                     <span>School / Fixed Rate (₱)</span>
                     <span class="has-tooltip">
@@ -184,33 +271,77 @@
             </div>
 
             <div>
-                <label class="form-label">Class Remarks / Agenda</label>
-                <textarea name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea"></textarea>
+                <label class="form-label">Remarks / Description</label>
+                <textarea name="notes" rows="2" placeholder="Focus areas, equipment, instructions..." class="form-textarea"></textarea>
             </div>
 
             <div class="modal-footer">
                 <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary btn-sm">Schedule Class</button>
+                <button type="submit" id="new-modal-submit-btn" class="btn btn-primary btn-sm">Schedule Class</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Modal: Edit Training Class (Date, Start Time, End Time, Coach, Admin, Category, Remarks) -->
+<!-- Modal: Edit Schedule Item (Unified Editing with Segmented Switcher) -->
 <div id="edit-session-modal" class="modal-backdrop hidden">
     <div class="modal-dialog max-w-lg">
         <div class="modal-header">
-            <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <span>✏️</span> Edit Training Class
+            <h3 id="edit-modal-header-title" class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <span>✏️</span> Edit Training Class / Schedule Item
             </h3>
             <button type="button" onclick="closeEditModal()" class="modal-close">&times;</button>
         </div>
-        <form id="edit-session-form" method="POST" action="" class="space-y-4">
+
+        <!-- Segmented Type Switcher -->
+        <div class="p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+            <label class="form-label text-[11px] mb-1.5 block">Schedule Type</label>
+            <div class="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-center">
+                <button type="button"
+                        id="edit-type-btn-class"
+                        onclick="setEditSessionEntryType('class')"
+                        class="edit-type-btn py-1.5 rounded-lg transition-all shadow-xs bg-[#990303] text-white">
+                    🥋 Class
+                </button>
+                <button type="button"
+                        id="edit-type-btn-open_session"
+                        onclick="setEditSessionEntryType('open_session')"
+                        class="edit-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    🔓 Free / Open
+                </button>
+                <button type="button"
+                        id="edit-type-btn-duty"
+                        onclick="setEditSessionEntryType('duty')"
+                        class="edit-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    🛡️ On-Duty
+                </button>
+                <button type="button"
+                        id="edit-type-btn-event"
+                        onclick="setEditSessionEntryType('event')"
+                        class="edit-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    🏆 Event
+                </button>
+            </div>
+        </div>
+
+        <form id="edit-session-form" method="POST" action="" class="space-y-4 p-5">
             <input type="hidden" name="redirect_url" id="edit-redirect-url" value="/sessions">
+            <input type="hidden" name="entry_type" id="edit-modal-entry-type" value="class">
+
+            <!-- Title Field (Dynamic for Event, Duty, Open Session) -->
+            <div id="edit-modal-title-group" class="hidden">
+                <label id="edit-modal-title-label" class="form-label">Title / Name</label>
+                <input type="text"
+                       name="title"
+                       id="edit-modal-title-input"
+                       placeholder="e.g. Belt Promotion Testing, Morning Floor Shift..."
+                       class="form-input text-xs sm:text-sm">
+            </div>
+
             <!-- Date, Start Time, and End Time on ONE line -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                    <label class="form-label">Class Date</label>
+                    <label class="form-label">Date</label>
                     <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('edit-redirect-url')) document.getElementById('edit-redirect-url').value = '/sessions?date=' + this.value;">
                 </div>
                 <div>
@@ -229,28 +360,57 @@
                 </div>
             </div>
 
-            <!-- Lead Coach Dropdown -->
-            <div>
-                <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
-                    <option value="">None / Unassigned</option>
+            <!-- Staff Multi-Select (For On-Duty Shifts) -->
+            <div id="edit-modal-duty-staff-group" class="hidden space-y-1.5">
+                <label class="form-label flex items-center justify-between">
+                    <span>Assigned On-Duty Staff</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
+                </label>
+                <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
                     {{range .Coaches}}
                     {{if .IsActive}}
-                    <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="edit-staff-checkbox rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                        <span class="font-medium text-slate-800 dark:text-slate-200">{{.FullName}}</span>
+                        <span class="text-[10px] text-slate-500">({{.BeltRank}})</span>
+                    </label>
                     {{end}}
                     {{end}}
-                </select>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">Administrators &amp; Managers</span>
+                    {{range .Admins}}
+                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="edit-staff-checkbox rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                        <span class="font-medium text-slate-800 dark:text-slate-200">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}</span>
+                        <span class="text-[10px] text-slate-500">({{.Role}})</span>
+                    </label>
+                    {{end}}
+                </div>
             </div>
 
-            <!-- Supervising Admin Dropdown -->
-            <div>
-                <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
-                    <option value="">None / Unassigned</option>
-                    {{range .Admins}}
-                    <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
-                    {{end}}
-                </select>
+            <!-- Single Coach & Admin (For Classes & Events) -->
+            <div id="edit-modal-single-staff-group" class="space-y-4">
+                <div>
+                    <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                        <option value="">None / Unassigned</option>
+                        {{range .Coaches}}
+                        {{if .IsActive}}
+                        <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                        {{end}}
+                        {{end}}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                        <option value="">None / Unassigned</option>
+                        {{range .Admins}}
+                        <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                        {{end}}
+                    </select>
+                </div>
             </div>
 
             <!-- Location Dropdown -->
@@ -264,7 +424,7 @@
                 </select>
             </div>
 
-            <div>
+            <div id="edit-modal-category-group">
                 <label class="form-label">Training Category</label>
                 <select id="edit-training-type" name="training_type" class="form-select">
                     {{range .TrainingCategories}}
@@ -273,7 +433,7 @@
                 </select>
             </div>
 
-            <div>
+            <div id="edit-modal-rate-group">
                 <label class="form-label flex items-center justify-between">
                     <span>School / Fixed Rate (₱)</span>
                     <span class="has-tooltip">
@@ -288,20 +448,19 @@
             </div>
 
             <div>
-                <label class="form-label">Class Remarks / Agenda</label>
+                <label class="form-label">Remarks / Description</label>
                 <textarea id="edit-notes" name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea"></textarea>
             </div>
 
             <div class="modal-footer flex items-center justify-between">
                 <button type="button" id="edit-modal-delete-btn" class="btn btn-ghost btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold flex items-center gap-1">
-                    <span>🗑️</span> Delete Class
+                    <span>🗑️</span> Delete Item
                 </button>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="closeEditModal()" class="btn btn-secondary btn-sm">Cancel</button>
                     <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
                 </div>
             </div>
-        </form>
     </div>
 </div>
 
@@ -438,14 +597,14 @@
                     </div>
                 </div>
 
-                <!-- Lead Coach -->
+                <!-- Lead Coach / Assigned Staff -->
                 <div class="space-y-0.5">
-                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Lead Coach</span>
+                    <span id="info-modal-coach-label" class="form-label text-[10px] text-slate-500 dark:text-slate-400">Lead Coach</span>
                     <p id="info-modal-coach" class="font-semibold text-slate-900 dark:text-white">Unassigned</p>
                 </div>
 
                 <!-- Supervising Admin -->
-                <div class="space-y-0.5">
+                <div id="info-modal-admin-group" class="space-y-0.5">
                     <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Supervising Admin</span>
                     <p id="info-modal-admin" class="font-semibold text-slate-900 dark:text-white">Unassigned</p>
                 </div>
@@ -533,7 +692,139 @@ function calculateEditEndTime() {
     }
 }
 
-function openNewSessionModal(dateStr, timeStr) {
+function setNewSessionEntryType(type) {
+    if (!type) type = 'class';
+    const entryInput = document.getElementById('modal-entry-type');
+    if (entryInput) entryInput.value = type;
+
+    // Toggle button active styling
+    const types = ['class', 'open_session', 'duty', 'event'];
+    types.forEach(t => {
+        const btn = document.getElementById('new-type-btn-' + t);
+        if (btn) {
+            if (t === type) {
+                btn.className = 'new-type-btn py-1.5 rounded-lg transition-all shadow-xs bg-[#990303] text-white';
+            } else {
+                btn.className = 'new-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+            }
+        }
+    });
+
+    const titleGroup = document.getElementById('new-modal-title-group');
+    const titleLabel = document.getElementById('new-modal-title-label');
+    const titleInput = document.getElementById('new-modal-title-input');
+    const categoryGroup = document.getElementById('new-modal-category-group');
+    const rateGroup = document.getElementById('new-modal-rate-group');
+    const dutyStaffGroup = document.getElementById('new-modal-duty-staff-group');
+    const singleStaffGroup = document.getElementById('new-modal-single-staff-group');
+    const submitBtn = document.getElementById('new-modal-submit-btn');
+
+    if (type === 'event') {
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Event Title <span class="text-rose-500">*</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Belt Promotion Exam, Sparring Seminar, Tournament...'; titleInput.required = true; }
+        if (categoryGroup) categoryGroup.classList.add('hidden');
+        if (rateGroup) rateGroup.classList.remove('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.add('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.remove('hidden');
+        if (submitBtn) submitBtn.textContent = 'Schedule Event';
+    } else if (type === 'duty') {
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Duty Shift Title / Station <span class="text-rose-500">*</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Front Desk & Mat Floor Duty, Coach On-Duty...'; titleInput.required = true; }
+        if (categoryGroup) categoryGroup.classList.add('hidden');
+        if (rateGroup) rateGroup.classList.add('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.remove('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.add('hidden');
+        if (submitBtn) submitBtn.textContent = 'Schedule On-Duty Shift';
+    } else if (type === 'open_session') {
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Open Session Title <span class="text-[10px] text-slate-400 font-normal">(Optional)</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Sunday Open Mat & Free Sparring'; titleInput.required = false; }
+        if (categoryGroup) categoryGroup.classList.remove('hidden');
+        if (rateGroup) rateGroup.classList.add('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.add('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.remove('hidden');
+        if (submitBtn) submitBtn.textContent = 'Schedule Free / Open Session';
+    } else { // 'class'
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Custom Class Name <span class="text-[10px] text-slate-400 font-normal">(Optional)</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Cadets Fundamentals, Sparring Elite (Leave blank to use category)'; titleInput.required = false; }
+        if (categoryGroup) categoryGroup.classList.remove('hidden');
+        if (rateGroup) rateGroup.classList.remove('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.add('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.remove('hidden');
+        if (submitBtn) submitBtn.textContent = 'Schedule Class';
+    }
+}
+
+function setEditSessionEntryType(type) {
+    if (!type) type = 'class';
+    const entryInput = document.getElementById('edit-modal-entry-type');
+    if (entryInput) entryInput.value = type;
+
+    // Toggle button active styling
+    const types = ['class', 'open_session', 'duty', 'event'];
+    types.forEach(t => {
+        const btn = document.getElementById('edit-type-btn-' + t);
+        if (btn) {
+            if (t === type) {
+                btn.className = 'edit-type-btn py-1.5 rounded-lg transition-all shadow-xs bg-[#990303] text-white';
+            } else {
+                btn.className = 'edit-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+            }
+        }
+    });
+
+    const headerTitle = document.getElementById('edit-modal-header-title');
+    const titleGroup = document.getElementById('edit-modal-title-group');
+    const titleLabel = document.getElementById('edit-modal-title-label');
+    const titleInput = document.getElementById('edit-modal-title-input');
+    const categoryGroup = document.getElementById('edit-modal-category-group');
+    const rateGroup = document.getElementById('edit-modal-rate-group');
+    const dutyStaffGroup = document.getElementById('edit-modal-duty-staff-group');
+    const singleStaffGroup = document.getElementById('edit-modal-single-staff-group');
+
+    if (type === 'event') {
+        if (headerTitle) headerTitle.innerHTML = '<span>🏆</span> Edit Event Schedule';
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Event Title <span class="text-rose-500">*</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Belt Promotion Exam, Sparring Seminar, Tournament...'; titleInput.required = true; }
+        if (categoryGroup) categoryGroup.classList.add('hidden');
+        if (rateGroup) rateGroup.classList.remove('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.add('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.remove('hidden');
+    } else if (type === 'duty') {
+        if (headerTitle) headerTitle.innerHTML = '<span>🛡️</span> Edit On-Duty Shift';
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Duty Shift Title / Station <span class="text-rose-500">*</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Front Desk & Mat Floor Duty, Coach On-Duty...'; titleInput.required = true; }
+        if (categoryGroup) categoryGroup.classList.add('hidden');
+        if (rateGroup) rateGroup.classList.add('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.remove('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.add('hidden');
+    } else if (type === 'open_session') {
+        if (headerTitle) headerTitle.innerHTML = '<span>🔓</span> Edit Free / Open Session';
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Open Session Title <span class="text-[10px] text-slate-400 font-normal">(Optional)</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Sunday Open Mat & Free Sparring'; titleInput.required = false; }
+        if (categoryGroup) categoryGroup.classList.remove('hidden');
+        if (rateGroup) rateGroup.classList.add('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.add('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.remove('hidden');
+    } else { // 'class'
+        if (headerTitle) headerTitle.innerHTML = '<span>✏️</span> Edit Class Schedule';
+        if (titleGroup) titleGroup.classList.remove('hidden');
+        if (titleLabel) titleLabel.innerHTML = 'Custom Class Name <span class="text-[10px] text-slate-400 font-normal">(Optional)</span>';
+        if (titleInput) { titleInput.placeholder = 'e.g. Cadets Fundamentals, Sparring Elite (Leave blank to use category)'; titleInput.required = false; }
+        if (categoryGroup) categoryGroup.classList.remove('hidden');
+        if (rateGroup) rateGroup.classList.remove('hidden');
+        if (dutyStaffGroup) dutyStaffGroup.classList.add('hidden');
+        if (singleStaffGroup) singleStaffGroup.classList.remove('hidden');
+    }
+}
+
+function openNewSessionModal(dateStr, timeStr, defaultType) {
     const modal = document.getElementById('new-session-modal');
     const dateInput = document.getElementById('modal-session-date');
     const startInput = document.getElementById('modal-start-time');
@@ -566,6 +857,7 @@ function openNewSessionModal(dateStr, timeStr) {
         redirectInput.value = '/sessions?date=' + (dateInput ? dateInput.value : '');
     }
 
+    setNewSessionEntryType(defaultType || 'class');
     onModalLocationChange();
     modal.classList.remove('hidden');
 }
@@ -592,7 +884,7 @@ function onEditLocationChange() {
     }
 }
 
-function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen, locationID, sessionRate) {
+function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen, locationID, sessionRate, entryType, title, staffIds) {
     const form = document.getElementById('edit-session-form');
     form.action = '/sessions/' + id + '/edit';
     
@@ -605,6 +897,19 @@ function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID,
         redirectInput.value = '/sessions?date=' + (dateStr || '');
     }
     
+    const titleInput = document.getElementById('edit-modal-title-input');
+    if (titleInput) {
+        titleInput.value = title || '';
+    }
+
+    setEditSessionEntryType(entryType || 'class');
+
+    // Pre-check staff checkboxes
+    const assignedIds = (staffIds || '').split(',').map(s => s.trim()).filter(Boolean);
+    document.querySelectorAll('.edit-staff-checkbox').forEach(cb => {
+        cb.checked = assignedIds.includes(cb.value);
+    });
+
     const rateInput = document.getElementById('edit-session-rate');
     if (rateInput) {
         rateInput.value = sessionRate || '';
@@ -644,7 +949,7 @@ function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID,
             deleteBtn.classList.remove('hidden');
             deleteBtn.onclick = function() {
                 closeEditModal();
-                openDeleteSessionModal(id, trainingType, dateStr, startTime + ' - ' + endTime);
+                openDeleteSessionModal(id, title || trainingType, dateStr, startTime + ' - ' + endTime);
             };
         } else {
             deleteBtn.classList.add('hidden');
@@ -661,7 +966,7 @@ function closeEditModal() {
 function openDeleteSessionModal(id, category, date, time) {
     const form = document.getElementById('delete-session-form');
     form.action = '/sessions/' + id + '/delete';
-    document.getElementById('delete-modal-title').textContent = category + ' Class (' + time + ')';
+    document.getElementById('delete-modal-title').textContent = category + ' (' + time + ')';
     document.getElementById('delete-modal-meta').textContent = 'Date: ' + date;
     document.getElementById('delete-session-modal').classList.remove('hidden');
 }
@@ -673,8 +978,8 @@ function closeDeleteModal() {
 function openCancelModal(id, category, date, time, coach) {
     var form = document.getElementById('cancel-session-form');
     form.action = '/sessions/' + id + '/cancel';
-    document.getElementById('cancel-modal-title').textContent = category + ' Class (' + time + ')';
-    document.getElementById('cancel-modal-meta').textContent = 'Date: ' + date + ' • Lead Coach: ' + coach;
+    document.getElementById('cancel-modal-title').textContent = category + ' (' + time + ')';
+    document.getElementById('cancel-modal-meta').textContent = 'Date: ' + date + ' • Staff: ' + coach;
     document.getElementById('cancel-session-modal').classList.remove('hidden');
 }
 
@@ -685,22 +990,37 @@ function closeCancelModal() {
 function openClassInfoFromCard(cardEl) {
     if (!cardEl) return;
     const d = cardEl.dataset;
+    const entryType = d.entryType || 'class';
     
     // Category badge
     const catBadge = document.getElementById('info-modal-category-badge');
     if (catBadge) {
-        catBadge.textContent = d.type || 'Training';
         if (d.cancelled === 'true') {
+            catBadge.textContent = d.type || 'Cancelled';
             catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200';
             catBadge.style = '';
+        } else if (entryType === 'event') {
+            catBadge.textContent = '🏆 EVENT';
+            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30';
+            catBadge.style = '';
+        } else if (entryType === 'duty') {
+            catBadge.textContent = '🛡️ ON-DUTY';
+            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30';
+            catBadge.style = '';
+        } else if (entryType === 'open_session') {
+            catBadge.textContent = '🔓 FREE / OPEN';
+            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30';
+            catBadge.style = '';
         } else if (d.color) {
+            catBadge.textContent = d.type || 'Training';
             catBadge.style.color = d.color;
             catBadge.style.backgroundColor = d.color + '18';
             catBadge.style.border = '1px solid ' + d.color + '40';
             catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider';
         } else {
+            catBadge.textContent = d.type || 'Training';
             catBadge.style = '';
-            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950 dark:text-rose-300';
+            catBadge.className = 'px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200';
         }
     }
     
@@ -714,7 +1034,7 @@ function openClassInfoFromCard(cardEl) {
     // Title
     const titleEl = document.getElementById('info-modal-title');
     if (titleEl) {
-        titleEl.textContent = (d.type || 'Training') + ' Class';
+        titleEl.textContent = d.title || (d.type ? d.type + ' Class' : 'Training Class');
         if (d.cancelled === 'true') {
             titleEl.classList.add('line-through', 'text-slate-400');
         } else {
@@ -761,7 +1081,13 @@ function openClassInfoFromCard(cardEl) {
     // Rate
     const rateEl = document.getElementById('info-modal-rate');
     if (rateEl) {
-        if (d.rate) {
+        if (entryType === 'open_session') {
+            rateEl.textContent = 'Free Admission (Zero Package Deduction)';
+            rateEl.className = 'text-emerald-600 dark:text-emerald-400 font-bold';
+        } else if (entryType === 'duty') {
+            rateEl.textContent = 'Internal Staff Assignment';
+            rateEl.className = 'text-purple-600 dark:text-purple-400 font-semibold';
+        } else if (d.rate) {
             rateEl.textContent = d.rate + ' (Fixed Rate Check-in)';
             rateEl.className = 'text-amber-600 dark:text-amber-400 font-bold';
         } else {
@@ -770,19 +1096,35 @@ function openClassInfoFromCard(cardEl) {
         }
     }
     
-    // Coach & Admin
+    // Coach & Admin / Assigned Staff
+    const coachLabel = document.getElementById('info-modal-coach-label');
     const coachEl = document.getElementById('info-modal-coach');
-    if (coachEl) coachEl.textContent = d.coach || 'Unassigned';
-    
+    const adminGroup = document.getElementById('info-modal-admin-group');
     const adminEl = document.getElementById('info-modal-admin');
-    if (adminEl) adminEl.textContent = d.admin || 'Unassigned';
+
+    if (entryType === 'duty') {
+        if (coachLabel) coachLabel.textContent = 'Assigned On-Duty Staff';
+        if (coachEl) coachEl.textContent = d.staff || 'Unassigned Staff';
+        if (adminGroup) adminGroup.classList.add('hidden');
+    } else {
+        if (coachLabel) coachLabel.textContent = 'Lead Coach';
+        if (coachEl) coachEl.textContent = d.coach || 'Unassigned';
+        if (adminGroup) adminGroup.classList.remove('hidden');
+        if (adminEl) adminEl.textContent = d.admin || 'Unassigned';
+    }
     
     // Attendance count
     const attEl = document.getElementById('info-modal-attendance');
     if (attEl) {
-        if (d.attendance !== undefined && d.attendance !== "") {
+        if (entryType === 'duty') {
+            attEl.textContent = 'Staff Check-in & Duty Logs';
+        } else if (d.attendance !== undefined && d.attendance !== "") {
             const count = parseInt(d.attendance, 10) || 0;
-            attEl.textContent = count + (count === 1 ? ' student checked in' : ' students checked in');
+            if (entryType === 'open_session') {
+                attEl.textContent = count + (count === 1 ? ' attendee checked in (Free)' : ' attendees checked in (Free)');
+            } else {
+                attEl.textContent = count + (count === 1 ? ' student checked in' : ' students checked in');
+            }
         } else {
             attEl.textContent = 'Active floor session roster';
         }
@@ -798,6 +1140,9 @@ function openClassInfoFromCard(cardEl) {
         } else if (d.isDone === 'true') {
             liveBtn.innerHTML = '<span>🔒</span> View Completed Roster';
             liveBtn.className = 'btn btn-secondary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
+        } else if (entryType === 'duty') {
+            liveBtn.innerHTML = '<span>🛡️</span> Manage Duty Roster';
+            liveBtn.className = 'btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
         } else {
             liveBtn.innerHTML = '<span>⚡</span> Open Live Attendance';
             liveBtn.className = 'btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
@@ -825,7 +1170,7 @@ function openClassInfoFromCard(cardEl) {
             editBtn.classList.remove('hidden');
             editBtn.onclick = function() {
                 closeClassInfoModal();
-                openEditSessionModal(d.id, d.dateRaw, d.start, d.end, d.coachId, d.adminId, d.type, d.notes, d.isOpen === 'true', d.locationId, d.rateRaw);
+                openEditSessionModal(d.id, d.dateRaw, d.start, d.end, d.coachId, d.adminId, d.type, d.notes, d.isOpen === 'true', d.locationId, d.rateRaw, d.entryType, d.title, d.staffIds);
             };
         } else {
             editBtn.classList.add('hidden');
@@ -839,7 +1184,7 @@ function openClassInfoFromCard(cardEl) {
             deleteBtn.classList.remove('hidden');
             deleteBtn.onclick = function() {
                 closeClassInfoModal();
-                openDeleteSessionModal(d.id, d.type, d.date, d.time);
+                openDeleteSessionModal(d.id, d.title || d.type, d.date, d.time);
             };
         } else {
             deleteBtn.classList.add('hidden');
@@ -853,7 +1198,7 @@ function openClassInfoFromCard(cardEl) {
             cancelBtn.classList.remove('hidden');
             cancelBtn.onclick = function() {
                 closeClassInfoModal();
-                openCancelModal(d.id, d.type, d.date, d.time, d.coach);
+                openCancelModal(d.id, d.title || d.type, d.date, d.time, entryType === 'duty' ? (d.staff || 'Staff') : (d.coach || 'Unassigned'));
             };
         } else {
             cancelBtn.classList.add('hidden');
@@ -865,7 +1210,7 @@ function openClassInfoFromCard(cardEl) {
     if (addOverlapBtn) {
         addOverlapBtn.onclick = function() {
             closeClassInfoModal();
-            openNewSessionModal(d.dateRaw, d.start);
+            openNewSessionModal(d.dateRaw, d.start, entryType);
         };
     }
     

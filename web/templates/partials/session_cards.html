@@ -159,6 +159,8 @@
                                 <div class="absolute rounded-lg border shadow-xs transition-all hover:shadow-xl hover:z-30 hover:border-slate-400 dark:hover:border-neutral-600 cursor-pointer overflow-hidden flex flex-col justify-between p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed{{else}}bg-white/95 dark:bg-neutral-900/90 border-slate-200 dark:border-neutral-800 border-l-4{{end}}"
                                      style="top: {{.TopOffset}}px; height: {{.CardHeight}}px; left: calc({{.LeftPercent}}% + 2px); width: calc({{.WidthPercent}}% - 4px); {{if and (not .Session.IsCancelled) .CategoryColor}}border-left-color: {{.CategoryColor}};{{end}}"
                                      onclick="openClassInfoFromCard(this)"
+                                     data-entry-type="{{.Session.EntryType}}"
+                                     data-title="{{.DisplayTitle}}"
                                      data-id="{{.Session.ID}}"
                                      data-type="{{.Session.TrainingType}}"
                                      data-color="{{.CategoryColor}}"
@@ -173,6 +175,8 @@
                                      data-coach-id="{{.Session.CoachIDString}}"
                                      data-admin="{{if .Session.AdminName}}{{.Session.AdminName}}{{end}}"
                                      data-admin-id="{{if .Session.AdminID}}{{.Session.AdminID}}{{end}}"
+                                     data-staff="{{.StaffSummary}}"
+                                     data-staff-ids="{{.Session.AssignedStaffIDsComma}}"
                                      data-location="{{if .Session.LocationName}}{{.Session.LocationName}}{{end}}"
                                      data-location-id="{{if .Session.LocationID}}{{.Session.LocationID}}{{end}}"
                                      data-location-pin="{{if .Session.LocationPin}}{{.Session.LocationPin}}{{end}}"
@@ -189,7 +193,7 @@
                                         <div class="flex items-center justify-between gap-1 mb-0.5">
                                             <span class="inline-block px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200{{end}}"
                                                   {{if and (not .Session.IsCancelled) .CategoryColor}}style="color: {{.CategoryColor}}; background-color: {{.CategoryColor}}18; border: 1px solid {{.CategoryColor}}40;"{{end}}>
-                                                {{.Session.TrainingType}}
+                                                {{.TypeIcon}} {{.EntryTypeBadge}}
                                             </span>
                                             <div class="flex items-center gap-1">
                                                 {{if .Session.HasFixedRate}}
@@ -203,17 +207,26 @@
                                             </div>
                                         </div>
                                         <h4 class="font-display font-bold text-xs leading-tight truncate {{if .Session.IsCancelled}}text-slate-400 line-through{{else}}text-slate-900 dark:text-white{{end}}">
-                                            {{.TimeDisplay}}
+                                            {{if or .IsEvent .IsDuty .IsOpenSession}}{{.DisplayTitle}}{{else}}{{.TimeDisplay}}{{end}}
                                         </h4>
+                                        {{if or .IsEvent .IsDuty .IsOpenSession}}
+                                        <p class="text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold">{{.TimeDisplay}}</p>
+                                        {{end}}
                                         {{if .Session.LocationName}}
                                         <p class="text-[10px] text-slate-700 dark:text-slate-300 font-semibold truncate flex items-center gap-1 mt-0.5">
                                             <span class="text-rose-600 dark:text-rose-400">📍</span>
                                             <span class="truncate">{{.Session.LocationName}}</span>
                                         </p>
                                         {{end}}
+                                        {{if .IsDuty}}
+                                        <p class="text-[10px] text-amber-700 dark:text-amber-400 font-medium truncate mt-0.5" title="{{.StaffSummary}}">
+                                            Staff: <span class="font-semibold">{{if .StaffSummary}}{{.StaffSummary}}{{else}}Unassigned{{end}}</span>
+                                        </p>
+                                        {{else}}
                                         <p class="text-[10px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5">
                                             Coach: <span class="font-semibold">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 dark:text-slate-500 font-normal italic">Unassigned</span>{{end}}</span>
                                         </p>
+                                        {{end}}
                                         {{if and .Session.AdminName (gt .CardHeight 90)}}
                                         <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
                                             Admin: <span class="font-semibold">{{.Session.AdminName}}</span>
@@ -289,6 +302,8 @@
                     <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer {{if .IsCancelled}}bg-rose-50/20 dark:bg-rose-950/10{{end}}"
                         onclick="openClassInfoFromCard(this)"
                         data-id="{{.ID}}"
+                        data-entry-type="{{.EntryType}}"
+                        data-title="{{.DisplayTitle}}"
                         data-type="{{.TrainingType}}"
                         data-color=""
                         data-date="{{formatDate .SessionDate}}"
@@ -302,6 +317,8 @@
                         data-coach-id="{{.CoachIDString}}"
                         data-admin="{{if .AdminName}}{{.AdminName}}{{end}}"
                         data-admin-id="{{if .AdminID}}{{.AdminID}}{{end}}"
+                        data-staff="{{.StaffSummary}}"
+                        data-staff-ids="{{.AssignedStaffIDsComma}}"
                         data-location="{{if .LocationName}}{{.LocationName}}{{end}}"
                         data-location-id="{{if .LocationID}}{{.LocationID}}{{end}}"
                         data-location-pin="{{if .LocationPin}}{{.LocationPin}}{{end}}"
@@ -313,7 +330,7 @@
                         data-cancellation-reason="{{.CancellationReason}}"
                         data-is-open="{{if .IsOpen}}true{{else}}false{{end}}"
                         data-is-done="{{if .IsDone}}true{{else}}false{{end}}"
-                        title="Click to view class info: {{.TrainingType}} ({{.StartTime}} - {{.EndTime}})">
+                        title="Click to view info: {{.DisplayTitle}} ({{.StartTime}} - {{.EndTime}})">
                         <!-- Date & Time -->
                         <td class="py-3 px-4 whitespace-nowrap">
                             <div class="font-bold text-slate-900 dark:text-white font-mono text-xs sm:text-sm {{if .IsCancelled}}line-through text-slate-400{{end}}">
@@ -327,7 +344,20 @@
                         <!-- Category & Status -->
                         <td class="py-3 px-4 whitespace-nowrap">
                             <div class="flex items-center gap-1.5 flex-wrap">
-                                <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold {{if .IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
+                                {{if .IsEvent}}
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    🏆 EVENT
+                                </span>
+                                {{else if .IsDuty}}
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                                    🛡️ ON-DUTY
+                                </span>
+                                {{else if .IsOpenSession}}
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                    🔓 FREE / OPEN
+                                </span>
+                                {{end}}
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold {{if .IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else}}bg-slate-100 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700{{end}}">
                                     {{if .IsCancelled}}🚫 CANCELLED{{else if .IsDone}}🔒 CLOSED{{else}}{{.TrainingType}}{{end}}
                                 </span>
                                 {{if .HasFixedRate}}
@@ -335,16 +365,22 @@
                                     ₱{{formatCurrency .SessionRate}}
                                 </span>
                                 {{end}}
-                                {{if or .IsCancelled .IsDone}}
-                                <span class="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
-                                    {{.TrainingType}}
-                                </span>
-                                {{end}}
                             </div>
+                            {{if or .IsEvent .IsDuty .IsOpenSession}}
+                            <div class="font-bold text-slate-900 dark:text-slate-100 text-xs mt-0.5 truncate max-w-xs">
+                                {{.DisplayTitle}}
+                            </div>
+                            {{end}}
                         </td>
 
-                        <!-- Lead Coach & Admin -->
+                        <!-- Lead Coach & Admin / Assigned Staff -->
                         <td class="py-3 px-4 whitespace-nowrap">
+                            {{if .IsDuty}}
+                            <div class="text-purple-700 dark:text-purple-300 font-semibold flex items-center gap-1.5 text-xs">
+                                <span>🛡️</span>
+                                <span>{{if .StaffSummary}}{{.StaffSummary}}{{else}}Assigned Staff{{end}}</span>
+                            </div>
+                            {{else}}
                             <span class="text-slate-900 dark:text-white font-semibold block">
                                 {{if .CoachName}}Coach {{.CoachName}}{{else}}<span class="text-slate-400 dark:text-slate-500 font-normal italic">Unassigned Coach</span>{{end}}
                             </span>
@@ -352,6 +388,7 @@
                             <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                                 Admin: {{.AdminName}}
                             </span>
+                            {{end}}
                             {{end}}
                             {{if .LocationName}}
                             <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5 flex items-center gap-1">
@@ -386,30 +423,30 @@
                                 <button type="button"
                                         onclick="openClassInfoFromCard(this.closest('tr'))"
                                         class="btn btn-ghost btn-xs text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white py-1 px-2 font-medium"
-                                        title="View Class Info">
+                                        title="View Details">
                                     <span>👁️</span> Info
                                 </button>
                                 {{if not .IsCancelled}}
                                 <button type="button"
-                                        onclick="openEditSessionModal('{{.ID}}', '{{.SessionDate.Format "2006-01-02"}}', '{{.StartTime}}', '{{.EndTime}}', '{{.CoachIDString}}', '{{if .AdminID}}{{.AdminID}}{{end}}', '{{.TrainingType}}', '{{.Notes}}', {{if .IsOpen}}true{{else}}false{{end}}, '{{if .LocationID}}{{.LocationID}}{{end}}', '{{if .SessionRate}}{{printf "%.2f" .SessionRateVal}}{{end}}')"
+                                        onclick="openEditSessionModal('{{.ID}}', '{{.SessionDate.Format "2006-01-02"}}', '{{.StartTime}}', '{{.EndTime}}', '{{.CoachIDString}}', '{{if .AdminID}}{{.AdminID}}{{end}}', '{{.TrainingType}}', '{{.Notes}}', {{if .IsOpen}}true{{else}}false{{end}}, '{{if .LocationID}}{{.LocationID}}{{end}}', '{{if .SessionRate}}{{printf "%.2f" .SessionRateVal}}{{end}}', '{{.EntryType}}', '{{.Title}}', '{{.AssignedStaffIDsComma}}')"
                                         class="btn btn-ghost btn-xs text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white py-1 px-2 font-medium"
-                                        title="Edit Class">
+                                        title="Edit Entry">
                                     <span>✏️</span> Edit
                                 </button>
                                 {{end}}
                                 {{if or .IsOpen (and $user $user.IsOperationManager)}}
                                 <button type="button"
-                                        onclick="openDeleteSessionModal('{{.ID}}', '{{.TrainingType}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}')"
+                                        onclick="openDeleteSessionModal('{{.ID}}', '{{.DisplayTitle}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}')"
                                         class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 py-1 px-2 font-medium"
-                                        title="Delete Class">
+                                        title="Delete Entry">
                                     <span>🗑️</span> Delete
                                 </button>
                                 {{end}}
                                 {{if not (or .IsCancelled .IsDone)}}
                                 <button type="button"
-                                        onclick="openCancelModal('{{.ID}}', '{{.TrainingType}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}', '{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}')"
+                                        onclick="openCancelModal('{{.ID}}', '{{.DisplayTitle}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}', '{{if .IsDuty}}{{.StaffSummary}}{{else if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}')"
                                         class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 py-1 px-2 font-medium"
-                                        title="Cancel Class">
+                                        title="Cancel Entry">
                                     <span>✖</span> Cancel
                                 </button>
                                 {{end}}

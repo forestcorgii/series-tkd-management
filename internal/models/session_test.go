@@ -213,3 +213,92 @@ func TestTrainingSession_IsOpen(t *testing.T) {
 		})
 	}
 }
+
+func TestTrainingSession_EntryTypesAndStaff(t *testing.T) {
+	classSess := TrainingSession{
+		EntryType:    EntryTypeClass,
+		TrainingType: TrainingSparring,
+	}
+	if !classSess.IsClass() || classSess.IsEvent() || classSess.IsDuty() || classSess.IsOpenSession() {
+		t.Errorf("expected class session, got: %+v", classSess)
+	}
+	if classSess.DisplayTitle() != "Sparring" {
+		t.Errorf("expected Sparring, got: %s", classSess.DisplayTitle())
+	}
+
+	eventSess := TrainingSession{
+		EntryType: EntryTypeEvent,
+		Title:     "Belt Promotion Exam",
+	}
+	if !eventSess.IsEvent() || eventSess.IsClass() {
+		t.Errorf("expected event session, got: %+v", eventSess)
+	}
+	if eventSess.DisplayTitle() != "Belt Promotion Exam" {
+		t.Errorf("expected 'Belt Promotion Exam', got: %s", eventSess.DisplayTitle())
+	}
+
+	dutySess := TrainingSession{
+		EntryType: EntryTypeDuty,
+		Title:     "Floor Supervision",
+		AssignedStaff: []*SessionStaff{
+			{ID: "staff-1", Name: "Coach Dan", Role: "Coach"},
+			{ID: "staff-2", Name: "Admin Lisa", Role: "Admin"},
+		},
+	}
+	if !dutySess.IsDuty() {
+		t.Errorf("expected duty session, got: %+v", dutySess)
+	}
+	if !dutySess.HasAssignedStaffID("staff-1") || !dutySess.HasAssignedStaffID("staff-2") || dutySess.HasAssignedStaffID("unknown") {
+		t.Errorf("HasAssignedStaffID check failed")
+	}
+	if dutySess.AssignedStaffNames() != "Coach Dan, Admin Lisa" {
+		t.Errorf("expected 'Coach Dan, Admin Lisa', got: %s", dutySess.AssignedStaffNames())
+	}
+
+	openSess := TrainingSession{
+		EntryType: EntryTypeOpenSession,
+	}
+	if !openSess.IsOpenSession() {
+		t.Errorf("expected open session, got: %+v", openSess)
+	}
+	if openSess.DisplayTitle() != "Free / Open Session" {
+		t.Errorf("expected 'Free / Open Session', got: %s", openSess.DisplayTitle())
+	}
+}
+
+func TestAttendance_AttendeeHelpers(t *testing.T) {
+	guestAtt := Attendance{
+		AttendeeType: "guest",
+		AttendeeName: "John Doe",
+	}
+	if !guestAtt.IsGuest() || guestAtt.IsStaff() {
+		t.Errorf("expected guest attendee")
+	}
+	if guestAtt.DisplayName() != "John Doe" || guestAtt.DisplayRole() != "Guest" {
+		t.Errorf("guest display mismatch: %s / %s", guestAtt.DisplayName(), guestAtt.DisplayRole())
+	}
+
+	coachAtt := Attendance{
+		AttendeeType: "coach",
+		AttendeeName: "Coach Dan",
+		AttendeeRole: "Lead Instructor",
+	}
+	if !coachAtt.IsStaff() || coachAtt.IsGuest() {
+		t.Errorf("expected staff attendee")
+	}
+	if coachAtt.DisplayName() != "Coach Dan" || coachAtt.DisplayRole() != "Lead Instructor" {
+		t.Errorf("coach display mismatch: %s / %s", coachAtt.DisplayName(), coachAtt.DisplayRole())
+	}
+
+	studentAtt := Attendance{
+		StudentID:   uuid.New(),
+		StudentName: "Alice Smith",
+		StudentBelt: BeltLowYellow,
+	}
+	if studentAtt.IsGuest() || studentAtt.IsStaff() {
+		t.Errorf("expected regular student attendee")
+	}
+	if studentAtt.DisplayName() != "Alice Smith" || studentAtt.DisplayRole() != "Low Yellow" {
+		t.Errorf("student display mismatch: %s / %s", studentAtt.DisplayName(), studentAtt.DisplayRole())
+	}
+}

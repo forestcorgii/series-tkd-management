@@ -41,6 +41,27 @@ type CalendarSession struct {
 	CategoryColor   string
 	StatusLabel     string
 	StatusBadge     string
+	EntryType       models.EntryType
+	EntryTypeBadge  string
+	TypeIcon        string
+	DisplayTitle    string
+	StaffSummary    string
+}
+
+func (cs *CalendarSession) IsEvent() bool {
+	return cs.Session != nil && cs.Session.IsEvent()
+}
+
+func (cs *CalendarSession) IsDuty() bool {
+	return cs.Session != nil && cs.Session.IsDuty()
+}
+
+func (cs *CalendarSession) IsOpenSession() bool {
+	return cs.Session != nil && cs.Session.IsOpenSession()
+}
+
+func (cs *CalendarSession) IsClass() bool {
+	return cs.Session == nil || cs.Session.IsClass()
 }
 
 type CalendarDay struct {
@@ -153,6 +174,7 @@ type SessionsPageData struct {
 	FilterStudentID    string
 	FilterLocationID   string
 	FilterCategory     string
+	FilterEntryType    string
 	FilterDay          string
 	Calendar           CalendarWeek
 	SelectedDate       string
@@ -269,9 +291,15 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	todayStr := today.Format("2006-01-02")
 	refDate := today
 
-	// Pre-filter by coach, student, location, and category
+	entryTypeFilter := strings.TrimSpace(r.URL.Query().Get("entry_type"))
+	if entryTypeFilter == "" {
+		entryTypeFilter = strings.TrimSpace(r.URL.Query().Get("type"))
+	}
+
+	// Pre-filter by coach, student, location, category, and entry type
 	baseFilter := repository.SessionFilter{
 		TrainingType: category,
+		EntryType:    entryTypeFilter,
 	}
 	if coachIDStr != "" {
 		if cID, err := uuid.Parse(coachIDStr); err == nil {
@@ -444,6 +472,25 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		entryTypeBadge := "CLASS"
+		typeIcon := "🥋"
+		if s.IsEvent() {
+			entryTypeBadge = "EVENT"
+			typeIcon = "🏆"
+			catBadge = "bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800"
+			catColor = "#7C3AED"
+		} else if s.IsDuty() {
+			entryTypeBadge = "ON-DUTY"
+			typeIcon = "🛡️"
+			catBadge = "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+			catColor = "#D97706"
+		} else if s.IsOpenSession() {
+			entryTypeBadge = "FREE / OPEN"
+			typeIcon = "🔓"
+			catBadge = "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+			catColor = "#059669"
+		}
+
 		calSess := &CalendarSession{
 			Session:         s,
 			AttendanceCount: attCount,
@@ -459,6 +506,11 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			CategoryColor:   catColor,
 			StatusLabel:     statusLabel,
 			StatusBadge:     statusBadge,
+			EntryType:       s.EntryType,
+			EntryTypeBadge:  entryTypeBadge,
+			TypeIcon:        typeIcon,
+			DisplayTitle:    s.DisplayTitle(),
+			StaffSummary:    s.StaffSummary(),
 		}
 
 		sessDateStr := s.SessionDate.Format("2006-01-02")
@@ -710,6 +762,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		FilterStudentID:    studentIDStr,
 		FilterLocationID:   locationIDStr,
 		FilterCategory:     category,
+		FilterEntryType:    entryTypeFilter,
 		FilterDay:          dateParam,
 		Calendar:           calWeek,
 		SelectedDate:       dateParam,
@@ -734,18 +787,93 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	a.RenderPage(w, "sessions.html", data)
 }
 
+func (a *AppHandler) resolveAssignedStaff(staffIDs []string) []*models.SessionStaff {
+	if len(staffIDs) == 0 {
+		return nil
+	}
+	var staffList []*models.SessionStaff
+	coaches, _ := a.store.GetAllCoaches()
+	adminUsers, _ := a.store.GetUsersByRole(models.RoleAdmin)
+	managerUsers, _ := a.store.GetUsersByRole(models.RoleOperationManager)
+
+	coachMap := make(map[string]*models.Coach)
+	for _, c := range coaches {
+		coachMap[c.ID.String()] = c
+	}
+	userMap := make(map[string]*models.User)
+	for _, u := range append(adminUsers, managerUsers...) {
+		userMap[u.ID.String()] = u
+	}
+
+	seen := make(map[string]bool)
+	for _, idStr := range staffIDs {
+		idStr = strings.TrimSpace(idStr)
+		if idStr == "" || seen[idStr] {
+			continue
+		}
+		seen[idStr] = true
+		uID, err := uuid.Parse(idStr)
+		if err != nil {
+			continue
+		}
+
+		if c, exists := coachMap[idStr]; exists {
+			staffList = append(staffList, &models.SessionStaff{
+				ID:   uID.String(),
+				Name: c.FullName,
+				Role: "Coach",
+			})
+		} else if u, exists := userMap[idStr]; exists {
+			name := u.DisplayName
+			if name == "" {
+				name = u.Email
+			}
+			roleName := "Admin"
+			if u.Role == models.RoleOperationManager {
+				roleName = "Manager"
+			}
+			staffList = append(staffList, &models.SessionStaff{
+				ID:   uID.String(),
+				Name: name,
+				Role: roleName,
+			})
+		}
+	}
+	return staffList
+}
+
 func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	_ = r.ParseForm()
+
+	entryType := models.EntryType(strings.TrimSpace(r.FormValue("entry_type")))
+	if entryType == "" {
+		entryType = models.EntryTypeClass
+	}
+	title := strings.TrimSpace(r.FormValue("title"))
+	assignedStaff := a.resolveAssignedStaff(r.Form["assigned_staff_ids"])
+
 	var coachIDPtr *uuid.UUID
 	if cidStr := strings.TrimSpace(r.FormValue("coach_id")); cidStr != "" {
 		if cID, err := uuid.Parse(cidStr); err == nil && cID != uuid.Nil {
 			coachIDPtr = &cID
 		}
+	} else if len(assignedStaff) > 0 {
+		// If duty session has coaches in assigned staff, associate first coach for compatibility
+		for _, s := range assignedStaff {
+			if s.Role == "Coach" {
+				if cID, err := uuid.Parse(s.ID); err == nil && cID != uuid.Nil {
+					coachIDPtr = &cID
+				}
+				break
+			}
+		}
 	}
+
 	dateStr := r.FormValue("session_date")
 	sessDate, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -777,16 +905,33 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	trainingTypeStr := strings.TrimSpace(r.FormValue("training_type"))
+	if trainingTypeStr == "" {
+		switch entryType {
+		case models.EntryTypeDuty:
+			trainingTypeStr = "Staff On-Duty"
+		case models.EntryTypeOpenSession:
+			trainingTypeStr = "Free / Open Session"
+		case models.EntryTypeEvent:
+			trainingTypeStr = "Special Event"
+		default:
+			trainingTypeStr = string(models.TrainingSparring)
+		}
+	}
+
 	sess := &models.TrainingSession{
-		SessionDate:  sessDate,
-		StartTime:    r.FormValue("start_time"),
-		EndTime:      r.FormValue("end_time"),
-		CoachID:      coachIDPtr,
-		AdminID:      adminIDPtr,
-		LocationID:   locationIDPtr,
-		TrainingType: models.TrainingType(r.FormValue("training_type")),
-		Notes:        r.FormValue("notes"),
-		SessionRate:  sessionRate,
+		SessionDate:   sessDate,
+		StartTime:     r.FormValue("start_time"),
+		EndTime:       r.FormValue("end_time"),
+		CoachID:       coachIDPtr,
+		AdminID:       adminIDPtr,
+		LocationID:    locationIDPtr,
+		TrainingType:  models.TrainingType(trainingTypeStr),
+		Notes:         r.FormValue("notes"),
+		SessionRate:   sessionRate,
+		EntryType:     entryType,
+		Title:         title,
+		AssignedStaff: assignedStaff,
 	}
 
 	if err := a.store.CreateSession(sess); err != nil {
@@ -884,6 +1029,26 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	_ = r.ParseForm()
+	if eType := strings.TrimSpace(r.FormValue("entry_type")); eType != "" {
+		sess.EntryType = models.EntryType(eType)
+	}
+	if r.Form.Has("title") {
+		sess.Title = strings.TrimSpace(r.FormValue("title"))
+	}
+	if r.Form.Has("assigned_staff_ids") {
+		sess.AssignedStaff = a.resolveAssignedStaff(r.Form["assigned_staff_ids"])
+		if coachIDPtr == nil && len(sess.AssignedStaff) > 0 {
+			for _, st := range sess.AssignedStaff {
+				if st.Role == "Coach" {
+					if cID, err := uuid.Parse(st.ID); err == nil && cID != uuid.Nil {
+						coachIDPtr = &cID
+					}
+					break
+				}
+			}
+		}
+	}
 	sess.SessionDate = sessDate
 	sess.StartTime = startTime
 	sess.EndTime = endTime
@@ -1294,7 +1459,10 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 
 	var pkgID *uuid.UUID
 
-	if sessionRate != nil {
+	if session.IsOpenSession() {
+		// Free / Open Sessions: Zero credit deduction!
+		// Admitted freely without requiring or deducting package credits.
+	} else if sessionRate != nil {
 		// School / Fix-Rate attendance: do not deduct or change student's package session credit!
 	} else {
 		pkgs, _ := a.store.GetStudentPackages(studentID)
@@ -1356,12 +1524,18 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if session.IsOpenSession() && att != nil && att.PackageTitle == "" {
+		att.PackageTitle = "Free Open Session"
+	}
+
 	data := struct {
 		Attendance *models.Attendance
 		Readiness  services.PromotionReadiness
+		Session    *models.TrainingSession
 	}{
 		Attendance: att,
 		Readiness:  readiness,
+		Session:    session,
 	}
 
 	w.Header().Set("HX-Trigger", "attendanceUpdated")
@@ -1437,5 +1611,81 @@ func (a *AppHandler) HandleRemoveAttendance(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/sessions/%s/live", sessionID), http.StatusSeeOther)
+}
+
+func (a *AppHandler) HandleCheckInAttendee(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pathParts := strings.Split(r.URL.Path, "/")
+	// Format: /sessions/{sessionID}/checkin-attendee
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+
+	sessionID, err := uuid.Parse(pathParts[2])
+	if err != nil {
+		http.Error(w, "Invalid session ID", http.StatusBadRequest)
+		return
+	}
+
+	session, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+	if session.IsCancelled {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="p-3 bg-rose-950 border border-rose-800 text-rose-300 rounded-lg text-sm">
+			❌ Check-in rejected: This session has been cancelled.
+		</div>`))
+		return
+	}
+
+	_ = r.ParseForm()
+	attendeeType := strings.TrimSpace(r.FormValue("attendee_type"))
+	if attendeeType == "" {
+		attendeeType = "guest"
+	}
+	attendeeName := strings.TrimSpace(r.FormValue("attendee_name"))
+	attendeeRole := strings.TrimSpace(r.FormValue("attendee_role"))
+	var studentIDPtr *uuid.UUID
+	if sidStr := strings.TrimSpace(r.FormValue("student_id")); sidStr != "" {
+		if sID, err := uuid.Parse(sidStr); err == nil && sID != uuid.Nil {
+			studentIDPtr = &sID
+		}
+	}
+
+	if attendeeName == "" && studentIDPtr == nil {
+		http.Error(w, "Attendee name or student is required", http.StatusBadRequest)
+		return
+	}
+
+	att, err := a.store.CheckInAttendee(sessionID, attendeeType, studentIDPtr, attendeeName, attendeeRole, nil, nil)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %v</div>`, err)))
+		return
+	}
+
+	a.LogAction(r, "ATTENDANCE_CHECKIN", models.AuditCategoryAttendance, "Attendee", att.ID.String(), att.DisplayName(), fmt.Sprintf("Admitted %s (%s) to %s", att.DisplayName(), att.DisplayRole(), session.DisplayTitle()))
+
+	data := struct {
+		Attendance *models.Attendance
+		Readiness  services.PromotionReadiness
+		Session    *models.TrainingSession
+	}{
+		Attendance: att,
+		Readiness:  services.PromotionReadiness{},
+		Session:    session,
+	}
+
+	w.Header().Set("HX-Trigger", "attendanceUpdated")
+	a.RenderPartial(w, "checkin_row.html", data)
 }
 

@@ -186,18 +186,23 @@ func (s *SQLStore) runMigrations() error {
 			is_cancelled INTEGER NOT NULL DEFAULT 0,
 			cancellation_reason TEXT DEFAULT '',
 			cancelled_at TEXT,
+			entry_type TEXT NOT NULL DEFAULT 'class',
+			title TEXT DEFAULT '',
+			assigned_staff TEXT DEFAULT '[]',
 			created_at TEXT NOT NULL
 		);
 
 		CREATE TABLE IF NOT EXISTS attendance (
 			id TEXT PRIMARY KEY,
 			session_id TEXT NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
-			student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+			student_id TEXT,
 			student_package_id TEXT REFERENCES student_packages(id),
 			location_id TEXT REFERENCES locations(id),
 			session_rate REAL,
 			checked_in_at TEXT NOT NULL,
-			CONSTRAINT unique_student_session UNIQUE (session_id, student_id)
+			attendee_type TEXT NOT NULL DEFAULT 'student',
+			attendee_name TEXT DEFAULT '',
+			attendee_role TEXT DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS student_evaluations (
@@ -421,18 +426,23 @@ func (s *SQLStore) runMigrations() error {
 			is_cancelled BOOLEAN NOT NULL DEFAULT FALSE,
 			cancellation_reason TEXT DEFAULT '',
 			cancelled_at TIMESTAMPTZ,
+			entry_type VARCHAR(30) NOT NULL DEFAULT 'class',
+			title VARCHAR(200) DEFAULT '',
+			assigned_staff TEXT DEFAULT '[]',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
 		CREATE TABLE IF NOT EXISTS attendance (
 			id UUID PRIMARY KEY,
 			session_id UUID NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
-			student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+			student_id UUID REFERENCES students(id) ON DELETE CASCADE,
 			student_package_id UUID REFERENCES student_packages(id),
 			location_id UUID REFERENCES locations(id),
 			session_rate NUMERIC(10, 2),
 			checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			CONSTRAINT unique_student_session UNIQUE (session_id, student_id)
+			attendee_type VARCHAR(20) NOT NULL DEFAULT 'student',
+			attendee_name VARCHAR(120) DEFAULT '',
+			attendee_role VARCHAR(50) DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS student_evaluations (
@@ -614,8 +624,14 @@ func (s *SQLStore) runMigrations() error {
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN session_rate REAL`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN entry_type TEXT DEFAULT 'class'`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN title TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN assigned_staff TEXT DEFAULT '[]'`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN location_id TEXT`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN session_rate REAL`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_type TEXT DEFAULT 'student'`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_name TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_role TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 			id TEXT PRIMARY KEY,
 			user_id TEXT,
@@ -806,8 +822,15 @@ func (s *SQLStore) runMigrations() error {
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS entry_type VARCHAR(30) DEFAULT 'class'`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS title VARCHAR(200) DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS assigned_staff TEXT DEFAULT '[]'`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS session_rate NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ALTER COLUMN student_id DROP NOT NULL`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_type VARCHAR(20) DEFAULT 'student'`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_name VARCHAR(120) DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_role VARCHAR(50) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_admin_id_fkey`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
@@ -2049,6 +2072,7 @@ func (s *SQLStore) scanSession(scan func(...interface{}) error) (*models.Trainin
 	var locationIDStr, locationName, locationPin sql.NullString
 	var isCancelled sql.NullBool
 	var sessionRateVal sql.NullFloat64
+	var entryTypeStr, titleStr, assignedStaffStr sql.NullString
 	ts := &models.TrainingSession{}
 	err := scan(
 		&idStr, &sessDateStr, &ts.StartTime, &ts.EndTime, &coachIDStr,
@@ -2056,6 +2080,7 @@ func (s *SQLStore) scanSession(scan func(...interface{}) error) (*models.Trainin
 		&isCancelled, &cancelReason, &cancelledAtStr, &adminName,
 		&locationIDStr, &locationName, &locationPin,
 		&sessionRateVal,
+		&entryTypeStr, &titleStr, &assignedStaffStr,
 	)
 	if err != nil {
 		return nil, err
@@ -2108,6 +2133,17 @@ func (s *SQLStore) scanSession(scan func(...interface{}) error) (*models.Trainin
 			ts.CancelledAt = &t
 		}
 	}
+	if entryTypeStr.Valid && entryTypeStr.String != "" {
+		ts.EntryType = models.EntryType(entryTypeStr.String)
+	} else {
+		ts.EntryType = models.EntryTypeClass
+	}
+	if titleStr.Valid {
+		ts.Title = titleStr.String
+	}
+	if assignedStaffStr.Valid && assignedStaffStr.String != "" {
+		_ = json.Unmarshal([]byte(assignedStaffStr.String), &ts.AssignedStaff)
+	}
 	return ts, nil
 }
 
@@ -2121,7 +2157,8 @@ func (s *SQLStore) GetSessions(filter SessionFilter) ([]*models.TrainingSession,
 		COALESCE(ts.is_cancelled, FALSE), COALESCE(ts.cancellation_reason, ''), ts.cancelled_at,
 		COALESCE(u.display_name, u.email, ca.full_name, ''),
 		ts.location_id, COALESCE(loc.name, ''), COALESCE(loc.pin, ''),
-		ts.session_rate
+		ts.session_rate,
+		COALESCE(ts.entry_type, 'class'), COALESCE(ts.title, ''), COALESCE(ts.assigned_staff, '[]')
 		FROM training_sessions ts
 		LEFT JOIN coaches c ON ts.coach_id = c.id
 		LEFT JOIN users u ON ts.admin_id = u.id
@@ -2133,7 +2170,7 @@ func (s *SQLStore) GetSessions(filter SessionFilter) ([]*models.TrainingSession,
 	idx := 1
 
 	if filter.CoachID != nil {
-		query += fmt.Sprintf(" AND ts.coach_id = $%d", idx)
+		query += fmt.Sprintf(" AND (ts.coach_id = $%d OR ts.assigned_staff LIKE '%%' || $%d || '%%')", idx, idx)
 		args = append(args, filter.CoachID.String())
 		idx++
 	}
@@ -2151,6 +2188,15 @@ func (s *SQLStore) GetSessions(filter SessionFilter) ([]*models.TrainingSession,
 		query += fmt.Sprintf(" AND ts.training_type = $%d", idx)
 		args = append(args, filter.TrainingType)
 		idx++
+	}
+	if filter.EntryType != "" {
+		if filter.EntryType == "class" {
+			query += " AND (ts.entry_type = 'class' OR ts.entry_type = '' OR ts.entry_type IS NULL)"
+		} else {
+			query += fmt.Sprintf(" AND ts.entry_type = $%d", idx)
+			args = append(args, filter.EntryType)
+			idx++
+		}
 	}
 	if filter.Date != "" {
 		if s.driver == "sqlite" {
@@ -2206,7 +2252,8 @@ func (s *SQLStore) GetSessionByID(id uuid.UUID) (*models.TrainingSession, error)
 		COALESCE(ts.is_cancelled, FALSE), COALESCE(ts.cancellation_reason, ''), ts.cancelled_at,
 		COALESCE(u.display_name, u.email, ca.full_name, ''),
 		ts.location_id, COALESCE(loc.name, ''), COALESCE(loc.pin, ''),
-		ts.session_rate
+		ts.session_rate,
+		COALESCE(ts.entry_type, 'class'), COALESCE(ts.title, ''), COALESCE(ts.assigned_staff, '[]')
 		FROM training_sessions ts
 		LEFT JOIN coaches c ON ts.coach_id = c.id
 		LEFT JOIN users u ON ts.admin_id = u.id
@@ -2250,13 +2297,24 @@ func (s *SQLStore) CreateSession(sess *models.TrainingSession) error {
 	if sess.CancelledAt != nil {
 		cancelledAtVal = formatTimeForDB(*sess.CancelledAt)
 	}
+	var assignedStaffJSON string
+	if len(sess.AssignedStaff) > 0 {
+		b, _ := json.Marshal(sess.AssignedStaff)
+		assignedStaffJSON = string(b)
+	} else {
+		assignedStaffJSON = "[]"
+	}
+	entryTypeVal := sess.EntryTypeVal()
+
 	query := `INSERT INTO training_sessions (id, session_date, start_time, end_time, coach_id,
-		admin_id, location_id, session_rate, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+		admin_id, location_id, session_rate, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, created_at,
+		entry_type, title, assigned_staff)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
 	_, err := s.db.Exec(query,
 		sess.ID.String(), formatDateForDB(sess.SessionDate), sess.StartTime, sess.EndTime,
 		coachIDVal, adminIDVal, locationIDVal, sessionRateVal, string(sess.TrainingType), sess.Notes,
 		sess.IsCancelled, sess.CancellationReason, cancelledAtVal, formatTimeForDB(sess.CreatedAt),
+		entryTypeVal, sess.Title, assignedStaffJSON,
 	)
 	return err
 }
@@ -2278,13 +2336,24 @@ func (s *SQLStore) UpdateSession(sess *models.TrainingSession) error {
 	if sess.SessionRate != nil {
 		sessionRateVal = *sess.SessionRate
 	}
+	var assignedStaffJSON string
+	if len(sess.AssignedStaff) > 0 {
+		b, _ := json.Marshal(sess.AssignedStaff)
+		assignedStaffJSON = string(b)
+	} else {
+		assignedStaffJSON = "[]"
+	}
+	entryTypeVal := sess.EntryTypeVal()
+
 	query := `UPDATE training_sessions 
 		SET session_date = $1, start_time = $2, end_time = $3, coach_id = $4,
-			admin_id = $5, location_id = $6, session_rate = $7, training_type = $8, notes = $9
-		WHERE id = $10`
+			admin_id = $5, location_id = $6, session_rate = $7, training_type = $8, notes = $9,
+			entry_type = $10, title = $11, assigned_staff = $12
+		WHERE id = $13`
 	res, err := s.db.Exec(query,
 		formatDateForDB(sess.SessionDate), sess.StartTime, sess.EndTime,
 		coachIDVal, adminIDVal, locationIDVal, sessionRateVal, string(sess.TrainingType), sess.Notes,
+		entryTypeVal, sess.Title, assignedStaffJSON,
 		sess.ID.String(),
 	)
 	if err != nil {
@@ -2420,13 +2489,83 @@ func (s *SQLStore) CancelSession(sessionID uuid.UUID, reason string, refundCredi
 }
 
 // Attendance & Live Check-In
+func (s *SQLStore) scanAttendanceRow(rows *sql.Rows) (*models.Attendance, error) {
+	var idStr, sessStr, checkedStr string
+	var stStr sql.NullString
+	var pkgIDStr, stName, belt, pkgTitle sql.NullString
+	var locIDStr, locName, locPin sql.NullString
+	var sessionRateVal sql.NullFloat64
+	var attendeeType, attendeeName, attendeeRole sql.NullString
+	att := &models.Attendance{}
+	err := rows.Scan(
+		&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
+		&stName, &belt, &pkgTitle,
+		&locIDStr, &locName, &locPin,
+		&sessionRateVal,
+		&attendeeType, &attendeeName, &attendeeRole,
+	)
+	if err != nil {
+		return nil, err
+	}
+	att.ID = uuid.Must(uuid.Parse(idStr))
+	att.SessionID = uuid.Must(uuid.Parse(sessStr))
+	if stStr.Valid && stStr.String != "" {
+		if sID, err := uuid.Parse(stStr.String); err == nil {
+			att.StudentID = sID
+		}
+	}
+	att.CheckedInAt, _ = parseTimeFlex(checkedStr)
+	if pkgIDStr.Valid && pkgIDStr.String != "" {
+		pID := uuid.Must(uuid.Parse(pkgIDStr.String))
+		att.StudentPackageID = &pID
+	}
+	if sessionRateVal.Valid {
+		r := sessionRateVal.Float64
+		att.SessionRate = &r
+	}
+	if stName.Valid {
+		att.StudentName = stName.String
+	}
+	if belt.Valid {
+		att.StudentBelt = models.BeltRank(belt.String)
+	}
+	if pkgTitle.Valid {
+		att.PackageTitle = pkgTitle.String
+	}
+	if locIDStr.Valid && locIDStr.String != "" {
+		lID := uuid.Must(uuid.Parse(locIDStr.String))
+		att.LocationID = &lID
+	}
+	if locName.Valid {
+		att.LocationName = locName.String
+	}
+	if locPin.Valid {
+		att.LocationPin = locPin.String
+	}
+	if attendeeType.Valid && attendeeType.String != "" {
+		att.AttendeeType = attendeeType.String
+	} else {
+		att.AttendeeType = "student"
+	}
+	if attendeeName.Valid {
+		att.AttendeeName = attendeeName.String
+	}
+	if attendeeRole.Valid {
+		att.AttendeeRole = attendeeRole.String
+	}
+	return att, nil
+}
+
 func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error) {
 	query := `SELECT a.id, a.session_id, a.student_id, a.student_package_id, a.checked_in_at,
 		st.full_name, st.current_belt, pt.title,
 		COALESCE(a.location_id, ts.location_id),
 		COALESCE(loc.name, loc_ts.name, ''),
 		COALESCE(loc.pin, loc_ts.pin, ''),
-		a.session_rate
+		a.session_rate,
+		COALESCE(a.attendee_type, 'student'),
+		COALESCE(a.attendee_name, ''),
+		COALESCE(a.attendee_role, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2444,50 +2583,9 @@ func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attenda
 
 	var attendances []*models.Attendance
 	for rows.Next() {
-		var idStr, sessStr, stStr, checkedStr string
-		var pkgIDStr, stName, belt, pkgTitle sql.NullString
-		var locIDStr, locName, locPin sql.NullString
-		var sessionRateVal sql.NullFloat64
-		att := &models.Attendance{}
-		err := rows.Scan(
-			&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
-			&stName, &belt, &pkgTitle,
-			&locIDStr, &locName, &locPin,
-			&sessionRateVal,
-		)
+		att, err := s.scanAttendanceRow(rows)
 		if err != nil {
 			return nil, err
-		}
-		att.ID = uuid.Must(uuid.Parse(idStr))
-		att.SessionID = uuid.Must(uuid.Parse(sessStr))
-		att.StudentID = uuid.Must(uuid.Parse(stStr))
-		att.CheckedInAt, _ = parseTimeFlex(checkedStr)
-		if pkgIDStr.Valid && pkgIDStr.String != "" {
-			pID := uuid.Must(uuid.Parse(pkgIDStr.String))
-			att.StudentPackageID = &pID
-		}
-		if sessionRateVal.Valid {
-			r := sessionRateVal.Float64
-			att.SessionRate = &r
-		}
-		if stName.Valid {
-			att.StudentName = stName.String
-		}
-		if belt.Valid {
-			att.StudentBelt = models.BeltRank(belt.String)
-		}
-		if pkgTitle.Valid {
-			att.PackageTitle = pkgTitle.String
-		}
-		if locIDStr.Valid && locIDStr.String != "" {
-			lID := uuid.Must(uuid.Parse(locIDStr.String))
-			att.LocationID = &lID
-		}
-		if locName.Valid {
-			att.LocationName = locName.String
-		}
-		if locPin.Valid {
-			att.LocationPin = locPin.String
 		}
 		attendances = append(attendances, att)
 	}
@@ -2500,7 +2598,10 @@ func (s *SQLStore) GetAllAttendances() ([]*models.Attendance, error) {
 		COALESCE(a.location_id, ts.location_id),
 		COALESCE(loc.name, loc_ts.name, ''),
 		COALESCE(loc.pin, loc_ts.pin, ''),
-		a.session_rate
+		a.session_rate,
+		COALESCE(a.attendee_type, 'student'),
+		COALESCE(a.attendee_name, ''),
+		COALESCE(a.attendee_role, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2517,50 +2618,9 @@ func (s *SQLStore) GetAllAttendances() ([]*models.Attendance, error) {
 
 	var attendances []*models.Attendance
 	for rows.Next() {
-		var idStr, sessStr, stStr, checkedStr string
-		var pkgIDStr, stName, belt, pkgTitle sql.NullString
-		var locIDStr, locName, locPin sql.NullString
-		var sessionRateVal sql.NullFloat64
-		att := &models.Attendance{}
-		err := rows.Scan(
-			&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
-			&stName, &belt, &pkgTitle,
-			&locIDStr, &locName, &locPin,
-			&sessionRateVal,
-		)
+		att, err := s.scanAttendanceRow(rows)
 		if err != nil {
 			return nil, err
-		}
-		att.ID = uuid.Must(uuid.Parse(idStr))
-		att.SessionID = uuid.Must(uuid.Parse(sessStr))
-		att.StudentID = uuid.Must(uuid.Parse(stStr))
-		att.CheckedInAt, _ = parseTimeFlex(checkedStr)
-		if pkgIDStr.Valid && pkgIDStr.String != "" {
-			pID := uuid.Must(uuid.Parse(pkgIDStr.String))
-			att.StudentPackageID = &pID
-		}
-		if sessionRateVal.Valid {
-			r := sessionRateVal.Float64
-			att.SessionRate = &r
-		}
-		if stName.Valid {
-			att.StudentName = stName.String
-		}
-		if belt.Valid {
-			att.StudentBelt = models.BeltRank(belt.String)
-		}
-		if pkgTitle.Valid {
-			att.PackageTitle = pkgTitle.String
-		}
-		if locIDStr.Valid && locIDStr.String != "" {
-			lID := uuid.Must(uuid.Parse(locIDStr.String))
-			att.LocationID = &lID
-		}
-		if locName.Valid {
-			att.LocationName = locName.String
-		}
-		if locPin.Valid {
-			att.LocationPin = locPin.String
 		}
 		attendances = append(attendances, att)
 	}
@@ -2595,7 +2655,10 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 		COALESCE(a.location_id, ts.location_id),
 		COALESCE(loc.name, loc_ts.name, ''),
 		COALESCE(loc.pin, loc_ts.pin, ''),
-		a.session_rate
+		a.session_rate,
+		COALESCE(a.attendee_type, 'student'),
+		COALESCE(a.attendee_name, ''),
+		COALESCE(a.attendee_role, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2613,76 +2676,63 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 
 	var attendances []*models.Attendance
 	for rows.Next() {
-		var idStr, sessStr, stStr, checkedStr string
-		var pkgIDStr, stName, belt, pkgTitle sql.NullString
-		var locIDStr, locName, locPin sql.NullString
-		var sessionRateVal sql.NullFloat64
-		att := &models.Attendance{}
-		err := rows.Scan(
-			&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
-			&stName, &belt, &pkgTitle,
-			&locIDStr, &locName, &locPin,
-			&sessionRateVal,
-		)
+		att, err := s.scanAttendanceRow(rows)
 		if err != nil {
 			return nil, err
-		}
-		att.ID = uuid.Must(uuid.Parse(idStr))
-		att.SessionID = uuid.Must(uuid.Parse(sessStr))
-		att.StudentID = uuid.Must(uuid.Parse(stStr))
-		att.CheckedInAt, _ = parseTimeFlex(checkedStr)
-		if pkgIDStr.Valid && pkgIDStr.String != "" {
-			pID := uuid.Must(uuid.Parse(pkgIDStr.String))
-			att.StudentPackageID = &pID
-		}
-		if sessionRateVal.Valid {
-			r := sessionRateVal.Float64
-			att.SessionRate = &r
-		}
-		if stName.Valid {
-			att.StudentName = stName.String
-		}
-		if belt.Valid {
-			att.StudentBelt = models.BeltRank(belt.String)
-		}
-		if pkgTitle.Valid {
-			att.PackageTitle = pkgTitle.String
-		}
-		if locIDStr.Valid && locIDStr.String != "" {
-			lID := uuid.Must(uuid.Parse(locIDStr.String))
-			att.LocationID = &lID
-		}
-		if locName.Valid {
-			att.LocationName = locName.String
-		}
-		if locPin.Valid {
-			att.LocationPin = locPin.String
 		}
 		attendances = append(attendances, att)
 	}
 	return attendances, nil
 }
 
-func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, attendeeID *uuid.UUID, attendeeName, attendeeRole string, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+	if attendeeType == "" {
+		attendeeType = "student"
+	}
+
 	// 1. Check duplicate attendance
-	var existingID string
-	err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2",
-		sessionID.String(), studentID.String()).Scan(&existingID)
-	if err == nil {
-		return nil, ErrAlreadyInRoster
+	if attendeeType == "student" && attendeeID != nil {
+		var existingID string
+		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2",
+			sessionID.String(), attendeeID.String()).Scan(&existingID)
+		if err == nil {
+			return nil, ErrAlreadyInRoster
+		}
+	} else if attendeeID != nil {
+		var existingID string
+		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND (student_id = $2 OR (attendee_name != '' AND attendee_name = $3))",
+			sessionID.String(), attendeeID.String(), attendeeName).Scan(&existingID)
+		if err == nil {
+			return nil, ErrAlreadyInRoster
+		}
+	} else if attendeeName != "" {
+		var existingID string
+		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND attendee_name = $2",
+			sessionID.String(), attendeeName).Scan(&existingID)
+		if err == nil {
+			return nil, ErrAlreadyInRoster
+		}
 	}
 
 	att := &models.Attendance{
-		ID:               uuid.New(),
-		SessionID:        sessionID,
-		StudentID:        studentID,
-		StudentPackageID: packageID,
-		SessionRate:      sessionRate,
-		CheckedInAt:      time.Now(),
+		ID:           uuid.New(),
+		SessionID:    sessionID,
+		SessionRate:  sessionRate,
+		CheckedInAt:  time.Now(),
+		AttendeeType: attendeeType,
+		AttendeeName: attendeeName,
+		AttendeeRole: attendeeRole,
+	}
+
+	var studentIDVal interface{}
+	if attendeeID != nil {
+		att.StudentID = *attendeeID
+		studentIDVal = attendeeID.String()
 	}
 
 	var pkgIDVal interface{}
 	if packageID != nil {
+		att.StudentPackageID = packageID
 		pkgIDVal = packageID.String()
 	}
 
@@ -2704,28 +2754,61 @@ func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uui
 	}
 	att.LocationID = locationID
 
-	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err = s.db.Exec(query,
-		att.ID.String(), att.SessionID.String(), att.StudentID.String(), pkgIDVal, locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt),
+	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+	_, err := s.db.Exec(query,
+		att.ID.String(), att.SessionID.String(), studentIDVal, pkgIDVal, locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt),
+		att.AttendeeType, att.AttendeeName, att.AttendeeRole,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	// Enrich student info
-	var fullName, currentBelt string
-	_ = s.db.QueryRow("SELECT full_name, current_belt FROM students WHERE id = $1", studentID.String()).
-		Scan(&fullName, &currentBelt)
-	att.StudentName = fullName
-	att.StudentBelt = models.BeltRank(currentBelt)
+	// Enrich student info if student
+	if attendeeType == "student" && attendeeID != nil {
+		var fullName, currentBelt string
+		_ = s.db.QueryRow("SELECT full_name, current_belt FROM students WHERE id = $1", attendeeID.String()).
+			Scan(&fullName, &currentBelt)
+		att.StudentName = fullName
+		att.StudentBelt = models.BeltRank(currentBelt)
+		if att.AttendeeName == "" {
+			att.AttendeeName = fullName
+		}
+		if att.AttendeeRole == "" {
+			att.AttendeeRole = currentBelt
+		}
 
-	if packageID != nil {
-		var title string
-		_ = s.db.QueryRow(`SELECT pt.title FROM student_packages sp
-			JOIN package_templates pt ON sp.template_id = pt.id
-			WHERE sp.id = $1`, packageID.String()).Scan(&title)
-		att.PackageTitle = title
+		if packageID != nil {
+			var title string
+			_ = s.db.QueryRow(`SELECT pt.title FROM student_packages sp
+				JOIN package_templates pt ON sp.template_id = pt.id
+				WHERE sp.id = $1`, packageID.String()).Scan(&title)
+			att.PackageTitle = title
+		}
+	} else if attendeeType == "coach" && attendeeID != nil {
+		var fullName, beltRank string
+		_ = s.db.QueryRow("SELECT full_name, belt_rank FROM coaches WHERE id = $1", attendeeID.String()).
+			Scan(&fullName, &beltRank)
+		if att.AttendeeName == "" {
+			att.AttendeeName = fullName
+		}
+		if att.AttendeeRole == "" {
+			att.AttendeeRole = "Coach"
+		}
+	} else if attendeeType == "admin" && attendeeID != nil {
+		var displayName, email, role string
+		_ = s.db.QueryRow("SELECT display_name, email, role FROM users WHERE id = $1", attendeeID.String()).
+			Scan(&displayName, &email, &role)
+		if att.AttendeeName == "" {
+			if displayName != "" {
+				att.AttendeeName = displayName
+			} else {
+				att.AttendeeName = email
+			}
+		}
+		if att.AttendeeRole == "" {
+			att.AttendeeRole = role
+		}
 	}
 
 	if locationID != nil {
@@ -2738,6 +2821,10 @@ func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uui
 	return att, nil
 }
 
+func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+	return s.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
+}
+
 func (s *SQLStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -2747,7 +2834,7 @@ func (s *SQLStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
 
 	var attIDStr string
 	var pkgIDStr sql.NullString
-	err = tx.QueryRow(`SELECT id, student_package_id FROM attendance WHERE session_id = $1 AND student_id = $2`,
+	err = tx.QueryRow(`SELECT id, student_package_id FROM attendance WHERE session_id = $1 AND (student_id = $2 OR id = $2)`,
 		sessionID.String(), studentID.String()).Scan(&attIDStr, &pkgIDStr)
 	if err == sql.ErrNoRows {
 		return ErrNotFound
