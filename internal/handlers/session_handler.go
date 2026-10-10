@@ -831,6 +831,16 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 
 	_ = r.ParseForm()
 
+	// Guard against edit modal payloads hitting POST /sessions: if session_id is provided, route to update
+	if sessIDStr := strings.TrimSpace(r.FormValue("session_id")); sessIDStr != "" {
+		a.HandleUpdateSession(w, r)
+		return
+	}
+	if idStr := strings.TrimSpace(r.FormValue("id")); idStr != "" {
+		a.HandleUpdateSession(w, r)
+		return
+	}
+
 	entryType := models.EntryType(strings.TrimSpace(r.FormValue("entry_type")))
 	if entryType == "" {
 		entryType = models.EntryTypeClass
@@ -954,6 +964,13 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 	path = strings.TrimSuffix(path, "/edit")
 	sessionID, err := uuid.Parse(path)
 	if err != nil {
+		if formID := strings.TrimSpace(r.FormValue("session_id")); formID != "" {
+			sessionID, err = uuid.Parse(formID)
+		} else if formID := strings.TrimSpace(r.FormValue("id")); formID != "" {
+			sessionID, err = uuid.Parse(formID)
+		}
+	}
+	if err != nil || sessionID == uuid.Nil {
 		http.Error(w, "Invalid session ID", http.StatusBadRequest)
 		return
 	}

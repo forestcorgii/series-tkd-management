@@ -65,5 +65,5 @@ STMS operates on floor tablets and mobile devices with varying network stability
   1. **Exempt Dynamic Modal Forms (`hx-boost="false"`)**: Always add `hx-boost="false"` to any `<form>` whose `action` attribute is set dynamically via JavaScript upon opening (e.g., `#edit-session-form`, `#delete-session-form`, `#cancel-session-form`, `#reschedule-session-form`, `#edit-location-form`, `#edit-plan-form`, `#edit-cat-form`).
   2. **Synchronize Form Action Attributes**: In modal opening functions, update both `form.action = url` and `form.setAttribute('action', url)`.
   3. **Explicit Form Tag Closure**: Ensure every modal `<form>` has an explicit closing `</form>` tag before closing modal dialog wrapper elements to prevent form nesting hazards in browser DOM parsers.
-
-
+  4. **Hidden Entity ID & Onsubmit Action Re-evaluation**: Always include `<input type="hidden" name="session_id" id="edit-session-id">` in dynamic modal forms, attach `hx-disable="true"` so HTMX completely leaves the form to native browser submission, and attach an explicit `onsubmit` handler that re-evaluates `this.action` with the entity ID at the moment of submission.
+  5. **Backend Creation Endpoint Guard**: In creation endpoints (e.g., `HandleCreateSession`), always check if an entity ID (`session_id` or `id`) is present in `r.FormValue`. If present, immediately delegate to `HandleUpdateSession` instead of inserting a duplicate row. In update handlers (`HandleUpdateSession`), fall back to extracting the entity ID from form parameters if the URL path does not contain it.

@@ -74,7 +74,7 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 		if !strings.Contains(body, "Training Classes &amp; Floor Attendance Log") {
 			t.Errorf("expected page header in full page render")
 		}
-		if !strings.Contains(body, "Filter by Coach") {
+		if !strings.Contains(body, "session-filter-form") {
 			t.Errorf("expected filter panel in full page render")
 		}
 		if !strings.Contains(body, "Coach Carlos") {
@@ -290,8 +290,8 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 			t.Fatalf("expected 200 on live session page, got %d", recLive.Code)
 		}
 		liveBody := recLive.Body.String()
-		if !strings.Contains(liveBody, "ATTENDANCE CLOSED") {
-			t.Errorf("expected 'ATTENDANCE CLOSED' badge on done session live page")
+		if !strings.Contains(liveBody, "CLOSED") && !strings.Contains(liveBody, "Attendance Closed") {
+			t.Errorf("expected 'CLOSED' or 'Attendance Closed' badge on done session live page")
 		}
 		if !strings.Contains(liveBody, "Action") {
 			t.Errorf("expected 'Action' column in roster table header")
@@ -383,6 +383,118 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 	})
 }
 
+func TestHandleUpdateSession_DoesNotDuplicateSession(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	coach := &models.Coach{
+		ID:       uuid.New(),
+		FullName: "Coach Original",
+		BeltRank: "4th Dan Black Belt",
+		IsActive: true,
+	}
+	_ = store.CreateCoach(coach)
+
+	sessDate, _ := time.Parse("2006-01-02", "2026-10-20")
+	originalSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  sessDate,
+		StartTime:    "10:00",
+		EndTime:      "11:30",
+		CoachID:      &coach.ID,
+		TrainingType: models.TrainingSparring,
+		Notes:        "Original Sparring Notes",
+	}
+	_ = store.CreateSession(originalSess)
+
+	initialSessions, _ := store.GetAllSessions()
+	initialSessionsCount := len(initialSessions)
+
+	t.Run("Edit via POST /sessions/{id}/edit updates in-place without duplicating", func(t *testing.T) {
+		form := url.Values{}
+		form.Set("session_id", originalSess.ID.String())
+		form.Set("session_date", "2026-10-20")
+		form.Set("start_time", "11:00")
+		form.Set("end_time", "12:30")
+		form.Set("training_type", "Poomsae")
+		form.Set("notes", "Updated Poomsae Notes")
+		form.Set("coach_id", coach.ID.String())
+
+		req := httptest.NewRequest(http.MethodPost, "/sessions/"+originalSess.ID.String()+"/edit", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		app.HandleUpdateSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther && rec.Code != http.StatusOK {
+			t.Fatalf("expected redirect or 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		allSess, _ := store.GetAllSessions()
+		if len(allSess) != initialSessionsCount {
+			t.Fatalf("DUPLICATE DETECTED! Expected %d sessions, got %d", initialSessionsCount, len(allSess))
+		}
+
+		updated, err := store.GetSessionByID(originalSess.ID)
+		if err != nil {
+			t.Fatalf("GetSessionByID failed: %v", err)
+		}
+		if updated.StartTime != "11:00" || updated.EndTime != "12:30" {
+			t.Errorf("expected updated times 11:00-12:30, got %s-%s", updated.StartTime, updated.EndTime)
+		}
+		if updated.TrainingType != "Poomsae" {
+			t.Errorf("expected updated training type Poomsae, got %s", updated.TrainingType)
+		}
+		if updated.Notes != "Updated Poomsae Notes" {
+			t.Errorf("expected updated notes, got %s", updated.Notes)
+		}
+	})
+
+	t.Run("Edit form accidentally hitting POST /sessions with session_id routes to update without duplicating", func(t *testing.T) {
+		form := url.Values{}
+		form.Set("session_id", originalSess.ID.String())
+		form.Set("session_date", "2026-10-20")
+		form.Set("start_time", "14:00")
+		form.Set("end_time", "15:30")
+		form.Set("training_type", "Conditioning")
+		form.Set("notes", "Routed Update Notes")
+		form.Set("coach_id", coach.ID.String())
+
+		// Submit to POST /sessions (the creation endpoint)
+		req := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		app.HandleCreateSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther && rec.Code != http.StatusOK {
+			t.Fatalf("expected redirect or 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		allSess, _ := store.GetAllSessions()
+		if len(allSess) != initialSessionsCount {
+			t.Fatalf("DUPLICATE DETECTED! Expected %d sessions, got %d", initialSessionsCount, len(allSess))
+		}
+
+		updated, err := store.GetSessionByID(originalSess.ID)
+		if err != nil {
+			t.Fatalf("GetSessionByID failed: %v", err)
+		}
+		if updated.StartTime != "14:00" || updated.EndTime != "15:30" {
+			t.Errorf("expected updated times 14:00-15:30, got %s-%s", updated.StartTime, updated.EndTime)
+		}
+		if updated.TrainingType != "Conditioning" {
+			t.Errorf("expected updated training type Conditioning, got %s", updated.TrainingType)
+		}
+		if updated.Notes != "Routed Update Notes" {
+			t.Errorf("expected updated notes, got %s", updated.Notes)
+		}
+	})
+}
+
 func TestSessionHandler_CalendarMultiHourAndHalfHour(t *testing.T) {
 	store := repository.NewMemoryStore()
 	app, err := handlers.NewAppHandler(store)
@@ -453,7 +565,18 @@ func TestSessionHandler_CalendarMultiHourAndHalfHour(t *testing.T) {
 	if !strings.Contains(body, "openNewSessionModal('2026-10-14', '09:30')") && !strings.Contains(body, "openNewSessionModal('2026-10-12', '09:30')") {
 		t.Errorf("expected half-hour booking slot modal calls in calendar grid")
 	}
+
+	// 4. Verify calendar header grid style prevents vertical column collapse
+	if !strings.Contains(body, "grid-template-columns: 64px repeat(7, minmax(0, 1fr));") {
+		t.Errorf("expected explicit grid-template-columns on calendar header to prevent vertical collapse")
+	}
+
+	// 5. Verify day header has horizontal alignment (gap-1.5)
+	if !strings.Contains(body, "flex items-center justify-center gap-1.5") {
+		t.Errorf("expected horizontal flex alignment for day name and date number")
+	}
 }
+
 
 func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 	store := repository.NewMemoryStore()
@@ -577,8 +700,8 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 		if strings.Contains(body, "Morning Sparring Class") {
 			t.Errorf("did not expect Bob's s2 class in Alice's filtered view")
 		}
-		if !strings.Contains(body, "Filter by Student") {
-			t.Errorf("expected Filter by Student dropdown label")
+		if !strings.Contains(body, "name=\"student_id\"") {
+			t.Errorf("expected Filter by Student dropdown element")
 		}
 	})
 

@@ -324,7 +324,8 @@
             </div>
         </div>
 
-        <form id="edit-session-form" method="POST" action="" hx-boost="false" class="space-y-4 p-5">
+        <form id="edit-session-form" method="POST" action="" hx-boost="false" hx-disable="true" onsubmit="const sid = document.getElementById('edit-session-id') ? document.getElementById('edit-session-id').value : ''; if(sid){ this.action = '/sessions/' + sid + '/edit'; } else { event.preventDefault(); return false; }" class="space-y-4 p-5">
+            <input type="hidden" name="session_id" id="edit-session-id" value="">
             <input type="hidden" name="redirect_url" id="edit-redirect-url" value="/sessions">
             <input type="hidden" name="entry_type" id="edit-modal-entry-type" value="class">
 
@@ -1199,6 +1200,8 @@ function onEditLocationChange() {
 function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen, locationID, sessionRate, entryType, title, staffIds) {
     const form = document.getElementById('edit-session-form');
     if (!form) return;
+    const idInput = document.getElementById('edit-session-id');
+    if (idInput) idInput.value = id || '';
     form.action = '/sessions/' + id + '/edit';
     form.setAttribute('action', '/sessions/' + id + '/edit');
     
@@ -1568,7 +1571,7 @@ function scrollToCurrentDayOnMobile() {
     // Calculate left position relative to scroll container, taking 72px time gutter into account
     const containerRect = container.getBoundingClientRect();
     const todayRect = todayHeader.getBoundingClientRect();
-    const scrollLeftTarget = container.scrollLeft + (todayRect.left - containerRect.left) - 72; // keep time gutter visible or align today
+    const scrollLeftTarget = container.scrollLeft + (todayRect.left - containerRect.left) - 64; // keep 64px time gutter visible or align today
 
     container.scrollTo({
         left: Math.max(0, scrollLeftTarget),

@@ -2,7 +2,7 @@
 {{$user := currentUser .}}
 <div class="space-y-3">
     <!-- Week Navigation Bar -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
+    <div class="flex flex-wrap items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
         <!-- Week Controls -->
         <div class="flex items-center gap-2 flex-wrap">
             <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900 p-0.5 shadow-xs">
@@ -55,7 +55,7 @@
         <div id="calendar-scroll-container" class="overflow-x-auto scroll-smooth">
             <div class="min-w-[920px]">
                 <!-- Day Column Headers (Sticky Top) -->
-                <div class="grid grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 sticky top-0 z-20 backdrop-blur">
+                <div class="grid grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 sticky top-0 z-20 backdrop-blur" style="display: grid; grid-template-columns: 64px repeat(7, minmax(0, 1fr));">
                     <!-- Top-Left Corner: Timezone / Icon -->
                     <div class="p-2 text-center border-r border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center">
                         <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">GMT+8</span>
@@ -70,16 +70,16 @@
                          ondragenter="onCalendarHeaderDragEnter(event, this)"
                          ondragleave="onCalendarHeaderDragLeave(event, this)"
                          ondrop="onCalendarHeaderDrop(event, this)">
-                        <span class="text-[10px] font-bold uppercase tracking-wider block {{if .IsToday}}text-[#990303] dark:text-[#DC2626]{{else}}text-slate-500 dark:text-slate-400{{end}}">
-                            {{.DayShort}}
-                        </span>
-                        <div class="mt-0.5 flex items-center justify-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider {{if .IsToday}}text-[#990303] dark:text-[#DC2626]{{else}}text-slate-500 dark:text-slate-400{{end}}">
+                                {{.DayShort}}
+                            </span>
                             {{if .IsToday}}
-                            <span class="w-7 h-7 rounded-full bg-[#990303] dark:bg-[#DC2626] text-white flex items-center justify-center font-display font-bold text-xs shadow-xs">
+                            <span class="w-6 h-6 rounded-full bg-[#990303] dark:bg-[#DC2626] text-white flex items-center justify-center font-display font-bold text-xs shadow-xs">
                                 {{.DayNumber}}
                             </span>
                             {{else}}
-                            <span class="w-7 h-7 rounded-full text-slate-800 dark:text-slate-100 flex items-center justify-center font-display font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors">
+                            <span class="w-6 h-6 rounded-full text-slate-800 dark:text-slate-100 flex items-center justify-center font-display font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors">
                                 {{.DayNumber}}
                             </span>
                             {{end}}
@@ -95,7 +95,7 @@
 
                 <!-- Scrollable Body with Time Gutter + 7 Day Timeline Columns -->
                 <div class="relative max-h-[720px] overflow-y-auto">
-                    <div class="grid grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
+                    <div class="grid grid-cols-[64px_repeat(7,1fr)] relative" style="display: grid; grid-template-columns: 64px repeat(7, minmax(0, 1fr)); height: {{.Calendar.GridHeight}}px;">
                         
                         <!-- Left Time Gutter -->
                         <div class="border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 relative select-none">

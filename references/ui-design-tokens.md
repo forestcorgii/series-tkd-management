@@ -207,3 +207,16 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
    - Compacted main container vertical gutters (`py-3 sm:py-4 pb-16 lg:pb-4 min-w-0`) and slimmed footer (`py-2 text-[11px]`).
 5. **Redundancy Elimination**:
    - Purged duplicate launchers, duplicate schedule buttons, and duplicate logout controls. All views deliver instant operational controls directly on the surface.
+
+### Context: Calendar Header Resilient Grid & Horizontal Day Alignment
+
+* **Problem:**
+  1. Relying solely on Tailwind arbitrary class `grid-cols-[64px_repeat(7,1fr)]` without explicit inline styles created vulnerability to browser cache mismatches (e.g., PWA Service Worker caching prior CSS builds lacking `64px`), causing `display: grid` with unspecified columns to collapse into a single column where all 7 day headers stacked vertically.
+  2. Day column header cells previously stacked the Day Short name, Day Number circle, and class count across 3 separate vertical blocks, exacerbating perceived vertical stretching in calendar headers.
+  3. Week navigation bars with `flex-col sm:flex-row` collapsed into vertical stacks on narrower viewports.
+
+* **Enforced Solution:**
+  1. **Inline Grid Resilience ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Added explicit `style="display: grid; grid-template-columns: 64px repeat(7, minmax(0, 1fr));"` directly on both the sticky day headers row and the scrollable timeline body grid. Even if external CSS caching delays arbitrary class evaluation, the 8-column layout (64px time gutter + 7 day columns) never collapses.
+  2. **Horizontal Day Alignment ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Day of the week (`.DayShort`) and date number circle (`.DayNumber`) are enclosed in a horizontal flex layout (`flex items-center justify-center gap-1.5`) with a compact class count pill underneath, maintaining a clean, modern Google Calendar-style horizontal presentation.
+  3. **Non-Collapsing Week Navigation ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Week controls and date range use `flex flex-wrap items-center justify-between` to ensure horizontal cohesion across viewports.
+
