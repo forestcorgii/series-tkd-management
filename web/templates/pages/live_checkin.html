@@ -4,28 +4,28 @@
 
 {{define "content"}}
 {{$user := currentUser .}}
-<div class="space-y-6">
+<div class="space-y-3 sm:space-y-4">
     <!-- Session Status Header -->
-    <div class="glass-panel p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm {{if .Session.IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900{{end}}">
-        <div class="space-y-1">
-            <div class="flex items-center gap-2 flex-wrap">
-                <span class="px-2 py-0.5 rounded text-[11px] uppercase font-extrabold {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .Session.IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else if .Session.IsOpenSession}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{else if .Session.IsDuty}}bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800{{else if .Session.IsEvent}}bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
-                    {{if .Session.IsCancelled}}🚫 CANCELLED{{else if .Session.IsDone}}🔒 ATTENDANCE CLOSED{{else if .Session.IsOpenSession}}🔓 FREE / OPEN SESSION{{else if .Session.IsDuty}}🛡️ ON-DUTY SHIFT{{else if .Session.IsEvent}}🏆 SPECIAL EVENT{{else}}LIVE CLASS{{end}}
+    <div class="glass-panel p-2.5 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2.5 shadow-xs {{if .Session.IsCancelled}}bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900{{end}}">
+        <div class="space-y-0.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="px-1.5 py-0.2 rounded text-[10px] uppercase font-bold {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .Session.IsDone}}bg-slate-200 text-slate-800 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700{{else if .Session.IsOpenSession}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{else if .Session.IsDuty}}bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800{{else if .Session.IsEvent}}bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800{{else}}bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800{{end}}">
+                    {{if .Session.IsCancelled}}🚫 CANCELLED{{else if .Session.IsDone}}🔒 CLOSED{{else if .Session.IsOpenSession}}🔓 FREE / OPEN{{else if .Session.IsDuty}}🛡️ ON-DUTY{{else if .Session.IsEvent}}🏆 EVENT{{else}}LIVE{{end}}
                 </span>
-                <span class="font-display font-extrabold text-lg sm:text-xl {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}}">
+                <span class="font-display font-bold text-base sm:text-lg {{if .Session.IsCancelled}}text-slate-500 dark:text-slate-400{{else}}text-slate-900 dark:text-white{{end}}">
                     {{.Session.DisplayTitle}}
                 </span>
                 {{if .Session.HasFixedRate}}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
                     ₱{{formatCurrency .Session.SessionRate}}
                 </span>
                 {{end}}
-                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold {{if .Session.IsCancelled}}line-through{{end}}">
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium {{if .Session.IsCancelled}}line-through{{end}}">
                     &bull; {{.Session.StartTime}} - {{.Session.EndTime}}
                 </span>
-                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold">&bull; {{formatDate .Session.SessionDate}}</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">&bull; {{formatDate .Session.SessionDate}}</span>
                 {{if .Session.LocationName}}
-                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold flex items-center gap-1">
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
                     &bull; <span>📍</span>
                     {{if .Session.LocationPin}}
                     <a href="{{.Session.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold" title="View in Google Maps">{{.Session.LocationName}}</a>
@@ -35,39 +35,39 @@
                 </span>
                 {{end}}
             </div>
-            <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
+            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                 {{if .Session.IsDuty}}
-                <span>Assigned Staff: <strong class="text-slate-800 dark:text-slate-200">{{if .Session.AssignedStaff}}{{.Session.StaffSummary}}{{else}}Unassigned{{end}}</strong></span>
+                <span>Assigned: <strong class="text-slate-700 dark:text-slate-300">{{if .Session.AssignedStaff}}{{.Session.StaffSummary}}{{else}}Unassigned{{end}}</strong></span>
                 {{else}}
-                <span>Coach: <strong class="text-slate-800 dark:text-slate-200">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 font-normal italic">Unassigned</span>{{end}}</strong></span>
-                {{if .Session.AdminName}}<span>&bull; Admin: <strong class="text-slate-800 dark:text-slate-200">{{.Session.AdminName}}</strong></span>{{end}}
+                <span>Coach: <strong class="text-slate-700 dark:text-slate-300">{{if .Session.CoachName}}{{.Session.CoachName}}{{else}}<span class="text-slate-400 font-normal italic">Unassigned</span>{{end}}</strong></span>
+                {{if .Session.AdminName}}<span>&bull; Admin: <strong class="text-slate-700 dark:text-slate-300">{{.Session.AdminName}}</strong></span>{{end}}
                 {{end}}
             </div>
         </div>
 
-        <div class="flex items-center gap-2 self-start md:self-auto flex-wrap">
+        <div class="flex items-center gap-1.5 self-start md:self-auto flex-wrap">
             {{if not .Session.IsCancelled}}
             <button type="button"
                     onclick="openEditSessionModal()"
-                    class="btn btn-secondary btn-sm flex items-center gap-1.5">
+                    class="btn btn-secondary btn-xs py-1 px-2.5 flex items-center gap-1">
                 <span>✏️</span> Edit
             </button>
             {{end}}
             {{if or .Session.IsOpen (and $user $user.IsOperationManager)}}
             <button type="button"
                     onclick="openDeleteSessionModal()"
-                    class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
+                    class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 py-1 px-2 flex items-center gap-1">
                 <span>🗑️</span> Delete
             </button>
             {{end}}
             {{if and (not .Session.IsCancelled) (not .Session.IsDone)}}
             <button type="button"
                     onclick="document.getElementById('cancel-session-modal').classList.remove('hidden')"
-                    class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 flex items-center gap-1.5">
+                    class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900 py-1 px-2 flex items-center gap-1">
                 <span>✖</span> Cancel
             </button>
             {{end}}
-            <a href="/sessions" class="btn btn-secondary btn-sm">
+            <a href="/sessions" class="btn btn-secondary btn-xs py-1 px-2.5">
                 &larr; Exit
             </a>
         </div>
@@ -75,33 +75,24 @@
 
     {{if .Session.IsCancelled}}
     <!-- Prominent Cancellation Banner -->
-    <div class="p-4 bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900 rounded-2xl text-rose-900 dark:text-rose-200 text-sm flex items-start gap-3 shadow-sm">
-        <span class="text-2xl mt-0.5">⚠️</span>
-        <div class="space-y-1">
-            <h4 class="font-display font-bold text-base text-rose-950 dark:text-rose-100">This class was cancelled</h4>
+    <div class="p-3 bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-start gap-2.5 shadow-xs">
+        <span class="text-lg mt-0.5">⚠️</span>
+        <div class="space-y-0.5">
+            <h4 class="font-display font-bold text-sm text-rose-950 dark:text-rose-100">This class was cancelled</h4>
             <p class="text-xs text-rose-800 dark:text-rose-300">
                 <strong>Reason:</strong> {{if .Session.CancellationReason}}{{.Session.CancellationReason}}{{else}}Cancelled by floor staff{{end}}
                 {{if .Session.CancelledAt}} &bull; Logged on {{formatDate .Session.CancelledAt}}{{end}}
             </p>
-            <p class="text-xs text-rose-700 dark:text-rose-400 mt-1">
-                Attendance check-in has been disabled. The roster below reflects attendance recorded prior to cancellation.
-            </p>
         </div>
     </div>
     {{else if .Session.IsDone}}
-    <!-- Closed Attendance Notice (Admit & Remove remain available) -->
-    <div class="p-3.5 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 text-xs flex items-center justify-between gap-3 shadow-sm">
+    <!-- Closed Attendance Notice (Audit Mode) -->
+    <div class="p-2.5 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 text-xs flex items-center justify-between gap-2 shadow-xs">
         <div class="flex items-center gap-2">
-            <span class="text-lg">🔒</span>
+            <span>🔒</span>
             <span class="font-semibold text-slate-900 dark:text-white">Attendance Closed (Audit Mode)</span>
-            <div class="has-tooltip inline-flex items-center">
-                <button type="button" class="tooltip-icon" aria-label="Closed session details">ⓘ</button>
-                <div class="tooltip-content w-72">
-                    This training class scheduled from {{.Session.StartTime}} to {{.Session.EndTime}} has ended. Normal attendance is closed, but you may still admit late students or remove students to maintain an accurate verified roster.
-                </div>
-            </div>
         </div>
-        <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+        <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
             Audit Mode
         </span>
     </div>
@@ -109,26 +100,26 @@
 
     {{if .Session.IsOpenSession}}
     <!-- Free / Open Floor Session Banner -->
-    <div class="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between gap-3 shadow-sm">
+    <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between gap-2 shadow-xs">
         <div class="flex items-center gap-2">
-            <span class="text-lg">🔓</span>
+            <span>🔓</span>
             <div>
                 <strong class="font-bold">Free / Open Floor Session:</strong>
-                <span class="text-emerald-800 dark:text-emerald-300 ml-1">Zero package credits deducted. Students, coaches, admins, and guests can check in freely without consuming membership passes.</span>
+                <span class="text-emerald-800 dark:text-emerald-300 ml-1">Zero package credits deducted. Members &amp; guests can check in freely.</span>
             </div>
         </div>
-        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-200/80 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 whitespace-nowrap">
-            0 Credits / Free Pass
+        <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-emerald-200/80 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 whitespace-nowrap">
+            0 Credits / Free
         </span>
     </div>
     {{end}}
 
     <!-- Two Column Floor Tablet Layout: Left Search & Check-in | Right Live Roster -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <!-- Left: Quick Search / QR Code Reader & Admit Action -->
-        <div class="glass-panel p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
-            <div class="flex items-center justify-between">
-                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Floor Attendance Search</h2>
+        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Floor Attendance Search</h2>
                 {{if .Session.IsCancelled}}
                 <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold">Disabled</span>
                 {{else if .Session.IsDone}}
@@ -146,85 +137,85 @@
                            id="student-search-input"
                            name="query"
                            oninput="var p = document.getElementById('search-page-input'); if(p) p.value='1';"
-                           {{if .Session.IsCancelled}}disabled placeholder="Check-in disabled for cancelled class"{{else if .Session.IsDone}}placeholder="Search student to add or adjust roster..." autofocus{{else}}placeholder="Scan QR code or search student by name..." autofocus{{end}}
-                           class="form-input text-base py-3 px-4 rounded-xl" />
+                           {{if .Session.IsCancelled}}disabled placeholder="Check-in disabled for cancelled class"{{else if .Session.IsDone}}placeholder="Search student to adjust roster..." autofocus{{else}}placeholder="Scan QR or search student by name..." autofocus{{end}}
+                           class="form-input text-xs sm:text-sm py-2 px-3 rounded-lg" />
                     <input type="hidden" name="page" id="search-page-input" value="1">
                 </form>
             </div>
 
             <!-- Quick Admit Attendee Form (For Free / Open Sessions, Staff & Guests) -->
-            <div class="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div class="p-2 sm:p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800 space-y-1.5">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span class="text-[11px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
                         <span>👤</span> Quick Admit Guest / Staff Attendee
                     </span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Non-student or guest</span>
+                    <span class="text-[10px] text-slate-400">Non-student entry</span>
                 </div>
                 <form hx-post="/sessions/{{.Session.ID}}/checkin-attendee"
                       hx-target="#attendance-roster"
                       hx-swap="afterbegin"
-                      class="flex flex-col sm:flex-row gap-2"
+                      class="flex gap-1.5"
                       onsubmit="setTimeout(() => this.reset(), 100);">
                     <input type="text"
                            name="attendee_name"
                            placeholder="Full Name (e.g. Master Jin, Guest Alex)"
                            required
-                           class="form-input text-xs py-2 px-3 flex-1 rounded-lg">
-                    <select name="attendee_role" class="form-select text-xs py-2 px-2.5 sm:w-28 rounded-lg">
+                           class="form-input text-xs py-1.5 px-2 flex-1 rounded-md">
+                    <select name="attendee_role" class="form-select text-xs py-1.5 px-2 sm:w-24 rounded-md">
                         <option value="Guest">Guest</option>
                         <option value="Coach">Coach</option>
                         <option value="Admin">Admin</option>
                         <option value="Visitor">Visitor</option>
                     </select>
                     <input type="hidden" name="attendee_type" value="guest">
-                    <button type="submit" class="btn btn-secondary btn-xs py-2 px-3 text-xs whitespace-nowrap font-bold">
+                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2.5 text-xs whitespace-nowrap font-bold">
                         <span>+</span> Admit
                     </button>
                 </form>
             </div>
 
             <!-- HTMX Search Results Container -->
-            <div id="search-results" class="space-y-3 pt-2">
+            <div id="search-results" class="space-y-2 pt-1">
                 {{if .Session.IsCancelled}}
-                <p class="text-xs text-slate-500 dark:text-slate-400 text-center py-4">Attendance admittance is locked.</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 text-center py-3">Attendance admittance is locked.</p>
                 {{else if .SearchResults}}
                     {{template "search_results.html" .SearchResults}}
                 {{else}}
-                    <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No matching student found. Register a new student or adjust search query.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 text-center py-3">No matching student found. Register student or adjust query.</p>
                 {{end}}
             </div>
         </div>
 
         <!-- Right: Verified Floor Roster -->
-        <div class="glass-panel p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Verified Floor Roster</h2>
+        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Verified Floor Roster</h2>
                 {{if .Session.IsCancelled}}
-                <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">Class Cancelled 🚫</span>
+                <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">Cancelled 🚫</span>
                 {{else if .Session.IsDone}}
-                <span class="text-xs text-slate-600 dark:text-slate-400 font-semibold flex items-center gap-1">Attendance Closed 🔒</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1">Closed 🔒</span>
                 {{else}}
-                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">Real-Time Sync 🟢</span>
+                <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">Live Sync 🟢</span>
                 {{end}}
             </div>
 
             <div class="overflow-x-auto -mx-1 sm:mx-0">
-                <table class="w-full text-left text-xs sm:text-sm text-slate-700 dark:text-slate-300 min-w-[550px]">
-                    <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300 min-w-[500px] table-compact">
+                    <thead class="text-[10px] uppercase font-bold tracking-wider bg-slate-100/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-display">
                         <tr>
-                            <th class="py-2.5 px-3">Student</th>
-                            <th class="py-2.5 px-3">Belt Rank</th>
-                            <th class="py-2.5 px-3">Membership / Deducted</th>
-                            <th class="py-2.5 px-3 text-right">Checked In</th>
-                            <th class="py-2.5 px-3 text-right">Action</th>
+                            <th class="py-1.5 px-2.5">Student</th>
+                            <th class="py-1.5 px-2.5">Belt Rank</th>
+                            <th class="py-1.5 px-2.5">Pass / Status</th>
+                            <th class="py-1.5 px-2.5 text-right">Checked In</th>
+                            <th class="py-1.5 px-2.5 text-right">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="attendance-roster" class="divide-y divide-slate-200 dark:divide-slate-800/60">
+                    <tbody id="attendance-roster" class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
                         {{range .Attendances}}
                         {{template "checkin_row.html" (dict "Attendance" . "Readiness" (index $.ReadinessMap .StudentID.String))}}
                         {{else}}
                         <tr id="empty-roster-row">
-                            <td colspan="5" class="text-center py-8 text-xs text-slate-500 dark:text-slate-400">
+                            <td colspan="5" class="text-center py-6 text-xs text-slate-400 dark:text-slate-500">
                                 No check-ins recorded for this class session.
                             </td>
                         </tr>

@@ -803,6 +803,7 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 
 	// 2. Edit session: change coach to coach2, change time to 16:00 - 18:00, update notes
 	t.Run("HandleUpdateSession edits coach, admin, and time", func(t *testing.T) {
+		allSessBeforeEdit, _ := store.GetAllSessions()
 		form := url.Values{
 			"session_date":  {"2026-10-21"},
 			"start_time":    {"16:00"},
@@ -842,6 +843,14 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 		}
 		if sess.TrainingType != models.TrainingPoomsae {
 			t.Errorf("expected Poomsae, got %s", sess.TrainingType)
+		}
+
+		allSessAfterEdit, err := store.GetAllSessions()
+		if err != nil {
+			t.Fatalf("failed to retrieve all sessions: %v", err)
+		}
+		if len(allSessAfterEdit) != len(allSessBeforeEdit) {
+			t.Errorf("expected %d sessions in database after update, got %d (bug: editing created duplicate)", len(allSessBeforeEdit), len(allSessAfterEdit))
 		}
 	})
 

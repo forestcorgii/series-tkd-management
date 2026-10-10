@@ -3,14 +3,14 @@
 {{define "title"}}Settings &bull; Series Taekwondo{{end}}
 
 {{define "content"}}
-<div class="space-y-6 no-uppercase" data-no-uppercase="true">
+<div class="space-y-4 no-uppercase" data-no-uppercase="true">
     <h1 class="sr-only">System Settings &amp; Configuration</h1>
 
     <!-- Action Toolbar & Tab Navigation -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-neutral-800 pb-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200 dark:border-neutral-800 pb-2.5">
         <div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">System Settings</span>
+            <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">System Settings</span>
                 <div class="has-tooltip inline-flex items-center">
                     <button type="button" class="tooltip-icon" aria-label="Settings guide">ⓘ</button>
                     <div class="tooltip-content w-72">
@@ -18,23 +18,23 @@
                     </div>
                 </div>
             </div>
-            <h2 class="font-display font-extrabold text-xl sm:text-2xl text-slate-900 dark:text-white uppercase tracking-tight mt-0.5">
+            <h2 class="font-display font-extrabold text-lg sm:text-xl text-slate-900 dark:text-white uppercase tracking-tight mt-0.5">
                 Dojang Configuration
             </h2>
         </div>
 
         <!-- Tab Switcher -->
-        <div class="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 self-start sm:self-auto">
+        <div class="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 self-start sm:self-auto text-xs">
             <button type="button"
                     id="tab-btn-categories"
                     onclick="switchSettingsTab('categories')"
-                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-sm">
+                    class="px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-xs">
                 <span>🥋</span> Training Disciplines
             </button>
             <button type="button"
                     id="tab-btn-notifications"
                     onclick="switchSettingsTab('notifications')"
-                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    class="px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                 <span>🔔</span> Notification Channels
             </button>
         </div>
@@ -42,7 +42,7 @@
 
     <!-- Flash Alert Notices -->
     {{if .SuccessNotice}}
-    <div class="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+    <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between shadow-xs animate-fade-in">
         <div class="flex items-center gap-2">
             <span>✅</span>
             <span class="font-semibold">{{.SuccessNotice}}</span>
@@ -51,7 +51,7 @@
     </div>
     {{end}}
     {{if .ErrorMessage}}
-    <div class="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+    <div class="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-center justify-between shadow-xs animate-fade-in">
         <div class="flex items-center gap-2">
             <span>⚠️</span>
             <span class="font-semibold">{{.ErrorMessage}}</span>
@@ -61,34 +61,26 @@
     {{end}}
 
     <!-- ==================== TAB PANE 1: TRAINING CATEGORIES ==================== -->
-    <div id="pane-categories" class="space-y-6">
-        <!-- High-Level Metrics Banner -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-                <div class="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-950/60 text-[#990303] dark:text-red-400 flex items-center justify-center text-lg flex-shrink-0">
-                    🥋
-                </div>
-                <div>
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Configured Categories</p>
-                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalCategories}}</p>
-                </div>
+    <div id="pane-categories" class="space-y-3.5">
+        <!-- High-Level Metrics Banner (Compact KPI Strip) -->
+        <div class="kpi-strip grid-cols-2">
+            <div class="kpi-tile">
+                <span class="kpi-label">Configured Categories</span>
+                <div class="kpi-val">{{.TotalCategories}}</div>
+                <p class="kpi-sub">Active disciplines</p>
             </div>
-            <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-                <div class="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-lg flex-shrink-0">
-                    📅
-                </div>
-                <div>
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Classes Conducted</p>
-                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalSessions}}</p>
-                </div>
+            <div class="kpi-tile">
+                <span class="kpi-label">Classes Conducted</span>
+                <div class="kpi-val">{{.TotalSessions}}</div>
+                <p class="kpi-sub">Lifetime dojang sessions</p>
             </div>
         </div>
 
         <!-- Training Categories List Card -->
-        <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div class="p-3.5 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
-                    <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Training Disciplines</h2>
+        <div class="glass-panel rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
+            <div class="p-2.5 sm:p-3 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-1.5">
+                    <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Active Training Disciplines</h2>
                     <div class="has-tooltip inline-flex items-center">
                         <button type="button" class="tooltip-icon" aria-label="Category colors guide">ⓘ</button>
                         <div class="tooltip-content w-64">
@@ -99,67 +91,67 @@
                 {{if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}
                 <button type="button"
                         onclick="openNewCategoryModal()"
-                        class="btn btn-primary btn-sm flex items-center gap-1.5">
+                        class="btn btn-primary btn-xs flex items-center gap-1">
                     <span>+</span> Add Category
                 </button>
                 {{end}}
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs min-w-[600px]">
-                    <thead class="bg-slate-50 dark:bg-neutral-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
+                <table class="w-full text-left text-xs min-w-[600px] table-compact">
+                    <thead class="bg-slate-50 dark:bg-neutral-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
                         <tr>
-                            <th class="py-3 px-4">Badge Preview</th>
-                            <th class="py-3 px-4">Category Name</th>
-                            <th class="py-3 px-4">Color Hex</th>
-                            <th class="py-3 px-4 text-center">Class Sessions</th>
+                            <th class="py-2 px-3">Badge Preview</th>
+                            <th class="py-2 px-3">Category Name</th>
+                            <th class="py-2 px-3">Color Hex</th>
+                            <th class="py-2 px-3 text-center">Class Sessions</th>
                             {{if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}
-                            <th class="py-3 px-4 text-right">Actions</th>
+                            <th class="py-2 px-3 text-right">Actions</th>
                             {{end}}
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-neutral-800/80 text-slate-700 dark:text-slate-300">
                         {{if not .Categories}}
                         <tr>
-                            <td colspan="{{if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}5{{else}}4{{end}}" class="py-8 text-center text-slate-500 italic">
+                            <td colspan="{{if or .CurrentUser.IsAdmin .CurrentUser.IsOperationManager}}5{{else}}4{{end}}" class="py-6 text-center text-slate-500 italic">
                                 No training categories configured yet.
                             </td>
                         </tr>
                         {{else}}
                         {{range .Categories}}
                         <tr class="hover:bg-slate-50/60 dark:hover:bg-neutral-800/40 transition">
-                            <td class="py-3.5 px-4 whitespace-nowrap">
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border"
+                            <td class="py-2 px-3 whitespace-nowrap">
+                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border"
                                       style="color: {{.Category.Color}}; background-color: {{.Category.Color}}15; border-color: {{.Category.Color}}40;">
-                                    <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: {{.Category.Color}};"></span>
+                                    <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Category.Color}};"></span>
                                     {{.Category.Name}}
                                 </span>
                             </td>
-                            <td class="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
+                            <td class="py-2 px-3 font-semibold text-slate-900 dark:text-white">
                                 {{.Category.Name}}
                             </td>
-                            <td class="py-3.5 px-4 font-mono text-xs font-semibold">
+                            <td class="py-2 px-3 font-mono text-xs font-semibold">
                                 <div class="flex items-center gap-1.5">
-                                    <span class="w-4 h-4 rounded border border-black/10 dark:border-white/10 flex-shrink-0 shadow-xs" style="background-color: {{.Category.Color}};"></span>
+                                    <span class="w-3.5 h-3.5 rounded border border-black/10 dark:border-white/10 flex-shrink-0 shadow-2xs" style="background-color: {{.Category.Color}};"></span>
                                     <span>{{.Category.Color}}</span>
                                 </div>
                             </td>
-                            <td class="py-3.5 px-4 text-center whitespace-nowrap">
-                                <span class="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                            <td class="py-2 px-3 text-center whitespace-nowrap">
+                                <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-[10px] text-slate-700 dark:text-slate-300">
                                     {{.SessionsCount}} session{{if ne .SessionsCount 1}}s{{end}}
                                 </span>
                             </td>
                             {{if or $.CurrentUser.IsAdmin $.CurrentUser.IsOperationManager}}
-                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                                <div class="inline-flex items-center gap-1.5">
+                            <td class="py-2 px-3 text-right whitespace-nowrap">
+                                <div class="inline-flex items-center gap-1">
                                     <button type="button"
                                             onclick="openEditCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', '{{.Category.Color}}')"
-                                            class="btn btn-secondary btn-xs">
+                                            class="btn btn-secondary btn-xs py-0.5 px-2">
                                         ✏️ Edit
                                     </button>
                                     <button type="button"
                                             onclick="openDeleteCategoryModal('{{.Category.ID}}', '{{.Category.Name}}', {{.SessionsCount}})"
-                                            class="btn btn-danger btn-xs">
+                                            class="btn btn-danger btn-xs py-0.5 px-2">
                                         🗑️ Delete
                                     </button>
                                 </div>
@@ -185,29 +177,29 @@
             </p>
         </div>
         {{else}}
-        <form action="/settings/notifications" method="POST" class="space-y-6 no-uppercase" data-no-uppercase="true">
+        <form action="/settings/notifications" method="POST" class="space-y-4 no-uppercase" data-no-uppercase="true">
             <!-- Channel Master Switches Card -->
-            <div class="glass-panel p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm space-y-4">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-neutral-800 pb-3">
+            <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-neutral-800 shadow-xs space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-200 dark:border-neutral-800 pb-2.5">
                     <div>
-                        <h3 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                        <h3 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-1.5">
                             <span>📡</span> Global Communication Channels
                         </h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             Enable or disable outward messaging channels dojang-wide. You can disable email and SMS notifications at any time.
                         </p>
                     </div>
-                    <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-300 self-start sm:self-auto">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-300 self-start sm:self-auto">
                         Master Controls
                     </span>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-0.5">
                     <!-- Web Push Notifications -->
-                    <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-2">
+                    <div class="p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-1.5">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
-                                <span class="text-xl">🔔</span>
+                                <span class="text-lg">🔔</span>
                                 <div>
                                     <h4 class="font-bold text-xs text-slate-900 dark:text-white">Web Push</h4>
                                     <span class="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">Browser &amp; Devices</span>
@@ -215,19 +207,19 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" name="push_enabled" class="sr-only peer" {{if or (not .NotificationSettings) .NotificationSettings.PushEnabled}}checked{{end}}>
-                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#990303]"></div>
+                                <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#990303]"></div>
                             </label>
                         </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
                             Instant pop-up notifications to connected coach tablets and student devices.
                         </p>
                     </div>
 
                     <!-- SMS Text Messaging -->
-                    <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-2">
+                    <div class="p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-1.5">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
-                                <span class="text-xl">📱</span>
+                                <span class="text-lg">📱</span>
                                 <div>
                                     <h4 class="font-bold text-xs text-slate-900 dark:text-white">SMS Notifications</h4>
                                     <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Can be disabled</span>
@@ -235,19 +227,19 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" name="sms_enabled" class="sr-only peer" {{if and .NotificationSettings .NotificationSettings.SMSEnabled}}checked{{end}}>
-                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                             </label>
                         </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
                             High-priority SMS alerts for student injuries, check-ins, and emergency updates. Uncheck to disable.
                         </p>
                     </div>
 
                     <!-- Email Messaging -->
-                    <div class="p-4 rounded-xl border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-2">
+                    <div class="p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 space-y-1.5">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
-                                <span class="text-xl">📧</span>
+                                <span class="text-lg">📧</span>
                                 <div>
                                     <h4 class="font-bold text-xs text-slate-900 dark:text-white">Email Notifications</h4>
                                     <span class="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">Can be disabled</span>
@@ -255,10 +247,10 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" name="email_enabled" class="sr-only peer" {{if and .NotificationSettings .NotificationSettings.EmailEnabled}}checked{{end}}>
-                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
                         </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
                             Detailed email summaries, evaluation reports, and promotion readiness badges. Uncheck to disable.
                         </p>
                     </div>
@@ -266,9 +258,9 @@
             </div>
 
             <!-- Granular Event Triggers Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
                 <!-- Group 1: Coach & Administrator Event Triggers -->
-                <div class="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm space-y-4">
+                <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-neutral-800 shadow-xs space-y-3">
                     <div class="border-b border-slate-200 dark:border-neutral-800 pb-3 flex items-center justify-between">
                         <div>
                             <h3 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
@@ -619,7 +611,7 @@
             <button type="button" onclick="closeEditCategoryModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg">&times;</button>
         </div>
 
-        <form id="edit-cat-form" action="" method="POST" class="space-y-4 text-xs no-uppercase" data-no-uppercase="true">
+        <form id="edit-cat-form" action="" method="POST" hx-boost="false" class="space-y-4 text-xs no-uppercase" data-no-uppercase="true">
             <div>
                 <label class="form-label">Category Name <span class="text-rose-500">*</span></label>
                 <input type="text" name="name" id="edit-cat-name" required
@@ -690,7 +682,7 @@
             ⚠️ <strong>Active Classes Assigned:</strong> This category is currently assigned to <span id="delete-session-count" class="font-bold"></span> session(s). You must reassign or remove those sessions before deleting this category.
         </div>
 
-        <form id="delete-cat-form" action="" method="POST" class="pt-2">
+        <form id="delete-cat-form" action="" method="POST" hx-boost="false" class="pt-2">
             <div class="flex items-center justify-end gap-2">
                 <button type="button" onclick="closeDeleteCategoryModal()" class="btn btn-secondary btn-sm">Cancel</button>
                 <button type="submit" id="delete-submit-btn" class="btn btn-danger btn-sm">Confirm Delete</button>
@@ -751,7 +743,11 @@
     }
 
     function openEditCategoryModal(id, name, color) {
-        document.getElementById('edit-cat-form').action = '/settings/categories/' + id + '/edit';
+        const form = document.getElementById('edit-cat-form');
+        if (form) {
+            form.action = '/settings/categories/' + id + '/edit';
+            form.setAttribute('action', '/settings/categories/' + id + '/edit');
+        }
         document.getElementById('edit-cat-name').value = name;
         document.getElementById('edit-cat-picker').value = color;
         document.getElementById('edit-cat-color').value = color;
@@ -764,7 +760,11 @@
     }
 
     function openDeleteCategoryModal(id, name, sessionCount) {
-        document.getElementById('delete-cat-form').action = '/settings/categories/' + id + '/delete';
+        const form = document.getElementById('delete-cat-form');
+        if (form) {
+            form.action = '/settings/categories/' + id + '/delete';
+            form.setAttribute('action', '/settings/categories/' + id + '/delete');
+        }
         document.getElementById('delete-cat-name').textContent = name;
         const warningDiv = document.getElementById('delete-warning-sessions');
         const submitBtn = document.getElementById('delete-submit-btn');

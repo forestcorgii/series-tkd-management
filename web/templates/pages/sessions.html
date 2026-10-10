@@ -4,14 +4,14 @@
 
 {{define "content"}}
 {{$user := currentUser .}}
-<div class="space-y-6">
+<div class="space-y-3 sm:space-y-4">
     <h1 class="sr-only">Training Classes &amp; Floor Attendance Log</h1>
 
     <!-- Classes List & Calendar Container -->
-    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-6 space-y-4 shadow-sm">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3 gap-2">
+    <div class="glass-panel rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 space-y-3 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-2.5 gap-2">
             <div class="flex items-center gap-2">
-                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Dojang 7-Day Class Calendar</h2>
+                <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Dojang 7-Day Class Calendar</h2>
                 <div class="has-tooltip">
                     <button type="button" class="tooltip-icon" aria-label="Schedule Information">ⓘ</button>
                     <div class="tooltip-content">
@@ -21,24 +21,24 @@
             </div>
             <button type="button"
                     onclick="openNewSessionModal(currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
-                    class="btn btn-primary btn-sm flex items-center gap-1.5 self-start sm:self-auto shadow-sm py-1.5 px-3">
+                    class="btn btn-primary btn-xs flex items-center gap-1.5 self-start sm:self-auto shadow-xs py-1.5 px-3">
                 <span>+</span> Schedule Class
             </button>
         </div>
 
-        <!-- Attendance & Class Filter Bar -->
-        <div class="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800">
+        <!-- Attendance & Class Filter Bar (Compact 1-row/2-row grid) -->
+        <div class="p-2.5 sm:p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
             <form id="session-filter-form"
                   hx-get="/sessions"
                   hx-target="#classes-container"
                   hx-trigger="change, input delay:250ms"
-                  class="space-y-3 sm:space-y-0">
+                  class="space-y-2 sm:space-y-0">
                 <input type="hidden" name="view" value="{{.ViewMode}}">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 items-end">
                     <!-- Schedule Type Filter -->
                     <div>
-                        <label class="form-label text-[11px]">Filter by Type</label>
-                        <select name="entry_type" class="form-select text-xs">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Type</label>
+                        <select name="entry_type" class="form-select text-xs py-1 px-2">
                             <option value="">All Types</option>
                             <option value="class" {{if eq $.FilterEntryType "class"}}selected{{end}}>🥋 Classes</option>
                             <option value="open_session" {{if eq $.FilterEntryType "open_session"}}selected{{end}}>🔓 Free / Open</option>
@@ -49,8 +49,8 @@
 
                     <!-- Coach Filter -->
                     <div>
-                        <label class="form-label text-[11px]">Filter by Coach</label>
-                        <select name="coach_id" class="form-select text-xs searchable-select" data-placeholder="All Coaches">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Coach</label>
+                        <select name="coach_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Coaches">
                             <option value="">All Coaches</option>
                             {{range .Coaches}}
                             <option value="{{.ID}}" {{if eq $.FilterCoachID .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
@@ -60,8 +60,8 @@
 
                     <!-- Category Filter -->
                     <div>
-                        <label class="form-label text-[11px]">Filter by Category</label>
-                        <select name="category" class="form-select text-xs">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</label>
+                        <select name="category" class="form-select text-xs py-1 px-2">
                             <option value="">All Categories</option>
                             {{range .TrainingCategories}}
                             <option value="{{.Name}}" {{if eq $.FilterCategory .Name}}selected{{end}}>{{.Name}}</option>
@@ -71,8 +71,8 @@
 
                     <!-- Location Filter -->
                     <div>
-                        <label class="form-label text-[11px]">Filter by Location</label>
-                        <select name="location_id" class="form-select text-xs searchable-select" data-placeholder="All Locations">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Location</label>
+                        <select name="location_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Locations">
                             <option value="">All Locations</option>
                             {{range .Locations}}
                             <option value="{{.ID}}" {{if eq $.FilterLocationID .ID.String}}selected{{end}}>{{.Name}}</option>
@@ -82,8 +82,8 @@
 
                     <!-- Student Filter -->
                     <div>
-                        <label class="form-label text-[11px]">Filter by Student</label>
-                        <select name="student_id" class="form-select text-xs searchable-select" data-placeholder="All Students">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Student</label>
+                        <select name="student_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Students">
                             <option value="">All Students</option>
                             {{range .Students}}
                             <option value="{{.ID}}" {{if eq $.FilterStudentID .ID.String}}selected{{end}}>{{.FullName}} ({{.CurrentBelt}})</option>
@@ -92,11 +92,11 @@
                     </div>
 
                     <!-- Reset Action -->
-                    <div class="flex items-center gap-2">
+                    <div>
                         <button type="button"
                                 onclick="clearFilters()"
-                                class="btn btn-secondary btn-sm w-full py-2 flex items-center justify-center gap-1.5 text-xs">
-                            <span>↺</span> Clear Filters
+                                class="btn btn-secondary btn-xs w-full py-1.5 flex items-center justify-center gap-1 text-xs">
+                            <span>↺</span> Clear
                         </button>
                     </div>
                 </div>
@@ -324,7 +324,7 @@
             </div>
         </div>
 
-        <form id="edit-session-form" method="POST" action="" class="space-y-4 p-5">
+        <form id="edit-session-form" method="POST" action="" hx-boost="false" class="space-y-4 p-5">
             <input type="hidden" name="redirect_url" id="edit-redirect-url" value="/sessions">
             <input type="hidden" name="entry_type" id="edit-modal-entry-type" value="class">
 
@@ -461,6 +461,7 @@
                     <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
                 </div>
             </div>
+        </form>
     </div>
 </div>
 
@@ -473,7 +474,7 @@
             </h3>
             <button type="button" onclick="closeDeleteModal()" class="modal-close">&times;</button>
         </div>
-        <form id="delete-session-form" method="POST" action="" class="space-y-4">
+        <form id="delete-session-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
                 <p id="delete-modal-title" class="font-bold text-sm text-slate-900 dark:text-white"></p>
                 <p id="delete-modal-meta" class="text-xs text-slate-600 dark:text-slate-400"></p>
@@ -499,7 +500,7 @@
             </h3>
             <button type="button" onclick="closeCancelModal()" class="modal-close">&times;</button>
         </div>
-        <form id="cancel-session-form" method="POST" action="" class="space-y-4">
+        <form id="cancel-session-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1">
                 <p id="cancel-modal-title" class="font-bold text-sm text-slate-900 dark:text-white"></p>
                 <p id="cancel-modal-meta" class="text-xs text-slate-600 dark:text-slate-400"></p>
@@ -663,7 +664,7 @@
             <button type="button" onclick="closeRescheduleModal()" class="modal-close">&times;</button>
         </div>
 
-        <form id="reschedule-session-form" method="POST" action="" class="space-y-4 p-5">
+        <form id="reschedule-session-form" method="POST" action="" hx-boost="false" class="space-y-4 p-5">
             <input type="hidden" name="redirect_url" id="reschedule-redirect-url" value="/sessions">
 
             <!-- Summary comparison badge -->
@@ -887,6 +888,7 @@ function openRescheduleModal(sess, targetDate, targetStartTime, targetEndTime) {
     const form = document.getElementById('reschedule-session-form');
     if (!form) return;
     form.action = '/sessions/' + sess.id + '/reschedule';
+    form.setAttribute('action', '/sessions/' + sess.id + '/reschedule');
 
     const redUrl = document.getElementById('reschedule-redirect-url');
     if (redUrl) redUrl.value = '/sessions?date=' + targetDate;
@@ -1196,7 +1198,9 @@ function onEditLocationChange() {
 
 function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID, trainingType, notes, isOpen, locationID, sessionRate, entryType, title, staffIds) {
     const form = document.getElementById('edit-session-form');
+    if (!form) return;
     form.action = '/sessions/' + id + '/edit';
+    form.setAttribute('action', '/sessions/' + id + '/edit');
     
     document.getElementById('edit-session-date').value = dateStr || '';
     document.getElementById('edit-start-time').value = startTime || '';
@@ -1275,7 +1279,10 @@ function closeEditModal() {
 
 function openDeleteSessionModal(id, category, date, time) {
     const form = document.getElementById('delete-session-form');
-    form.action = '/sessions/' + id + '/delete';
+    if (form) {
+        form.action = '/sessions/' + id + '/delete';
+        form.setAttribute('action', '/sessions/' + id + '/delete');
+    }
     document.getElementById('delete-modal-title').textContent = category + ' (' + time + ')';
     document.getElementById('delete-modal-meta').textContent = 'Date: ' + date;
     document.getElementById('delete-session-modal').classList.remove('hidden');
@@ -1287,7 +1294,10 @@ function closeDeleteModal() {
 
 function openCancelModal(id, category, date, time, coach) {
     var form = document.getElementById('cancel-session-form');
-    form.action = '/sessions/' + id + '/cancel';
+    if (form) {
+        form.action = '/sessions/' + id + '/cancel';
+        form.setAttribute('action', '/sessions/' + id + '/cancel');
+    }
     document.getElementById('cancel-modal-title').textContent = category + ' (' + time + ')';
     document.getElementById('cancel-modal-meta').textContent = 'Date: ' + date + ' • Staff: ' + coach;
     document.getElementById('cancel-session-modal').classList.remove('hidden');
@@ -1295,6 +1305,12 @@ function openCancelModal(id, category, date, time, coach) {
 
 function closeCancelModal() {
     document.getElementById('cancel-session-modal').classList.add('hidden');
+}
+
+function openEditSessionFromCard(cardEl) {
+    if (!cardEl) return;
+    const d = cardEl.dataset;
+    openEditSessionModal(d.id, d.dateRaw, d.start, d.end, d.coachId, d.adminId, d.type, d.notes, d.isOpen === 'true', d.locationId, d.rateRaw, d.entryType, d.title, d.staffIds);
 }
 
 function openClassInfoFromCard(cardEl) {

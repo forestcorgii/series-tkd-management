@@ -3,41 +3,41 @@
 {{define "title"}}Students - STMS{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
+<div class="space-y-3 sm:space-y-4">
     <!-- Success/Error Feedback Alerts -->
     {{if .SuccessNotice}}
-    <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-sm flex items-center justify-between shadow-sm animate-fade-in">
+    <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between shadow-xs animate-fade-in">
         <div class="flex items-center gap-2">
             <span>✅</span>
             <span>{{.SuccessNotice}}</span>
         </div>
-        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-sm">&times;</button>
+        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-xs">&times;</button>
     </div>
     {{end}}
     {{if .ErrorNotice}}
-    <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-300 text-sm flex items-center justify-between shadow-sm animate-fade-in">
+    <div class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-300 text-xs flex items-center justify-between shadow-xs animate-fade-in">
         <div class="flex items-center gap-2">
             <span>⚠️</span>
             <span>{{.ErrorNotice}}</span>
         </div>
-        <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-sm">&times;</button>
+        <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-xs">&times;</button>
     </div>
     {{end}}
 
     <h1 class="sr-only">Student Directory &amp; Ability Radar</h1>
 
-    <!-- Compact Action Bar & Search -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div class="flex-1 flex items-center gap-2">
+    <!-- Compact Action Bar & Search (Single toolbar line) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex-1 flex items-center gap-1.5">
             <div class="relative flex-1">
                 <input type="search"
                        name="query"
                        value="{{.Search}}"
-                       placeholder="Search by student name, phone, or belt rank..."
+                       placeholder="Search student name, phone, belt rank..."
                        hx-get="/students"
                        hx-trigger="keyup changed delay:250ms, search"
                        hx-target="#student-rows"
-                       class="form-input" />
+                       class="form-input text-xs py-1.5" />
             </div>
             <div class="has-tooltip flex-shrink-0">
                 <button type="button" class="tooltip-icon" aria-label="Student Directory Information">ⓘ</button>
@@ -48,33 +48,33 @@
         </div>
         {{$user := currentUser .}}
         {{if or (not $user) $user.IsOperationManager $user.IsAdmin}}
-        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <button type="button" onclick="openAssignModal()" class="btn btn-secondary btn-sm flex-1 sm:flex-none shadow-sm py-2 px-3">
-                💳 Assign Membership
+        <div class="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+            <button type="button" onclick="openAssignModal()" class="btn btn-secondary btn-xs flex-1 sm:flex-none shadow-xs py-1.5 px-2.5">
+                💳 Assign Pass
             </button>
-            <button type="button" onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-sm flex-1 sm:flex-none shadow-sm py-2 px-3">
-                ➕ Register New Student
+            <button type="button" onclick="document.getElementById('new-student-modal').classList.remove('hidden')" class="btn btn-primary btn-xs flex-1 sm:flex-none shadow-xs py-1.5 px-2.5">
+                ➕ Register Student
             </button>
         </div>
         {{end}}
     </div>
 
     <!-- Student Roster Table -->
-    <div class="glass-panel rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800">
+    <div class="glass-panel rounded-xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div class="overflow-x-auto -mx-1 sm:mx-0">
-            <table class="w-full min-w-[700px] text-left text-sm text-slate-700 dark:text-slate-300">
-                <thead class="text-xs uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+            <table class="w-full min-w-[680px] text-left text-xs text-slate-700 dark:text-slate-300 table-compact">
+                <thead class="text-[10px] font-bold uppercase tracking-wider bg-slate-100/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-display">
                     <tr>
-                        <th class="py-3.5 px-4">Student Name</th>
-                        <th class="py-3.5 px-4">Belt Rank</th>
-                        <th class="py-3.5 px-4">Membership</th>
-                        <th class="py-3.5 px-4">Safety &amp; Medical</th>
-                        <th class="py-3.5 px-4 text-center">3-Axis Radar</th>
-                        <th class="py-3.5 px-4 text-center">Promotion Readiness</th>
-                        <th class="py-3.5 px-4 text-right">Action</th>
+                        <th class="py-2 px-3">Student Name</th>
+                        <th class="py-2 px-3">Belt Rank</th>
+                        <th class="py-2 px-3">Membership</th>
+                        <th class="py-2 px-3">Safety &amp; Medical</th>
+                        <th class="py-2 px-3 text-center">Score</th>
+                        <th class="py-2 px-3 text-center">Readiness</th>
+                        <th class="py-2 px-3 text-right">Action</th>
                     </tr>
                 </thead>
-                <tbody id="student-rows" class="divide-y divide-slate-200 dark:divide-slate-800/60">
+                <tbody id="student-rows" class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
                     {{template "student_table_rows.html" .}}
                 </tbody>
             </table>

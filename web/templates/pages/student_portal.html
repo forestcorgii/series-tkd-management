@@ -3,21 +3,21 @@
 {{define "title"}}Practitioner Portal &bull; {{.Student.FullName}} &bull; Series Taekwondo{{end}}
 
 {{define "content"}}
-<div id="student-portal-reactive" class="space-y-6" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#student-portal-reactive" hx-target="#student-portal-reactive" hx-swap="outerHTML">
+<div id="student-portal-reactive" class="space-y-3 sm:space-y-4" hx-trigger="attendanceUpdated from:body" hx-get="/portal/student" hx-select="#student-portal-reactive" hx-target="#student-portal-reactive" hx-swap="outerHTML">
     <!-- Safety & First Aid Alert Notice (Displayed if flagged) -->
     {{if .HasActiveSafetyHold}}
-    <div class="p-4 sm:p-5 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 text-rose-700 dark:text-rose-300 shadow-lg flex items-start gap-4 animate-pulse">
-        <div class="p-2.5 rounded-xl bg-rose-500/20 text-rose-500 flex-shrink-0">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="p-2.5 sm:p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-700 dark:text-rose-300 shadow-sm flex items-start gap-2.5 animate-pulse">
+        <div class="p-1.5 rounded-lg bg-rose-500/20 text-rose-500 flex-shrink-0">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
         </div>
         <div class="flex-1">
-            <div class="flex items-center gap-2">
-                <span class="font-display font-black uppercase text-sm tracking-wider bg-rose-600 text-white px-2 py-0.5 rounded">Mat Safety Hold Active</span>
-                <span class="text-xs font-semibold text-rose-600 dark:text-rose-400">First Aid Clearance Required</span>
+            <div class="flex items-center gap-1.5">
+                <span class="font-display font-black uppercase text-xs tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded">Mat Safety Hold Active</span>
+                <span class="text-[11px] font-semibold text-rose-600 dark:text-rose-400">First Aid Clearance Required</span>
             </div>
-            <p class="text-xs sm:text-sm mt-1.5 leading-relaxed font-medium">
+            <p class="text-xs mt-1 leading-snug font-medium">
                 Our floor medical logs indicate an open injury or first aid flag. Before stepping onto the mat for contact drills or sparring, you must receive verbal clearance from the supervising head coach or dojang director.
             </p>
         </div>
@@ -25,22 +25,22 @@
     {{end}}
 
     <!-- Top Practitioner Header & Belt Ribbon -->
-    <div id="student-header" class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="flex items-center space-x-3.5 sm:space-x-4">
-                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+    <div id="student-header" class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-lg sm:text-xl shadow-md shadow-[#990303]/25 border border-red-500/30 flex-shrink-0">
                     {{printf "%.1s" .Student.FullName}}
                 </div>
                 <div>
                     <div class="flex items-center gap-2 flex-wrap">
-                        <h1 class="font-display font-black text-2xl sm:text-3xl text-black dark:text-[#FFFDF4] uppercase">
+                        <h1 class="font-display font-black text-lg sm:text-xl text-black dark:text-[#FFFDF4] uppercase">
                             {{.Student.FullName}}
                         </h1>
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#990303]/15 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#990303]/15 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400">
                             Student Practitioner
                         </span>
                     </div>
-                    <div class="flex items-center gap-3 text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 flex-wrap font-medium">
+                    <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 mt-0.5 flex-wrap font-medium">
                         <span>Rank: <strong class="text-black dark:text-white">{{.Student.CurrentBelt}}</strong></span>
                         <span>&bull;</span>
                         <span>Tenure: <strong class="text-black dark:text-white">{{.Readiness.DaysInRank}} days</strong> in rank</span>
@@ -51,18 +51,18 @@
             </div>
 
             <!-- Readiness Status Badge -->
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2.5 self-end sm:self-auto">
                 <div class="text-right hidden sm:block">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Grading Status</span>
-                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Grading Status</span>
+                    <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                         {{if eq .Readiness.Status "READY"}}Promotion Ready{{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}Pre-Test Candidate{{else}}Curriculum Developing{{end}}
                     </span>
                 </div>
-                <div class="px-4 py-2 rounded-xl text-sm font-display font-black uppercase tracking-wider border shadow-sm flex items-center gap-2
+                <div class="px-2.5 py-1 rounded-lg text-xs font-display font-black uppercase tracking-wider border shadow-sm flex items-center gap-1.5
                     {{if eq .Readiness.BadgeColor "emerald"}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30
                     {{else if eq .Readiness.BadgeColor "amber"}}bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30
                     {{else}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30{{end}}">
-                    <span class="text-base">{{.Readiness.BadgeIcon}}</span>
+                    <span class="text-xs">{{.Readiness.BadgeIcon}}</span>
                     <span>{{.Readiness.Status}}</span>
                 </div>
             </div>
@@ -70,13 +70,13 @@
     </div>
 
     <!-- Grid: Readiness HUD + Athletic Radar -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         <!-- Readiness Progress HUD (2 cols) -->
-        <div class="lg:col-span-2 space-y-6">
-            <div id="readiness-hud" class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center justify-between mb-4 gap-2">
-                    <div class="flex items-center gap-2">
-                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+        <div class="lg:col-span-2 space-y-3 sm:space-y-4">
+            <div id="readiness-hud" class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+                <div class="flex items-center justify-between mb-3 gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
                             Promotion Readiness Engine
                         </h2>
                         <div class="has-tooltip inline-flex items-center">
@@ -86,81 +86,81 @@
                             </div>
                         </div>
                     </div>
-                    <span class="text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 flex-shrink-0">
+                    <span class="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 flex-shrink-0">
                         Target: {{.Readiness.RequiredSessions}} classes / {{.Readiness.RequiredDaysInRank}} days
                     </span>
                 </div>
 
                 <!-- Progress Bar 1: Sessions Attended -->
-                <div class="space-y-2 mb-5">
-                    <div class="flex justify-between text-xs font-bold">
+                <div class="space-y-1 mb-2.5">
+                    <div class="flex justify-between text-[11px] font-bold">
                         <span class="text-slate-700 dark:text-slate-300 uppercase tracking-wider">Attendance Count</span>
                         <span class="text-slate-900 dark:text-slate-100">
                             {{.Readiness.TotalSessions}} / {{.Readiness.RequiredSessions}} Classes ({{.SessionCompletionPct}}%)
                         </span>
                     </div>
-                    <div class="h-3.5 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
+                    <div class="h-2 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
                         <div class="h-full bg-gradient-to-r from-[#990303] to-red-500 rounded-full transition-all duration-500"
                              style="width: {{.SessionCompletionPct}}%;"></div>
                     </div>
                 </div>
 
                 <!-- Progress Bar 2: Days in Current Rank -->
-                <div class="space-y-2 mb-6">
-                    <div class="flex justify-between text-xs font-bold">
+                <div class="space-y-1 mb-3">
+                    <div class="flex justify-between text-[11px] font-bold">
                         <span class="text-slate-700 dark:text-slate-300 uppercase tracking-wider">Time in Rank (Tenure)</span>
                         <span class="text-slate-900 dark:text-slate-100">
                             {{.Readiness.DaysInRank}} / {{.Readiness.RequiredDaysInRank}} Days ({{.TenureCompletionPct}}%)
                         </span>
                     </div>
-                    <div class="h-3.5 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
+                    <div class="h-2 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
                         <div class="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
                              style="width: {{.TenureCompletionPct}}%;"></div>
                     </div>
                 </div>
 
                 <!-- Reasons / Criteria Checklist -->
-                <div class="pt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+                <div class="pt-2.5 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                         Curriculum Verification Criteria
                     </h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div class="p-2 rounded-lg border flex items-center gap-2
                             {{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
                             {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
-                            <span>{{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}✓{{else}}○{{end}}</span>
-                            <span class="font-medium">Minimum Floor Classes Attended</span>
+                            <span class="text-xs">{{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium text-[11px]">Minimum Floor Classes Attended</span>
                         </div>
 
-                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                        <div class="p-2 rounded-lg border flex items-center gap-2
                             {{if ge .Readiness.DaysInRank .Readiness.RequiredDaysInRank}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
                             {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
-                            <span>{{if ge .Readiness.DaysInRank .Readiness.RequiredDaysInRank}}✓{{else}}○{{end}}</span>
-                            <span class="font-medium">Time-in-Rank Requirement Met</span>
+                            <span class="text-xs">{{if ge .Readiness.DaysInRank .Readiness.RequiredDaysInRank}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium text-[11px]">Time-in-Rank Requirement Met</span>
                         </div>
 
-                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                        <div class="p-2 rounded-lg border flex items-center gap-2
                             {{if and .Readiness.HasEvaluation (ge .Readiness.LatestMinScore 6)}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
                             {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
-                            <span>{{if and .Readiness.HasEvaluation (ge .Readiness.LatestMinScore 6)}}✓{{else}}○{{end}}</span>
-                            <span class="font-medium">Athletic Benchmark (No score &lt; 6)</span>
+                            <span class="text-xs">{{if and .Readiness.HasEvaluation (ge .Readiness.LatestMinScore 6)}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium text-[11px]">Athletic Benchmark (No score &lt; 6)</span>
                         </div>
 
-                        <div class="p-3 rounded-xl border flex items-center gap-2.5
+                        <div class="p-2 rounded-lg border flex items-center gap-2
                             {{if .Readiness.HasEvaluation}}bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400
                             {{else}}bg-neutral-100 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400{{end}}">
-                            <span>{{if .Readiness.HasEvaluation}}✓{{else}}○{{end}}</span>
-                            <span class="font-medium">Formal Coach Dan Evaluation</span>
+                            <span class="text-xs">{{if .Readiness.HasEvaluation}}✓{{else}}○{{end}}</span>
+                            <span class="font-medium text-[11px]">Formal Coach Dan Evaluation</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Package Balance & Auto-Deduction Wallet -->
-            <div id="wallet-ledger-card" class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center justify-between mb-4 gap-2">
-                    <div class="flex items-center gap-2">
-                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+            <div id="wallet-ledger-card" class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+                <div class="flex items-center justify-between mb-3 gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
                             Prepaid Membership Wallet
                         </h2>
                         <div class="has-tooltip inline-flex items-center">
@@ -170,45 +170,45 @@
                             </div>
                         </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">
                         {{if .ActivePackage}}Active Membership{{else}}No Active Membership{{end}}
                     </span>
                 </div>
 
                 {{if .ActivePackage}}
-                <div class="p-4 sm:p-5 rounded-xl bg-gradient-to-br from-neutral-900 to-black text-white border border-neutral-800 shadow-lg relative overflow-hidden mb-4">
+                <div class="p-3 sm:p-3.5 rounded-lg bg-gradient-to-br from-neutral-900 to-black text-white border border-neutral-800 shadow-sm relative overflow-hidden mb-3">
                     <div class="flex justify-between items-start">
                         <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-red-400">Current Membership</span>
-                            <h3 class="font-display font-bold text-lg sm:text-xl text-white">{{.ActivePackage.TemplateTitle}}</h3>
-                            <p class="text-xs text-slate-400 mt-1">Valid until {{formatDate .ActivePackage.ExpiryDate}}</p>
+                            <span class="text-[9px] font-bold uppercase tracking-wider text-red-400">Current Membership</span>
+                            <h3 class="font-display font-bold text-base sm:text-lg text-white">{{.ActivePackage.TemplateTitle}}</h3>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Valid until {{formatDate .ActivePackage.ExpiryDate}}</p>
                         </div>
                         <div class="text-right">
-                            <span class="text-3xl font-display font-black text-white">
+                            <span class="text-2xl font-display font-black text-white">
                                 {{if .ActivePackage.RemainingSessions}}{{.ActivePackage.RemainingSessions}}{{else}}&infin;{{end}}
                             </span>
-                            <span class="block text-[10px] uppercase font-bold text-slate-400">Classes Left</span>
+                            <span class="block text-[9px] uppercase font-bold text-slate-400">Classes Left</span>
                         </div>
                     </div>
                 </div>
                 {{else}}
-                <div class="p-6 text-center rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800 mb-4">
-                    <p class="text-sm font-semibold text-slate-600 dark:text-slate-400">No active membership found. Please see front desk for renewal.</p>
+                <div class="p-4 text-center rounded-lg border border-dashed border-[#E5E3D8] dark:border-neutral-800 mb-3">
+                    <p class="text-xs font-semibold text-slate-600 dark:text-slate-400">No active membership found. Please see front desk for renewal.</p>
                 </div>
                 {{end}}
 
                 <!-- Past Check-Ins Audit Log -->
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                     Recent Attendance Log
                 </h3>
-                <div class="max-h-48 overflow-y-auto divide-y divide-[#E5E3D8] dark:divide-neutral-800 text-xs">
+                <div class="max-h-40 overflow-y-auto divide-y divide-[#E5E3D8] dark:divide-neutral-800 text-xs">
                     {{range .RecentAttendances}}
-                    <div class="py-2.5 flex items-center justify-between">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                    <div class="py-1.5 flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
                             <span class="font-semibold text-slate-800 dark:text-slate-200">Class Attended</span>
                             {{if .LocationName}}
-                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
                                 <span>📍</span>
                                 {{if .LocationPin}}
                                 <a href="{{.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline font-semibold" title="View Location in Google Maps">{{.LocationName}}</a>
@@ -218,24 +218,24 @@
                             </span>
                             {{end}}
                             {{if .PackageTitle}}
-                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">{{.PackageTitle}}</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">{{.PackageTitle}}</span>
                             {{end}}
                         </div>
-                        <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">{{formatDate .CheckedInAt}}</span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">{{formatDate .CheckedInAt}}</span>
                     </div>
                     {{else}}
-                    <p class="text-xs text-slate-500 py-3 text-center">No past attendance logs found.</p>
+                    <p class="text-xs text-slate-500 py-2.5 text-center">No past attendance logs found.</p>
                     {{end}}
                 </div>
             </div>
         </div>
 
         <!-- Right Col: Athletic Spider Chart & Schedule (1 col) -->
-        <div class="space-y-6">
+        <div class="space-y-3 sm:space-y-4">
             <!-- Athletic Spider Chart Card -->
-            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+            <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
                         Athletic Spider Matrix
                     </h2>
                     {{if .LatestEvaluation}}
@@ -246,8 +246,8 @@
                 </div>
 
                 {{if .LatestEvaluation}}
-                <div class="flex justify-center my-2">
-                    <svg viewBox="0 0 200 200" class="w-48 h-48 sm:w-52 sm:h-52">
+                <div class="flex justify-center my-1.5">
+                    <svg viewBox="0 0 200 200" class="w-36 h-36 sm:w-44 sm:h-44">
                         <!-- Radar Web Grids (10, 8, 6, 4, 2) -->
                         <polygon points="100,25 165,137.5 35,137.5" fill="none" class="radar-grid" stroke-width="1" />
                         <polygon points="100,40 152,130 48,130" fill="none" class="radar-grid" stroke-width="1" />
@@ -263,45 +263,45 @@
                     </svg>
                 </div>
 
-                <div class="grid grid-cols-3 gap-2 text-[11px] font-semibold mt-2">
-                    <div class="flex flex-col sm:flex-row sm:justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                <div class="grid grid-cols-3 gap-1.5 text-[10px] font-semibold mt-1.5">
+                    <div class="flex flex-col sm:flex-row sm:justify-between p-1 rounded bg-neutral-100 dark:bg-neutral-900/60">
                         <span class="text-slate-600 dark:text-slate-400">Sparring</span>
                         <span class="text-black dark:text-white font-bold">{{.LatestEvaluation.Sparring}}/10</span>
                     </div>
-                    <div class="flex flex-col sm:flex-row sm:justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                    <div class="flex flex-col sm:flex-row sm:justify-between p-1 rounded bg-neutral-100 dark:bg-neutral-900/60">
                         <span class="text-slate-600 dark:text-slate-400">Flexibility</span>
                         <span class="text-black dark:text-white font-bold">{{.LatestEvaluation.Flexibility}}/10</span>
                     </div>
-                    <div class="flex flex-col sm:flex-row sm:justify-between p-1.5 rounded bg-neutral-100 dark:bg-neutral-900/60">
+                    <div class="flex flex-col sm:flex-row sm:justify-between p-1 rounded bg-neutral-100 dark:bg-neutral-900/60">
                         <span class="text-slate-600 dark:text-slate-400">Poomsae</span>
                         <span class="text-black dark:text-white font-bold">{{.LatestEvaluation.Poomsae}}/10</span>
                     </div>
                 </div>
 
                 {{if .LatestEvaluation.CoachRemarks}}
-                <div class="mt-3 p-2.5 rounded-lg bg-neutral-100 dark:bg-neutral-900/80 border border-neutral-200 dark:border-neutral-800 text-[11px] text-slate-600 dark:text-slate-400">
+                <div class="mt-2 p-2 rounded-lg bg-neutral-100 dark:bg-neutral-900/80 border border-neutral-200 dark:border-neutral-800 text-[10px] text-slate-600 dark:text-slate-400">
                     <span class="font-bold text-slate-800 dark:text-slate-200 block mb-0.5">Coach Remark:</span>
                     "{{.LatestEvaluation.CoachRemarks}}"
                 </div>
                 {{end}}
 
                 {{else}}
-                <div class="p-6 text-center text-xs text-slate-500">
+                <div class="p-4 text-center text-xs text-slate-500">
                     No athletic evaluation on record yet. Next floor review will populate the radar.
                 </div>
                 {{end}}
             </div>
 
             <!-- Today's Floor Schedule & Self Check-In -->
-            <div id="today-classes-card" class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4] mb-3">
+            <div id="today-classes-card" class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
+                <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4] mb-2.5">
                     Today's Scheduled Classes
                 </h2>
-                <div class="space-y-3">
+                <div class="space-y-2">
                     {{range .UpcomingSessions}}
                         {{template "student_session_item.html" (dict "Session" . "StudentID" $.Student.ID "IsCheckedIn" (index $.CheckedInSessions .ID.String) "HasSafetyHold" $.HasActiveSafetyHold "FeedbackMessage" "" "IsSuccess" false)}}
                     {{else}}
-                    <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No scheduled classes today.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 text-center py-3">No scheduled classes today.</p>
                     {{end}}
                 </div>
             </div>

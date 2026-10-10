@@ -3,93 +3,65 @@
 {{define "title"}}Master Operations Portal &bull; Series Taekwondo{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
-    <!-- Master Telemetry HUD (4 Stat Cards) -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
-                Active Students
-            </span>
-            <div class="flex items-baseline justify-between">
-                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
-                    {{.ActiveStudentsCount}}
-                </span>
-                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    Roster Active
-                </span>
-            </div>
+<div class="space-y-3.5 sm:space-y-4">
+    <!-- Master Telemetry HUD (Compact KPI Strip) -->
+    <div class="kpi-strip grid-cols-2 lg:grid-cols-4">
+        <div class="kpi-tile">
+            <span class="kpi-label">Active Students</span>
+            <div class="kpi-val text-black dark:text-white">{{.ActiveStudentsCount}}</div>
+            <p class="kpi-sub text-emerald-600 dark:text-emerald-400">Roster Active</p>
         </div>
 
-        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
-                Classes Conducted
-            </span>
-            <div class="flex items-baseline justify-between">
-                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
-                    {{.TotalSessionsCount}}
-                </span>
-                <span class="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
-                    Total Classes
-                </span>
-            </div>
+        <div class="kpi-tile">
+            <span class="kpi-label">Classes Conducted</span>
+            <div class="kpi-val text-black dark:text-white">{{.TotalSessionsCount}}</div>
+            <p class="kpi-sub text-blue-600 dark:text-blue-400">Total Classes</p>
         </div>
 
-        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
-                Dan Coaches Active
-            </span>
-            <div class="flex items-baseline justify-between">
-                <span class="text-2xl sm:text-3xl font-display font-black text-black dark:text-white">
-                    {{.ActiveCoachesCount}}
-                </span>
-                <span class="text-xs font-bold text-[#990303] dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
-                    Black Belt Staff
-                </span>
-            </div>
+        <div class="kpi-tile">
+            <span class="kpi-label">Dan Coaches Active</span>
+            <div class="kpi-val text-black dark:text-white">{{.ActiveCoachesCount}}</div>
+            <p class="kpi-sub text-[#990303] dark:text-red-400">Black Belt Staff</p>
         </div>
 
-        <div class="glass-panel rounded-2xl p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block mb-1">
-                Open Safety Incidents
-            </span>
-            <div class="flex items-baseline justify-between">
-                <span class="text-2xl sm:text-3xl font-display font-black {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400{{else}}text-black dark:text-white{{end}}">
-                    {{.OpenIncidentsCount}}
-                </span>
-                <span class="text-xs font-bold {{if gt .OpenIncidentsCount 0}}text-rose-600 bg-rose-500/15{{else}}text-slate-500 bg-neutral-200 dark:bg-neutral-800{{end}} px-2 py-0.5 rounded-full">
-                    {{if gt .OpenIncidentsCount 0}}Action Due{{else}}All Clear{{end}}
-                </span>
+        <div class="kpi-tile">
+            <span class="kpi-label">Safety Incidents</span>
+            <div class="kpi-val {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400{{else}}text-black dark:text-white{{end}}">
+                {{.OpenIncidentsCount}}
             </div>
+            <p class="kpi-sub {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400 font-bold{{else}}text-slate-500{{end}}">
+                {{if gt .OpenIncidentsCount 0}}Action Due{{else}}All Clear{{end}}
+            </p>
         </div>
     </div>
 
     <!-- Pending Staff Approvals Alert Banner -->
     {{if or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}}
-    <div class="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-        <div class="flex items-center gap-3.5">
-            <div class="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg font-bold flex-shrink-0 shadow-md">
+    <div class="p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+        <div class="flex items-center gap-2.5">
+            <div class="h-8 w-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-xs">
                 ⏳
             </div>
             <div>
-                <h3 class="font-display font-bold text-sm uppercase tracking-wide text-amber-900 dark:text-amber-300">
+                <h3 class="font-display font-bold text-xs uppercase tracking-wide text-amber-900 dark:text-amber-300">
                     Pending Staff Registrations Awaiting Approval
                 </h3>
-                <p class="text-xs text-amber-800 dark:text-amber-400 mt-0.5">
+                <p class="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
                     {{if gt .PendingCoachesCount 0}}<strong>{{.PendingCoachesCount}}</strong> Coach{{if gt .PendingCoachesCount 1}}es{{end}}{{end}}
                     {{if and (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}} &bull; {{end}}
-                    {{if gt .PendingAdminsCount 0}}<strong>{{.PendingAdminsCount}}</strong> Administrator{{if gt .PendingAdminsCount 1}}s{{end}}{{end}}
-                    applied for staff credentials and require review before login access is activated.
+                    {{if gt .PendingAdminsCount 0}}<strong>{{.PendingAdminsCount}}</strong> Admin{{if gt .PendingAdminsCount 1}}s{{end}}{{end}}
+                    require review before login access is activated.
                 </p>
             </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
             {{if gt .PendingCoachesCount 0}}
-            <a href="/coaches" class="btn btn-warning btn-sm flex items-center gap-1 shadow-sm">
+            <a href="/coaches" class="btn btn-warning btn-xs flex items-center gap-1 shadow-2xs">
                 <span>🥋 Review Coaches ({{.PendingCoachesCount}})</span>
             </a>
             {{end}}
             {{if gt .PendingAdminsCount 0}}
-            <a href="/admins" class="btn btn-secondary btn-sm flex items-center gap-1 shadow-sm">
+            <a href="/admins" class="btn btn-secondary btn-xs flex items-center gap-1 shadow-2xs">
                 <span>🛡️ Review Admins ({{.PendingAdminsCount}})</span>
             </a>
             {{end}}
@@ -98,33 +70,33 @@
     {{end}}
 
     <!-- Admin Quick Provisioning Bar -->
-    <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="glass-panel rounded-xl p-3 sm:p-3.5 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div>
-            <h2 class="font-display font-bold text-sm uppercase text-black dark:text-[#FFFDF4]">
+            <h2 class="font-display font-bold text-xs uppercase text-black dark:text-[#FFFDF4]">
                 Administration &amp; Onboarding Hub
             </h2>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                Staff can self-register at <a href="/register" class="underline font-semibold text-[#990303] dark:text-red-400">/register</a>. You can also directly provision credentials below.
+            <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                Staff can self-register at <a href="/register" class="underline font-semibold text-[#990303] dark:text-red-400">/register</a> or provision credentials directly.
             </p>
         </div>
-        <div class="flex items-center gap-3">
-            <a href="/students" class="btn btn-primary btn-sm flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+            <a href="/students" class="btn btn-primary btn-xs flex items-center gap-1">
                 ➕ Add Student
             </a>
-            <a href="/coaches" class="btn btn-outline btn-sm flex items-center gap-1.5">
+            <a href="/coaches" class="btn btn-outline btn-xs flex items-center gap-1">
                 ➕ Add Coach
             </a>
-            <a href="/admins" class="btn btn-secondary btn-sm flex items-center gap-1.5">
+            <a href="/admins" class="btn btn-secondary btn-xs flex items-center gap-1">
                 🛡️ Manage Admins
             </a>
         </div>
     </div>
 
     <!-- Section: Promotion Pipeline Oversight & 1-Click Advancements -->
-    <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-        <div class="flex items-center justify-between gap-3 mb-5">
-            <div class="flex items-center gap-2">
-                <h2 class="font-display font-extrabold text-base sm:text-xl uppercase text-black dark:text-[#FFFDF4]">
+    <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+        <div class="flex items-center justify-between gap-2.5 mb-3">
+            <div class="flex items-center gap-1.5">
+                <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
                     Promotion Pipeline &amp; Dan Roster Control
                 </h2>
                 <div class="has-tooltip inline-flex items-center">
@@ -134,66 +106,66 @@
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <span class="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-xs font-bold text-black dark:text-white border border-neutral-200 dark:border-neutral-800">
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+                <span class="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-900 text-[10px] font-bold text-black dark:text-white border border-neutral-200 dark:border-neutral-800">
                     {{len .StudentsWithReadiness}} Practitioners
                 </span>
             </div>
         </div>
 
         <div class="overflow-x-auto -mx-1 sm:mx-0">
-            <table class="w-full text-left text-xs min-w-[700px]">
+            <table class="w-full text-left text-xs min-w-[700px] table-compact">
                 <thead>
-                    <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase tracking-wider">
-                        <th class="pb-3">Practitioner</th>
-                        <th class="pb-3">Current Belt</th>
-                        <th class="pb-3">Classes Attended</th>
-                        <th class="pb-3">Tenure</th>
-                        <th class="pb-3">Readiness Badge</th>
-                        <th class="pb-3">Target Rank</th>
-                        <th class="pb-3 text-right">Advancement Action</th>
+                    <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                        <th class="py-2 px-2.5">Practitioner</th>
+                        <th class="py-2 px-2.5">Current Belt</th>
+                        <th class="py-2 px-2.5">Classes Attended</th>
+                        <th class="py-2 px-2.5">Tenure</th>
+                        <th class="py-2 px-2.5">Readiness Badge</th>
+                        <th class="py-2 px-2.5">Target Rank</th>
+                        <th class="py-2 px-2.5 text-right">Advancement Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-[#E5E3D8] dark:divide-neutral-800/60 font-medium">
                     {{range .StudentsWithReadiness}}
                     <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition">
-                        <td class="py-3 font-bold text-black dark:text-white">
-                            <div class="flex items-center gap-2">
+                        <td class="py-1.5 px-2.5 font-bold text-black dark:text-white">
+                            <div class="flex items-center gap-1.5">
                                 <span>{{.Student.FullName}}</span>
                                 {{if .Student.HasSafetyFlag}}
                                 <span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-500/20 text-rose-500 border border-rose-500/30">HOLD</span>
                                 {{end}}
                             </div>
                         </td>
-                        <td class="py-3">
+                        <td class="py-1.5 px-2.5">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
                                 {{.Student.CurrentBelt}}
                             </span>
                         </td>
-                        <td class="py-3 text-slate-800 dark:text-slate-200 font-bold">
+                        <td class="py-1.5 px-2.5 text-slate-800 dark:text-slate-200 font-bold">
                             {{.Readiness.TotalSessions}} / {{.Readiness.RequiredSessions}}
                         </td>
-                        <td class="py-3 text-slate-800 dark:text-slate-200">
+                        <td class="py-1.5 px-2.5 text-slate-800 dark:text-slate-200">
                             {{.Readiness.DaysInRank}} / {{.Readiness.RequiredDaysInRank}} days
                         </td>
-                        <td class="py-3">
-                            <span class="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+                        <td class="py-1.5 px-2.5">
+                            <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border
                                 {{if eq .Readiness.BadgeColor "emerald"}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30
                                 {{else if eq .Readiness.BadgeColor "amber"}}bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30
                                 {{else}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30{{end}}">
                                 {{.Readiness.BadgeIcon}} {{.Readiness.Status}}
                             </span>
                         </td>
-                        <td class="py-3 text-[#990303] dark:text-red-400 font-bold">
+                        <td class="py-1.5 px-2.5 text-[#990303] dark:text-red-400 font-bold">
                             {{.Student.NextBelt}}
                         </td>
-                        <td class="py-3 text-right">
+                        <td class="py-1.5 px-2.5 text-right">
                             <span id="promote-status-{{.Student.ID}}">
                                 <button hx-post="/api/admin/promote"
                                         hx-vals='{"student_id": "{{.Student.ID}}"}'
                                         hx-target="#promote-status-{{.Student.ID}}"
                                         hx-confirm="Promote {{.Student.FullName}} to {{.Student.NextBelt}}? This resets tenure days and attendance counts."
-                                        class="btn btn-success btn-xs">
+                                        class="btn btn-success btn-xs py-0.5 px-2 text-[10px]">
                                     Promote Belt
                                 </button>
                             </span>
@@ -201,7 +173,7 @@
                     </tr>
                     {{else}}
                     <tr>
-                        <td colspan="7" class="py-8 text-center text-slate-500">No student records found.</td>
+                        <td colspan="7" class="py-6 text-center text-slate-500">No student records found.</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -210,13 +182,13 @@
     </div>
 
     <!-- 2 Columns: Safety Incident Clearance & Curriculum Schedule Generator -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
         <!-- Safety & Incident Clearance Queue -->
-        <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <div class="flex items-center justify-between mb-4 gap-2">
-                <div class="flex items-center gap-2">
-                    <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
-                        Safety Incident &amp; First Aid Clearance
+        <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+            <div class="flex items-center justify-between mb-3 gap-2">
+                <div class="flex items-center gap-1.5">
+                    <h2 class="font-display font-extrabold text-sm uppercase text-black dark:text-[#FFFDF4]">
+                        Safety Incident &amp; Clearance
                     </h2>
                     <div class="has-tooltip inline-flex items-center">
                         <button type="button" class="tooltip-icon" aria-label="Safety clearance info">ⓘ</button>
@@ -225,19 +197,19 @@
                         </div>
                     </div>
                 </div>
-                <span class="px-2 py-0.5 rounded text-xs font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-500{{end}} flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-500{{end}} flex-shrink-0">
                     {{.OpenIncidentsCount}} Open
                 </span>
             </div>
 
-            <div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+            <div class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
                 {{range .SafetyIncidents}}
-                <div id="incident-card-{{.ID}}" class="p-3.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 text-xs">
-                    <div class="flex items-start justify-between gap-2 mb-2">
+                <div id="incident-card-{{.ID}}" class="p-2.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 text-xs">
+                    <div class="flex items-start justify-between gap-2 mb-1.5">
                         <div>
                             <div class="flex items-center gap-1.5">
                                 <span class="font-bold text-black dark:text-white">{{.StudentName}}</span>
-                                <span class="text-[10px] px-1.5 py-0.2 rounded font-bold {{if .Resolved}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400{{else}}bg-rose-500/15 text-rose-600 dark:text-rose-400{{end}}">
+                                <span class="text-[9px] px-1.5 py-0.2 rounded font-bold {{if .Resolved}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400{{else}}bg-rose-500/15 text-rose-600 dark:text-rose-400{{end}}">
                                     {{if .Resolved}}Cleared{{else}}Active Hold{{end}}
                                 </span>
                             </div>
@@ -248,35 +220,35 @@
                         <span class="text-[10px] text-slate-500">{{formatDate .CreatedAt}}</span>
                     </div>
 
-                    <p class="p-2 rounded bg-neutral-100 dark:bg-neutral-800/80 text-[11px] text-slate-700 dark:text-slate-300 mb-2.5 italic">
+                    <p class="p-1.5 rounded bg-neutral-100 dark:bg-neutral-800/80 text-[11px] text-slate-700 dark:text-slate-300 mb-2 italic">
                         "{{.Notes}}"
                     </p>
 
-                    <div class="flex items-center justify-between pt-1">
+                    <div class="flex items-center justify-between pt-0.5">
                         <span class="text-[10px] text-slate-500">
-                            {{if .Resolved}}Resolved by: {{.ResolvedBy}}{{else}}Logged by: {{.CoachName}}{{end}}
+                            {{if .Resolved}}Resolved: {{.ResolvedBy}}{{else}}By: {{.CoachName}}{{end}}
                         </span>
 
                         {{if not .Resolved}}
                         <button hx-post="/api/safety/resolve"
                                 hx-vals='{"incident_id": "{{.ID}}"}'
                                 hx-target="#incident-card-{{.ID}}"
-                                class="btn btn-success btn-xs">
+                                class="btn btn-success btn-xs py-0.5 px-2 text-[10px]">
                             Clear Safety Hold
                         </button>
                         {{end}}
                     </div>
                 </div>
                 {{else}}
-                <p class="text-xs text-slate-500 py-6 text-center">No safety incidents on record.</p>
+                <p class="text-xs text-slate-500 py-4 text-center">No safety incidents on record.</p>
                 {{end}}
             </div>
         </div>
 
         <!-- Curriculum & Schedule Generator -->
-        <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-            <div class="flex items-center gap-2 mb-3">
-                <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+        <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+            <div class="flex items-center gap-1.5 mb-2.5">
+                <h2 class="font-display font-extrabold text-sm uppercase text-black dark:text-[#FFFDF4]">
                     Curriculum Class Generator
                 </h2>
                 <div class="has-tooltip inline-flex items-center">
@@ -289,12 +261,12 @@
 
             <form hx-post="/api/admin/schedule"
                   hx-target="#schedule-feedback"
-                  class="space-y-3 text-xs">
-                <div class="grid grid-cols-2 gap-3">
+                  class="space-y-2.5 text-xs">
+                <div class="grid grid-cols-2 gap-2.5">
                     <div>
-                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Discipline</label>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5 text-[10px]">Discipline</label>
                         <select name="discipline" required
-                                class="w-full px-3 py-2 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-semibold">
+                                class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-semibold text-xs">
                             {{range .TrainingCategories}}
                             <option value="{{.Name}}">{{.Name}}</option>
                             {{end}}
@@ -302,7 +274,7 @@
                     </div>
 
                     <div>
-                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Lead Instructor <span class="text-[10px] text-slate-400 font-normal lowercase">(optional)</span></label>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5 text-[10px]">Lead Instructor <span class="text-[9px] text-slate-400 font-normal lowercase">(optional)</span></label>
                         <select name="coach_id"
                                 class="form-select searchable-select" data-placeholder="Select Lead Instructor (Optional)...">
                             <option value="">None / Unassigned</option>
@@ -315,32 +287,32 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-3 gap-2">
                     <div>
-                        <label class="form-label">Date</label>
-                        <input type="date" name="session_date" required class="form-input">
+                        <label class="form-label text-[10px]">Date</label>
+                        <input type="date" name="session_date" required class="form-input text-xs py-1">
                     </div>
                     <div>
-                        <label class="form-label">Start Time</label>
-                        <select name="start_time" required class="form-select">
+                        <label class="form-label text-[10px]">Start Time</label>
+                        <select name="start_time" required class="form-select text-xs py-1">
                             <option value="17:00">17:00</option>
                             <option value="18:30">18:30</option>
                             <option value="19:45">19:45</option>
                         </select>
                     </div>
                     <div>
-                        <label class="form-label">End Time</label>
-                        <select name="end_time" required class="form-select">
+                        <label class="form-label text-[10px]">End Time</label>
+                        <select name="end_time" required class="form-select text-xs py-1">
                             <option value="18:15">18:15</option>
-                            <option value="18:30">18:30 (Extended)</option>
+                            <option value="18:30">18:30 (Ext)</option>
                             <option value="19:45">19:45</option>
-                            <option value="20:00">20:00 (Extended)</option>
+                            <option value="20:00">20:00 (Ext)</option>
                         </select>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Training Location <span class="text-[10px] text-slate-400 font-normal lowercase">(optional)</span></label>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5 text-[10px]">Training Location <span class="text-[9px] text-slate-400 font-normal lowercase">(optional)</span></label>
                     <select name="location_id" id="admin-schedule-location" onchange="onAdminLocationChange()"
                             class="form-select searchable-select" data-placeholder="Select Training Location (Optional)...">
                         <option value="" data-fixed-rate="">None / Main Gym</option>
@@ -351,8 +323,8 @@
                 </div>
 
                 <div>
-                    <div class="flex items-center gap-1.5 mb-1">
-                        <label class="form-label mb-0">School / Fixed Rate (₱)</label>
+                    <div class="flex items-center gap-1.5 mb-0.5">
+                        <label class="form-label mb-0 text-[10px]">School / Fixed Rate (₱)</label>
                         <div class="has-tooltip inline-flex items-center">
                             <button type="button" class="tooltip-icon" aria-label="Fixed rate note">ⓘ</button>
                             <div class="tooltip-content w-64">
@@ -361,18 +333,18 @@
                         </div>
                     </div>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
-                        <input type="number" id="admin-schedule-rate" name="session_rate" step="0.01" min="0" placeholder="0.00" class="form-input pl-7 text-xs">
+                        <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-semibold text-xs">₱</span>
+                        <input type="number" id="admin-schedule-rate" name="session_rate" step="0.01" min="0" placeholder="0.00" class="form-input pl-6 text-xs py-1">
                     </div>
                 </div>
 
                 <div>
-                    <label class="form-label">Training Notes &amp; Curriculum Focus</label>
-                    <textarea name="notes" rows="2" placeholder="e.g. Taegeuk forms precision, counter-attack timing drills..."
-                              class="form-textarea"></textarea>
+                    <label class="form-label text-[10px]">Training Notes &amp; Curriculum Focus</label>
+                    <textarea name="notes" rows="1.5" placeholder="e.g. Taegeuk forms precision, counter-attack timing drills..."
+                              class="form-textarea text-xs"></textarea>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-md w-full">
+                <button type="submit" class="btn btn-primary btn-sm w-full py-1.5">
                     + Generate Scheduled Floor Slot
                 </button>
                 <div id="schedule-feedback"></div>

@@ -56,4 +56,14 @@ STMS operates on floor tablets and mobile devices with varying network stability
   6. **Foreign Key Indexes**: Added `idx_users_student_id` and `idx_users_coach_id` to database migrations.
   7. **Boosted Navigation vs. Filter Partials Invariant**: In handlers that support both full-page loads and targeted filter/search partials (`HandleStudents`, `HandleSessions`), never inspect only `HX-Request: true`. Boosted navigations send both `HX-Request: true` AND `HX-Boosted: true`. The handler must check `r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"` before returning partial snippets to ensure boosted page navigation receives the full layout shell (navbar, header, modals).
 
+---
+
+### Context: Dynamic Modal Forms & HTMX Boost Invariant
+
+* **Problem**: When `hx-boost="true"` is active on `<body>` for fast SPA-style navigation, HTMX automatically boosts all `<form>` elements during DOM initialization. For modal forms initialized with `action=""` (where the destination URL like `/sessions/{id}/edit` is populated dynamically via JavaScript upon clicking "Edit"), HTMX captures `action=""` into its event listener closure at page load. Upon submit, HTMX falls back to the current page URL (e.g. `POST /sessions`), invoking the creation endpoint (`HandleCreateSession`) instead of the update endpoint (`HandleUpdateSession`), causing duplicate entities to be created when saving edits.
+* **Enforced Solution**:
+  1. **Exempt Dynamic Modal Forms (`hx-boost="false"`)**: Always add `hx-boost="false"` to any `<form>` whose `action` attribute is set dynamically via JavaScript upon opening (e.g., `#edit-session-form`, `#delete-session-form`, `#cancel-session-form`, `#reschedule-session-form`, `#edit-location-form`, `#edit-plan-form`, `#edit-cat-form`).
+  2. **Synchronize Form Action Attributes**: In modal opening functions, update both `form.action = url` and `form.setAttribute('action', url)`.
+  3. **Explicit Form Tag Closure**: Ensure every modal `<form>` has an explicit closing `</form>` tag before closing modal dialog wrapper elements to prevent form nesting hazards in browser DOM parsers.
+
 

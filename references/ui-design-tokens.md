@@ -184,3 +184,26 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
    - Case-sensitive names (username, identifier, 	oken, key, secret, smtp_host, smtp_user, web_push_public_key, web_push_subject, sms_from_number, display_name) are exempted globally across all routes.
 3. **Template Declarations**:
    - Explicitly annotate forms and inputs in login.html, egister.html, settings.html, orgot_password.html, eset_password.html, dmins.html, and profile.html with .no-uppercase, data-no-uppercase=true, utocapitalize=none, and spellcheck=false where appropriate.
+
+### Context: High-Density Compact System Redesign & Redundancy Purging
+
+**Problem:**
+1. Oversized hero cards, 6-card redundant "Quick Access" launcher hubs, and deep card gutters (`p-6` to `p-8`, `gap-6` to `gap-8`) wasted vertical viewport space above the fold across all administrative, coach, and student views.
+2. Tables suffered from excessive cell vertical padding (`py-4`), multi-line filter stacks, and heavy SVG polygon radar charts inside table rows (>90px row height).
+3. Redundant duplicate action buttons (e.g. "+ Schedule Class" rendered both in filter bars and card loops, duplicate logout buttons in headers and sidebars) added unnecessary visual noise.
+
+**Enforced Solution:**
+1. **Design Tokens & Palette Preservation**:
+   - Strict 100% brand color palette retention: Crimson (`#990303`/`#7D0202`), Dark Scarlet (`#DC2626`), Black (`#000000`), Cream (`#FFFDF4`/`#F4F1E4`), Slate (`#E5E3D8`), and semantic badges (emerald/amber/rose).
+2. **High-Density KPI Ribbons (`.kpi-strip` & `.kpi-tile`)**:
+   - Multi-card metric grids replaced with unified horizontal strips (`.kpi-strip grid grid-cols-2 lg:grid-cols-4 p-2 gap-2 rounded-xl bg-slate-50/80 dark:bg-neutral-900/60`).
+   - Compact tiles (`.kpi-tile glass-panel p-2.5 sm:p-3 rounded-lg`) reduce vertical footprint from ~140px down to ~52px.
+3. **Compact Tables (`.table-compact`)**:
+   - `.table-compact th` (`py-2 px-3 text-[11px] font-bold uppercase tracking-wider`).
+   - `.table-compact td` (`py-2 px-3 text-xs`).
+   - In student table rows, replaced heavy 64x64 SVG radar bottleneck with sleek athletic metric pills (`⚡ 8.4/10`), reducing row height from >90px to ~38px.
+4. **Header & Shell Compression**:
+   - Slimmed global header from 64px to 48px (`py-2`, `h-8 w-8` badge, `px-2.5 py-1 text-xs` nav links).
+   - Compacted main container vertical gutters (`py-3 sm:py-4 pb-16 lg:pb-4 min-w-0`) and slimmed footer (`py-2 text-[11px]`).
+5. **Redundancy Elimination**:
+   - Purged duplicate launchers, duplicate schedule buttons, and duplicate logout controls. All views deliver instant operational controls directly on the surface.

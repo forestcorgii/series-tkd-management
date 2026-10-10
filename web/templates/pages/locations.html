@@ -4,12 +4,12 @@
 
 {{define "content"}}
 {{$user := currentUser .}}
-<div class="space-y-6">
+<div class="space-y-3 sm:space-y-4">
     <h1 class="sr-only">Training Locations &amp; Branch Dojangs</h1>
 
     <!-- Compact Top Action Bar -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
+    <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
             <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Training Locations</span>
             <div class="has-tooltip">
                 <button type="button" class="tooltip-icon" aria-label="Locations Info">ⓘ</button>
@@ -22,7 +22,7 @@
         <div>
             <button type="button"
                     onclick="openNewLocationModal()"
-                    class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm py-2 px-3">
+                    class="btn btn-primary btn-xs flex items-center gap-1 shadow-xs py-1.5 px-2.5">
                 <span>+</span> Add Location
             </button>
         </div>
@@ -31,7 +31,7 @@
 
     <!-- Flash Alert Notices -->
     {{if .SuccessNotice}}
-    <div class="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+    <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between shadow-xs animate-fade-in">
         <div class="flex items-center gap-2">
             <span>✅</span>
             <span class="font-semibold">{{.SuccessNotice}}</span>
@@ -40,7 +40,7 @@
     </div>
     {{end}}
     {{if .ErrorMessage}}
-    <div class="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-center justify-between shadow-sm animate-fade-in">
+    <div class="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-lg text-rose-900 dark:text-rose-200 text-xs flex items-center justify-between shadow-xs animate-fade-in">
         <div class="flex items-center gap-2">
             <span>⚠️</span>
             <span class="font-semibold">{{.ErrorMessage}}</span>
@@ -49,95 +49,80 @@
     </div>
     {{end}}
 
-    <!-- High-Level Metrics Banner -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-            <div class="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-lg flex-shrink-0">
-                🏢
-            </div>
-            <div>
-                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Locations</p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalLocations}}</p>
-            </div>
+    <!-- High-Density Metrics KPI Strip -->
+    <div class="kpi-strip grid grid-cols-1 sm:grid-cols-3">
+        <div class="kpi-tile">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Locations</p>
+            <p class="font-display text-xl font-bold text-slate-900 dark:text-white">{{.TotalLocations}}</p>
+            <p class="text-[10px] text-slate-400">Venues registered</p>
         </div>
-        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-            <div class="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center text-lg flex-shrink-0">
-                🥋
-            </div>
-            <div>
-                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Classes Conducted</p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalSessions}}</p>
-            </div>
+        <div class="kpi-tile">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Classes Conducted</p>
+            <p class="font-display text-xl font-bold text-slate-900 dark:text-white">{{.TotalSessions}}</p>
+            <p class="text-[10px] text-slate-400">Floor sessions</p>
         </div>
-        <div class="glass-panel p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-            <div class="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-lg flex-shrink-0">
-                ✅
-            </div>
-            <div>
-                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Check-Ins Logged</p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{{.TotalAttendance}}</p>
-            </div>
+        <div class="kpi-tile">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Check-Ins Logged</p>
+            <p class="font-display text-xl font-bold text-slate-900 dark:text-white">{{.TotalAttendance}}</p>
+            <p class="text-[10px] text-slate-400">Verified visits</p>
         </div>
     </div>
 
     <!-- Locations List Table & Cards Container -->
-    <div class="glass-panel rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div class="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-            <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Active Venues &amp; Dojangs</h2>
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">{{.TotalLocations}} venues registered</span>
+    <div class="glass-panel rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
+        <div class="p-3 sm:p-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+            <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Active Venues &amp; Dojangs</h2>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">{{.TotalLocations}} venues</span>
         </div>
 
         {{if .Locations}}
         <div class="overflow-x-auto -mx-1 sm:mx-0">
-            <table class="w-full min-w-[700px] text-left border-collapse text-xs sm:text-sm">
+            <table class="w-full min-w-[680px] text-left border-collapse text-xs table-compact">
                 <thead>
-                    <tr class="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
-                        <th class="py-3 px-4 sm:px-6">Location / Branch Name</th>
-                        <th class="py-3 px-4 sm:px-6">Google Maps Pin</th>
-                        <th class="py-3 px-4 sm:px-6 text-center">Fixed Rate</th>
-                        <th class="py-3 px-4 sm:px-6 text-center">Classes Hosted</th>
-                        <th class="py-3 px-4 sm:px-6 text-center">Attendance Logged</th>
-                        <th class="py-3 px-4 sm:px-6 text-right">Actions</th>
+                    <tr class="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider font-display">
+                        <th class="py-2 px-3">Location / Branch Name</th>
+                        <th class="py-2 px-3">Google Maps Pin</th>
+                        <th class="py-2 px-3 text-center">Fixed Rate</th>
+                        <th class="py-2 px-3 text-center">Classes</th>
+                        <th class="py-2 px-3 text-center">Check-ins</th>
+                        <th class="py-2 px-3 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-neutral-900">
+                <tbody class="divide-y divide-slate-100 dark:divide-neutral-900 text-xs">
                     {{range .Locations}}
                     <tr class="hover:bg-slate-50/60 dark:hover:bg-neutral-900/40 transition">
                         <!-- Location Name -->
-                        <td class="py-3.5 px-4 sm:px-6">
-                            <div class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                <span class="h-2 w-2 rounded-full bg-[#990303]"></span>
+                        <td class="py-2 px-3">
+                            <div class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <span class="h-1.5 w-1.5 rounded-full bg-[#990303]"></span>
                                 {{.Location.Name}}
-                            </div>
-                            <div class="text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
-                                ID: {{.Location.ID}}
                             </div>
                         </td>
 
                         <!-- Google Maps Pin -->
-                        <td class="py-3.5 px-4 sm:px-6">
+                        <td class="py-2 px-3">
                             {{if .Location.HasValidPin}}
                             <a href="{{.Location.Pin}}"
                                target="_blank"
                                rel="noopener noreferrer"
-                               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60 dark:hover:bg-blue-900/50 transition">
+                               class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60 dark:hover:bg-blue-900/50 transition">
                                 <span>📍</span>
-                                <span>Open Google Maps</span>
-                                <span class="text-[10px]">↗</span>
+                                <span>Maps Pin</span>
+                                <span class="text-[9px]">↗</span>
                             </a>
                             {{else if .Location.Pin}}
-                            <span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-mono">
+                            <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                                 <span>📍</span> {{.Location.Pin}}
                             </span>
                             {{else}}
-                            <span class="text-xs text-slate-400 dark:text-slate-500 italic">No pin link set</span>
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 italic">No pin set</span>
                             {{end}}
                         </td>
 
                         <!-- Fixed Rate -->
-                        <td class="py-3.5 px-4 sm:px-6 text-center">
+                        <td class="py-2 px-3 text-center">
                             {{if .Location.HasFixedRate}}
-                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
                                 🏫 ₱{{formatCurrency .Location.FixedRate}}
                             </span>
                             {{else}}
@@ -146,24 +131,24 @@
                         </td>
 
                         <!-- Classes Hosted -->
-                        <td class="py-3.5 px-4 sm:px-6 text-center">
-                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800 dark:bg-neutral-800 dark:text-slate-300 border border-slate-200 dark:border-neutral-700">
+                        <td class="py-2 px-3 text-center">
+                            <span class="px-2 py-0.2 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800 dark:bg-neutral-800 dark:text-slate-300 border border-slate-200 dark:border-neutral-700">
                                 {{.SessionsCount}} Classes
                             </span>
                         </td>
 
                         <!-- Attendance Logged -->
-                        <td class="py-3.5 px-4 sm:px-6 text-center">
-                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                {{.AttendanceCount}} Check-ins
+                        <td class="py-2 px-3 text-center">
+                            <span class="px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                {{.AttendanceCount}} Visits
                             </span>
                         </td>
 
                         <!-- Actions -->
-                        <td class="py-3.5 px-4 sm:px-6 text-right">
-                            <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                        <td class="py-2 px-3 text-right">
+                            <div class="flex items-center justify-end gap-1 flex-wrap">
                                 <a href="/sessions?location_id={{.Location.ID}}"
-                                   class="btn btn-secondary btn-xs flex items-center gap-1"
+                                   class="btn btn-secondary btn-xs py-0.5 px-2 text-xs flex items-center gap-1"
                                    title="Filter attendance & classes for this location">
                                     <span>📅</span> Classes
                                 </a>
@@ -273,7 +258,7 @@
             </h3>
             <button type="button" onclick="closeEditLocationModal()" class="modal-close">&times;</button>
         </div>
-        <form id="edit-location-form" method="POST" action="" class="space-y-4">
+        <form id="edit-location-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div>
                 <label class="form-label">Location / Branch Name <span class="text-rose-500">*</span></label>
                 <input type="text"
@@ -335,7 +320,7 @@
             </h3>
             <button type="button" onclick="closeDeleteLocationModal()" class="modal-close">&times;</button>
         </div>
-        <form id="delete-location-form" method="POST" action="" class="space-y-4">
+        <form id="delete-location-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
                 <p id="delete-location-title" class="font-bold text-sm text-slate-900 dark:text-white"></p>
                 <p id="delete-location-meta" class="text-xs text-slate-600 dark:text-slate-400"></p>
@@ -364,7 +349,10 @@ function closeNewLocationModal() {
 
 function openEditLocationModal(id, name, pin, fixedRate) {
     var form = document.getElementById('edit-location-form');
-    form.action = '/locations/' + id + '/edit';
+    if (form) {
+        form.action = '/locations/' + id + '/edit';
+        form.setAttribute('action', '/locations/' + id + '/edit');
+    }
     document.getElementById('edit-location-name').value = name || '';
     document.getElementById('edit-location-pin').value = pin || '';
     var rateInput = document.getElementById('edit-location-fixed-rate');
@@ -380,7 +368,10 @@ function closeEditLocationModal() {
 
 function openDeleteLocationModal(id, name, sessionsCount, attendanceCount) {
     var form = document.getElementById('delete-location-form');
-    form.action = '/locations/' + id + '/delete';
+    if (form) {
+        form.action = '/locations/' + id + '/delete';
+        form.setAttribute('action', '/locations/' + id + '/delete');
+    }
     document.getElementById('delete-location-title').textContent = name;
     document.getElementById('delete-location-meta').textContent = sessionsCount + ' classes scheduled • ' + attendanceCount + ' attendances logged';
     document.getElementById('delete-location-modal').classList.remove('hidden');

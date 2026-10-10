@@ -3,24 +3,24 @@
 {{define "title"}}Coach Floor Console &bull; Series Taekwondo{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
-    <!-- Top Coach Header -->
-    <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="flex items-center space-x-3.5 sm:space-x-4">
-                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-2xl shadow-lg shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
+<div class="space-y-3.5 sm:space-y-4">
+    <!-- Top Coach Header (Compact) -->
+    <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="h-11 w-11 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center font-display font-black text-xl shadow-md shadow-[#990303]/30 border border-red-500/30 flex-shrink-0">
                     🥊
                 </div>
                 <div>
                     <div class="flex items-center gap-2 flex-wrap">
-                        <h1 class="font-display font-black text-2xl sm:text-3xl text-black dark:text-[#FFFDF4] uppercase">
+                        <h1 class="font-display font-black text-lg sm:text-xl text-black dark:text-[#FFFDF4] uppercase">
                             {{if .Coach}}{{.Coach.FullName}}{{else}}Dan Instructor Console{{end}}
                         </h1>
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/15 text-red-600 dark:text-red-400 border border-red-500/30">
+                        <span class="px-2 py-0.2 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-600/15 text-red-600 dark:text-red-400 border border-red-500/30">
                             Floor Operations
                         </span>
                     </div>
-                    <div class="flex items-center gap-3 text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 flex-wrap font-medium">
+                    <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 mt-0.5 flex-wrap font-medium">
                         {{if .Coach}}
                         <span>Rank: <strong class="text-black dark:text-white">{{.Coach.BeltRank}}</strong></span>
                         <span>&bull;</span>
@@ -39,10 +39,10 @@
             </div>
 
             <!-- Session Selector -->
-            <div class="flex items-center gap-2">
-                <label for="session-select" class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">Class:</label>
+            <div class="flex items-center gap-1.5">
+                <label for="session-select" class="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase">Class:</label>
                 <select id="session-select" onchange="window.location.href='/portal/coach?session_id=' + this.value"
-                        class="px-3 py-1.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#990303]">
+                        class="px-2.5 py-1 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#990303]">
                     {{range .AllSessions}}
                     <option value="{{.ID}}" {{if eq $.LiveSession.ID .ID}}selected{{end}}>
                         {{.StartTime}} - {{.EndTime}} ({{.TrainingType}})
@@ -54,14 +54,14 @@
     </div>
 
     <!-- Main Grid: Live Roster & Quick Mat Tools -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
         <!-- Col 1 & 2: Active Floor Roster + Promotion Review Queue -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="lg:col-span-2 space-y-3.5 sm:space-y-4">
             <!-- Active Floor Roster & Rapid Check-in -->
-            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center justify-between gap-3 mb-4">
-                    <div class="flex items-center gap-2">
-                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+            <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+                <div class="flex items-center justify-between gap-2.5 mb-3">
+                    <div class="flex items-center gap-1.5">
+                        <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
                             Live Mat Roster ({{if .LiveSession}}{{.LiveSession.TrainingType}} @ {{.LiveSession.StartTime}}{{else}}Floor Standby{{end}})
                         </h2>
                         <div class="has-tooltip inline-flex items-center">
@@ -71,21 +71,21 @@
                             </div>
                         </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">
                         {{len .LiveAttendances}} On Mat
                     </span>
                 </div>
 
                 <!-- Rapid Mat Check-In Bar -->
                 {{if .LiveSession}}
-                <div class="mb-5 p-3 rounded-xl bg-neutral-100 dark:bg-neutral-900/80 border border-[#E5E3D8] dark:border-neutral-800">
+                <div class="mb-3 p-2 rounded-lg bg-neutral-100 dark:bg-neutral-900/80 border border-[#E5E3D8] dark:border-neutral-800">
                     <form hx-post="/api/coach/check-in"
                           hx-target="#attendance-roster"
                           hx-swap="afterbegin"
                           class="flex items-center gap-2">
                         <input type="hidden" name="session_id" value="{{.LiveSession.ID}}">
                         <select name="student_id" required
-                                class="form-select flex-1 searchable-select" data-placeholder="Select Practitioner to Admit...">
+                                class="form-select flex-1 searchable-select text-xs py-1" data-placeholder="Select Practitioner to Admit...">
                             <option value="">Select Practitioner to Admit...</option>
                             {{range .AllStudents}}
                             <option value="{{.ID}}">
@@ -93,7 +93,7 @@
                             </option>
                             {{end}}
                         </select>
-                        <button type="submit" class="btn btn-primary btn-sm whitespace-nowrap">
+                        <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap py-1.5 px-3">
                             + Admit to Mat
                         </button>
                     </form>
@@ -102,32 +102,32 @@
 
                 <!-- Roster Table -->
                 <div class="overflow-x-auto -mx-1 sm:mx-0">
-                    <table class="w-full text-left text-xs min-w-[500px]">
+                    <table class="w-full text-left text-xs min-w-[500px] table-compact">
                         <thead>
-                            <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase">
-                                <th class="pb-2">Practitioner</th>
-                                <th class="pb-2">Belt Grade</th>
-                                <th class="pb-2">Pass Status</th>
-                                <th class="pb-2">Checked In At</th>
+                            <tr class="border-b border-[#E5E3D8] dark:border-neutral-800 text-slate-700 dark:text-slate-400 font-bold uppercase text-[10px]">
+                                <th class="py-2 px-2.5">Practitioner</th>
+                                <th class="py-2 px-2.5">Belt Grade</th>
+                                <th class="py-2 px-2.5">Pass Status</th>
+                                <th class="py-2 px-2.5">Checked In At</th>
                             </tr>
                         </thead>
                         <tbody id="attendance-roster" class="divide-y divide-[#E5E3D8] dark:divide-neutral-800/60 font-medium">
                             {{range .LiveAttendances}}
                             <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition">
-                                <td class="py-2.5 font-bold text-black dark:text-white">{{.StudentName}}</td>
-                                <td class="py-2.5">
+                                <td class="py-1.5 px-2.5 font-bold text-black dark:text-white">{{.StudentName}}</td>
+                                <td class="py-1.5 px-2.5">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
                                         {{.StudentBelt}}
                                     </span>
                                 </td>
-                                <td class="py-2.5 text-slate-600 dark:text-slate-400">
+                                <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-xs">
                                     {{if .PackageTitle}}{{.PackageTitle}}{{else}}Membership Verified{{end}}
                                 </td>
-                                <td class="py-2.5 text-slate-500">{{formatDate .CheckedInAt}}</td>
+                                <td class="py-1.5 px-2.5 text-slate-500 text-[11px]">{{formatDate .CheckedInAt}}</td>
                             </tr>
                             {{else}}
                             <tr>
-                                <td colspan="4" class="py-6 text-center text-slate-500">No students checked into this class yet.</td>
+                                <td colspan="4" class="py-5 text-center text-slate-500">No students checked into this class yet.</td>
                             </tr>
                             {{end}}
                         </tbody>
@@ -136,10 +136,10 @@
             </div>
 
             <!-- Promotion Review Priority Queue -->
-            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center justify-between mb-3 gap-2">
-                    <div class="flex items-center gap-2">
-                        <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
+            <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+                <div class="flex items-center justify-between mb-2.5 gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
                             Promotion Review Priority Queue
                         </h2>
                         <div class="has-tooltip inline-flex items-center">
@@ -149,46 +149,46 @@
                             </div>
                         </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex-shrink-0">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex-shrink-0">
                         {{len .PriorityReviewQueue}} Candidates
                     </span>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                     {{range .PriorityReviewQueue}}
-                    <div class="p-3.5 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/70 flex items-center justify-between">
+                    <div class="p-2.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/70 flex items-center justify-between">
                         <div>
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold text-black dark:text-white text-sm">{{.Student.FullName}}</span>
-                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-black dark:text-white text-xs">{{.Student.FullName}}</span>
+                                <span class="text-[9px] font-bold px-1.5 py-0.2 rounded
                                     {{if eq .Readiness.BadgeColor "emerald"}}bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30
                                     {{else}}bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30{{end}}">
                                     {{.Readiness.Status}}
                                 </span>
                             </div>
-                            <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                            <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
                                 Current: {{.Student.CurrentBelt}} &bull; Target: {{.Student.NextBelt}}
                             </span>
                         </div>
                         <button type="button"
                                 onclick="const el = document.getElementById('eval_student_id'); if (el) { el.value = '{{.Student.ID}}'; el.dispatchEvent(new Event('change')); } document.getElementById('eval-container').scrollIntoView({behavior: 'smooth'});"
-                                class="btn btn-outline btn-xs">
+                                class="btn btn-outline btn-xs py-0.5 px-2 text-[10px]">
                             Grade
                         </button>
                     </div>
                     {{else}}
-                    <p class="text-xs text-slate-500 col-span-2 text-center py-4">No candidates currently eligible in queue.</p>
+                    <p class="text-xs text-slate-500 col-span-2 text-center py-3">No candidates currently eligible in queue.</p>
                     {{end}}
                 </div>
             </div>
         </div>
 
         <!-- Col 3: Quick Evaluation Entry & Safety Incident Form -->
-        <div class="space-y-6">
+        <div class="space-y-3.5 sm:space-y-4">
             <!-- Athletic Radar Score Form -->
-            <div id="eval-container" class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center gap-2 mb-3">
-                    <h2 class="font-display font-extrabold text-base uppercase text-black dark:text-[#FFFDF4]">
+            <div id="eval-container" class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+                <div class="flex items-center gap-1.5 mb-2.5">
+                    <h2 class="font-display font-extrabold text-sm uppercase text-black dark:text-[#FFFDF4]">
                         Athletic Radar Quick-Entry
                     </h2>
                     <div class="has-tooltip inline-flex items-center">
@@ -201,9 +201,9 @@
 
                 <form hx-post="/api/coach/evaluate"
                       hx-target="#eval-feedback"
-                      class="space-y-3 text-xs">
+                      class="space-y-2.5 text-xs">
                     <div>
-                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Practitioner</label>
+                        <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-0.5 text-[10px]">Practitioner</label>
                         <select id="eval_student_id" name="student_id" required
                                 class="form-select searchable-select" data-placeholder="Select Student for Evaluation...">
                             <option value="">Select Student...</option>
@@ -213,31 +213,31 @@
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-3 gap-1.5">
                         <div>
-                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Sparring (1-10)</label>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400 text-[10px]">Sparring</label>
                             <input type="number" min="1" max="10" name="sparring" value="8" required
-                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                                   class="w-full px-2 py-1 rounded-md border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold text-xs">
                         </div>
                         <div>
-                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Flexibility (1-10)</label>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400 text-[10px]">Flexibility</label>
                             <input type="number" min="1" max="10" name="flexibility" value="7" required
-                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                                   class="w-full px-2 py-1 rounded-md border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold text-xs">
                         </div>
                         <div>
-                            <label class="block font-semibold text-slate-600 dark:text-slate-400">Poomsae (1-10)</label>
+                            <label class="block font-semibold text-slate-600 dark:text-slate-400 text-[10px]">Poomsae</label>
                             <input type="number" min="1" max="10" name="poomsae" value="8" required
-                                   class="w-full px-2.5 py-1.5 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold">
+                                   class="w-full px-2 py-1 rounded-md border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-black text-black dark:text-white font-bold text-xs">
                         </div>
                     </div>
 
                     <div>
-                        <label class="form-label">Coach Feedback &amp; Remarks</label>
-                        <textarea name="coach_remarks" rows="2" placeholder="Clean side kick extension; candidate ready for grading..."
-                                  class="form-textarea"></textarea>
+                        <label class="form-label text-[10px]">Coach Feedback &amp; Remarks</label>
+                        <textarea name="coach_remarks" rows="1.5" placeholder="Clean side kick extension; candidate ready for grading..."
+                                  class="form-textarea text-xs"></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-md w-full">
+                    <button type="submit" class="btn btn-primary btn-sm w-full py-1.5">
                         Submit Score Evaluation
                     </button>
                     <div id="eval-feedback"></div>
@@ -245,10 +245,10 @@
             </div>
 
             <!-- Floor Incident & Safety Flag Logger -->
-            <div class="glass-panel rounded-2xl p-3.5 sm:p-6 border border-[#E5E3D8] dark:border-neutral-800 shadow-md">
-                <div class="flex items-center gap-2 mb-3">
+            <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
+                <div class="flex items-center gap-1.5 mb-2.5">
                     <span class="text-sm">🚨</span>
-                    <h2 class="font-display font-extrabold text-base uppercase text-rose-600 dark:text-rose-400">
+                    <h2 class="font-display font-extrabold text-sm uppercase text-rose-600 dark:text-rose-400">
                         First Aid &amp; Incident Logger
                     </h2>
                     <div class="has-tooltip inline-flex items-center">
@@ -261,9 +261,9 @@
 
                 <form hx-post="/api/safety/flag"
                       hx-target="#safety-feedback"
-                      class="space-y-3 text-xs">
+                      class="space-y-2.5 text-xs">
                     <div>
-                        <label class="form-label">Practitioner</label>
+                        <label class="form-label text-[10px]">Practitioner</label>
                         <select name="student_id" required class="form-select searchable-select" data-placeholder="Select Student...">
                             <option value="">Select Student...</option>
                             {{range .AllStudents}}
@@ -273,16 +273,16 @@
                     </div>
 
                     <div>
-                        <label class="form-label">Incident Classification</label>
-                        <input type="text" name="incident_type" placeholder="e.g. Ankle Inversion, Contusion, Epistaxis" required class="form-input">
+                        <label class="form-label text-[10px]">Incident Classification</label>
+                        <input type="text" name="incident_type" placeholder="e.g. Ankle Inversion, Contusion, Epistaxis" required class="form-input text-xs py-1">
                     </div>
 
                     <div>
-                        <label class="form-label">First Aid Treatment &amp; Restrictions</label>
-                        <textarea name="notes" rows="2" placeholder="Applied ice compression; practitioner cleared only for non-contact forms." required class="form-textarea"></textarea>
+                        <label class="form-label text-[10px]">First Aid Treatment &amp; Restrictions</label>
+                        <textarea name="notes" rows="1.5" placeholder="Applied ice compression; practitioner cleared only for non-contact forms." required class="form-textarea text-xs"></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-danger btn-md w-full">
+                    <button type="submit" class="btn btn-danger btn-sm w-full py-1.5">
                         🚨 Log Incident &amp; Flag Student
                     </button>
                     <div id="safety-feedback"></div>

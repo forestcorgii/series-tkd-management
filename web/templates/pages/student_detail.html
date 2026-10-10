@@ -3,71 +3,72 @@
 {{define "title"}}{{.Student.FullName}} - Student Profile & Ability Matrix{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
+<div class="space-y-3 sm:space-y-4">
     <!-- Back & Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <a href="/students" class="text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 font-semibold transition py-1">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <a href="/students" class="text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 font-semibold transition py-0.5">
             &larr; Back to Student Directory
         </a>
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-1.5 flex-wrap">
             {{$user := currentUser .}}
             {{if and $user (or $user.IsAdmin $user.IsOperationManager)}}
-            <button onclick="document.getElementById('edit-student-modal').classList.remove('hidden')" class="btn btn-secondary btn-sm flex items-center gap-1.5 shadow-sm">
-                ✏️ Edit Info
+            <button onclick="document.getElementById('edit-student-modal').classList.remove('hidden')" class="btn btn-secondary btn-xs flex items-center gap-1 shadow-xs py-1 px-2.5">
+                ✏️ Edit
             </button>
             {{end}}
             {{if and $user $user.IsOperationManager}}
             <form action="/students/{{.Student.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete student {{.Student.FullName}}? All associated records (attendance, evaluations, packages, and login credentials) will be permanently deleted. This action cannot be undone.');">
-                <button type="submit" class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40 flex items-center gap-1.5 shadow-sm" title="Permanently Delete Student">
+                <button type="submit" class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40 flex items-center gap-1 shadow-xs py-1 px-2" title="Permanently Delete Student">
                     🗑️ Delete
                 </button>
             </form>
             {{end}}
-            <span class="badge-belt">
+            <span class="badge-belt text-[10px]">
                 Belt: {{.Student.CurrentBelt}}
             </span>
             {{if eq .Readiness.Status "READY"}}
-            <span class="badge-ready">
+            <span class="badge-ready text-[10px]">
                 🟢 READY FOR PROMOTION
             </span>
             {{else if eq .Readiness.Status "PRE-TEST ELIGIBLE"}}
-            <span class="badge-pretest">
+            <span class="badge-pretest text-[10px]">
                 🟡 PRE-TEST ELIGIBLE
             </span>
             {{else}}
-            <span class="badge-developing">
+            <span class="badge-developing text-[10px]">
                 🔴 DEVELOPING
             </span>
             {{end}}
         </div>
     </div>
 
-    <!-- Student Top Profile Summary -->
-    <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white shadow-md flex-shrink-0" title="{{.Student.FullName}}">
+    <!-- Student Top Profile Summary (High density banner) -->
+    <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="h-11 w-11 sm:h-12 sm:w-12 rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white shadow-xs flex-shrink-0" title="{{.Student.FullName}}">
                     {{if .ProfilePictureURL}}
                         <img src="{{.ProfilePictureURL}}" alt="{{.Student.FullName}}" class="w-full h-full object-cover" />
                     {{else}}
-                        <svg class="w-8 h-8 sm:w-9 sm:h-9 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 sm:w-7 sm:h-7 text-white/90" fill="currentColor" viewBox="0 0 24 24">
                             <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
                         </svg>
                     {{end}}
                 </div>
                 <div>
-                    <h1 class="font-display font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">{{.Student.FullName}}</h1>
-                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5 sm:mt-1">Age: {{.Student.Age}} &bull; Phone: {{.Student.Phone}} &bull; Last Promotion: {{.Student.DaysInCurrentRank}} days ago</p>
+                    <h1 class="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white leading-tight">{{.Student.FullName}}</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Age: {{.Student.Age}} &bull; Phone: {{.Student.Phone}} &bull; Rank Tenure: {{.Student.DaysInCurrentRank}} days</p>
                 </div>
             </div>
 
             <!-- Emergency Safety Card -->
-            <div class="p-4 bg-slate-50 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 shadow-sm">
-                <span class="text-xs uppercase font-bold text-rose-600 dark:text-rose-400 tracking-wider">Emergency Contact &amp; Medical</span>
-                <div class="text-xs text-slate-800 dark:text-slate-200 font-semibold">
+            <div class="p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/90 rounded-lg border border-slate-200 dark:border-slate-800 space-y-0.5 shadow-xs text-xs">
+                <span class="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 tracking-wider">Emergency Contact</span>
+                <div class="text-slate-800 dark:text-slate-200 font-semibold">
                     {{.Student.EmergencyName}} ({{.Student.EmergencyRelation}}) &bull; <span class="font-mono text-emerald-600 dark:text-emerald-400">{{.Student.EmergencyPhone}}</span>
                 </div>
                 {{if .Student.MedicalNotes}}
-                <div class="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 p-1.5 rounded border border-amber-200 dark:border-amber-800/60 mt-1">
+                <div class="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 mt-0.5">
                     🩺 {{.Student.MedicalNotes}}
                 </div>
                 {{end}}
@@ -76,12 +77,12 @@
     </div>
 
     <!-- Two Column Layout: Left Radar Chart & Eval Form | Right Promotion Insights & Passes -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <!-- Left: Athletic Ability Radar Chart -->
-        <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 sm:space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-2">
+        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5 gap-2">
                 <div class="flex items-center gap-2">
-                    <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Athletic Ability Radar</h2>
+                    <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Athletic Ability Radar</h2>
                     <div class="has-tooltip inline-flex items-center">
                         <button type="button" class="tooltip-icon" aria-label="Radar chart metrics">ⓘ</button>
                         <div class="tooltip-content w-64">
@@ -91,15 +92,15 @@
                 </div>
                 {{if .LatestEvaluation}}
                 <div class="text-right flex-shrink-0">
-                    <span class="text-xs text-slate-600 dark:text-slate-400">Overall</span>
-                    <div class="font-display font-bold text-lg sm:text-xl text-emerald-600 dark:text-emerald-400">{{printf "%.1f" .LatestEvaluation.AverageScore}} / 10</div>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400">Overall</span>
+                    <div class="font-display font-bold text-base sm:text-lg text-emerald-600 dark:text-emerald-400 leading-none">{{printf "%.1f" .LatestEvaluation.AverageScore}} / 10</div>
                 </div>
                 {{end}}
             </div>
 
             {{if .LatestEvaluation}}
-            <!-- SVG Radar Visualization -->
-            <div class="relative w-72 h-72 mx-auto my-4">
+            <!-- SVG Radar Visualization (Compact 220px) -->
+            <div class="relative w-52 h-52 mx-auto my-2">
                 <svg viewBox="0 0 200 200" class="w-full h-full">
                     <!-- Concentric Grid Polygons (Score 2, 4, 6, 8, 10) -->
                     <polygon points="100,20 169.3,140 30.7,140" fill="none" stroke="#cbd5e1" class="dark:stroke-slate-700" stroke-width="1"/>
@@ -118,19 +119,19 @@
                 </svg>
 
                 <!-- Axis Labels -->
-                <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Sparring ({{.LatestEvaluation.Sparring}})</span>
-                <span class="absolute bottom-2 right-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Flexibility ({{.LatestEvaluation.Flexibility}})</span>
-                <span class="absolute bottom-2 left-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded shadow-sm">Poomsae ({{.LatestEvaluation.Poomsae}})</span>
+                <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1 py-0.2 rounded shadow-xs">Sparring ({{.LatestEvaluation.Sparring}})</span>
+                <span class="absolute bottom-1 right-1 text-[9px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1 py-0.2 rounded shadow-xs">Flexibility ({{.LatestEvaluation.Flexibility}})</span>
+                <span class="absolute bottom-1 left-1 text-[9px] font-bold text-slate-700 dark:text-slate-300 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-1 py-0.2 rounded shadow-xs">Poomsae ({{.LatestEvaluation.Poomsae}})</span>
             </div>
 
             <!-- Coach Remarks -->
-            <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs shadow-sm">
+            <div class="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs shadow-xs">
                 <span class="font-bold text-emerald-600 dark:text-emerald-400">Coach Remarks (by {{.LatestEvaluation.CoachName}}):</span>
-                <p class="text-slate-700 dark:text-slate-300 mt-1 italic">"{{.LatestEvaluation.CoachRemarks}}"</p>
+                <p class="text-slate-700 dark:text-slate-300 mt-0.5 italic">"{{.LatestEvaluation.CoachRemarks}}"</p>
             </div>
             {{else}}
-            <div class="text-center py-12 text-slate-600 dark:text-slate-400">
-                No coach evaluation submitted yet. Complete the evaluation form below to render ability radar.
+            <div class="text-center py-8 text-slate-500 dark:text-slate-400 text-xs">
+                No coach evaluation submitted yet. Complete evaluation below.
             </div>
             {{end}}
 
@@ -178,11 +179,11 @@
         </div>
 
         <!-- Right: Promotion Readiness Rules Engine Breakdown -->
-        <div class="space-y-6">
-            <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-2">
+        <div class="space-y-3 sm:space-y-4">
+            <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5 gap-2">
                     <div class="flex items-center gap-2">
-                        <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">Promotion Readiness</h2>
+                        <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Promotion Readiness</h2>
                         <div class="has-tooltip inline-flex items-center">
                             <button type="button" class="tooltip-icon" aria-label="Promotion readiness breakdown">ⓘ</button>
                             <div class="tooltip-content w-64">
@@ -192,77 +193,77 @@
                     </div>
                 </div>
 
-                <div class="space-y-3 text-xs">
+                <div class="space-y-2 text-xs">
                     <!-- Rule 1: Attendance Count -->
-                    <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs">
                         <div>
                             <div class="font-bold text-slate-900 dark:text-white">1. Attendance Count</div>
-                            <div class="text-slate-600 dark:text-slate-400">Logged {{.Readiness.TotalSessions}} of {{.Readiness.RequiredSessions}} required classes</div>
+                            <div class="text-slate-500 dark:text-slate-400 text-[11px]">Logged {{.Readiness.TotalSessions}} of {{.Readiness.RequiredSessions}} required classes</div>
                         </div>
                         {{if ge .Readiness.TotalSessions .Readiness.RequiredSessions}}
-                        <span class="px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">PASSED</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">PASSED</span>
                         {{else}}
-                        <span class="px-2.5 py-1 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-800">NEED MORE HOURS</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-800">NEED HOURS</span>
                         {{end}}
                     </div>
 
                     <!-- Rule 2: Time in Rank -->
-                    <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs">
                         <div>
                             <div class="font-bold text-slate-900 dark:text-white">2. Time in Rank</div>
-                            <div class="text-slate-600 dark:text-slate-400">Tenure: {{.Readiness.DaysInRank}} of {{.Readiness.RequiredDaysInRank}} required calendar days</div>
+                            <div class="text-slate-500 dark:text-slate-400 text-[11px]">Tenure: {{.Readiness.DaysInRank}} of {{.Readiness.RequiredDaysInRank}} required days</div>
                         </div>
                         {{if ge .Readiness.DaysInRank .Readiness.RequiredDaysInRank}}
-                        <span class="px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">PASSED</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">PASSED</span>
                         {{else}}
-                        <span class="px-2.5 py-1 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-800">TENURE SHORT</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-800">TENURE SHORT</span>
                         {{end}}
                     </div>
 
                     <!-- Rule 3: Curriculum Diversity (Sparring vs Poomsae Ratio) -->
-                    <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm">
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1.5 shadow-xs">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="font-bold text-slate-900 dark:text-white">3. Curriculum Diversity Balance</div>
-                                <div class="text-slate-600 dark:text-slate-400">Sparring vs. Poomsae distribution ratio</div>
+                                <div class="text-slate-500 dark:text-slate-400 text-[11px]">Sparring vs. Poomsae distribution ratio</div>
                             </div>
-                            <span class="px-2.5 py-1 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
                                 BALANCED
                             </span>
                         </div>
                         <!-- Dual ratio visual bar -->
-                        <div class="space-y-1 pt-1">
-                            <div class="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+                        <div class="space-y-1">
+                            <div class="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden flex">
                                 <div class="bg-indigo-500 h-full" style="width: {{printf "%.0f" (mul .Readiness.SparringRatio 100)}}%" title="Sparring"></div>
                                 <div class="bg-teal-500 h-full" style="width: {{printf "%.0f" (mul .Readiness.PoomsaeRatio 100)}}%" title="Poomsae"></div>
                             </div>
-                            <div class="flex justify-between text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-                                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> Sparring: {{printf "%.0f" (mul .Readiness.SparringRatio 100)}}%</span>
-                                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-teal-500"></span> Forms (Poomsae): {{printf "%.0f" (mul .Readiness.PoomsaeRatio 100)}}%</span>
+                            <div class="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Sparring: {{printf "%.0f" (mul .Readiness.SparringRatio 100)}}%</span>
+                                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span> Poomsae: {{printf "%.0f" (mul .Readiness.PoomsaeRatio 100)}}%</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Rule 4: Coach Evaluation Benchmark -->
-                    <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs">
                         <div>
                             <div class="font-bold text-slate-900 dark:text-white">4. Ability Benchmark</div>
-                            <div class="text-slate-600 dark:text-slate-400">Min attribute score: {{.Readiness.LatestMinScore}}/10 (Req: 6)</div>
+                            <div class="text-slate-500 dark:text-slate-400 text-[11px]">Min score: {{.Readiness.LatestMinScore}}/10 (Req: 6)</div>
                         </div>
                         {{if and .Readiness.HasEvaluation (ge .Readiness.LatestMinScore 6)}}
-                        <span class="px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">PASSED</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">PASSED</span>
                         {{else if .Readiness.HasEvaluation}}
-                        <span class="px-2.5 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400 font-bold border border-amber-200 dark:border-amber-800">BELOW BENCHMARK</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400 font-bold border border-amber-200 dark:border-amber-800">BELOW BENCHMARK</span>
                         {{else}}
-                        <span class="px-2.5 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400 font-bold border border-amber-200 dark:border-amber-800">PENDING EVAL</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400 font-bold border border-amber-200 dark:border-amber-800">PENDING EVAL</span>
                         {{end}}
                     </div>
                 </div>
 
                 <!-- Reasons / Recommendations -->
                 {{if .Readiness.Reasons}}
-                <div class="p-3 bg-slate-100/70 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-                    <span class="text-xs uppercase font-bold text-slate-700 dark:text-slate-400">Evaluation Notes:</span>
+                <div class="p-2.5 bg-slate-100/70 dark:bg-slate-900/90 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1">
+                    <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Evaluation Notes:</span>
                     <ul class="list-disc list-inside text-xs text-slate-700 dark:text-slate-300 space-y-0.5">
                         {{range .Readiness.Reasons}}
                         <li>{{.}}</li>
@@ -273,38 +274,38 @@
             </div>
 
             <!-- Active Purchased Packages -->
-            <div class="glass-panel p-3.5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
-                <h2 class="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">Active Student Memberships</h2>
-                <div class="space-y-3">
+            <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs">
+                <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">Active Student Memberships</h2>
+                <div class="space-y-2">
                     {{range .Packages}}
-                    <div class="p-3 sm:p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                    <div class="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
                         <div>
-                            <div class="flex items-center gap-2">
-                                <h4 class="font-bold text-slate-900 dark:text-white text-sm">{{.TemplateTitle}}</h4>
+                            <div class="flex items-center gap-1.5">
+                                <h4 class="font-bold text-slate-900 dark:text-white text-xs">{{.TemplateTitle}}</h4>
                                 {{if eq .PaymentStatus "revoked"}}
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
                                     REVOKED
                                 </span>
                                 {{else if .CustomPrice}}
-                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                <span class="text-[9px] font-bold px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                                     ₱{{formatCurrency .CustomPrice}}
                                 </span>
                                 {{end}}
                             </div>
-                            <div class="text-xs text-slate-600 dark:text-slate-400">Purchased: {{formatDate .PurchaseDate}} &bull; Expires: {{formatDate .ExpiryDate}}</div>
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400">Purchased: {{formatDate .PurchaseDate}} &bull; Expires: {{formatDate .ExpiryDate}}</div>
                             {{if .Notes}}
-                            <div class="text-[11px] text-[#990303] dark:text-red-400 font-medium mt-0.5">
+                            <div class="text-[10px] text-[#990303] dark:text-red-400 font-medium mt-0.5">
                                 💬 {{.Notes}}
                             </div>
                             {{end}}
                         </div>
-                        <div class="flex items-center gap-3 text-right">
+                        <div class="flex items-center gap-2 text-right">
                             <div>
                                 {{if eq .PaymentStatus "revoked"}}
-                                <span class="text-xs font-bold text-rose-600 dark:text-rose-400">Invalidated</span>
+                                <span class="text-[11px] font-bold text-rose-600 dark:text-rose-400">Invalidated</span>
                                 {{else if .RemainingSessions}}
-                                <span class="font-display font-extrabold text-lg text-emerald-600 dark:text-emerald-400">{{.RemainingSessions}}</span>
-                                <span class="text-xs text-slate-600 dark:text-slate-400"> / {{.TotalSessions}} classes</span>
+                                <span class="font-display font-bold text-base text-emerald-600 dark:text-emerald-400">{{.RemainingSessions}}</span>
+                                <span class="text-[11px] text-slate-500 dark:text-slate-400"> / {{.TotalSessions}}</span>
                                 {{else}}
                                 <span class="text-xs font-bold text-teal-600 dark:text-teal-300">Unlimited ♾️</span>
                                 {{end}}
@@ -312,7 +313,7 @@
                             {{if and $user $user.IsOperationManager (ne .PaymentStatus "revoked")}}
                             <form action="/packages/student-packages/{{.ID}}/revoke" method="POST" class="inline" onsubmit="return confirm('Revoke membership {{.TemplateTitle}}? This will immediately invalidate the membership.');">
                                 <input type="hidden" name="redirect_url" value="/students/{{$.Student.ID}}">
-                                <button type="submit" class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold" title="Revoke Membership">
+                                <button type="submit" class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold py-0.5 px-1.5 text-xs" title="Revoke Membership">
                                     🚫 Revoke
                                 </button>
                             </form>

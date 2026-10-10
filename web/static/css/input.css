@@ -33,38 +33,38 @@
 
     /* Button Sizes */
     .btn-xs {
-        @apply px-2.5 py-1 text-[10px] rounded-lg gap-1;
+        @apply px-2 py-0.5 text-[10px] rounded-md gap-1;
     }
     .btn-sm {
-        @apply px-3 py-1.5 text-xs rounded-lg gap-1.5;
+        @apply px-2.5 py-1 text-xs rounded-lg gap-1.5;
     }
     .btn-md {
-        @apply px-4 py-2 text-xs rounded-xl gap-2;
+        @apply px-3.5 py-1.5 text-xs rounded-lg gap-2;
     }
     .btn-lg {
-        @apply px-5 py-2.5 text-sm rounded-xl gap-2;
+        @apply px-4 py-2 text-sm rounded-xl gap-2;
     }
 
     /* Form Controls */
     .form-input {
-        @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
+        @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
     }
     .form-select {
-        @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
+        @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
     }
     .form-textarea {
-        @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
+        @apply w-full bg-white dark:bg-black/60 border border-[#E5E3D8] dark:border-neutral-800 rounded-lg p-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[#990303] dark:focus:ring-[#DC2626] transition shadow-sm;
     }
     .form-label {
-        @apply block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-1;
+        @apply block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-0.5;
     }
 
     /* Badges */
     .badge {
-        @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide;
+        @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide;
     }
     .badge-belt {
-        @apply inline-block px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700;
+        @apply inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700;
     }
     .badge-ready {
         @apply badge bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800 shadow-sm;
@@ -78,19 +78,33 @@
 
     /* Modals */
     .modal-backdrop {
-        @apply fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4;
+        @apply fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4;
     }
     .modal-dialog {
-        @apply glass-panel p-6 rounded-2xl max-w-lg w-full space-y-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-2xl;
+        @apply glass-panel p-4 sm:p-5 rounded-xl max-w-lg w-full space-y-3 border border-[#E5E3D8] dark:border-neutral-800 shadow-2xl;
     }
     .modal-header {
-        @apply flex items-center justify-between border-b border-[#E5E3D8] dark:border-neutral-800 pb-3;
+        @apply flex items-center justify-between border-b border-[#E5E3D8] dark:border-neutral-800 pb-2.5;
     }
     .modal-close {
-        @apply text-slate-400 hover:text-slate-700 dark:hover:text-white text-xl leading-none p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-neutral-800 transition;
+        @apply text-slate-400 hover:text-slate-700 dark:hover:text-white text-lg leading-none p-1 rounded-md hover:bg-slate-100 dark:hover:bg-neutral-800 transition;
     }
     .modal-footer {
         @apply flex justify-end gap-2 pt-2 border-t border-[#E5E3D8] dark:border-neutral-800;
+    }
+
+    /* High-Density KPI & Table Utilities */
+    .kpi-strip {
+        @apply grid gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-slate-50/80 dark:bg-neutral-900/60 border border-[#E5E3D8] dark:border-neutral-800;
+    }
+    .kpi-tile {
+        @apply glass-panel p-2.5 sm:p-3 rounded-lg flex items-center justify-between min-w-0 shadow-sm;
+    }
+    .table-compact th {
+        @apply py-2 px-3 text-[11px] font-bold uppercase tracking-wider;
+    }
+    .table-compact td {
+        @apply py-2 px-3 text-xs;
     }
 }
 
