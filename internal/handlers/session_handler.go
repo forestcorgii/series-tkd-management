@@ -1183,6 +1183,16 @@ func (a *AppHandler) HandleRescheduleSession(w http.ResponseWriter, r *http.Requ
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
 	}
 	if r.Header.Get("HX-Request") == "true" {
+		if r.Header.Get("HX-Target") == "classes-container" {
+			q := r.URL.Query()
+			if q.Get("date") == "" {
+				q.Set("date", sess.SessionDate.Format("2006-01-02"))
+				r.URL.RawQuery = q.Encode()
+			}
+			w.Header().Set("HX-Push-Url", "/sessions?"+r.URL.RawQuery)
+			a.HandleSessions(w, r)
+			return
+		}
 		w.Header().Set("HX-Redirect", redirectURL)
 		w.WriteHeader(http.StatusOK)
 		return

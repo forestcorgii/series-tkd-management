@@ -1,6 +1,6 @@
 {{define "session_cards.html"}}
 {{$user := currentUser .}}
-<div class="space-y-3">
+<div class="space-y-3" id="session-cards-wrapper" data-selected-date="{{.SelectedDate}}">
     <!-- Week Navigation Bar -->
     <div class="flex flex-wrap items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
         <!-- Week Controls -->

@@ -2150,6 +2150,36 @@ func TestSessionHandler_RescheduleSession(t *testing.T) {
 		}
 	})
 
+	t.Run("HX-Target classes-container renders session_cards partial without full page refresh", func(t *testing.T) {
+		form := url.Values{
+			"session_date": {"2026-10-18"},
+			"start_time":   {"09:00"},
+			"end_time":     {"10:00"},
+		}
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/reschedule?date=2026-10-18", sess.ID), strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("HX-Request", "true")
+		req.Header.Set("HX-Target", "classes-container")
+		req.SetPathValue("id", sess.ID.String())
+		rec := httptest.NewRecorder()
+
+		app.HandleRescheduleSession(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK for HTMX in-place swap, got %d", rec.Code)
+		}
+		if rec.Header().Get("HX-Redirect") != "" {
+			t.Errorf("expected no HX-Redirect header to prevent full page reload, got %s", rec.Header().Get("HX-Redirect"))
+		}
+		if rec.Header().Get("HX-Push-Url") != "/sessions?date=2026-10-18" {
+			t.Errorf("expected HX-Push-Url to be /sessions?date=2026-10-18, got %s", rec.Header().Get("HX-Push-Url"))
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, "session-cards-wrapper") && !strings.Contains(body, "calendar-scroll-container") {
+			t.Errorf("expected session_cards partial HTML in response body, got:\n%s", body)
+		}
+	})
+
 	t.Run("rejects reschedule for cancelled sessions", func(t *testing.T) {
 		cancelledSess := &models.TrainingSession{
 			ID:                 uuid.New(),
