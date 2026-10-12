@@ -152,6 +152,7 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		a.LogAction(r, "PROFILE_PASSWORD_CHANGE", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User updated their account password")
 	}
 
+	userUpdated := false
 	if user.IsStudent() && student != nil {
 		phone := strings.TrimSpace(r.FormValue("phone"))
 		gender := strings.TrimSpace(r.FormValue("gender"))
@@ -204,13 +205,47 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		data.Coach = coach
 	} else if user.IsAdmin() || user.IsOperationManager() {
 		displayName := strings.TrimSpace(r.FormValue("display_name"))
-		if displayName != "" {
+		if displayName != "" && displayName != user.DisplayName {
 			user.DisplayName = displayName
-			if err := a.store.UpdateUser(user); err != nil {
-				data.ErrorMessage = "Failed to update display name: " + err.Error()
-				a.RenderPage(w, "profile.html", data)
-				return
+			userUpdated = true
+		}
+	}
+
+	// Process username update (available to all roles)
+	if _, hasUsername := r.Form["username"]; hasUsername || r.FormValue("username") != "" {
+		reqUsername := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+		if reqUsername != strings.ToLower(strings.TrimSpace(user.Username)) {
+			if reqUsername != "" {
+				if len(reqUsername) < 3 || len(reqUsername) > 30 {
+					data.ErrorMessage = "Username must be between 3 and 30 characters long."
+					a.RenderPage(w, "profile.html", data)
+					return
+				}
+				for _, ch := range reqUsername {
+					if !(ch >= 'a' && ch <= 'z') && !(ch >= '0' && ch <= '9') && ch != '.' && ch != '_' && ch != '-' {
+						data.ErrorMessage = "Username can only contain letters, numbers, dots, hyphens, and underscores."
+						a.RenderPage(w, "profile.html", data)
+						return
+					}
+				}
+				existing, _ := a.store.GetUserByUsername(reqUsername)
+				if existing != nil && existing.ID != user.ID {
+					data.ErrorMessage = fmt.Sprintf("Username '%s' is already taken. Please choose another.", reqUsername)
+					a.RenderPage(w, "profile.html", data)
+					return
+				}
 			}
+			user.Username = reqUsername
+			userUpdated = true
+			a.LogAction(r, "PROFILE_USERNAME_CHANGE", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User updated their username to "+reqUsername)
+		}
+	}
+
+	if userUpdated {
+		if err := a.store.UpdateUser(user); err != nil {
+			data.ErrorMessage = "Failed to update user profile: " + err.Error()
+			a.RenderPage(w, "profile.html", data)
+			return
 		}
 	}
 

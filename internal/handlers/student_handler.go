@@ -224,11 +224,12 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 
 	email := strings.TrimSpace(r.FormValue("email"))
 	password := strings.TrimSpace(r.FormValue("password"))
+	username := strings.TrimSpace(r.FormValue("username"))
 	if email != "" {
 		if password == "" {
 			password = "student123"
 		}
-		_, _ = a.authSvc.RegisterUser(email, password, models.RoleStudent, &s.ID, nil)
+		_, _ = a.authSvc.RegisterUser(email, password, models.RoleStudent, &s.ID, nil, username)
 	}
 
 	if templateIDStr := strings.TrimSpace(r.FormValue("template_id")); templateIDStr != "" {

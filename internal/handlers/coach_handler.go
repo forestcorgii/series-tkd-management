@@ -162,11 +162,12 @@ func (a *AppHandler) HandleCreateCoach(w http.ResponseWriter, r *http.Request) {
 	a.LogAction(r, "COACH_CREATE", models.AuditCategoryCoaches, "Coach", c.ID.String(), c.FullName, "Created coach profile: "+c.FullName)
 
 	password := strings.TrimSpace(r.FormValue("password"))
+	username := strings.TrimSpace(r.FormValue("username"))
 	if c.Email != "" {
 		if password == "" {
 			password = "coach123"
 		}
-		_, _ = a.authSvc.RegisterUser(c.Email, password, models.RoleCoach, nil, &c.ID)
+		_, _ = a.authSvc.RegisterUser(c.Email, password, models.RoleCoach, nil, &c.ID, username)
 	}
 
 	http.Redirect(w, r, "/coaches", http.StatusSeeOther)

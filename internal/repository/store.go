@@ -1286,15 +1286,15 @@ func (m *MemoryStore) UpdateUser(u *models.User) error {
 	}
 
 	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
-	if existing.Username != normUsername {
-		if existing.Username != "" {
-			delete(m.usersByUsername, existing.Username)
+	for uname, uid := range m.usersByUsername {
+		if uid == u.ID && uname != normUsername {
+			delete(m.usersByUsername, uname)
 		}
-		if normUsername != "" {
-			m.usersByUsername[normUsername] = u.ID
-		}
-		existing.Username = normUsername
 	}
+	if normUsername != "" {
+		m.usersByUsername[normUsername] = u.ID
+	}
+	existing.Username = normUsername
 
 	existing.PasswordHash = u.PasswordHash
 	existing.IsActive = u.IsActive

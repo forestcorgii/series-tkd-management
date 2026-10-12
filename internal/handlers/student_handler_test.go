@@ -368,6 +368,46 @@ func TestStudentHandler_HandleCreateStudent_WithoutPackage(t *testing.T) {
 	}
 }
 
+func TestStudentHandler_HandleCreateStudent_WithUsername(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	form := url.Values{}
+	form.Set("full_name", "Daniel LaRusso")
+	form.Set("dob", "2010-06-20")
+	form.Set("gender", "Male")
+	form.Set("phone", "09987654321")
+	form.Set("current_belt", string(models.BeltWhite))
+	form.Set("emergency_name", "Lucille LaRusso")
+	form.Set("emergency_phone", "09987654320")
+	form.Set("emergency_relation", "Mother")
+	form.Set("email", "daniel@seriestkd.com")
+	form.Set("password", "karate123")
+	form.Set("username", "daniel.larusso")
+
+	req := httptest.NewRequest(http.MethodPost, "/students", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+
+	app.HandleCreateStudent(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d", rec.Code)
+	}
+
+	u, err := store.GetUserByEmail("daniel@seriestkd.com")
+	if err != nil || u == nil {
+		t.Fatalf("expected user created for student, got: %v", err)
+	}
+	if u.Username != "daniel.larusso" {
+		t.Errorf("expected username 'daniel.larusso', got '%s'", u.Username)
+	}
+
+	byUname, err := store.GetUserByUsername("daniel.larusso")
+	if err != nil || byUname.ID != u.ID {
+		t.Errorf("expected GetUserByUsername to find created student user, got: %v", err)
+	}
+}
+
 func TestStudentHandler_HandleStudents_BoostedNavigation(t *testing.T) {
 	app, _ := setupTestApp(t)
 

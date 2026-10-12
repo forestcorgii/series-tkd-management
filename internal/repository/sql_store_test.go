@@ -223,6 +223,9 @@ func TestSQLStore_AuthAndSafetyPersistence(t *testing.T) {
 	if sessionUser.Email != "admin@seriestkd.com" {
 		t.Errorf("expected admin email, got %s", sessionUser.Email)
 	}
+	if sessionUser.Username != "admin" {
+		t.Errorf("expected sessionUser.Username 'admin', got '%s'", sessionUser.Username)
+	}
 
 	if err := store.DeleteSessionToken(token); err != nil {
 		t.Fatalf("DeleteSessionToken failed: %v", err)

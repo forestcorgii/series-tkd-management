@@ -413,3 +413,102 @@ func TestProfileHandler_AvatarUploadAndRemoval(t *testing.T) {
 		t.Errorf("expected error message about invalid image file type, got: %s", rec.Body.String())
 	}
 }
+
+func TestProfileHandler_UpdateUsername(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	user1 := &models.User{
+		ID:          uuid.New(),
+		Email:       "user1@seriestkd.com",
+		Username:    "user.one",
+		Role:        models.RoleAdmin,
+		DisplayName: "User One",
+		IsActive:    true,
+	}
+	_ = user1.SetPassword("admin123")
+	_ = store.CreateUser(user1)
+
+	user2 := &models.User{
+		ID:          uuid.New(),
+		Email:       "user2@seriestkd.com",
+		Username:    "user.two",
+		Role:        models.RoleCoach,
+		DisplayName: "User Two",
+		IsActive:    true,
+	}
+	_ = user2.SetPassword("coach123")
+	_ = store.CreateUser(user2)
+
+	withSession := func(req *http.Request, u *models.User) *http.Request {
+		token := uuid.New().String()
+		_ = store.CreateSessionToken(token, u.ID, time.Now().Add(time.Hour))
+		req.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+		return req
+	}
+
+	executeHandler := func(rec *httptest.ResponseRecorder, req *http.Request) {
+		app.AuthMiddleware(http.HandlerFunc(app.HandleProfile)).ServeHTTP(rec, req)
+	}
+
+	// 1. Successful username update
+	form := url.Values{}
+	form.Set("username", "user.one.updated")
+	req := httptest.NewRequest("POST", "/profile", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = withSession(req, user1)
+	rec := httptest.NewRecorder()
+	executeHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on profile update, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Profile updated successfully") {
+		t.Errorf("expected success notification in HTML response")
+	}
+
+	retrieved, _ := store.GetUserByID(user1.ID)
+	if retrieved.Username != "user.one.updated" {
+		t.Errorf("expected username 'user.one.updated', got '%s'", retrieved.Username)
+	}
+
+	// Check that GetUserByUsername works with new username
+	byUser, err := store.GetUserByUsername("user.one.updated")
+	if err != nil || byUser.ID != user1.ID {
+		t.Errorf("expected GetUserByUsername to find user with new username, got: %v", err)
+	}
+
+	// 2. Reject duplicate username taken by user2
+	dupForm := url.Values{}
+	dupForm.Set("username", "user.two")
+	req = httptest.NewRequest("POST", "/profile", strings.NewReader(dupForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = withSession(req, user1)
+	rec = httptest.NewRecorder()
+	executeHandler(rec, req)
+
+	if !strings.Contains(rec.Body.String(), "already taken") {
+		t.Errorf("expected error message indicating username is already taken, got: %s", rec.Body.String())
+	}
+	// Verify user1's username was not changed to user.two
+	retrieved, _ = store.GetUserByID(user1.ID)
+	if retrieved.Username != "user.one.updated" {
+		t.Errorf("expected username to remain 'user.one.updated', got '%s'", retrieved.Username)
+	}
+
+	// 3. Reject invalid characters
+	invalidForm := url.Values{}
+	invalidForm.Set("username", "bad@user!")
+	req = httptest.NewRequest("POST", "/profile", strings.NewReader(invalidForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = withSession(req, user1)
+	rec = httptest.NewRecorder()
+	executeHandler(rec, req)
+
+	if !strings.Contains(rec.Body.String(), "letters, numbers") {
+		t.Errorf("expected invalid format error, got: %s", rec.Body.String())
+	}
+}

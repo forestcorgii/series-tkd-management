@@ -1084,6 +1084,9 @@ func TestAuthHandler_CoachAndAdminRegistrationFlow(t *testing.T) {
 	if coachUser.IsActive {
 		t.Errorf("expected coach user to be inactive pending approval")
 	}
+	if coachUser.Username != "minsoo.kang" {
+		t.Errorf("expected coach user username 'minsoo.kang', got '%s'", coachUser.Username)
+	}
 	if coachUser.CoachID == nil {
 		t.Fatalf("expected coachUser to have linked CoachID")
 	}
@@ -1161,6 +1164,9 @@ func TestAuthHandler_CoachAndAdminRegistrationFlow(t *testing.T) {
 	}
 	if adminUser.IsActive {
 		t.Errorf("expected admin user to be inactive pending approval")
+	}
+	if adminUser.Username != "clara.oswald" {
+		t.Errorf("expected admin user username 'clara.oswald', got '%s'", adminUser.Username)
 	}
 
 	// 7. Unapproved admin tries to login -> must be blocked

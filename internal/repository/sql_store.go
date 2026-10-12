@@ -3541,20 +3541,21 @@ func (s *SQLStore) CreateSessionToken(token string, userID uuid.UUID, expiresAt 
 }
 
 func (s *SQLStore) GetUserBySessionToken(token string) (*models.User, error) {
-	query := `SELECT u.id, u.email, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
+	query := `SELECT u.id, u.email, u.username, u.password_hash, u.role, u.student_id, u.coach_id, u.is_active, u.last_login_at, u.created_at, u.updated_at,
 		COALESCE(NULLIF(u.display_name, ''), st.full_name, c.full_name, 'Dojang Administrator') as display_name,
+		COALESCE(u.profile_picture_url, '') as profile_picture_url,
 		sess.expires_at
 		FROM user_sessions sess
 		JOIN users u ON sess.user_id = u.id
 		LEFT JOIN students st ON u.student_id = st.id
 		LEFT JOIN coaches c ON u.coach_id = c.id
 		WHERE sess.token = $1`
-	var idStr, studentIDStr, coachIDStr, lastLoginStr, createdStr, updatedStr, expiresStr sql.NullString
+	var idStr, usernameStr, studentIDStr, coachIDStr, lastLoginStr, createdStr, updatedStr, expiresStr, picURL sql.NullString
 	u := &models.User{}
 	var roleStr string
 	err := s.db.QueryRow(query, token).Scan(
-		&idStr, &u.Email, &u.PasswordHash, &roleStr, &studentIDStr, &coachIDStr,
-		&u.IsActive, &lastLoginStr, &createdStr, &updatedStr, &u.DisplayName, &expiresStr,
+		&idStr, &u.Email, &usernameStr, &u.PasswordHash, &roleStr, &studentIDStr, &coachIDStr,
+		&u.IsActive, &lastLoginStr, &createdStr, &updatedStr, &u.DisplayName, &picURL, &expiresStr,
 	)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
@@ -3570,6 +3571,9 @@ func (s *SQLStore) GetUserBySessionToken(token string) (*models.User, error) {
 		}
 	}
 	u.ID = uuid.Must(uuid.Parse(idStr.String))
+	if usernameStr.Valid {
+		u.Username = usernameStr.String
+	}
 	u.Role = models.UserRole(roleStr)
 	if studentIDStr.Valid && studentIDStr.String != "" {
 		sid, _ := uuid.Parse(studentIDStr.String)
@@ -3585,6 +3589,9 @@ func (s *SQLStore) GetUserBySessionToken(token string) (*models.User, error) {
 	}
 	u.CreatedAt, _ = parseTimeFlex(createdStr.String)
 	u.UpdatedAt, _ = parseTimeFlex(updatedStr.String)
+	if picURL.Valid {
+		u.ProfilePictureURL = picURL.String
+	}
 	return u, nil
 }
 

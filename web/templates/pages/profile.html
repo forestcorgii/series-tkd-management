@@ -220,6 +220,15 @@
                         <label class="form-label">Account Email</label>
                         <input type="email" value="{{.CurrentUser.Email}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>
+
+                    <div>
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" value="{{.CurrentUser.Username}}"
+                               placeholder="e.g. alex.vance"
+                               autocapitalize="none" spellcheck="false"
+                               class="form-input no-uppercase" data-no-uppercase="true" />
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">Used for portal sign-in. Letters, numbers, dots, and hyphens.</span>
+                    </div>
                 </div>
             </div>
 
@@ -337,6 +346,15 @@
                         <input type="email" value="{{.CurrentUser.Email}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>
 
+                    <div>
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" value="{{.CurrentUser.Username}}"
+                               placeholder="e.g. jiwoo.park"
+                               autocapitalize="none" spellcheck="false"
+                               class="form-input no-uppercase" data-no-uppercase="true" />
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">Used for portal sign-in. Letters, numbers, dots, and hyphens.</span>
+                    </div>
+
                     <div class="sm:col-span-2">
                         <label class="form-label">Specialties (Comma Separated)</label>
                         <input type="text" name="specialties" value="{{range $i, $s := .Coach.Specialties}}{{if $i}}, {{end}}{{$s}}{{end}}" placeholder="Sparring/Kyorugi, Forms/Poomsae, Cadets/Kids, Conditioning" class="form-input" />
@@ -366,6 +384,15 @@
                     </div>
 
                     <div>
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" value="{{.CurrentUser.Username}}"
+                               placeholder="e.g. admin"
+                               autocapitalize="none" spellcheck="false"
+                               class="form-input no-uppercase" data-no-uppercase="true" />
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">Used for portal sign-in. Letters, numbers, dots, and hyphens.</span>
+                    </div>
+
+                    <div>
                         <label class="form-label">Account Email</label>
                         <input type="email" value="{{.CurrentUser.Email}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>
@@ -375,7 +402,7 @@
                         <input type="text" value="{{if .CurrentUser.IsOperationManager}}Operation Manager (Full Control){{else}}Dojang Administrator (Attendance &amp; Memberships){{end}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>
 
-                    <div>
+                    <div class="sm:col-span-2">
                         <label class="form-label">Account Active Since</label>
                         <input type="text" value="{{formatDate .CurrentUser.CreatedAt}}" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>

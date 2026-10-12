@@ -469,9 +469,15 @@
                     <input type="number" step="0.01" name="rate_per_session" required placeholder="65.00" class="form-input">
                 </div>
             </div>
-            <div>
-                <label class="form-label">Coach Portal Password</label>
-                <input type="password" name="password" placeholder="Default: coach123" class="form-input">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="form-label">Username <span class="text-slate-400 text-xs font-normal">(Optional)</span></label>
+                    <input type="text" name="username" placeholder="e.g. jiwoo.park" autocapitalize="none" spellcheck="false" class="form-input no-uppercase" data-no-uppercase="true">
+                </div>
+                <div>
+                    <label class="form-label">Coach Portal Password</label>
+                    <input type="password" name="password" placeholder="Default: coach123" class="form-input">
+                </div>
             </div>
             <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <span class="text-xs uppercase font-bold text-rose-600 dark:text-rose-400">First Aid Safety Verification</span>

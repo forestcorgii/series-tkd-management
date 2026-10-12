@@ -143,7 +143,11 @@
                     </select>
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="form-label">Username <span class="text-slate-400 text-xs font-normal">(Optional)</span></label>
+                    <input type="text" name="username" placeholder="e.g. alex.vance" autocapitalize="none" spellcheck="false" class="form-input no-uppercase" data-no-uppercase="true">
+                </div>
                 <div>
                     <label class="form-label">Portal Login Email</label>
                     <input type="email" name="email" placeholder="student@seriestkd.com" class="form-input">
