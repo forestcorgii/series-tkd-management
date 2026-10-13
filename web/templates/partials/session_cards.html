@@ -5,13 +5,42 @@
     <div class="flex flex-wrap items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
         <!-- Week Controls -->
         <div class="flex items-center gap-2 flex-wrap">
-            <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900 p-0.5 shadow-xs">
+            <!-- Mobile 3-Day Navigation Controls -->
+            <div class="inline-flex md:hidden rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900 p-0.5 shadow-xs">
+                <button type="button"
+                        hx-get="/sessions?date={{.Calendar.Prev3DaysStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}&location_id={{.FilterLocationID}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        class="btn btn-ghost btn-xs px-2 py-1 text-xs text-slate-700 dark:text-slate-300"
+                        title="Previous 3 Days">
+                    &larr; Prev
+                </button>
+                <button type="button"
+                        hx-get="/sessions?date={{.Calendar.TodayStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}&location_id={{.FilterLocationID}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        class="btn btn-ghost btn-xs px-2 py-1 text-xs font-bold text-[#990303] dark:text-[#DC2626]"
+                        title="Jump to Today">
+                    Today
+                </button>
+                <button type="button"
+                        hx-get="/sessions?date={{.Calendar.Next3DaysStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}&location_id={{.FilterLocationID}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        class="btn btn-ghost btn-xs px-2 py-1 text-xs text-slate-700 dark:text-slate-300"
+                        title="Next 3 Days">
+                    Next &rarr;
+                </button>
+            </div>
+
+            <!-- Desktop 7-Day Navigation Controls -->
+            <div class="hidden md:inline-flex rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900 p-0.5 shadow-xs">
                 <button type="button"
                         hx-get="/sessions?date={{.Calendar.PrevWeekStr}}&coach_id={{.FilterCoachID}}&category={{.FilterCategory}}&student_id={{.FilterStudentID}}&location_id={{.FilterLocationID}}"
                         hx-target="#classes-container"
                         hx-push-url="true"
                         class="btn btn-ghost btn-xs px-2 py-1 text-xs text-slate-700 dark:text-slate-300"
-                        title="Previous Week">
+                        title="Previous 7 Days">
                     &larr; Prev
                 </button>
                 <button type="button"
@@ -27,17 +56,23 @@
                         hx-target="#classes-container"
                         hx-push-url="true"
                         class="btn btn-ghost btn-xs px-2 py-1 text-xs text-slate-700 dark:text-slate-300"
-                        title="Next Week">
+                        title="Next 7 Days">
                     Next &rarr;
                 </button>
             </div>
 
             <!-- Week Date Heading -->
             <div class="flex items-center gap-2 pl-1.5">
-                <span class="font-display font-bold text-xs sm:text-sm text-slate-900 dark:text-white tracking-wide">
+                <span class="font-display font-bold text-xs sm:text-sm text-slate-900 dark:text-white tracking-wide inline md:hidden">
+                    {{.Calendar.MobileTitle}}
+                </span>
+                <span class="font-display font-bold text-xs sm:text-sm text-slate-900 dark:text-white tracking-wide hidden md:inline">
                     {{.Calendar.Title}}
                 </span>
-                <span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                <span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900 inline md:hidden">
+                    {{.Calendar.MobileTotalSessions}} Classes
+                </span>
+                <span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900 hidden md:inline">
                     {{.Calendar.TotalSessions}} Classes
                 </span>
             </div>
@@ -50,20 +85,20 @@
         </div>
     </div>
 
-    <!-- 7-DAY GOOGLE-CALENDAR-STYLE TIME GRID -->
+    <!-- 7-DAY (DESKTOP) / 3-DAY (MOBILE) TIME GRID -->
     <div class="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-neutral-950 shadow-xs overflow-hidden">
         <div id="calendar-scroll-container" class="overflow-x-auto scroll-smooth">
-            <div class="min-w-[920px]">
+            <div class="min-w-0 md:min-w-[920px]">
                 <!-- Day Column Headers (Sticky Top) -->
-                <div class="grid grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 sticky top-0 z-20 backdrop-blur" style="display: grid; grid-template-columns: 64px repeat(7, minmax(0, 1fr));">
+                <div class="grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 sticky top-0 z-20 backdrop-blur">
                     <!-- Top-Left Corner: Timezone / Icon -->
-                    <div class="p-2 text-center border-r border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center">
-                        <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">GMT+8</span>
+                    <div class="p-1 sm:p-2 text-center border-r border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center">
+                        <span class="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">GMT+8</span>
                     </div>
 
-                    <!-- 7 Day Headers -->
-                    {{range .Calendar.Days}}
-                    <div class="calendar-day-dropzone p-1 sm:p-1.5 text-center border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 transition-colors {{if .IsToday}}bg-rose-50/40 dark:bg-rose-950/20 calendar-today-header{{end}}"
+                    <!-- Day Headers (3 days on mobile, 7 days on desktop) -->
+                    {{range $i, $day := .Calendar.Days}}
+                    <div class="calendar-day-dropzone p-1 sm:p-1.5 text-center border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 transition-colors {{if .IsToday}}bg-rose-50/40 dark:bg-rose-950/20 calendar-today-header{{end}} {{if ge $i 3}}hidden md:block{{end}}"
                          {{if .IsToday}}data-today="true"{{end}}
                          data-drop-date="{{.DateString}}"
                          ondragover="onCalendarSlotDragOver(event)"
@@ -93,15 +128,15 @@
                     {{end}}
                 </div>
 
-                <!-- Scrollable Body with Time Gutter + 7 Day Timeline Columns -->
+                <!-- Scrollable Body with Time Gutter + Timeline Columns -->
                 <div class="relative max-h-[720px] overflow-y-auto">
-                    <div class="grid grid-cols-[64px_repeat(7,1fr)] relative" style="display: grid; grid-template-columns: 64px repeat(7, minmax(0, 1fr)); height: {{.Calendar.GridHeight}}px;">
+                    <div class="grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
                         
                         <!-- Left Time Gutter -->
                         <div class="border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 relative select-none">
                             {{range $h := .Calendar.Hours}}
-                            <div class="h-[60px] border-b border-transparent relative pr-2 text-right">
-                                <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400 relative -top-2.5 block leading-none">
+                            <div class="h-[60px] border-b border-transparent relative pr-1 md:pr-2 text-right">
+                                <span class="text-[10px] md:text-[11px] font-mono text-slate-500 dark:text-slate-400 relative -top-2.5 block leading-none">
                                     {{$h.TimeLabel}}
                                 </span>
                             </div>
@@ -117,10 +152,10 @@
                             {{end}}
                         </div>
 
-                        <!-- 7 Day Columns -->
+                        <!-- Day Columns (3 days on mobile, 7 days on desktop) -->
                         {{$calendar := .Calendar}}
-                        {{range $day := $calendar.Days}}
-                        <div class="border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 relative {{if $day.IsToday}}bg-rose-50/10 dark:bg-rose-950/5{{end}}">
+                        {{range $i, $day := $calendar.Days}}
+                        <div class="border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 relative {{if $day.IsToday}}bg-rose-50/10 dark:bg-rose-950/5{{end}} {{if ge $i 3}}hidden md:block{{end}}">
                             <!-- Background Time Grid for this Day -->
                             <div class="absolute inset-0 z-0 flex flex-col pointer-events-auto">
                                 {{range $h := $calendar.Hours}}
@@ -253,6 +288,7 @@
                                         {{end}}
                                     </div>
 
+                                    {{if not (or .IsDuty .IsEvent)}}
                                     <div class="pt-1 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between gap-1 mt-auto">
                                         <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400">
                                             👥 {{.AttendanceCount}}
@@ -265,6 +301,7 @@
                                             </a>
                                         </div>
                                     </div>
+                                    {{end}}
                                 </div>
                                 {{end}}
                             </div>
@@ -464,10 +501,12 @@
                                     <span>✖</span> Cancel
                                 </button>
                                 {{end}}
+                                {{if not (or .IsDuty .IsEvent)}}
                                 <a href="/sessions/{{.ID}}/live"
                                    class="{{if .IsCancelled}}btn btn-secondary btn-xs py-0.5 px-2 opacity-80 text-xs{{else if .IsDone}}btn btn-secondary btn-xs py-0.5 px-2 text-xs{{else}}btn btn-primary btn-xs py-0.5 px-2 text-xs{{end}}">
                                     {{if .IsCancelled}}Roster &rarr;{{else if .IsDone}}Roster &rarr;{{else}}⚡ Live &rarr;{{end}}
                                 </a>
+                                {{end}}
                             </div>
                         </td>
                     </tr>

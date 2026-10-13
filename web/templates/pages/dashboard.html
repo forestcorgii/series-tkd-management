@@ -142,9 +142,11 @@
                             <h3 class="font-bold text-slate-900 dark:text-white text-xs mt-0.5">{{.StartTime}} - {{.EndTime}}</h3>
                             <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">Lead: {{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}</p>
                         </div>
+                        {{if not (or .IsDuty .IsEvent)}}
                         <a href="/sessions/{{.ID}}/live" class="btn btn-primary btn-xs py-1 px-2.5">
                             Attendance &rarr;
                         </a>
+                        {{end}}
                     </div>
                     {{else}}
                     <div

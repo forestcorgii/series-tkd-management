@@ -145,10 +145,14 @@ type CalendarWeek struct {
 	EndDate          time.Time
 	StartDateStr     string // "2026-09-28"
 	EndDateStr       string // "2026-10-04"
-	PrevWeekStr      string // "2026-09-21"
-	NextWeekStr      string // "2026-10-05"
-	TodayStr         string // "2026-09-28"
-	Title            string // "Sep 28 – Oct 04, 2026"
+	PrevWeekStr         string // "2026-09-21"
+	NextWeekStr         string // "2026-10-05"
+	Prev3DaysStr        string // "2026-09-25"
+	Next3DaysStr        string // "2026-10-01"
+	TodayStr            string // "2026-09-28"
+	Title               string // "Sep 28 – Oct 04, 2026"
+	MobileTitle         string // "Sep 28 – Sep 30, 2026"
+	MobileTotalSessions int
 	MonthYear        string // "September 2026"
 	Days             []*CalendarDay
 	Hours            []CalendarHour
@@ -331,15 +335,15 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	// Note: When dateParam is empty (e.g. on opening attendance), refDate always remains 'today',
 	// ensuring the calendar always centers on the current week.
 
-	// Compute Monday-to-Sunday week boundary for refDate
-	weekday := refDate.Weekday()
-	offset := (int(weekday) + 6) % 7 // Monday = 0, ..., Sunday = 6
-	weekStart := time.Date(refDate.Year(), refDate.Month(), refDate.Day()-offset, 0, 0, 0, 0, refDate.Location())
+	// Anchor calendar directly from refDate (today by default), so today's date is always in Column 1
+	weekStart := time.Date(refDate.Year(), refDate.Month(), refDate.Day(), 0, 0, 0, 0, refDate.Location())
 	weekEnd := weekStart.AddDate(0, 0, 6)
 	startDateStr := weekStart.Format("2006-01-02")
 	endDateStr := weekEnd.Format("2006-01-02")
 	prevWeekStr := weekStart.AddDate(0, 0, -7).Format("2006-01-02")
 	nextWeekStr := weekStart.AddDate(0, 0, 7).Format("2006-01-02")
+	prev3DaysStr := weekStart.AddDate(0, 0, -3).Format("2006-01-02")
+	next3DaysStr := weekStart.AddDate(0, 0, 3).Format("2006-01-02")
 
 	// Filter sessions within the selected week
 	var sessions []*models.TrainingSession
@@ -613,15 +617,31 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	weekTitle := fmt.Sprintf("%s – %s", weekStart.Format("Jan 02"), weekEnd.Format("Jan 02, 2006"))
+	mobileEndDate := weekStart.AddDate(0, 0, 2)
+	mobileTitle := fmt.Sprintf("%s – %s", weekStart.Format("Jan 02"), mobileEndDate.Format("Jan 02, 2006"))
+	mobileStartDateStr := weekStart.Format("2006-01-02")
+	mobileEndDateStr := mobileEndDate.Format("2006-01-02")
+	mobileTotalSessions := 0
+	for _, s := range sessions {
+		sDate := s.SessionDate.Format("2006-01-02")
+		if sDate >= mobileStartDateStr && sDate <= mobileEndDateStr {
+			mobileTotalSessions++
+		}
+	}
+
 	calWeek := CalendarWeek{
-		StartDate:        weekStart,
-		EndDate:          weekEnd,
-		StartDateStr:     startDateStr,
-		EndDateStr:       endDateStr,
-		PrevWeekStr:      prevWeekStr,
-		NextWeekStr:      nextWeekStr,
-		TodayStr:         todayStr,
-		Title:            weekTitle,
+		StartDate:           weekStart,
+		EndDate:             weekEnd,
+		StartDateStr:        startDateStr,
+		EndDateStr:          endDateStr,
+		PrevWeekStr:         prevWeekStr,
+		NextWeekStr:         nextWeekStr,
+		Prev3DaysStr:        prev3DaysStr,
+		Next3DaysStr:        next3DaysStr,
+		TodayStr:            todayStr,
+		Title:               weekTitle,
+		MobileTitle:         mobileTitle,
+		MobileTotalSessions: mobileTotalSessions,
 		MonthYear:        weekStart.Format("January 2006"),
 		Days:             days,
 		Hours:            hours,
@@ -1256,6 +1276,11 @@ func (a *AppHandler) HandleLiveSession(w http.ResponseWriter, r *http.Request) {
 	session, err := a.store.GetSessionByID(sessionID)
 	if err != nil {
 		http.Error(w, "Session not found", http.StatusNotFound)
+		return
+	}
+
+	if session.IsDuty() || session.IsEvent() {
+		http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 		return
 	}
 

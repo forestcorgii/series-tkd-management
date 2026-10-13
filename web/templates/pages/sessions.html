@@ -11,11 +11,11 @@
     <div class="glass-panel rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 space-y-3 shadow-xs">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-2.5 gap-2">
             <div class="flex items-center gap-2">
-                <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Dojang 7-Day Class Calendar</h2>
+                <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Dojang Class Calendar</h2>
                 <div class="has-tooltip">
                     <button type="button" class="tooltip-icon" aria-label="Schedule Information">ⓘ</button>
                     <div class="tooltip-content">
-                        Schedule dojang classes on the 7-day calendar, filter by coach or date, and manage floor attendance screens.
+                        Schedule dojang classes on the calendar, filter by coach or date, and manage floor attendance screens.
                     </div>
                 </div>
             </div>
@@ -616,7 +616,7 @@
                 </div>
 
                 <!-- Attendance Count -->
-                <div class="space-y-0.5 sm:col-span-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+                <div id="info-modal-attendance-group" class="space-y-0.5 sm:col-span-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
                     <div>
                         <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Attendance Roster</span>
                         <p id="info-modal-attendance" class="font-semibold text-slate-900 dark:text-white">0 students checked in</p>
@@ -1326,39 +1326,44 @@ function openClassInfoFromCard(cardEl) {
         if (adminEl) adminEl.textContent = d.admin || 'Unassigned';
     }
     
-    // Attendance count
-    const attEl = document.getElementById('info-modal-attendance');
-    if (attEl) {
-        if (entryType === 'duty') {
-            attEl.textContent = 'Staff Check-in & Duty Logs';
-        } else if (d.attendance !== undefined && d.attendance !== "") {
-            const count = parseInt(d.attendance, 10) || 0;
-            if (entryType === 'open_session') {
-                attEl.textContent = count + (count === 1 ? ' attendee checked in (Free)' : ' attendees checked in (Free)');
-            } else {
-                attEl.textContent = count + (count === 1 ? ' student checked in' : ' students checked in');
-            }
-        } else {
-            attEl.textContent = 'Active floor session roster';
-        }
-    }
-    
-    // Live Attendance button
+    // Attendance section & Live button (Hidden for Duty and Event entries)
+    const attGroup = document.getElementById('info-modal-attendance-group');
     const liveBtn = document.getElementById('info-modal-live-btn');
-    if (liveBtn) {
-        liveBtn.href = '/sessions/' + d.id + '/live';
-        if (d.cancelled === 'true') {
-            liveBtn.innerHTML = '<span>📋</span> View Cancelled Roster';
-            liveBtn.className = 'btn btn-secondary btn-xs py-1 px-3 flex items-center gap-1 font-bold opacity-80';
-        } else if (d.isDone === 'true') {
-            liveBtn.innerHTML = '<span>🔒</span> View Completed Roster';
-            liveBtn.className = 'btn btn-secondary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
-        } else if (entryType === 'duty') {
-            liveBtn.innerHTML = '<span>🛡️</span> Manage Duty Roster';
-            liveBtn.className = 'btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
-        } else {
-            liveBtn.innerHTML = '<span>⚡</span> Open Live Attendance';
-            liveBtn.className = 'btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
+    if (entryType === 'duty' || entryType === 'event') {
+        if (attGroup) attGroup.classList.add('hidden');
+        if (liveBtn) liveBtn.classList.add('hidden');
+    } else {
+        if (attGroup) attGroup.classList.remove('hidden');
+        if (liveBtn) liveBtn.classList.remove('hidden');
+
+        // Attendance count
+        const attEl = document.getElementById('info-modal-attendance');
+        if (attEl) {
+            if (d.attendance !== undefined && d.attendance !== "") {
+                const count = parseInt(d.attendance, 10) || 0;
+                if (entryType === 'open_session') {
+                    attEl.textContent = count + (count === 1 ? ' attendee checked in (Free)' : ' attendees checked in (Free)');
+                } else {
+                    attEl.textContent = count + (count === 1 ? ' student checked in' : ' students checked in');
+                }
+            } else {
+                attEl.textContent = 'Active floor session roster';
+            }
+        }
+        
+        // Live Attendance button
+        if (liveBtn) {
+            liveBtn.href = '/sessions/' + d.id + '/live';
+            if (d.cancelled === 'true') {
+                liveBtn.innerHTML = '<span>📋</span> View Cancelled Roster';
+                liveBtn.className = 'btn btn-secondary btn-xs py-1 px-3 flex items-center gap-1 font-bold opacity-80';
+            } else if (d.isDone === 'true') {
+                liveBtn.innerHTML = '<span>🔒</span> View Completed Roster';
+                liveBtn.className = 'btn btn-secondary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
+            } else {
+                liveBtn.innerHTML = '<span>⚡</span> Open Live Attendance';
+                liveBtn.className = 'btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold';
+            }
         }
     }
     

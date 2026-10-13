@@ -171,11 +171,13 @@
                                 {{if .LocationName}} &bull; 📍 {{.LocationName}}{{end}}
                             </p>
                         </div>
+                        {{if not (or .IsDuty .IsEvent)}}
                         <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
                             <a href="/sessions/{{.ID}}/live" class="btn btn-primary btn-sm flex-1 sm:flex-initial">
                                 🥋 Live Attendance &rarr;
                             </a>
                         </div>
+                        {{end}}
                     </div>
                     {{else}}
                     <div class="p-8 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">

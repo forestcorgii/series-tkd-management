@@ -2230,5 +2230,142 @@ func TestSessionHandler_RescheduleSession(t *testing.T) {
 	})
 }
 
+func TestCalendar_FirstColumnAndMobile3Day(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// Request with explicit anchor date
+	req := httptest.NewRequest(http.MethodGet, "/sessions?date=2026-10-14", nil)
+	req.Header.Set("HX-Request", "true")
+	rec := httptest.NewRecorder()
+
+	app.HandleSessions(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+
+	// Verify mobile 3-day prev/next navigation links are rendered
+	if !strings.Contains(body, "date=2026-10-17") {
+		t.Errorf("expected 3-day Next button to link to 2026-10-17, got: %s", body)
+	}
+	if !strings.Contains(body, "date=2026-10-11") {
+		t.Errorf("expected 3-day Prev button to link to 2026-10-11, got: %s", body)
+	}
+
+	// Verify 7-day prev/next navigation links are rendered
+	if !strings.Contains(body, "date=2026-10-21") {
+		t.Errorf("expected 7-day Next button to link to 2026-10-21, got: %s", body)
+	}
+	if !strings.Contains(body, "date=2026-10-07") {
+		t.Errorf("expected 7-day Prev button to link to 2026-10-07, got: %s", body)
+	}
+
+	// Verify 3-day title and 7-day title are both present
+	if !strings.Contains(body, "Oct 14 – Oct 16, 2026") {
+		t.Errorf("expected 3-day MobileTitle 'Oct 14 – Oct 16, 2026', got: %s", body)
+	}
+	if !strings.Contains(body, "Oct 14 – Oct 20, 2026") {
+		t.Errorf("expected 7-day Title 'Oct 14 – Oct 20, 2026', got: %s", body)
+	}
+
+	// Verify responsive grid classes
+	if !strings.Contains(body, "grid-cols-[48px_repeat(3,1fr)]") {
+		t.Errorf("expected responsive mobile grid class grid-cols-[48px_repeat(3,1fr)], got: %s", body)
+	}
+	if !strings.Contains(body, "md:grid-cols-[64px_repeat(7,1fr)]") {
+		t.Errorf("expected responsive desktop grid class md:grid-cols-[64px_repeat(7,1fr)], got: %s", body)
+	}
+}
+
+func TestHandleLiveSession_DutyAndEventRedirect(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	sessDate, _ := time.Parse("2006-01-02", "2026-10-15")
+
+	// 1. Duty Session
+	dutySess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  sessDate,
+		StartTime:    "09:00",
+		EndTime:      "12:00",
+		TrainingType: models.TrainingSparring,
+		EntryType:    models.EntryTypeDuty,
+		Title:        "Front Desk Shift",
+	}
+	_ = store.CreateSession(dutySess)
+
+	// 2. Event Session
+	eventSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  sessDate,
+		StartTime:    "13:00",
+		EndTime:      "16:00",
+		TrainingType: models.TrainingSparring,
+		EntryType:    models.EntryTypeEvent,
+		Title:        "Dojang In-House Tournament",
+	}
+	_ = store.CreateSession(eventSess)
+
+	// 3. Regular Class Session
+	classSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  sessDate,
+		StartTime:    "17:00",
+		EndTime:      "18:30",
+		TrainingType: models.TrainingSparring,
+		EntryType:    models.EntryTypeClass,
+	}
+	_ = store.CreateSession(classSess)
+
+	t.Run("Duty session redirects away from live attendance", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/sessions/%s/live", dutySess.ID), nil)
+		rec := httptest.NewRecorder()
+
+		app.HandleLiveSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 See Other redirect, got %d", rec.Code)
+		}
+		if rec.Header().Get("Location") != "/sessions" {
+			t.Errorf("expected redirect to /sessions, got %s", rec.Header().Get("Location"))
+		}
+	})
+
+	t.Run("Event session redirects away from live attendance", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/sessions/%s/live", eventSess.ID), nil)
+		rec := httptest.NewRecorder()
+
+		app.HandleLiveSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 See Other redirect, got %d", rec.Code)
+		}
+		if rec.Header().Get("Location") != "/sessions" {
+			t.Errorf("expected redirect to /sessions, got %s", rec.Header().Get("Location"))
+		}
+	})
+
+	t.Run("Class session renders live attendance", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/sessions/%s/live", classSess.ID), nil)
+		rec := httptest.NewRecorder()
+
+		app.HandleLiveSession(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected 200 OK for class session live attendance, got %d", rec.Code)
+		}
+	})
+}
+
+
 
 
