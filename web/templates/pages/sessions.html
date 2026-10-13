@@ -118,38 +118,38 @@
         </div>
 
         <!-- Segmented Type Switcher -->
-        <div class="shrink-0 p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+        <div class="shrink-0 p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
             <label class="form-label text-[11px] mb-1.5 block">Schedule Type</label>
             <div class="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-center">
                 <button type="button"
                         id="new-type-btn-class"
                         onclick="setNewSessionEntryType('class')"
-                        class="new-type-btn py-1.5 rounded-lg transition-all shadow-xs bg-[#990303] text-white">
+                        class="new-type-btn py-1.5 px-1 truncate rounded-lg transition-all shadow-xs bg-[#990303] text-white">
                     🥋 Class
                 </button>
                 <button type="button"
                         id="new-type-btn-open_session"
                         onclick="setNewSessionEntryType('open_session')"
-                        class="new-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                        class="new-type-btn py-1.5 px-1 truncate rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                     🔓 Free / Open
                 </button>
                 <button type="button"
                         id="new-type-btn-duty"
                         onclick="setNewSessionEntryType('duty')"
-                        class="new-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                        class="new-type-btn py-1.5 px-1 truncate rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                     🛡️ On-Duty
                 </button>
                 <button type="button"
                         id="new-type-btn-event"
                         onclick="setNewSessionEntryType('event')"
-                        class="new-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                        class="new-type-btn py-1.5 px-1 truncate rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                     🏆 Event
                 </button>
             </div>
         </div>
 
         <form action="/sessions" method="POST" class="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div class="modal-body">
+            <div class="modal-body overflow-x-hidden">
                 <input type="hidden" name="redirect_url" id="modal-redirect-url" value="/sessions">
                 <input type="hidden" name="entry_type" id="modal-entry-type" value="class">
 
@@ -165,15 +165,15 @@
 
                 <!-- Date, Start Time, and End Time on ONE line -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
+                    <div class="min-w-0">
                         <label class="form-label">Date</label>
-                        <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('modal-redirect-url')) document.getElementById('modal-redirect-url').value = '/sessions?date=' + this.value;">
+                        <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm w-full" onchange="if(document.getElementById('modal-redirect-url')) document.getElementById('modal-redirect-url').value = '/sessions?date=' + this.value;">
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <label class="form-label">Start Time</label>
-                        <input type="time" id="modal-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEndTime()">
+                        <input type="time" id="modal-start-time" name="start_time" required class="form-input text-xs sm:text-sm w-full" oninput="calculateEndTime()">
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <label class="form-label flex items-center justify-between">
                             <span>End Time</span>
                             <span class="has-tooltip">
@@ -181,7 +181,7 @@
                                 <span class="tooltip-content">Automatically set to 2 hours after start time</span>
                             </span>
                         </label>
-                        <input type="time" id="modal-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
+                        <input type="time" id="modal-end-time" name="end_time" required class="form-input text-xs sm:text-sm w-full">
                     </div>
                 </div>
 
@@ -191,7 +191,7 @@
                         <span>Assigned On-Duty Staff</span>
                         <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
                     </label>
-                    <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                    <div class="max-h-44 overflow-y-auto overflow-x-hidden p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
                         <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
                         {{range .Coaches}}
                         {{if .IsActive}}
@@ -296,38 +296,38 @@
         </div>
 
         <!-- Segmented Type Switcher -->
-        <div class="shrink-0 p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+        <div class="shrink-0 p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
             <label class="form-label text-[11px] mb-1.5 block">Schedule Type</label>
             <div class="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-center">
                 <button type="button"
                         id="edit-type-btn-class"
                         onclick="setEditSessionEntryType('class')"
-                        class="edit-type-btn py-1.5 rounded-lg transition-all shadow-xs bg-[#990303] text-white">
+                        class="edit-type-btn py-1.5 px-1 truncate rounded-lg transition-all shadow-xs bg-[#990303] text-white">
                     🥋 Class
                 </button>
                 <button type="button"
                         id="edit-type-btn-open_session"
                         onclick="setEditSessionEntryType('open_session')"
-                        class="edit-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                        class="edit-type-btn py-1.5 px-1 truncate rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                     🔓 Free / Open
                 </button>
                 <button type="button"
                         id="edit-type-btn-duty"
                         onclick="setEditSessionEntryType('duty')"
-                        class="edit-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                        class="edit-type-btn py-1.5 px-1 truncate rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                     🛡️ On-Duty
                 </button>
                 <button type="button"
                         id="edit-type-btn-event"
                         onclick="setEditSessionEntryType('event')"
-                        class="edit-type-btn py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                        class="edit-type-btn py-1.5 px-1 truncate rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                     🏆 Event
                 </button>
             </div>
         </div>
 
         <form id="edit-session-form" method="POST" action="" hx-boost="false" hx-disable="true" onsubmit="const sid = document.getElementById('edit-session-id') ? document.getElementById('edit-session-id').value : ''; if(sid){ this.action = '/sessions/' + sid + '/edit'; } else { event.preventDefault(); return false; }" class="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div class="modal-body">
+            <div class="modal-body overflow-x-hidden">
                 <input type="hidden" name="session_id" id="edit-session-id" value="">
                 <input type="hidden" name="redirect_url" id="edit-redirect-url" value="/sessions">
                 <input type="hidden" name="entry_type" id="edit-modal-entry-type" value="class">
@@ -344,15 +344,15 @@
 
                 <!-- Date, Start Time, and End Time on ONE line -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
+                    <div class="min-w-0">
                         <label class="form-label">Date</label>
-                        <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('edit-redirect-url')) document.getElementById('edit-redirect-url').value = '/sessions?date=' + this.value;">
+                        <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm w-full" onchange="if(document.getElementById('edit-redirect-url')) document.getElementById('edit-redirect-url').value = '/sessions?date=' + this.value;">
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <label class="form-label">Start Time</label>
-                        <input type="time" id="edit-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
+                        <input type="time" id="edit-start-time" name="start_time" required class="form-input text-xs sm:text-sm w-full" oninput="calculateEditEndTime()">
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <label class="form-label flex items-center justify-between">
                             <span>End Time</span>
                             <span class="has-tooltip">
@@ -360,7 +360,7 @@
                                 <span class="tooltip-content">Automatically set to 2 hours after start time</span>
                             </span>
                         </label>
-                        <input type="time" id="edit-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
+                        <input type="time" id="edit-end-time" name="end_time" required class="form-input text-xs sm:text-sm w-full">
                     </div>
                 </div>
 
@@ -370,7 +370,7 @@
                         <span>Assigned On-Duty Staff</span>
                         <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
                     </label>
-                    <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                    <div class="max-h-44 overflow-y-auto overflow-x-hidden p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
                         <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
                         {{range .Coaches}}
                         {{if .IsActive}}

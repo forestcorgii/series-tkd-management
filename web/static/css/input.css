@@ -90,7 +90,10 @@
         @apply shrink-0 px-5 pt-4 sm:pt-5 pb-3 border-b border-[#E5E3D8] dark:border-neutral-800;
     }
     .modal-dialog-scrollable .modal-body {
-        @apply overflow-y-auto flex-1 min-h-0 p-4 sm:p-5 space-y-4;
+        @apply overflow-y-auto overflow-x-hidden flex-1 min-h-0 p-4 sm:p-5 space-y-4;
+    }
+    .modal-body {
+        @apply overflow-x-hidden;
     }
     .modal-dialog-scrollable .modal-footer {
         @apply shrink-0 px-4 sm:px-5 py-3 border-t border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-[#111111];
