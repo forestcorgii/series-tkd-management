@@ -236,3 +236,12 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   2. **Backdrop Overflow Safety**:
      - `.modal-backdrop` includes `@apply ... overflow-y-auto;` and `.modal-dialog` includes `@apply ... my-auto;`, preventing top/bottom clipping on smaller viewports.
 
+### Context: Attendance Page Collapsible Filters & Compact Mobile Scheduling CTAs
+
+* **Problem:**
+  1. Static multi-input filter bars on the attendance/sessions calendar occupied 80–120px of vertical viewport real estate, pushing the calendar timeline below the fold on mobile and tablet devices.
+  2. The primary "+ Schedule Class" CTA was placed in the top page header far above the calendar navigation controls, causing visual fragmentation and consuming horizontal space on small screens.
+* **Enforced Solution:**
+  1. **Calendar Toolbar Scheduling CTA ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Removed the redundant date range text from the navigation bar (as dates are already visible in the sticky timeline day headers). Consolidated the total classes badge immediately before the `+ Schedule Class` action button on the right side of the navigation bar, keeping controls on a single, non-wrapping row across mobile and desktop.
+  2. **Mobile Space Optimization with Responsive Tooltip ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html), [input.css](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/input.css))**: On mobile screens (`< sm`), the button text collapses to a space-saving `+` icon wrapped in `.has-tooltip` with a right-aligned tooltip (`.tooltip-content.tooltip-right.sm:hidden`) revealing "Schedule Class". On tablet and desktop (`>= sm`), the full `+ Schedule Class` text is rendered.
+  3. **Collapsible Filter Bar ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html))**: The filter form is wrapped in a collapsible container (`#session-filter-container`) toggled by an accessible `#filter-toggle-btn` with active-count badge and animated chevron. Filter preferences persist across page views via `localStorage` and automatically remain expanded whenever any filter criteria are active.

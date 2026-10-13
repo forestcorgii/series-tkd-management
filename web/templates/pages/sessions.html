@@ -9,7 +9,7 @@
 
     <!-- Classes List & Calendar Container -->
     <div class="glass-panel rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-4 space-y-3 shadow-xs">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-2.5 gap-2">
+        <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-2.5 gap-2">
             <div class="flex items-center gap-2">
                 <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Dojang Class Calendar</h2>
                 <div class="has-tooltip">
@@ -19,88 +19,103 @@
                     </div>
                 </div>
             </div>
+            <!-- Collapsible Filter Toggle Button -->
             <button type="button"
-                    onclick="openNewSessionModal(currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
-                    class="btn btn-primary btn-xs flex items-center gap-1.5 self-start sm:self-auto shadow-xs py-1.5 px-3">
-                <span>+</span> Schedule Class
+                    id="filter-toggle-btn"
+                    onclick="toggleFilterCollapse()"
+                    class="btn btn-secondary btn-xs flex items-center gap-1.5 py-1 px-2.5 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-xs"
+                    aria-expanded="false"
+                    aria-controls="session-filter-container">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span>Filter</span>
+                <span id="active-filter-badge" class="{{if or $.FilterEntryType $.FilterCoachID $.FilterCategory $.FilterLocationID $.FilterStudentID}}{{else}}hidden{{end}} px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#990303] text-white">
+                    Active
+                </span>
+                <svg id="filter-chevron" class="w-3 h-3 text-slate-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
             </button>
         </div>
 
-        <!-- Attendance & Class Filter Bar (Compact 1-row/2-row grid) -->
-        <div class="p-2.5 sm:p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
-            <form id="session-filter-form"
-                  hx-get="/sessions"
-                  hx-target="#classes-container"
-                  hx-trigger="change, input delay:250ms"
-                  class="space-y-2 sm:space-y-0">
-                <input type="hidden" name="view" value="{{.ViewMode}}">
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 items-end">
-                    <!-- Schedule Type Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Type</label>
-                        <select name="entry_type" class="form-select text-xs py-1 px-2">
-                            <option value="">All Types</option>
-                            <option value="class" {{if eq $.FilterEntryType "class"}}selected{{end}}>🥋 Classes</option>
-                            <option value="open_session" {{if eq $.FilterEntryType "open_session"}}selected{{end}}>🔓 Free / Open</option>
-                            <option value="duty" {{if eq $.FilterEntryType "duty"}}selected{{end}}>🛡️ Staff On-Duty</option>
-                            <option value="event" {{if eq $.FilterEntryType "event"}}selected{{end}}>🏆 Events</option>
-                        </select>
-                    </div>
+        <!-- Attendance & Class Filter Bar (Collapsible) -->
+        <div id="session-filter-container" class="{{if or $.FilterEntryType $.FilterCoachID $.FilterCategory $.FilterLocationID $.FilterStudentID}}{{else}}hidden{{end}} transition-all duration-200">
+            <div class="p-2.5 sm:p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                <form id="session-filter-form"
+                      hx-get="/sessions"
+                      hx-target="#classes-container"
+                      hx-trigger="change, input delay:250ms"
+                      class="space-y-2 sm:space-y-0">
+                    <input type="hidden" name="view" value="{{.ViewMode}}">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 items-end">
+                        <!-- Schedule Type Filter -->
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Type</label>
+                            <select name="entry_type" class="form-select text-xs py-1 px-2">
+                                <option value="">All Types</option>
+                                <option value="class" {{if eq $.FilterEntryType "class"}}selected{{end}}>🥋 Classes</option>
+                                <option value="open_session" {{if eq $.FilterEntryType "open_session"}}selected{{end}}>🔓 Free / Open</option>
+                                <option value="duty" {{if eq $.FilterEntryType "duty"}}selected{{end}}>🛡️ Staff On-Duty</option>
+                                <option value="event" {{if eq $.FilterEntryType "event"}}selected{{end}}>🏆 Events</option>
+                            </select>
+                        </div>
 
-                    <!-- Coach Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Coach</label>
-                        <select name="coach_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Coaches">
-                            <option value="">All Coaches</option>
-                            {{range .Coaches}}
-                            <option value="{{.ID}}" {{if eq $.FilterCoachID .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
-                            {{end}}
-                        </select>
-                    </div>
+                        <!-- Coach Filter -->
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Coach</label>
+                            <select name="coach_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Coaches">
+                                <option value="">All Coaches</option>
+                                {{range .Coaches}}
+                                <option value="{{.ID}}" {{if eq $.FilterCoachID .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
+                                {{end}}
+                            </select>
+                        </div>
 
-                    <!-- Category Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</label>
-                        <select name="category" class="form-select text-xs py-1 px-2">
-                            <option value="">All Categories</option>
-                            {{range .TrainingCategories}}
-                            <option value="{{.Name}}" {{if eq $.FilterCategory .Name}}selected{{end}}>{{.Name}}</option>
-                            {{end}}
-                        </select>
-                    </div>
+                        <!-- Category Filter -->
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</label>
+                            <select name="category" class="form-select text-xs py-1 px-2">
+                                <option value="">All Categories</option>
+                                {{range .TrainingCategories}}
+                                <option value="{{.Name}}" {{if eq $.FilterCategory .Name}}selected{{end}}>{{.Name}}</option>
+                                {{end}}
+                            </select>
+                        </div>
 
-                    <!-- Location Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Location</label>
-                        <select name="location_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Locations">
-                            <option value="">All Locations</option>
-                            {{range .Locations}}
-                            <option value="{{.ID}}" {{if eq $.FilterLocationID .ID.String}}selected{{end}}>{{.Name}}</option>
-                            {{end}}
-                        </select>
-                    </div>
+                        <!-- Location Filter -->
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Location</label>
+                            <select name="location_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Locations">
+                                <option value="">All Locations</option>
+                                {{range .Locations}}
+                                <option value="{{.ID}}" {{if eq $.FilterLocationID .ID.String}}selected{{end}}>{{.Name}}</option>
+                                {{end}}
+                            </select>
+                        </div>
 
-                    <!-- Student Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Student</label>
-                        <select name="student_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Students">
-                            <option value="">All Students</option>
-                            {{range .Students}}
-                            <option value="{{.ID}}" {{if eq $.FilterStudentID .ID.String}}selected{{end}}>{{.FullName}} ({{.CurrentBelt}})</option>
-                            {{end}}
-                        </select>
-                    </div>
+                        <!-- Student Filter -->
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Student</label>
+                            <select name="student_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Students">
+                                <option value="">All Students</option>
+                                {{range .Students}}
+                                <option value="{{.ID}}" {{if eq $.FilterStudentID .ID.String}}selected{{end}}>{{.FullName}} ({{.CurrentBelt}})</option>
+                                {{end}}
+                            </select>
+                        </div>
 
-                    <!-- Reset Action -->
-                    <div>
-                        <button type="button"
-                                onclick="clearFilters()"
-                                class="btn btn-secondary btn-xs w-full py-1.5 flex items-center justify-center gap-1 text-xs">
-                            <span>↺</span> Clear
-                        </button>
+                        <!-- Reset Action -->
+                        <div>
+                            <button type="button"
+                                    onclick="clearFilters()"
+                                    class="btn btn-secondary btn-xs w-full py-1.5 flex items-center justify-center gap-1 text-xs">
+                                <span>↺</span> Clear
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
 
         <div id="classes-container">
@@ -1440,9 +1455,90 @@ function closeClassInfoModal() {
     if (modal) modal.classList.add('hidden');
 }
 
+function toggleFilterCollapse() {
+    var container = document.getElementById('session-filter-container');
+    var chevron = document.getElementById('filter-chevron');
+    var btn = document.getElementById('filter-toggle-btn');
+    if (!container) return;
+
+    var isHidden = container.classList.contains('hidden');
+    if (isHidden) {
+        container.classList.remove('hidden');
+        if (chevron) chevron.classList.add('rotate-180');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        try { localStorage.setItem('stms_sessions_filter_open', 'true'); } catch(e) {}
+    } else {
+        container.classList.add('hidden');
+        if (chevron) chevron.classList.remove('rotate-180');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        try { localStorage.setItem('stms_sessions_filter_open', 'false'); } catch(e) {}
+    }
+}
+
+function updateActiveFilterBadge() {
+    var form = document.getElementById('session-filter-form');
+    var badge = document.getElementById('active-filter-badge');
+    if (!form || !badge) return;
+
+    var count = 0;
+    var selects = form.querySelectorAll('select');
+    selects.forEach(function(s) {
+        if (s.value && s.value.trim() !== '') count++;
+    });
+
+    if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function initFilterCollapse() {
+    var container = document.getElementById('session-filter-container');
+    var chevron = document.getElementById('filter-chevron');
+    var btn = document.getElementById('filter-toggle-btn');
+    if (!container || !btn) return;
+
+    var form = document.getElementById('session-filter-form');
+    var hasActiveFilters = false;
+    if (form) {
+        var selects = form.querySelectorAll('select');
+        selects.forEach(function(s) {
+            if (s.value && s.value.trim() !== '') hasActiveFilters = true;
+        });
+    }
+
+    var savedState = null;
+    try { savedState = localStorage.getItem('stms_sessions_filter_open'); } catch(e) {}
+
+    var shouldOpen = hasActiveFilters || (savedState === 'true');
+
+    if (shouldOpen) {
+        container.classList.remove('hidden');
+        if (chevron) chevron.classList.add('rotate-180');
+        btn.setAttribute('aria-expanded', 'true');
+    } else {
+        container.classList.add('hidden');
+        if (chevron) chevron.classList.remove('rotate-180');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+    updateActiveFilterBadge();
+}
+
 function clearFilters() {
     var form = document.getElementById('session-filter-form');
-    if (form) form.reset();
+    if (form) {
+        form.reset();
+        form.querySelectorAll('.searchable-select-trigger span').forEach(function(span) {
+            var container = span.closest('.searchable-select-container');
+            var select = container ? container.previousElementSibling : null;
+            if (select && select.dataset.placeholder) {
+                span.textContent = select.dataset.placeholder;
+            }
+        });
+    }
+    updateActiveFilterBadge();
     htmx.ajax('GET', '/sessions', {target: '#classes-container', swap: 'innerHTML'});
 }
 
@@ -1467,8 +1563,13 @@ function scrollToCurrentDayOnMobile() {
     });
 }
 
-// Automatically scroll on initial page load
+// Automatically scroll and initialize filter collapse on initial page load
 document.addEventListener('DOMContentLoaded', () => {
+    initFilterCollapse();
+    var filterForm = document.getElementById('session-filter-form');
+    if (filterForm) {
+        filterForm.addEventListener('change', updateActiveFilterBadge);
+    }
     setTimeout(scrollToCurrentDayOnMobile, 150);
 });
 

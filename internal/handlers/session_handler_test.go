@@ -1655,9 +1655,23 @@ func TestSessionHandler_OverlappingSchedulesAndCardClickability(t *testing.T) {
 		t.Errorf("expected location names in rendered calendar cards")
 	}
 
-	// 5. Verify Schedule Class action button is present in header
+	// 5. Verify Schedule Class action button is present in calendar section with mobile tooltip
 	if !strings.Contains(body, "Schedule Class") {
 		t.Errorf("expected Schedule Class button in page")
+	}
+	if !strings.Contains(body, "openNewSessionModal") {
+		t.Errorf("expected openNewSessionModal onclick handler in calendar")
+	}
+
+	// 6. Verify collapsible filter bar and toggle button are present
+	if !strings.Contains(body, "session-filter-container") {
+		t.Errorf("expected collapsible session-filter-container")
+	}
+	if !strings.Contains(body, "toggleFilterCollapse") {
+		t.Errorf("expected toggleFilterCollapse onclick handler")
+	}
+	if !strings.Contains(body, "filter-toggle-btn") {
+		t.Errorf("expected filter-toggle-btn in header")
 	}
 }
 
@@ -2270,12 +2284,9 @@ func TestCalendar_FirstColumnAndMobile3Day(t *testing.T) {
 		t.Errorf("expected 7-day Prev button to link to 2026-10-07, got: %s", body)
 	}
 
-	// Verify 3-day title and 7-day title are both present
-	if !strings.Contains(body, "Oct 14 – Oct 16, 2026") {
-		t.Errorf("expected 3-day MobileTitle 'Oct 14 – Oct 16, 2026', got: %s", body)
-	}
-	if !strings.Contains(body, "Oct 14 – Oct 20, 2026") {
-		t.Errorf("expected 7-day Title 'Oct 14 – Oct 20, 2026', got: %s", body)
+	// Verify total classes badge is rendered in navigation bar
+	if !strings.Contains(body, "Classes") {
+		t.Errorf("expected total classes badge in navigation bar, got: %s", body)
 	}
 
 	// Verify responsive grid classes

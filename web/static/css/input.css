@@ -260,6 +260,20 @@ html.dark .tooltip-content {
     pointer-events: auto;
     transform: translateX(-50%) translateY(0);
 }
+.tooltip-content.tooltip-right {
+    left: auto;
+    right: 0;
+    transform: translateY(4px);
+}
+@media (hover: hover) and (pointer: fine) {
+    .has-tooltip:hover .tooltip-content.tooltip-right,
+    .has-tooltip:focus-within .tooltip-content.tooltip-right {
+        transform: translateY(0);
+    }
+}
+.has-tooltip.tooltip-active .tooltip-content.tooltip-right {
+    transform: translateY(0);
+}
 .tooltip-icon {
     display: inline-flex;
     align-items: center;

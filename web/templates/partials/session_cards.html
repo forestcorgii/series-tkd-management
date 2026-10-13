@@ -2,9 +2,9 @@
 {{$user := currentUser .}}
 <div class="space-y-3" id="session-cards-wrapper" data-selected-date="{{.SelectedDate}}">
     <!-- Week Navigation Bar -->
-    <div class="flex flex-wrap items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
+    <div class="flex items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
         <!-- Week Controls -->
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
             <!-- Mobile 3-Day Navigation Controls -->
             <div class="inline-flex md:hidden rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-neutral-900 p-0.5 shadow-xs">
                 <button type="button"
@@ -60,28 +60,32 @@
                     Next &rarr;
                 </button>
             </div>
-
-            <!-- Week Date Heading -->
-            <div class="flex items-center gap-2 pl-1.5">
-                <span class="font-display font-bold text-xs sm:text-sm text-slate-900 dark:text-white tracking-wide inline md:hidden">
-                    {{.Calendar.MobileTitle}}
-                </span>
-                <span class="font-display font-bold text-xs sm:text-sm text-slate-900 dark:text-white tracking-wide hidden md:inline">
-                    {{.Calendar.Title}}
-                </span>
-                <span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900 inline md:hidden">
-                    {{.Calendar.MobileTotalSessions}} Classes
-                </span>
-                <span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900 hidden md:inline">
-                    {{.Calendar.TotalSessions}} Classes
-                </span>
-            </div>
         </div>
 
         <div class="flex items-center gap-2">
-            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden lg:inline">
                 💡 Drag cards to reschedule &bull; Click slot to schedule
             </span>
+            <!-- Total Classes Badge -->
+            <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900 inline md:hidden whitespace-nowrap">
+                {{.Calendar.MobileTotalSessions}} Classes
+            </span>
+            <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900 hidden md:inline whitespace-nowrap">
+                {{.Calendar.TotalSessions}} Classes
+            </span>
+            <div class="has-tooltip relative inline-flex">
+                <button type="button"
+                        onclick="openNewSessionModal(currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
+                        class="btn btn-primary btn-xs flex items-center justify-center gap-1 shadow-xs py-1.5 px-2.5 sm:px-3 text-xs"
+                        title="Schedule Class"
+                        aria-label="Schedule Class">
+                    <span class="font-bold text-sm leading-none">+</span>
+                    <span class="hidden sm:inline">Schedule Class</span>
+                </button>
+                <div class="tooltip-content tooltip-right sm:hidden whitespace-nowrap">
+                    Schedule Class
+                </div>
+            </div>
         </div>
     </div>
 
