@@ -279,94 +279,96 @@
 
 <!-- Modal: Edit Training Class -->
 <div id="edit-session-modal" class="modal-backdrop hidden">
-    <div class="modal-dialog max-w-lg">
+    <div class="modal-dialog modal-dialog-scrollable max-w-lg">
         <div class="modal-header">
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <span>✏️</span> Edit Training Class
             </h3>
             <button type="button" onclick="closeEditModal()" class="modal-close">&times;</button>
         </div>
-        <form id="edit-session-form" method="POST" action="/sessions/{{.Session.ID}}/edit" class="space-y-4">
+        <form id="edit-session-form" method="POST" action="/sessions/{{.Session.ID}}/edit" class="flex flex-col flex-1 min-h-0 overflow-hidden">
             <input type="hidden" name="redirect_url" value="/sessions/{{.Session.ID}}/live">
-            <!-- Date, Start Time, and End Time on ONE line -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                    <label class="form-label">Class Date</label>
-                    <input type="date" id="edit-session-date" name="session_date" value="{{.Session.SessionDate.Format "2006-01-02"}}" required class="form-input text-xs sm:text-sm">
-                </div>
-                <div>
-                    <label class="form-label">Start Time</label>
-                    <input type="time" id="edit-start-time" name="start_time" value="{{.Session.StartTime}}" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
-                </div>
-                <div>
-                    <label class="form-label">End Time</label>
-                    <input type="time" id="edit-end-time" name="end_time" value="{{.Session.EndTime}}" required class="form-input text-xs sm:text-sm">
-                </div>
-            </div>
-
-            <!-- Lead Coach Dropdown -->
-            <div>
-                <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
-                    <option value="">None / Unassigned</option>
-                    {{range .Coaches}}
-                    {{if .IsActive}}
-                    <option value="{{.ID}}" {{if eq $.Session.CoachIDString .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
-                    {{end}}
-                    {{end}}
-                </select>
-            </div>
-
-            <!-- Supervising Admin Dropdown -->
-            <div>
-                <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
-                    <option value="">None / Unassigned</option>
-                    {{range .Admins}}
-                    <option value="{{.ID}}" {{if and $.Session.AdminID (eq $.Session.AdminID.String .ID.String)}}selected{{end}}>{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
-                    {{end}}
-                </select>
-            </div>
-
-            <!-- Training Location Dropdown -->
-            <div>
-                <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onLiveEditLocationChange()">
-                    <option value="" data-fixed-rate="">None / Unassigned</option>
-                    {{range .Locations}}
-                    <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}" {{if and $.Session.LocationID (eq $.Session.LocationID.String .ID.String)}}selected{{end}}>{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
-                    {{end}}
-                </select>
-            </div>
-
-            <div>
-                <label class="form-label">Training Category</label>
-                <select id="edit-training-type" name="training_type" class="form-select">
-                    {{range .TrainingCategories}}
-                    <option value="{{.Name}}" {{if eq $.Session.TrainingType .Name}}selected{{end}}>{{.Name}}</option>
-                    {{end}}
-                </select>
-            </div>
-
-            <div>
-                <div class="flex items-center gap-1.5 mb-1">
-                    <label class="form-label mb-0">School / Fixed Rate (₱)</label>
-                    <div class="has-tooltip inline-flex items-center">
-                        <button type="button" class="tooltip-icon" aria-label="Fixed rate info">ⓘ</button>
-                        <div class="tooltip-content w-64">
-                            Optional. When set, applies a fixed drop-in fee on check-in and skips package session deduction.
-                        </div>
+            <div class="modal-body">
+                <!-- Date, Start Time, and End Time on ONE line -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="form-label">Class Date</label>
+                        <input type="date" id="edit-session-date" name="session_date" value="{{.Session.SessionDate.Format "2006-01-02"}}" required class="form-input text-xs sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="form-label">Start Time</label>
+                        <input type="time" id="edit-start-time" name="start_time" value="{{.Session.StartTime}}" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
+                    </div>
+                    <div>
+                        <label class="form-label">End Time</label>
+                        <input type="time" id="edit-end-time" name="end_time" value="{{.Session.EndTime}}" required class="form-input text-xs sm:text-sm">
                     </div>
                 </div>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
-                    <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" value="{{if .Session.SessionRate}}{{printf "%.2f" .Session.SessionRateVal}}{{end}}" class="form-input pl-7 text-xs sm:text-sm">
-                </div>
-            </div>
 
-            <div>
-                <label class="form-label">Class Remarks / Agenda</label>
-                <textarea id="edit-notes" name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea">{{.Session.Notes}}</textarea>
+                <!-- Lead Coach Dropdown -->
+                <div>
+                    <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                        <option value="">None / Unassigned</option>
+                        {{range .Coaches}}
+                        {{if .IsActive}}
+                        <option value="{{.ID}}" {{if eq $.Session.CoachIDString .ID.String}}selected{{end}}>{{.FullName}} ({{.BeltRank}})</option>
+                        {{end}}
+                        {{end}}
+                    </select>
+                </div>
+
+                <!-- Supervising Admin Dropdown -->
+                <div>
+                    <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                        <option value="">None / Unassigned</option>
+                        {{range .Admins}}
+                        <option value="{{.ID}}" {{if and $.Session.AdminID (eq $.Session.AdminID.String .ID.String)}}selected{{end}}>{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <!-- Training Location Dropdown -->
+                <div>
+                    <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onLiveEditLocationChange()">
+                        <option value="" data-fixed-rate="">None / Unassigned</option>
+                        {{range .Locations}}
+                        <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}" {{if and $.Session.LocationID (eq $.Session.LocationID.String .ID.String)}}selected{{end}}>{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="form-label">Training Category</label>
+                    <select id="edit-training-type" name="training_type" class="form-select">
+                        {{range .TrainingCategories}}
+                        <option value="{{.Name}}" {{if eq $.Session.TrainingType .Name}}selected{{end}}>{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div>
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <label class="form-label mb-0">School / Fixed Rate (₱)</label>
+                        <div class="has-tooltip inline-flex items-center">
+                            <button type="button" class="tooltip-icon" aria-label="Fixed rate info">ⓘ</button>
+                            <div class="tooltip-content w-64">
+                                Optional. When set, applies a fixed drop-in fee on check-in and skips package session deduction.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
+                        <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" value="{{if .Session.SessionRate}}{{printf "%.2f" .Session.SessionRateVal}}{{end}}" class="form-input pl-7 text-xs sm:text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label">Class Remarks / Agenda</label>
+                    <textarea id="edit-notes" name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea">{{.Session.Notes}}</textarea>
+                </div>
             </div>
 
             <div class="modal-footer flex items-center justify-between">

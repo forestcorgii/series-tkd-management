@@ -111,14 +111,14 @@
 
 <!-- Modal: New Schedule Item (Unified Scheduling with Segmented Switcher) -->
 <div id="new-session-modal" class="modal-backdrop hidden">
-    <div class="modal-dialog max-w-lg">
+    <div class="modal-dialog modal-dialog-scrollable max-w-lg">
         <div class="modal-header">
             <h3 id="new-modal-header-title" class="font-display font-bold text-lg text-slate-900 dark:text-white">Schedule Calendar Item</h3>
             <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="modal-close">&times;</button>
         </div>
 
         <!-- Segmented Type Switcher -->
-        <div class="p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+        <div class="shrink-0 p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
             <label class="form-label text-[11px] mb-1.5 block">Schedule Type</label>
             <div class="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-center">
                 <button type="button"
@@ -148,131 +148,133 @@
             </div>
         </div>
 
-        <form action="/sessions" method="POST" class="space-y-4 p-5">
-            <input type="hidden" name="redirect_url" id="modal-redirect-url" value="/sessions">
-            <input type="hidden" name="entry_type" id="modal-entry-type" value="class">
+        <form action="/sessions" method="POST" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div class="modal-body">
+                <input type="hidden" name="redirect_url" id="modal-redirect-url" value="/sessions">
+                <input type="hidden" name="entry_type" id="modal-entry-type" value="class">
 
-            <!-- Title Field (Dynamic for Event, Duty, Open Session) -->
-            <div id="new-modal-title-group" class="hidden">
-                <label id="new-modal-title-label" class="form-label">Title / Name</label>
-                <input type="text"
-                       name="title"
-                       id="new-modal-title-input"
-                       placeholder="e.g. Belt Promotion Testing, Morning Floor Shift..."
-                       class="form-input text-xs sm:text-sm">
-            </div>
+                <!-- Title Field (Dynamic for Event, Duty, Open Session) -->
+                <div id="new-modal-title-group" class="hidden">
+                    <label id="new-modal-title-label" class="form-label">Title / Name</label>
+                    <input type="text"
+                           name="title"
+                           id="new-modal-title-input"
+                           placeholder="e.g. Belt Promotion Testing, Morning Floor Shift..."
+                           class="form-input text-xs sm:text-sm">
+                </div>
 
-            <!-- Date, Start Time, and End Time on ONE line -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                    <label class="form-label">Date</label>
-                    <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('modal-redirect-url')) document.getElementById('modal-redirect-url').value = '/sessions?date=' + this.value;">
+                <!-- Date, Start Time, and End Time on ONE line -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="form-label">Date</label>
+                        <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('modal-redirect-url')) document.getElementById('modal-redirect-url').value = '/sessions?date=' + this.value;">
+                    </div>
+                    <div>
+                        <label class="form-label">Start Time</label>
+                        <input type="time" id="modal-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEndTime()">
+                    </div>
+                    <div>
+                        <label class="form-label flex items-center justify-between">
+                            <span>End Time</span>
+                            <span class="has-tooltip">
+                                <span class="tooltip-icon">ⓘ</span>
+                                <span class="tooltip-content">Automatically set to 2 hours after start time</span>
+                            </span>
+                        </label>
+                        <input type="time" id="modal-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
+                    </div>
                 </div>
-                <div>
-                    <label class="form-label">Start Time</label>
-                    <input type="time" id="modal-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEndTime()">
-                </div>
-                <div>
+
+                <!-- Staff Multi-Select (For On-Duty Shifts) -->
+                <div id="new-modal-duty-staff-group" class="hidden space-y-1.5">
                     <label class="form-label flex items-center justify-between">
-                        <span>End Time</span>
-                        <span class="has-tooltip">
-                            <span class="tooltip-icon">ⓘ</span>
-                            <span class="tooltip-content">Automatically set to 2 hours after start time</span>
-                        </span>
+                        <span>Assigned On-Duty Staff</span>
+                        <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
                     </label>
-                    <input type="time" id="modal-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
-                </div>
-            </div>
-
-            <!-- Staff Multi-Select (For On-Duty Shifts) -->
-            <div id="new-modal-duty-staff-group" class="hidden space-y-1.5">
-                <label class="form-label flex items-center justify-between">
-                    <span>Assigned On-Duty Staff</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
-                </label>
-                <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
-                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
-                    {{range .Coaches}}
-                    {{if .IsActive}}
-                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
-                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="rounded border-slate-300 text-[#990303] focus:ring-red-500">
-                        <span class="font-medium text-slate-800 dark:text-slate-200">{{.FullName}}</span>
-                        <span class="text-[10px] text-slate-500">({{.BeltRank}})</span>
-                    </label>
-                    {{end}}
-                    {{end}}
-                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">Administrators &amp; Managers</span>
-                    {{range .Admins}}
-                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
-                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="rounded border-slate-300 text-[#990303] focus:ring-red-500">
-                        <span class="font-medium text-slate-800 dark:text-slate-200">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}</span>
-                        <span class="text-[10px] text-slate-500">({{.Role}})</span>
-                    </label>
-                    {{end}}
-                </div>
-            </div>
-
-            <!-- Single Coach & Admin (For Classes & Events) -->
-            <div id="new-modal-single-staff-group" class="space-y-4">
-                <div>
-                    <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                    <select name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
-                        <option value="">None / Unassigned</option>
+                    <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
                         {{range .Coaches}}
                         {{if .IsActive}}
-                        <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                        <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                            <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                            <span class="font-medium text-slate-800 dark:text-slate-200">{{.FullName}}</span>
+                            <span class="text-[10px] text-slate-500">({{.BeltRank}})</span>
+                        </label>
                         {{end}}
                         {{end}}
-                    </select>
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block px-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">Administrators &amp; Managers</span>
+                        {{range .Admins}}
+                        <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                            <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                            <span class="font-medium text-slate-800 dark:text-slate-200">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}</span>
+                            <span class="text-[10px] text-slate-500">({{.Role}})</span>
+                        </label>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- Single Coach & Admin (For Classes & Events) -->
+                <div id="new-modal-single-staff-group" class="space-y-4">
+                    <div>
+                        <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                        <select name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                            <option value="">None / Unassigned</option>
+                            {{range .Coaches}}
+                            {{if .IsActive}}
+                            <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                            {{end}}
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                        <select name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                            <option value="">None / Unassigned</option>
+                            {{range .Admins}}
+                            <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                            {{end}}
+                        </select>
+                    </div>
                 </div>
 
                 <div>
-                    <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                    <select name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
-                        <option value="">None / Unassigned</option>
-                        {{range .Admins}}
-                        <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                    <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select id="modal-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onModalLocationChange()">
+                        <option value="" data-fixed-rate="">None / Unassigned</option>
+                        {{range .Locations}}
+                        <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}">{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
                         {{end}}
                     </select>
                 </div>
-            </div>
 
-            <div>
-                <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="modal-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onModalLocationChange()">
-                    <option value="" data-fixed-rate="">None / Unassigned</option>
-                    {{range .Locations}}
-                    <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}">{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
-                    {{end}}
-                </select>
-            </div>
-
-            <div id="new-modal-category-group">
-                <label class="form-label">Category</label>
-                <select name="training_type" class="form-select">
-                    {{range .TrainingCategories}}
-                    <option value="{{.Name}}">{{.Name}}</option>
-                    {{end}}
-                </select>
-            </div>
-
-            <div id="new-modal-rate-group">
-                <label class="form-label flex items-center justify-between">
-                    <span>School / Fixed Rate (₱)</span>
-                    <span class="has-tooltip">
-                        <span class="tooltip-icon">ⓘ</span>
-                        <span class="tooltip-content">Optional. Pre-filled from location if set. Check-ins inherit this rate without deducting package credits.</span>
-                    </span>
-                </label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
-                    <input type="number" id="modal-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">
+                <div id="new-modal-category-group">
+                    <label class="form-label">Category</label>
+                    <select name="training_type" class="form-select">
+                        {{range .TrainingCategories}}
+                        <option value="{{.Name}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
                 </div>
-            </div>
 
-            <div>
-                <label class="form-label">Remarks / Description</label>
-                <textarea name="notes" rows="2" placeholder="Focus areas, equipment, instructions..." class="form-textarea"></textarea>
+                <div id="new-modal-rate-group">
+                    <label class="form-label flex items-center justify-between">
+                        <span>School / Fixed Rate (₱)</span>
+                        <span class="has-tooltip">
+                            <span class="tooltip-icon">ⓘ</span>
+                            <span class="tooltip-content">Optional. Pre-filled from location if set. Check-ins inherit this rate without deducting package credits.</span>
+                        </span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
+                        <input type="number" id="modal-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label">Remarks / Description</label>
+                    <textarea name="notes" rows="2" placeholder="Focus areas, equipment, instructions..." class="form-textarea"></textarea>
+                </div>
             </div>
 
             <div class="modal-footer">
@@ -285,7 +287,7 @@
 
 <!-- Modal: Edit Schedule Item (Unified Editing with Segmented Switcher) -->
 <div id="edit-session-modal" class="modal-backdrop hidden">
-    <div class="modal-dialog max-w-lg">
+    <div class="modal-dialog modal-dialog-scrollable max-w-lg">
         <div class="modal-header">
             <h3 id="edit-modal-header-title" class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <span>✏️</span> Edit Training Class / Schedule Item
@@ -294,7 +296,7 @@
         </div>
 
         <!-- Segmented Type Switcher -->
-        <div class="p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+        <div class="shrink-0 p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
             <label class="form-label text-[11px] mb-1.5 block">Schedule Type</label>
             <div class="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-center">
                 <button type="button"
@@ -324,133 +326,135 @@
             </div>
         </div>
 
-        <form id="edit-session-form" method="POST" action="" hx-boost="false" hx-disable="true" onsubmit="const sid = document.getElementById('edit-session-id') ? document.getElementById('edit-session-id').value : ''; if(sid){ this.action = '/sessions/' + sid + '/edit'; } else { event.preventDefault(); return false; }" class="space-y-4 p-5">
-            <input type="hidden" name="session_id" id="edit-session-id" value="">
-            <input type="hidden" name="redirect_url" id="edit-redirect-url" value="/sessions">
-            <input type="hidden" name="entry_type" id="edit-modal-entry-type" value="class">
+        <form id="edit-session-form" method="POST" action="" hx-boost="false" hx-disable="true" onsubmit="const sid = document.getElementById('edit-session-id') ? document.getElementById('edit-session-id').value : ''; if(sid){ this.action = '/sessions/' + sid + '/edit'; } else { event.preventDefault(); return false; }" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div class="modal-body">
+                <input type="hidden" name="session_id" id="edit-session-id" value="">
+                <input type="hidden" name="redirect_url" id="edit-redirect-url" value="/sessions">
+                <input type="hidden" name="entry_type" id="edit-modal-entry-type" value="class">
 
-            <!-- Title Field (Dynamic for Event, Duty, Open Session) -->
-            <div id="edit-modal-title-group" class="hidden">
-                <label id="edit-modal-title-label" class="form-label">Title / Name</label>
-                <input type="text"
-                       name="title"
-                       id="edit-modal-title-input"
-                       placeholder="e.g. Belt Promotion Testing, Morning Floor Shift..."
-                       class="form-input text-xs sm:text-sm">
-            </div>
+                <!-- Title Field (Dynamic for Event, Duty, Open Session) -->
+                <div id="edit-modal-title-group" class="hidden">
+                    <label id="edit-modal-title-label" class="form-label">Title / Name</label>
+                    <input type="text"
+                           name="title"
+                           id="edit-modal-title-input"
+                           placeholder="e.g. Belt Promotion Testing, Morning Floor Shift..."
+                           class="form-input text-xs sm:text-sm">
+                </div>
 
-            <!-- Date, Start Time, and End Time on ONE line -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                    <label class="form-label">Date</label>
-                    <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('edit-redirect-url')) document.getElementById('edit-redirect-url').value = '/sessions?date=' + this.value;">
+                <!-- Date, Start Time, and End Time on ONE line -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="form-label">Date</label>
+                        <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm" onchange="if(document.getElementById('edit-redirect-url')) document.getElementById('edit-redirect-url').value = '/sessions?date=' + this.value;">
+                    </div>
+                    <div>
+                        <label class="form-label">Start Time</label>
+                        <input type="time" id="edit-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
+                    </div>
+                    <div>
+                        <label class="form-label flex items-center justify-between">
+                            <span>End Time</span>
+                            <span class="has-tooltip">
+                                <span class="tooltip-icon">ⓘ</span>
+                                <span class="tooltip-content">Automatically set to 2 hours after start time</span>
+                            </span>
+                        </label>
+                        <input type="time" id="edit-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
+                    </div>
                 </div>
-                <div>
-                    <label class="form-label">Start Time</label>
-                    <input type="time" id="edit-start-time" name="start_time" required class="form-input text-xs sm:text-sm" oninput="calculateEditEndTime()">
-                </div>
-                <div>
+
+                <!-- Staff Multi-Select (For On-Duty Shifts) -->
+                <div id="edit-modal-duty-staff-group" class="hidden space-y-1.5">
                     <label class="form-label flex items-center justify-between">
-                        <span>End Time</span>
-                        <span class="has-tooltip">
-                            <span class="tooltip-icon">ⓘ</span>
-                            <span class="tooltip-content">Automatically set to 2 hours after start time</span>
-                        </span>
+                        <span>Assigned On-Duty Staff</span>
+                        <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
                     </label>
-                    <input type="time" id="edit-end-time" name="end_time" required class="form-input text-xs sm:text-sm">
-                </div>
-            </div>
-
-            <!-- Staff Multi-Select (For On-Duty Shifts) -->
-            <div id="edit-modal-duty-staff-group" class="hidden space-y-1.5">
-                <label class="form-label flex items-center justify-between">
-                    <span>Assigned On-Duty Staff</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Multi-select coaches &amp; admins</span>
-                </label>
-                <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
-                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
-                    {{range .Coaches}}
-                    {{if .IsActive}}
-                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
-                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="edit-staff-checkbox rounded border-slate-300 text-[#990303] focus:ring-red-500">
-                        <span class="font-medium text-slate-800 dark:text-slate-200">{{.FullName}}</span>
-                        <span class="text-[10px] text-slate-500">({{.BeltRank}})</span>
-                    </label>
-                    {{end}}
-                    {{end}}
-                    <span class="text-[10px] uppercase font-bold text-slate-400 block px-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">Administrators &amp; Managers</span>
-                    {{range .Admins}}
-                    <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
-                        <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="edit-staff-checkbox rounded border-slate-300 text-[#990303] focus:ring-red-500">
-                        <span class="font-medium text-slate-800 dark:text-slate-200">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}</span>
-                        <span class="text-[10px] text-slate-500">({{.Role}})</span>
-                    </label>
-                    {{end}}
-                </div>
-            </div>
-
-            <!-- Single Coach & Admin (For Classes & Events) -->
-            <div id="edit-modal-single-staff-group" class="space-y-4">
-                <div>
-                    <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                    <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
-                        <option value="">None / Unassigned</option>
+                    <div class="max-h-44 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block px-1">Coaches</span>
                         {{range .Coaches}}
                         {{if .IsActive}}
-                        <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                        <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                            <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="edit-staff-checkbox rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                            <span class="font-medium text-slate-800 dark:text-slate-200">{{.FullName}}</span>
+                            <span class="text-[10px] text-slate-500">({{.BeltRank}})</span>
+                        </label>
                         {{end}}
+                        {{end}}
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block px-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60">Administrators &amp; Managers</span>
+                        {{range .Admins}}
+                        <label class="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer">
+                            <input type="checkbox" name="assigned_staff_ids" value="{{.ID}}" class="edit-staff-checkbox rounded border-slate-300 text-[#990303] focus:ring-red-500">
+                            <span class="font-medium text-slate-800 dark:text-slate-200">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}</span>
+                            <span class="text-[10px] text-slate-500">({{.Role}})</span>
+                        </label>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- Single Coach & Admin (For Classes & Events) -->
+                <div id="edit-modal-single-staff-group" class="space-y-4">
+                    <div>
+                        <label class="form-label">Lead Coach <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                        <select id="edit-coach-id" name="coach_id" class="form-select searchable-select" data-placeholder="Select Lead Coach (Optional)...">
+                            <option value="">None / Unassigned</option>
+                            {{range .Coaches}}
+                            {{if .IsActive}}
+                            <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                            {{end}}
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                        <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
+                            <option value="">None / Unassigned</option>
+                            {{range .Admins}}
+                            <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Location Dropdown -->
+                <div>
+                    <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                    <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onEditLocationChange()">
+                        <option value="" data-fixed-rate="">None / Unassigned</option>
+                        {{range .Locations}}
+                        <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}">{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
                         {{end}}
                     </select>
+                </div>
+
+                <div id="edit-modal-category-group">
+                    <label class="form-label">Training Category</label>
+                    <select id="edit-training-type" name="training_type" class="form-select">
+                        {{range .TrainingCategories}}
+                        <option value="{{.Name}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div id="edit-modal-rate-group">
+                    <label class="form-label flex items-center justify-between">
+                        <span>School / Fixed Rate (₱)</span>
+                        <span class="has-tooltip">
+                            <span class="tooltip-icon">ⓘ</span>
+                            <span class="tooltip-content">Optional. Applies fixed rate on check-in and skips student package deduction.</span>
+                        </span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
+                        <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">
+                    </div>
                 </div>
 
                 <div>
-                    <label class="form-label">Supervising Admin <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                    <select id="edit-admin-id" name="admin_id" class="form-select searchable-select" data-placeholder="Select Supervising Admin (Optional)...">
-                        <option value="">None / Unassigned</option>
-                        {{range .Admins}}
-                        <option value="{{.ID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}} ({{.Role}})</option>
-                        {{end}}
-                    </select>
+                    <label class="form-label">Remarks / Description</label>
+                    <textarea id="edit-notes" name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea"></textarea>
                 </div>
-            </div>
-
-            <!-- Location Dropdown -->
-            <div>
-                <label class="form-label">Training Location <span class="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                <select id="edit-location-id" name="location_id" class="form-select searchable-select" data-placeholder="Select Location (Optional)..." onchange="onEditLocationChange()">
-                    <option value="" data-fixed-rate="">None / Unassigned</option>
-                    {{range .Locations}}
-                    <option value="{{.ID}}" data-fixed-rate="{{if .FixedRate}}{{printf "%.2f" .FixedRateVal}}{{end}}">{{.Name}}{{if .HasFixedRate}} (₱{{formatCurrency .FixedRate}}){{end}}</option>
-                    {{end}}
-                </select>
-            </div>
-
-            <div id="edit-modal-category-group">
-                <label class="form-label">Training Category</label>
-                <select id="edit-training-type" name="training_type" class="form-select">
-                    {{range .TrainingCategories}}
-                    <option value="{{.Name}}">{{.Name}}</option>
-                    {{end}}
-                </select>
-            </div>
-
-            <div id="edit-modal-rate-group">
-                <label class="form-label flex items-center justify-between">
-                    <span>School / Fixed Rate (₱)</span>
-                    <span class="has-tooltip">
-                        <span class="tooltip-icon">ⓘ</span>
-                        <span class="tooltip-content">Optional. Applies fixed rate on check-in and skips student package deduction.</span>
-                    </span>
-                </label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-xs">₱</span>
-                    <input type="number" id="edit-session-rate" name="session_rate" step="0.01" min="0" placeholder="0.00 (Leave empty for standard package deduction)" class="form-input pl-7 text-xs sm:text-sm">
-                </div>
-            </div>
-
-            <div>
-                <label class="form-label">Remarks / Description</label>
-                <textarea id="edit-notes" name="notes" rows="2" placeholder="Focus areas, equipment required..." class="form-textarea"></textarea>
             </div>
 
             <div class="modal-footer flex items-center justify-between">
@@ -543,7 +547,7 @@
 
 <!-- Modal: View Class Info -->
 <div id="class-info-modal" class="modal-backdrop hidden" onclick="if(event.target === this) closeClassInfoModal()">
-    <div class="modal-dialog max-w-lg">
+    <div class="modal-dialog modal-dialog-scrollable max-w-lg">
         <div class="modal-header">
             <div class="flex items-center gap-2 flex-wrap">
                 <span id="info-modal-category-badge" class="px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wider">
@@ -556,7 +560,7 @@
             <button type="button" onclick="closeClassInfoModal()" class="modal-close">&times;</button>
         </div>
 
-        <div class="p-5 space-y-4">
+        <div class="modal-body">
             <!-- Title & Time Header -->
             <div>
                 <h3 id="info-modal-title" class="font-display font-extrabold text-xl text-slate-900 dark:text-white">

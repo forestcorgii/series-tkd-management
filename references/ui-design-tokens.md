@@ -220,3 +220,19 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   2. **Horizontal Day Alignment ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Day of the week (`.DayShort`) and date number circle (`.DayNumber`) are enclosed in a horizontal flex layout (`flex items-center justify-center gap-1.5`) with a compact class count pill underneath, maintaining a clean, modern Google Calendar-style horizontal presentation.
   3. **Non-Collapsing Week Navigation ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Week controls and date range use `flex flex-wrap items-center justify-between` to ensure horizontal cohesion across viewports.
 
+### Context: Scrollable Modals & Sticky Action Footers
+
+* **Problem:**
+  1. Multi-field schedule and attendance forms (e.g. Schedule Class, Edit Training Class/Item) exceeded viewport height on typical laptop and tablet screens.
+  2. Because `.modal-backdrop` lacked vertical overflow handling and modal dialogs lacked height capping, modal footers containing primary CTAs (e.g. "Save Changes", "Schedule Class") were pushed off-screen and rendered inaccessible.
+  3. Centering overflowing dialogs in a pure flex container (`items-center`) clipped top content into negative scroll space when scrolling wasn't managed with `my-auto`.
+
+* **Enforced Solution:**
+  1. **Scrollable Modal Dialogs (`.modal-dialog-scrollable`)**:
+     - Outer dialog is capped with `@apply max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 sm:p-0 overflow-hidden space-y-0;`.
+     - `.modal-header` and switcher tabs remain pinned at top with `shrink-0`.
+     - `.modal-body` contains form fields with `@apply overflow-y-auto flex-1 min-h-0 p-4 sm:p-5 space-y-4;` with custom sleek scrollbars and `overscroll-behavior: contain`.
+     - `.modal-footer` is sticky at the bottom with `@apply shrink-0 px-4 sm:px-5 py-3 border-t border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-[#111111];`, ensuring "Save Changes" and primary submit actions are immediately visible and clickable at all times.
+  2. **Backdrop Overflow Safety**:
+     - `.modal-backdrop` includes `@apply ... overflow-y-auto;` and `.modal-dialog` includes `@apply ... my-auto;`, preventing top/bottom clipping on smaller viewports.
+

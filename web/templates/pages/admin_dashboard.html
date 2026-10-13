@@ -463,53 +463,55 @@
 
 <!-- Modal 3: Schedule Floor Class Modal -->
 <div id="new-session-modal" class="modal-backdrop hidden">
-    <div class="modal-dialog max-w-lg">
+    <div class="modal-dialog modal-dialog-scrollable max-w-lg">
         <div class="modal-header">
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase">Schedule Floor Class</h3>
             <button type="button" onclick="closeNewSessionModal()" class="modal-close">&times;</button>
         </div>
-        <form action="/sessions" method="POST" class="space-y-4">
-            <div>
-                <label class="form-label">Session Date</label>
-                <input type="date" name="session_date" id="new-session-date" required class="form-input text-xs">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
+        <form action="/sessions" method="POST" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div class="modal-body">
                 <div>
-                    <label class="form-label">Start Time</label>
-                    <input type="time" name="start_time" id="new-start-time" value="16:00" required oninput="calcEndTime()" class="form-input text-xs">
+                    <label class="form-label">Session Date</label>
+                    <input type="date" name="session_date" id="new-session-date" required class="form-input text-xs">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label">Start Time</label>
+                        <input type="time" name="start_time" id="new-start-time" value="16:00" required oninput="calcEndTime()" class="form-input text-xs">
+                    </div>
+                    <div>
+                        <label class="form-label">End Time</label>
+                        <input type="time" name="end_time" id="new-end-time" value="18:00" required class="form-input text-xs">
+                    </div>
                 </div>
                 <div>
-                    <label class="form-label">End Time</label>
-                    <input type="time" name="end_time" id="new-end-time" value="18:00" required class="form-input text-xs">
+                    <label class="form-label">Lead Coach</label>
+                    <select name="coach_id" class="form-select text-xs searchable-select" data-placeholder="Select Coach...">
+                        <option value="">None / Unassigned</option>
+                        {{range .AllCoaches}}
+                        {{if .IsActive}}
+                        <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
+                        {{end}}
+                        {{end}}
+                    </select>
                 </div>
-            </div>
-            <div>
-                <label class="form-label">Lead Coach</label>
-                <select name="coach_id" class="form-select text-xs searchable-select" data-placeholder="Select Coach...">
-                    <option value="">None / Unassigned</option>
-                    {{range .AllCoaches}}
-                    {{if .IsActive}}
-                    <option value="{{.ID}}">{{.FullName}} ({{.BeltRank}})</option>
-                    {{end}}
-                    {{end}}
-                </select>
-            </div>
-            <div>
-                <label class="form-label">Location</label>
-                <select name="location_id" class="form-select text-xs">
-                    <option value="">Main Dojang</option>
-                    {{range .Locations}}
-                    <option value="{{.ID}}">{{.Name}}</option>
-                    {{end}}
-                </select>
-            </div>
-            <div>
-                <label class="form-label">Training Category</label>
-                <select name="training_type" required class="form-select text-xs">
-                    {{range .Categories}}
-                    <option value="{{.Name}}">{{.Name}}</option>
-                    {{end}}
-                </select>
+                <div>
+                    <label class="form-label">Location</label>
+                    <select name="location_id" class="form-select text-xs">
+                        <option value="">Main Dojang</option>
+                        {{range .Locations}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Training Category</label>
+                    <select name="training_type" required class="form-select text-xs">
+                        {{range .Categories}}
+                        <option value="{{.Name}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" onclick="closeNewSessionModal()" class="btn btn-secondary btn-sm">Cancel</button>

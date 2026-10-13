@@ -78,10 +78,22 @@
 
     /* Modals */
     .modal-backdrop {
-        @apply fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4;
+        @apply fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto;
     }
     .modal-dialog {
-        @apply glass-panel p-4 sm:p-5 rounded-xl max-w-lg w-full space-y-3 border border-[#E5E3D8] dark:border-neutral-800 shadow-2xl;
+        @apply glass-panel p-4 sm:p-5 rounded-xl max-w-lg w-full space-y-3 border border-[#E5E3D8] dark:border-neutral-800 shadow-2xl my-auto;
+    }
+    .modal-dialog-scrollable {
+        @apply max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 sm:p-0 overflow-hidden space-y-0;
+    }
+    .modal-dialog-scrollable .modal-header {
+        @apply shrink-0 px-5 pt-4 sm:pt-5 pb-3 border-b border-[#E5E3D8] dark:border-neutral-800;
+    }
+    .modal-dialog-scrollable .modal-body {
+        @apply overflow-y-auto flex-1 min-h-0 p-4 sm:p-5 space-y-4;
+    }
+    .modal-dialog-scrollable .modal-footer {
+        @apply shrink-0 px-4 sm:px-5 py-3 border-t border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-[#111111];
     }
     .modal-header {
         @apply flex items-center justify-between border-b border-[#E5E3D8] dark:border-neutral-800 pb-2.5;
@@ -138,6 +150,12 @@ html:not(.dark) .radar-grid { stroke: rgba(0, 0, 0, 0.12); }
 .searchable-menu::-webkit-scrollbar-track { background: transparent; }
 .searchable-menu::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
 .searchable-menu::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
+
+.modal-body { overscroll-behavior: contain; }
+.modal-body::-webkit-scrollbar { width: 6px; }
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+.modal-body::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
 
 /* Auto-uppercase for general text and textarea inputs */
 input[type="text"]:not(.searchable-input):not(.no-uppercase):not([data-no-uppercase="true"]):not([autocapitalize="none"]):not([autocapitalize="off"]):not([name="username"]):not([name="identifier"]):not([autocomplete="username"]),
