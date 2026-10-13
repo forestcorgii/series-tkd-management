@@ -41,45 +41,45 @@
     </div>
     {{end}}
 
-    <!-- Telemetry & Role Stats Grid -->
+    <!-- High-Density Telemetry KPI Strip -->
     <div class="kpi-strip grid grid-cols-2 lg:grid-cols-4">
         <!-- Metric: Total Roles -->
         <div class="kpi-tile">
-            <span class="kpi-label">Configured Roles</span>
-            <span class="kpi-val">{{.TotalRoles}}</span>
-            <span class="kpi-sub">System + Custom Definitions</span>
+            <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Configured Roles</span>
+            <div class="font-display text-xl font-bold text-slate-900 dark:text-white">{{.TotalRoles}}</div>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500">System + Custom Definitions</p>
         </div>
 
         <!-- Metric: Custom Roles -->
         <div class="kpi-tile">
             <div class="flex items-center justify-between">
-                <span class="kpi-label">Custom Roles</span>
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Custom Roles</span>
                 <span class="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
                     User Defined
                 </span>
             </div>
-            <span class="kpi-val text-indigo-600 dark:text-indigo-400">{{.CustomRoles}}</span>
-            <span class="kpi-sub">Tailored permission matrices</span>
+            <div class="font-display text-xl font-bold text-indigo-600 dark:text-indigo-400">{{.CustomRoles}}</div>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500">Tailored permission matrices</p>
         </div>
 
         <!-- Metric: Active Staff -->
         <div class="kpi-tile">
             <div class="flex items-center justify-between">
-                <span class="kpi-label">Staff Members</span>
-                <span class="flex h-2 w-2 relative">
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Staff Members</span>
+                <span class="flex h-1.5 w-1.5 relative">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                 </span>
             </div>
-            <span class="kpi-val text-emerald-600 dark:text-emerald-400">{{.TotalStaff}}</span>
-            <span class="kpi-sub">Assigned to staff roles</span>
+            <div class="font-display text-xl font-bold text-emerald-600 dark:text-emerald-400">{{.TotalStaff}}</div>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500">Assigned to staff roles</p>
         </div>
 
         <!-- Metric: Total Permissions -->
         <div class="kpi-tile">
-            <span class="kpi-label">Available Capabilities</span>
-            <span class="kpi-val text-slate-700 dark:text-slate-300">{{len .AllPermissions}}</span>
-            <span class="kpi-sub">Granular permission nodes</span>
+            <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Available Capabilities</span>
+            <div class="font-display text-xl font-bold text-slate-700 dark:text-slate-300">{{len .AllPermissions}}</div>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500">Granular permission nodes</p>
         </div>
     </div>
 
