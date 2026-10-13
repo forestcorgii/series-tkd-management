@@ -138,11 +138,21 @@
 
                         <!-- Role & Scope Column -->
                         <td class="py-2 px-3">
+                            {{if .Roles}}
+                            <div class="flex flex-wrap gap-1">
+                                {{range .Roles}}
+                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-purple-500/10 text-purple-700 border border-purple-500/25 dark:bg-purple-500/20 dark:text-purple-300">
+                                    🛡️ {{.Name}}
+                                </span>
+                                {{end}}
+                            </div>
+                            {{else}}
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-purple-500/10 text-purple-700 border border-purple-500/25 dark:bg-purple-500/20 dark:text-purple-300">
                                 🛡️ {{.Role}}
                             </span>
+                            {{end}}
                             <div class="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                Front-Desk Floor Access
+                                {{len .Permissions}} permissions granted
                             </div>
                         </td>
 
@@ -203,6 +213,14 @@
                                     </button>
                                 </form>
                                 {{else}}
+                                <!-- Assign Staff Roles Trigger -->
+                                <button type="button"
+                                        onclick="openAssignRoleModal('{{.ID}}', '{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}', [{{range $i, $r := .Roles}}{{if $i}},{{end}}'{{$r.ID}}'{{end}}])"
+                                        class="btn btn-ghost btn-xs text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400"
+                                        title="Assign Staff Role">
+                                    🛡️ Roles
+                                </button>
+
                                 <!-- Reset Password Trigger -->
                                 <button type="button"
                                         onclick="openResetPasswordModal('{{.ID}}', '{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Email}}{{end}}')"
@@ -346,12 +364,71 @@
     </div>
 </div>
 
+<!-- Modal: Assign Staff Role -->
+<div id="assign-role-modal" class="modal-backdrop hidden z-50">
+    <div class="modal-dialog max-w-md p-0 overflow-hidden">
+        <div class="modal-header px-4 py-3 bg-slate-50 dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 flex items-center justify-between">
+            <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                🛡️ Assign Staff Roles
+            </h3>
+            <button onclick="document.getElementById('assign-role-modal').classList.add('hidden')" class="modal-close text-lg leading-none">&times;</button>
+        </div>
+        <form id="assign-role-form" method="POST" class="p-4 sm:p-5 space-y-4">
+            <div class="p-3 bg-slate-100 dark:bg-neutral-900 rounded-xl border border-slate-200 dark:border-neutral-800">
+                <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400">Staff Account</span>
+                <div id="assign-role-admin-name" class="font-display font-bold text-sm text-slate-900 dark:text-white mt-0.5"></div>
+            </div>
+
+            <div>
+                <label class="form-label">Configured Roles</label>
+                <p class="text-[11px] text-slate-600 dark:text-slate-400 mb-2">Check the roles to grant to this staff account:</p>
+                <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {{range .AvailableRoles}}
+                    <label class="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-850 cursor-pointer transition">
+                        <input type="checkbox" name="role_ids" value="{{.ID}}" class="assign-role-cb mt-0.5 rounded text-[#990303] focus:ring-[#990303]">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-900 dark:text-white">{{.Name}}</span>
+                                <span class="text-[9px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-neutral-800 px-1 py-0.5 rounded">{{.Slug}}</span>
+                            </div>
+                            <p class="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">{{.Description}}</p>
+                        </div>
+                    </label>
+                    {{else}}
+                    <p class="text-xs italic text-slate-600 dark:text-slate-400">No staff roles available.</p>
+                    {{end}}
+                </div>
+            </div>
+
+            <div class="modal-footer pt-3 border-t border-slate-200 dark:border-neutral-800 flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('assign-role-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm shadow-sm">
+                    Save Roles
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function openResetPasswordModal(adminId, adminName) {
     var form = document.getElementById('reset-password-form');
     form.action = '/admins/' + adminId + '/reset-password';
     document.getElementById('reset-modal-admin-name').textContent = adminName;
     document.getElementById('reset-password-modal').classList.remove('hidden');
+}
+
+function openAssignRoleModal(adminId, adminName, currentRoleIds) {
+    var form = document.getElementById('assign-role-form');
+    form.action = '/staff/' + adminId + '/roles';
+    document.getElementById('assign-role-admin-name').textContent = adminName;
+    var checkboxes = document.querySelectorAll('.assign-role-cb');
+    checkboxes.forEach(function(cb) {
+        cb.checked = currentRoleIds.indexOf(cb.value) !== -1;
+    });
+    document.getElementById('assign-role-modal').classList.remove('hidden');
 }
 </script>
 {{end}}

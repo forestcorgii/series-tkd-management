@@ -213,6 +213,12 @@ func (a *AppHandler) parseTemplates() error {
 			}
 			return *v
 		},
+		"hasPerm": func(r *models.StaffRole, p string) bool {
+			if r == nil {
+				return false
+			}
+			return r.HasPermission(p)
+		},
 	}
 
 	baseDir := "web/templates"

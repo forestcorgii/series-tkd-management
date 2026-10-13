@@ -430,12 +430,26 @@ func (m *MemoryStore) seedData() {
 	eval1.SyncLegacyFields()
 	m.evaluations[eval1.ID] = eval1
 
-	// 8. Default Users for Multi-Role Auth
+	// 8. Default Staff Roles & Users for Multi-Role Auth
+	defaultRoles := models.DefaultStaffRoles()
+	var roleCoach, roleAdmin, roleManager *models.StaffRole
+	for _, r := range defaultRoles {
+		m.roles[r.ID] = r
+		switch r.Slug {
+		case "coach":
+			roleCoach = r
+		case "admin":
+			roleAdmin = r
+		case "manager":
+			roleManager = r
+		}
+	}
+
 	uManager := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 		Email:       "manager@seriestkd.com",
 		Username:    "manager",
-		Role:        models.RoleOperationManager,
+		Role:        models.RoleStaff,
 		IsActive:    true,
 		DisplayName: "Operation Manager",
 		CreatedAt:   now,
@@ -445,12 +459,15 @@ func (m *MemoryStore) seedData() {
 	m.users[uManager.ID] = uManager
 	m.usersByEmail[uManager.Email] = uManager.ID
 	m.usersByUsername[uManager.Username] = uManager.ID
+	if roleManager != nil {
+		m.userRoles[uManager.ID] = []uuid.UUID{roleManager.ID}
+	}
 
 	uAdmin := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		Email:       "admin@seriestkd.com",
 		Username:    "admin",
-		Role:        models.RoleAdmin,
+		Role:        models.RoleStaff,
 		IsActive:    true,
 		DisplayName: "Dojang Administrator",
 		CreatedAt:   now,
@@ -460,12 +477,15 @@ func (m *MemoryStore) seedData() {
 	m.users[uAdmin.ID] = uAdmin
 	m.usersByEmail[uAdmin.Email] = uAdmin.ID
 	m.usersByUsername[uAdmin.Username] = uAdmin.ID
+	if roleAdmin != nil {
+		m.userRoles[uAdmin.ID] = []uuid.UUID{roleAdmin.ID}
+	}
 
 	uCoach := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		Email:       "jiwoo.park@seriestkd.com",
 		Username:    "jiwoo.park",
-		Role:        models.RoleCoach,
+		Role:        models.RoleStaff,
 		CoachID:     &c2ID,
 		IsActive:    true,
 		DisplayName: "Coach Ji-Woo Park",
@@ -476,6 +496,9 @@ func (m *MemoryStore) seedData() {
 	m.users[uCoach.ID] = uCoach
 	m.usersByEmail[uCoach.Email] = uCoach.ID
 	m.usersByUsername[uCoach.Username] = uCoach.ID
+	if roleCoach != nil {
+		m.userRoles[uCoach.ID] = []uuid.UUID{roleCoach.ID}
+	}
 
 	uStudent1 := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000003"),

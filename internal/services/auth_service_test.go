@@ -18,7 +18,7 @@ func TestAuthService_LoginAndSessionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected successful login, got err: %v", err)
 	}
-	if user == nil || user.Role != models.RoleAdmin {
+	if user == nil || !user.IsAdmin() {
 		t.Fatalf("expected admin user, got %v", user)
 	}
 	if token == "" {
@@ -86,7 +86,7 @@ func TestAuthService_CoachDeactivationAndDeletionLoginBlocked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected successful coach login, got: %v", err)
 	}
-	if coachUser == nil || coachUser.Role != models.RoleCoach {
+	if coachUser == nil || !coachUser.IsCoach() {
 		t.Fatalf("expected coach role, got %v", coachUser)
 	}
 
@@ -133,8 +133,8 @@ func TestAuthService_UsernameLogin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected successful login with username, got: %v", err)
 	}
-	if user.Role != models.RoleAdmin {
-		t.Errorf("expected role ADMIN, got %s", user.Role)
+	if !user.IsAdmin() {
+		t.Errorf("expected role ADMIN/STAFF, got %s", user.Role)
 	}
 	if token == "" {
 		t.Errorf("expected non-empty token")
@@ -276,8 +276,8 @@ func TestAuthService_CoachRegistrationAndApproval(t *testing.T) {
 	if coach.IsActive || user.IsActive {
 		t.Fatalf("expected newly registered coach and user to be inactive pending approval")
 	}
-	if user.Role != models.RoleCoach {
-		t.Errorf("expected RoleCoach, got %s", user.Role)
+	if !user.IsCoach() || user.Role != models.RoleStaff {
+		t.Errorf("expected RoleStaff with coach role, got %s", user.Role)
 	}
 
 	// 2. Coach login attempt before approval must be blocked with ErrAccountPendingApproval
@@ -331,8 +331,8 @@ func TestAuthService_AdminRegistrationAndApproval(t *testing.T) {
 	if user.IsActive {
 		t.Fatalf("expected newly registered admin to be inactive pending approval")
 	}
-	if user.Role != models.RoleAdmin {
-		t.Errorf("expected RoleAdmin, got %s", user.Role)
+	if !user.IsAdmin() || user.Role != models.RoleStaff {
+		t.Errorf("expected RoleStaff with admin role, got %s", user.Role)
 	}
 
 	// 2. Admin login attempt before approval must be blocked with ErrAccountPendingApproval

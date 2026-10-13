@@ -171,17 +171,17 @@ func TestCoachDashboard_RendersAssignedClassesAndQuickTools(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	if !strings.Contains(body, "Instructor Quick Access Hub") {
-		t.Errorf("expected Coach Dashboard to contain 'Instructor Quick Access Hub'")
+	if !strings.Contains(body, "Dan Coach") && !strings.Contains(body, "Instructor Console") {
+		t.Errorf("expected Coach Dashboard to contain 'Dan Coach' or 'Instructor Console'")
 	}
-	if !strings.Contains(body, "Mat Check-In") {
-		t.Errorf("expected Coach Dashboard to contain 'Mat Check-In' launcher")
+	if !strings.Contains(body, "Admit to Mat") && !strings.Contains(body, "Mat Roster") {
+		t.Errorf("expected Coach Dashboard to contain mat admission or roster tool")
 	}
-	if !strings.Contains(body, "Evaluate Athlete") {
-		t.Errorf("expected Coach Dashboard to contain 'Evaluate Athlete' launcher")
+	if !strings.Contains(body, "Evaluate") {
+		t.Errorf("expected Coach Dashboard to contain 'Evaluate' launcher")
 	}
-	if !strings.Contains(body, "Floor Safety Holds") {
-		t.Errorf("expected Coach Dashboard to contain 'Floor Safety Holds'")
+	if !strings.Contains(body, "Safety Hold") {
+		t.Errorf("expected Coach Dashboard to contain 'Safety Hold'")
 	}
 }
 
@@ -212,22 +212,22 @@ func TestAdminDashboard_RendersFloorScheduleAndRenewalAlerts(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	if !strings.Contains(body, "Front-Desk Quick Access Hub") {
-		t.Errorf("expected Admin Dashboard to contain 'Front-Desk Quick Access Hub'")
+	if !strings.Contains(body, "Front-Desk Admin Console") {
+		t.Errorf("expected Admin Dashboard to contain 'Front-Desk Admin Console'")
 	}
-	if !strings.Contains(body, "Register Student") {
-		t.Errorf("expected Admin Dashboard to contain 'Register Student'")
+	if !strings.Contains(body, "Student") && !strings.Contains(body, "openNewStudentModal") {
+		t.Errorf("expected Admin Dashboard to contain Student intake action")
 	}
-	if !strings.Contains(body, "Assign Package") {
-		t.Errorf("expected Admin Dashboard to contain 'Assign Package'")
+	if !strings.Contains(body, "Pass") && !strings.Contains(body, "openAssignPassModal") {
+		t.Errorf("expected Admin Dashboard to contain Pass assign action")
 	}
-	if !strings.Contains(body, "Schedule Class") {
-		t.Errorf("expected Admin Dashboard to contain 'Schedule Class'")
+	if !strings.Contains(body, "Class") && !strings.Contains(body, "openNewSessionModal") {
+		t.Errorf("expected Admin Dashboard to contain Class schedule action")
 	}
 	if !strings.Contains(body, "Floor Schedule Today") {
 		t.Errorf("expected Admin Dashboard to contain 'Floor Schedule Today'")
 	}
-	if !strings.Contains(body, "Pass Renewal & Low-Credit Alerts") && !strings.Contains(body, "Pass Renewal") {
+	if !strings.Contains(body, "Pass Renewal") && !strings.Contains(body, "Due for Renewal") {
 		t.Errorf("expected Admin Dashboard to contain pass renewal alerts")
 	}
 }

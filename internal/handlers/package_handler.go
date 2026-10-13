@@ -443,7 +443,7 @@ func (a *AppHandler) HandleRevokeStudentPackage(w http.ResponseWriter, r *http.R
 	}
 
 	user := GetUserFromContext(r.Context())
-	if user != nil && user.Role != models.RoleOperationManager {
+	if user != nil && !user.IsOperationManager() && !user.HasPermission(models.PermPackagesRevoke) {
 		http.Error(w, "Forbidden: Only Operation Managers can revoke memberships", http.StatusForbidden)
 		return
 	}

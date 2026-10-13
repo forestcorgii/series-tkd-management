@@ -67,7 +67,7 @@ func (s *AuthService) Login(identifier, password string) (*models.User, string, 
 		return nil, "", ErrUserInactive
 	}
 
-	if user.Role == models.RoleCoach {
+	if user.IsCoach() {
 		var coach *models.Coach
 		if user.CoachID != nil {
 			coach, _ = s.store.GetCoachByID(*user.CoachID)
@@ -114,7 +114,7 @@ func (s *AuthService) ValidateSession(token string) (*models.User, error) {
 	if !user.IsActive {
 		return nil, ErrUserInactive
 	}
-	if user.Role == models.RoleCoach {
+	if user.IsCoach() {
 		var coach *models.Coach
 		if user.CoachID != nil {
 			coach, _ = s.store.GetCoachByID(*user.CoachID)
@@ -248,7 +248,7 @@ func (s *AuthService) RegisterPendingCoach(fullName, email, username, password, 
 		ID:          uuid.New(),
 		Email:       normEmail,
 		Username:    normUsername,
-		Role:        models.RoleCoach,
+		Role:        models.RoleStaff,
 		DisplayName: trimmedName,
 		CoachID:     &coach.ID,
 		IsActive:    false, // Pending manager approval
@@ -264,6 +264,10 @@ func (s *AuthService) RegisterPendingCoach(fullName, email, username, password, 
 	if err := s.store.CreateUser(user); err != nil {
 		_ = s.store.DeleteCoach(coach.ID)
 		return nil, nil, fmt.Errorf("failed to create user account: %w", err)
+	}
+
+	if chRole, err := s.store.GetRoleBySlug("coach"); err == nil && chRole != nil {
+		_ = s.store.AssignUserRoles(user.ID, []uuid.UUID{chRole.ID})
 	}
 
 	return coach, user, nil
@@ -301,7 +305,7 @@ func (s *AuthService) RegisterPendingAdmin(fullName, email, username, password s
 		ID:          uuid.New(),
 		Email:       normEmail,
 		Username:    normUsername,
-		Role:        models.RoleAdmin,
+		Role:        models.RoleStaff,
 		DisplayName: trimmedName,
 		IsActive:    false, // Pending manager approval
 		CreatedAt:   time.Now(),
@@ -314,6 +318,10 @@ func (s *AuthService) RegisterPendingAdmin(fullName, email, username, password s
 
 	if err := s.store.CreateUser(user); err != nil {
 		return nil, fmt.Errorf("failed to create user record: %w", err)
+	}
+
+	if admRole, err := s.store.GetRoleBySlug("admin"); err == nil && admRole != nil {
+		_ = s.store.AssignUserRoles(user.ID, []uuid.UUID{admRole.ID})
 	}
 
 	return user, nil

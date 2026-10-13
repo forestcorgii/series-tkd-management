@@ -81,7 +81,7 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Role == models.RoleOperationManager {
+	if user.IsOperationManager() {
 		if r.URL.Query().Get("view") == "coach" {
 			a.renderCoachDashboard(w, r, user)
 			return
@@ -90,22 +90,26 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 			a.renderAdminDashboard(w, r, user)
 			return
 		}
-	}
-
-	switch user.Role {
-	case models.RoleCoach:
-		a.renderCoachDashboard(w, r, user)
-		return
-	case models.RoleAdmin:
-		a.renderAdminDashboard(w, r, user)
-		return
-	case models.RoleStudent:
-		http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
-		return
-	default:
 		a.renderOperationManagerDashboard(w, r, user)
 		return
 	}
+
+	if user.IsAdmin() {
+		a.renderAdminDashboard(w, r, user)
+		return
+	}
+
+	if user.IsCoach() {
+		a.renderCoachDashboard(w, r, user)
+		return
+	}
+
+	if user.IsStudent() {
+		http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
+		return
+	}
+
+	a.renderOperationManagerDashboard(w, r, user)
 }
 
 func (a *AppHandler) renderCoachDashboard(w http.ResponseWriter, r *http.Request, user *models.User) {

@@ -85,20 +85,8 @@ func (a *AppHandler) RequireRole(roles ...models.UserRole) func(http.HandlerFunc
 				}
 				// If browser request, send to their authorized view
 				if user != nil {
-					switch user.Role {
-					case models.RoleOperationManager:
-						http.Redirect(w, r, "/", http.StatusSeeOther)
-						return
-					case models.RoleAdmin:
-						http.Redirect(w, r, "/", http.StatusSeeOther)
-						return
-					case models.RoleCoach:
-						http.Redirect(w, r, "/", http.StatusSeeOther)
-						return
-					case models.RoleStudent:
-						http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
-						return
-					}
+					http.Redirect(w, r, user.RoleDashboardURL(), http.StatusSeeOther)
+					return
 				}
 				http.Error(w, "Forbidden: Insufficient Permissions", http.StatusForbidden)
 				return
@@ -106,6 +94,58 @@ func (a *AppHandler) RequireRole(roles ...models.UserRole) func(http.HandlerFunc
 			next(w, r)
 		})
 	}
+}
+
+// RequirePermission verifies that the authenticated user possesses at least one of the specified permissions.
+func (a *AppHandler) RequirePermission(perms ...string) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return a.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+			user := GetUserFromContext(r.Context())
+			if user == nil || !user.HasAnyPermission(perms...) {
+				if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":   "forbidden",
+						"message": "insufficient permissions for this resource",
+					})
+					return
+				}
+				if user != nil {
+					http.Redirect(w, r, user.RoleDashboardURL(), http.StatusSeeOther)
+					return
+				}
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				return
+			}
+			next(w, r)
+		})
+	}
+}
+
+// RequireStaff ensures that the authenticated user is a staff member.
+func (a *AppHandler) RequireStaff(next http.HandlerFunc) http.HandlerFunc {
+	return a.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		user := GetUserFromContext(r.Context())
+		if user == nil || !user.IsStaff() {
+			if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":   "forbidden",
+					"message": "staff access required",
+				})
+				return
+			}
+			if user != nil {
+				http.Redirect(w, r, user.RoleDashboardURL(), http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		next(w, r)
+	})
 }
 
 // IsDemoLoginEnabled returns whether quick demo logins should be displayed.
@@ -417,6 +457,7 @@ type RegisterPageData struct {
 	Error        string
 	Success      string
 	SelectedRole string
+	Roles        []*models.StaffRole
 }
 
 func (a *AppHandler) HandleRegisterPage(w http.ResponseWriter, r *http.Request) {
@@ -431,11 +472,14 @@ func (a *AppHandler) HandleRegisterPage(w http.ResponseWriter, r *http.Request) 
 		role = "COACH"
 	}
 
+	roles, _ := a.store.GetRoles()
+
 	data := RegisterPageData{
 		CurrentUser:  nil,
 		Error:        r.URL.Query().Get("error"),
 		Success:      r.URL.Query().Get("success"),
 		SelectedRole: role,
+		Roles:        roles,
 	}
 
 	a.RenderPage(w, "register.html", data)

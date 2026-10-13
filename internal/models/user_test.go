@@ -64,6 +64,124 @@ func TestUser_RolePermissions(t *testing.T) {
 	}
 }
 
+func TestUser_CustomRolesAndPermissions(t *testing.T) {
+	defaultRoles := models.DefaultStaffRoles()
+	var coachRole, adminRole, managerRole *models.StaffRole
+	for _, r := range defaultRoles {
+		switch r.Slug {
+		case "coach":
+			coachRole = r
+		case "admin":
+			adminRole = r
+		case "manager":
+			managerRole = r
+		}
+	}
+
+	if coachRole == nil || adminRole == nil || managerRole == nil {
+		t.Fatalf("expected 3 default roles to be pre-created")
+	}
+
+	// 1. Staff user assigned pre-created Coach role
+	coachUser := &models.User{
+		Role:  models.RoleStaff,
+		Roles: []*models.StaffRole{coachRole},
+	}
+	if !coachUser.IsStaff() {
+		t.Errorf("expected coachUser to be staff")
+	}
+	if coachUser.IsStudent() {
+		t.Errorf("expected coachUser NOT to be student")
+	}
+	if !coachUser.HasPermission(models.PermSessionsRead) {
+		t.Errorf("expected coachUser to have sessions:read permission")
+	}
+	if !coachUser.HasPermission(models.PermEvaluationsCreate) {
+		t.Errorf("expected coachUser to have evaluations:create permission")
+	}
+	if coachUser.HasPermission(models.PermStudentsDelete) {
+		t.Errorf("coachUser should not have students:delete permission")
+	}
+	if !coachUser.IsCoach() {
+		t.Errorf("expected coachUser.IsCoach() to be true based on assigned coach role")
+	}
+
+	// 2. Staff user assigned pre-created Admin role
+	adminUser := &models.User{
+		Role:  models.RoleStaff,
+		Roles: []*models.StaffRole{adminRole},
+	}
+	if !adminUser.IsStaff() {
+		t.Errorf("expected adminUser to be staff")
+	}
+	if !adminUser.HasPermission(models.PermStudentsCreate) {
+		t.Errorf("expected adminUser to have students:create permission")
+	}
+	if !adminUser.HasPermission(models.PermPackagesAssign) {
+		t.Errorf("expected adminUser to have packages:assign permission")
+	}
+	if adminUser.HasPermission(models.PermStudentsDelete) {
+		t.Errorf("adminUser should not have students:delete permission")
+	}
+	if !adminUser.IsAdmin() {
+		t.Errorf("expected adminUser.IsAdmin() to be true")
+	}
+
+	// 3. Staff user assigned pre-created Manager role
+	managerUser := &models.User{
+		Role:  models.RoleStaff,
+		Roles: []*models.StaffRole{managerRole},
+	}
+	if !managerUser.IsStaff() {
+		t.Errorf("expected managerUser to be staff")
+	}
+	if !managerUser.HasPermission(models.PermStudentsDelete) {
+		t.Errorf("expected managerUser to have wildcard access covering students:delete")
+	}
+	if !managerUser.HasPermission(models.PermRolesManage) {
+		t.Errorf("expected managerUser to have roles:manage permission")
+	}
+	if !managerUser.IsOperationManager() {
+		t.Errorf("expected managerUser.IsOperationManager() to be true")
+	}
+
+	// 4. Custom Role: "Front Desk Assistant" with custom permissions
+	customRole := &models.StaffRole{
+		Name:        "Front Desk Assistant",
+		Slug:        "front-desk",
+		Permissions: []string{models.PermSessionsRead, models.PermAttendanceCheckin},
+	}
+	if err := customRole.Validate(); err != nil {
+		t.Fatalf("custom role validation failed: %v", err)
+	}
+
+	frontDeskStaff := &models.User{
+		Role:  models.RoleStaff,
+		Roles: []*models.StaffRole{customRole},
+	}
+	if !frontDeskStaff.HasPermission(models.PermAttendanceCheckin) {
+		t.Errorf("expected frontDeskStaff to have attendance:checkin")
+	}
+	if frontDeskStaff.HasPermission(models.PermSessionsCreate) {
+		t.Errorf("frontDeskStaff should not have sessions:create")
+	}
+
+	// 5. Student User
+	studentUser := &models.User{
+		Role: models.RoleStudent,
+	}
+	if !studentUser.IsStudent() {
+		t.Errorf("expected studentUser to be student")
+	}
+	if studentUser.IsStaff() {
+		t.Errorf("expected studentUser NOT to be staff")
+	}
+	if studentUser.HasPermission(models.PermSessionsRead) {
+		t.Errorf("studentUser should never have staff permissions")
+	}
+}
+
+
 func TestStudent_NextBeltProgression(t *testing.T) {
 	s := &models.Student{CurrentBelt: models.BeltWhite}
 	if next := s.NextBelt(); next != models.BeltLowYellow {

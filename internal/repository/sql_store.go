@@ -973,6 +973,152 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(idx)
 	}
 
+	if err := s.migrateRolesAndPermissions(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SQLStore) migrateRolesAndPermissions() error {
+	// 1. Create tables if not exist
+	if s.driver == "sqlite" {
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS roles (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			slug TEXT UNIQUE NOT NULL,
+			description TEXT DEFAULT '',
+			is_system INTEGER NOT NULL DEFAULT 0,
+			permissions TEXT NOT NULL DEFAULT '[]',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_roles (
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+			created_at TEXT NOT NULL,
+			PRIMARY KEY (user_id, role_id)
+		)`)
+	} else {
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS roles (
+			id UUID PRIMARY KEY,
+			name VARCHAR(100) NOT NULL,
+			slug VARCHAR(50) UNIQUE NOT NULL,
+			description TEXT DEFAULT '',
+			is_system BOOLEAN NOT NULL DEFAULT FALSE,
+			permissions TEXT NOT NULL DEFAULT '[]',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_roles (
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (user_id, role_id)
+		)`)
+	}
+
+	// 2. Ensure default roles exist
+	defaultRoles := models.DefaultStaffRoles()
+	for _, r := range defaultRoles {
+		permsJSON, _ := json.Marshal(r.Permissions)
+		var exists int
+		_ = s.db.QueryRow(`SELECT COUNT(*) FROM roles WHERE LOWER(slug) = LOWER($1)`, r.Slug).Scan(&exists)
+		if exists == 0 {
+			if s.driver == "sqlite" {
+				_, _ = s.db.Exec(`INSERT INTO roles (id, name, slug, description, is_system, permissions, created_at, updated_at)
+					VALUES ($1, $2, $3, $4, 1, $5, $6, $7)`,
+					r.ID.String(), r.Name, r.Slug, r.Description, string(permsJSON), formatTimeForDB(r.CreatedAt), formatTimeForDB(r.UpdatedAt))
+			} else {
+				_, _ = s.db.Exec(`INSERT INTO roles (id, name, slug, description, is_system, permissions, created_at, updated_at)
+					VALUES ($1, $2, $3, $4, TRUE, $5, $6, $7)`,
+					r.ID.String(), r.Name, r.Slug, r.Description, string(permsJSON), r.CreatedAt, r.UpdatedAt)
+			}
+		}
+	}
+
+	// 3. Migrate any legacy roles to STAFF in users and populate user_roles
+	var coachRoleID, adminRoleID, managerRoleID string
+	_ = s.db.QueryRow(`SELECT id FROM roles WHERE slug = 'coach'`).Scan(&coachRoleID)
+	_ = s.db.QueryRow(`SELECT id FROM roles WHERE slug = 'admin'`).Scan(&adminRoleID)
+	_ = s.db.QueryRow(`SELECT id FROM roles WHERE slug = 'manager'`).Scan(&managerRoleID)
+
+	rows, err := s.db.Query(`SELECT id, role, email, coach_id FROM users WHERE role IN ('COACH', 'ADMIN', 'OPERATION_MANAGER')`)
+	if err == nil {
+		type userMigrate struct {
+			id      string
+			role    string
+			email   string
+			coachID sql.NullString
+		}
+		var toMigrate []userMigrate
+		for rows.Next() {
+			var m userMigrate
+			if err := rows.Scan(&m.id, &m.role, &m.email, &m.coachID); err == nil {
+				toMigrate = append(toMigrate, m)
+			}
+		}
+		rows.Close()
+
+		nowStr := formatTimeForDB(time.Now())
+		for _, m := range toMigrate {
+			var roleIDToAssign string
+			switch m.role {
+			case "OPERATION_MANAGER":
+				roleIDToAssign = managerRoleID
+			case "ADMIN":
+				roleIDToAssign = adminRoleID
+			case "COACH":
+				roleIDToAssign = coachRoleID
+			}
+
+			if roleIDToAssign != "" {
+				if s.driver == "sqlite" {
+					_, _ = s.db.Exec(`INSERT OR IGNORE INTO user_roles (user_id, role_id, created_at) VALUES ($1, $2, $3)`, m.id, roleIDToAssign, nowStr)
+				} else {
+					_, _ = s.db.Exec(`INSERT INTO user_roles (user_id, role_id, created_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING`, m.id, roleIDToAssign)
+				}
+			}
+			_, _ = s.db.Exec(`UPDATE users SET role = 'STAFF' WHERE id = $1`, m.id)
+		}
+	}
+
+	// 4. Ensure any users who are STAFF have at least one assigned role
+	rowsStaff, errStaff := s.db.Query(`SELECT u.id, u.email, u.coach_id FROM users u WHERE u.role = 'STAFF' AND NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id)`)
+	if errStaff == nil {
+		type staffAssign struct {
+			id      string
+			email   string
+			coachID sql.NullString
+		}
+		var unassigned []staffAssign
+		for rowsStaff.Next() {
+			var sa staffAssign
+			if err := rowsStaff.Scan(&sa.id, &sa.email, &sa.coachID); err == nil {
+				unassigned = append(unassigned, sa)
+			}
+		}
+		rowsStaff.Close()
+
+		nowStr := formatTimeForDB(time.Now())
+		for _, sa := range unassigned {
+			targetRole := adminRoleID
+			if strings.Contains(strings.ToLower(sa.email), "manager") {
+				targetRole = managerRoleID
+			} else if sa.coachID.Valid && sa.coachID.String != "" {
+				targetRole = coachRoleID
+			}
+
+			if targetRole != "" {
+				if s.driver == "sqlite" {
+					_, _ = s.db.Exec(`INSERT OR IGNORE INTO user_roles (user_id, role_id, created_at) VALUES ($1, $2, $3)`, sa.id, targetRole, nowStr)
+				} else {
+					_, _ = s.db.Exec(`INSERT INTO user_roles (user_id, role_id, created_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING`, sa.id, targetRole)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -3193,35 +3339,44 @@ func (s *SQLStore) SeedDefaultData() error {
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 		Email:       "manager@seriestkd.com",
 		Username:    "manager",
-		Role:        models.RoleOperationManager,
+		Role:        models.RoleStaff,
 		IsActive:    true,
 		DisplayName: "Operation Manager",
 	}
 	_ = uManager.SetPassword("manager123")
 	_ = s.CreateUser(uManager)
+	if mgrRole, err := s.GetRoleBySlug("manager"); err == nil && mgrRole != nil {
+		_ = s.AssignUserRoles(uManager.ID, []uuid.UUID{mgrRole.ID})
+	}
 
 	uAdmin := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		Email:       "admin@seriestkd.com",
 		Username:    "admin",
-		Role:        models.RoleAdmin,
+		Role:        models.RoleStaff,
 		IsActive:    true,
 		DisplayName: "Dojang Administrator",
 	}
 	_ = uAdmin.SetPassword("admin123")
 	_ = s.CreateUser(uAdmin)
+	if admRole, err := s.GetRoleBySlug("admin"); err == nil && admRole != nil {
+		_ = s.AssignUserRoles(uAdmin.ID, []uuid.UUID{admRole.ID})
+	}
 
 	uCoach := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		Email:       "jiwoo.park@seriestkd.com",
 		Username:    "jiwoo.park",
-		Role:        models.RoleCoach,
+		Role:        models.RoleStaff,
 		CoachID:     &c2ID,
 		IsActive:    true,
 		DisplayName: "Coach Ji-Woo Park",
 	}
 	_ = uCoach.SetPassword("coach123")
 	_ = s.CreateUser(uCoach)
+	if chRole, err := s.GetRoleBySlug("coach"); err == nil && chRole != nil {
+		_ = s.AssignUserRoles(uCoach.ID, []uuid.UUID{chRole.ID})
+	}
 
 	uStudent1 := &models.User{
 		ID:          uuid.MustParse("00000000-0000-0000-0000-000000000003"),
@@ -3310,10 +3465,37 @@ func scanUser(scanner interface{ Scan(dest ...any) error }) (*models.User, error
 	return u, nil
 }
 
+func (s *SQLStore) enrichUserRoles(u *models.User) {
+	if u == nil {
+		return
+	}
+	roles, err := s.GetUserRoles(u.ID)
+	if err == nil && len(roles) > 0 {
+		u.Roles = roles
+		permMap := make(map[string]bool)
+		for _, r := range roles {
+			for _, p := range r.Permissions {
+				permMap[p] = true
+			}
+		}
+		u.Permissions = make([]string, 0, len(permMap))
+		for p := range permMap {
+			u.Permissions = append(u.Permissions, p)
+		}
+	} else if u.Role == models.RoleOperationManager {
+		u.Permissions = []string{models.PermWildcard}
+	}
+}
+
 func (s *SQLStore) GetUserByEmail(email string) (*models.User, error) {
 	normEmail := strings.ToLower(strings.TrimSpace(email))
 	query := userSelectFields + ` WHERE LOWER(u.email) = $1`
-	return scanUser(s.db.QueryRow(query, normEmail))
+	u, err := scanUser(s.db.QueryRow(query, normEmail))
+	if err != nil {
+		return nil, err
+	}
+	s.enrichUserRoles(u)
+	return u, nil
 }
 
 func (s *SQLStore) GetUserByUsername(username string) (*models.User, error) {
@@ -3322,7 +3504,12 @@ func (s *SQLStore) GetUserByUsername(username string) (*models.User, error) {
 		return nil, ErrNotFound
 	}
 	query := userSelectFields + ` WHERE LOWER(u.username) = $1`
-	return scanUser(s.db.QueryRow(query, normUsername))
+	u, err := scanUser(s.db.QueryRow(query, normUsername))
+	if err != nil {
+		return nil, err
+	}
+	s.enrichUserRoles(u)
+	return u, nil
 }
 
 func (s *SQLStore) GetUserByIdentifier(identifier string) (*models.User, error) {
@@ -3331,22 +3518,42 @@ func (s *SQLStore) GetUserByIdentifier(identifier string) (*models.User, error) 
 		return nil, ErrNotFound
 	}
 	query := userSelectFields + ` WHERE LOWER(u.email) = $1 OR LOWER(u.username) = $1`
-	return scanUser(s.db.QueryRow(query, norm))
+	u, err := scanUser(s.db.QueryRow(query, norm))
+	if err != nil {
+		return nil, err
+	}
+	s.enrichUserRoles(u)
+	return u, nil
 }
 
 func (s *SQLStore) GetUserByID(id uuid.UUID) (*models.User, error) {
 	query := userSelectFields + ` WHERE u.id = $1`
-	return scanUser(s.db.QueryRow(query, id.String()))
+	u, err := scanUser(s.db.QueryRow(query, id.String()))
+	if err != nil {
+		return nil, err
+	}
+	s.enrichUserRoles(u)
+	return u, nil
 }
 
 func (s *SQLStore) GetUserByStudentID(studentID uuid.UUID) (*models.User, error) {
 	query := userSelectFields + ` WHERE u.student_id = $1`
-	return scanUser(s.db.QueryRow(query, studentID.String()))
+	u, err := scanUser(s.db.QueryRow(query, studentID.String()))
+	if err != nil {
+		return nil, err
+	}
+	s.enrichUserRoles(u)
+	return u, nil
 }
 
 func (s *SQLStore) GetUserByCoachID(coachID uuid.UUID) (*models.User, error) {
 	query := userSelectFields + ` WHERE u.coach_id = $1`
-	return scanUser(s.db.QueryRow(query, coachID.String()))
+	u, err := scanUser(s.db.QueryRow(query, coachID.String()))
+	if err != nil {
+		return nil, err
+	}
+	s.enrichUserRoles(u)
+	return u, nil
 }
 
 func (s *SQLStore) CreateUser(u *models.User) error {
@@ -3380,7 +3587,17 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 		u.ID.String(), u.Email, usernameCol, u.PasswordHash, string(u.Role), u.DisplayName, u.ProfilePictureURL, studentID, coachID,
 		u.IsActive, formatTimeForDB(u.CreatedAt), formatTimeForDB(u.UpdatedAt),
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if len(u.Roles) > 0 {
+		roleIDs := make([]uuid.UUID, 0, len(u.Roles))
+		for _, r := range u.Roles {
+			roleIDs = append(roleIDs, r.ID)
+		}
+		_ = s.AssignUserRoles(u.ID, roleIDs)
+	}
+	return nil
 }
 
 func (s *SQLStore) UpdateUser(u *models.User) error {
@@ -3421,6 +3638,7 @@ func (s *SQLStore) ToggleUserActive(userID uuid.UUID, isActive bool) error {
 }
 
 func (s *SQLStore) DeleteUser(userID uuid.UUID) error {
+	_, _ = s.db.Exec(`DELETE FROM user_roles WHERE user_id = $1`, userID.String())
 	_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id = $1`, userID.String())
 	_, _ = s.db.Exec(`DELETE FROM password_reset_tokens WHERE user_id = $1`, userID.String())
 	_, _ = s.db.Exec(`UPDATE training_sessions SET admin_id = NULL WHERE admin_id = $1`, userID.String())
@@ -3436,22 +3654,17 @@ func (s *SQLStore) DeleteUser(userID uuid.UUID) error {
 }
 
 func (s *SQLStore) GetUsersByRole(role models.UserRole) ([]*models.User, error) {
-	query := userSelectFields + ` WHERE u.role = $1 ORDER BY u.created_at DESC`
-	rows, err := s.db.Query(query, string(role))
+	allUsers, err := s.GetAllUsers()
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var users []*models.User
-	for rows.Next() {
-		u, err := scanUser(rows)
-		if err != nil {
-			return nil, err
+	var filtered []*models.User
+	for _, u := range allUsers {
+		if u.HasRole(role) || u.Role == role {
+			filtered = append(filtered, u)
 		}
-		users = append(users, u)
 	}
-	return users, nil
+	return filtered, nil
 }
 
 func (s *SQLStore) GetAllUsers() ([]*models.User, error) {
@@ -3468,6 +3681,274 @@ func (s *SQLStore) GetAllUsers() ([]*models.User, error) {
 		if err != nil {
 			return nil, err
 		}
+		s.enrichUserRoles(u)
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// Staff Roles & Permissions implementation for SQLStore
+func (s *SQLStore) GetRoles() ([]*models.StaffRole, error) {
+	query := `SELECT r.id, r.name, r.slug, r.description, r.is_system, r.permissions, r.created_at, r.updated_at,
+		(SELECT COUNT(*) FROM user_roles ur WHERE ur.role_id = r.id) as member_count
+		FROM roles r
+		ORDER BY r.is_system DESC, r.name ASC`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []*models.StaffRole
+	for rows.Next() {
+		var idStr, name, slug, desc, permsJSON, createdStr, updatedStr string
+		var isSystem bool
+		var memberCount int
+		if err := rows.Scan(&idStr, &name, &slug, &desc, &isSystem, &permsJSON, &createdStr, &updatedStr, &memberCount); err != nil {
+			return nil, err
+		}
+		r := &models.StaffRole{
+			ID:          uuid.Must(uuid.Parse(idStr)),
+			Name:        name,
+			Slug:        slug,
+			Description: desc,
+			IsSystem:    isSystem,
+			MemberCount: memberCount,
+		}
+		_ = json.Unmarshal([]byte(permsJSON), &r.Permissions)
+		r.CreatedAt, _ = parseTimeFlex(createdStr)
+		r.UpdatedAt, _ = parseTimeFlex(updatedStr)
+		roles = append(roles, r)
+	}
+	return roles, nil
+}
+
+func (s *SQLStore) GetRoleByID(id uuid.UUID) (*models.StaffRole, error) {
+	query := `SELECT r.id, r.name, r.slug, r.description, r.is_system, r.permissions, r.created_at, r.updated_at,
+		(SELECT COUNT(*) FROM user_roles ur WHERE ur.role_id = r.id) as member_count
+		FROM roles r WHERE r.id = $1`
+
+	var idStr, name, slug, desc, permsJSON, createdStr, updatedStr string
+	var isSystem bool
+	var memberCount int
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &name, &slug, &desc, &isSystem, &permsJSON, &createdStr, &updatedStr, &memberCount)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrRoleNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	r := &models.StaffRole{
+		ID:          uuid.Must(uuid.Parse(idStr)),
+		Name:        name,
+		Slug:        slug,
+		Description: desc,
+		IsSystem:    isSystem,
+		MemberCount: memberCount,
+	}
+	_ = json.Unmarshal([]byte(permsJSON), &r.Permissions)
+	r.CreatedAt, _ = parseTimeFlex(createdStr)
+	r.UpdatedAt, _ = parseTimeFlex(updatedStr)
+	return r, nil
+}
+
+func (s *SQLStore) GetRoleBySlug(slug string) (*models.StaffRole, error) {
+	norm := strings.ToLower(strings.TrimSpace(slug))
+	query := `SELECT r.id, r.name, r.slug, r.description, r.is_system, r.permissions, r.created_at, r.updated_at,
+		(SELECT COUNT(*) FROM user_roles ur WHERE ur.role_id = r.id) as member_count
+		FROM roles r WHERE LOWER(r.slug) = $1`
+
+	var idStr, name, rSlug, desc, permsJSON, createdStr, updatedStr string
+	var isSystem bool
+	var memberCount int
+	err := s.db.QueryRow(query, norm).Scan(&idStr, &name, &rSlug, &desc, &isSystem, &permsJSON, &createdStr, &updatedStr, &memberCount)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrRoleNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	r := &models.StaffRole{
+		ID:          uuid.Must(uuid.Parse(idStr)),
+		Name:        name,
+		Slug:        rSlug,
+		Description: desc,
+		IsSystem:    isSystem,
+		MemberCount: memberCount,
+	}
+	_ = json.Unmarshal([]byte(permsJSON), &r.Permissions)
+	r.CreatedAt, _ = parseTimeFlex(createdStr)
+	r.UpdatedAt, _ = parseTimeFlex(updatedStr)
+	return r, nil
+}
+
+func (s *SQLStore) CreateRole(role *models.StaffRole) error {
+	if err := role.Validate(); err != nil {
+		return err
+	}
+	if role.ID == uuid.Nil {
+		role.ID = uuid.New()
+	}
+	now := time.Now()
+	role.CreatedAt = now
+	role.UpdatedAt = now
+
+	permsJSON, _ := json.Marshal(role.Permissions)
+	query := `INSERT INTO roles (id, name, slug, description, is_system, permissions, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	_, err := s.db.Exec(query,
+		role.ID.String(), role.Name, role.Slug, role.Description, role.IsSystem, string(permsJSON),
+		formatTimeForDB(role.CreatedAt), formatTimeForDB(role.UpdatedAt),
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "unique") {
+			return models.ErrRoleSlugExists
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *SQLStore) UpdateRole(role *models.StaffRole) error {
+	if err := role.Validate(); err != nil {
+		return err
+	}
+	now := time.Now()
+	role.UpdatedAt = now
+
+	permsJSON, _ := json.Marshal(role.Permissions)
+	query := `UPDATE roles SET name = $1, slug = $2, description = $3, permissions = $4, updated_at = $5 WHERE id = $6`
+	res, err := s.db.Exec(query, role.Name, role.Slug, role.Description, string(permsJSON), formatTimeForDB(now), role.ID.String())
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "unique") {
+			return models.ErrRoleSlugExists
+		}
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return models.ErrRoleNotFound
+	}
+	return nil
+}
+
+func (s *SQLStore) DeleteRole(id uuid.UUID) error {
+	existing, err := s.GetRoleByID(id)
+	if err != nil {
+		return err
+	}
+	if existing.IsSystem {
+		return models.ErrSystemRoleUndeletable
+	}
+
+	var assignedCount int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM user_roles WHERE role_id = $1`, id.String()).Scan(&assignedCount)
+	if assignedCount > 0 {
+		return models.ErrRoleAssignedToUsers
+	}
+
+	res, err := s.db.Exec(`DELETE FROM roles WHERE id = $1`, id.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return models.ErrRoleNotFound
+	}
+	return nil
+}
+
+func (s *SQLStore) GetUserRoles(userID uuid.UUID) ([]*models.StaffRole, error) {
+	query := `SELECT r.id, r.name, r.slug, r.description, r.is_system, r.permissions, r.created_at, r.updated_at
+		FROM roles r
+		JOIN user_roles ur ON r.id = ur.role_id
+		WHERE ur.user_id = $1
+		ORDER BY r.is_system DESC, r.name ASC`
+
+	rows, err := s.db.Query(query, userID.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []*models.StaffRole
+	for rows.Next() {
+		var idStr, name, slug, desc, permsJSON, createdStr, updatedStr string
+		var isSystem bool
+		if err := rows.Scan(&idStr, &name, &slug, &desc, &isSystem, &permsJSON, &createdStr, &updatedStr); err != nil {
+			return nil, err
+		}
+		r := &models.StaffRole{
+			ID:          uuid.Must(uuid.Parse(idStr)),
+			Name:        name,
+			Slug:        slug,
+			Description: desc,
+			IsSystem:    isSystem,
+		}
+		_ = json.Unmarshal([]byte(permsJSON), &r.Permissions)
+		r.CreatedAt, _ = parseTimeFlex(createdStr)
+		r.UpdatedAt, _ = parseTimeFlex(updatedStr)
+		roles = append(roles, r)
+	}
+	return roles, nil
+}
+
+func (s *SQLStore) AssignUserRoles(userID uuid.UUID, roleIDs []uuid.UUID) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec(`DELETE FROM user_roles WHERE user_id = $1`, userID.String()); err != nil {
+		return err
+	}
+
+	nowStr := formatTimeForDB(time.Now())
+	for _, rid := range roleIDs {
+		var exists int
+		_ = tx.QueryRow(`SELECT COUNT(*) FROM roles WHERE id = $1`, rid.String()).Scan(&exists)
+		if exists > 0 {
+			if s.driver == "sqlite" {
+				if _, err := tx.Exec(`INSERT INTO user_roles (user_id, role_id, created_at) VALUES ($1, $2, $3)`, userID.String(), rid.String(), nowStr); err != nil {
+					return err
+				}
+			} else {
+				if _, err := tx.Exec(`INSERT INTO user_roles (user_id, role_id, created_at) VALUES ($1, $2, NOW())`, userID.String(), rid.String()); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *SQLStore) GetUsersByRoleSlug(slug string) ([]*models.User, error) {
+	norm := strings.ToLower(strings.TrimSpace(slug))
+	query := userSelectFields + `
+		WHERE u.id IN (
+			SELECT ur.user_id FROM user_roles ur
+			JOIN roles r ON ur.role_id = r.id
+			WHERE LOWER(r.slug) = $1
+		)
+		ORDER BY u.created_at DESC`
+
+	rows, err := s.db.Query(query, norm)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*models.User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		s.enrichUserRoles(u)
 		users = append(users, u)
 	}
 	return users, nil
@@ -3592,6 +4073,7 @@ func (s *SQLStore) GetUserBySessionToken(token string) (*models.User, error) {
 	if picURL.Valid {
 		u.ProfilePictureURL = picURL.String
 	}
+	s.enrichUserRoles(u)
 	return u, nil
 }
 

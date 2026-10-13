@@ -189,16 +189,16 @@ func TestSQLStore_AuthAndSafetyPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUserByEmail failed for admin: %v", err)
 	}
-	if admin.Role != models.RoleAdmin || !admin.CheckPassword("admin123") {
-		t.Errorf("admin credentials or role mismatch")
+	if admin.Role != models.RoleStaff || !admin.HasRole(models.RoleAdmin) || !admin.CheckPassword("admin123") {
+		t.Errorf("admin credentials or role mismatch (role=%s, hasRole=%v)", admin.Role, admin.HasRole(models.RoleAdmin))
 	}
 
 	coach, err := store.GetUserByEmail("jiwoo.park@seriestkd.com")
 	if err != nil {
 		t.Fatalf("GetUserByEmail failed for coach: %v", err)
 	}
-	if coach.Role != models.RoleCoach || coach.CoachID == nil {
-		t.Errorf("coach role or coach_id mismatch")
+	if coach.Role != models.RoleStaff || !coach.HasRole(models.RoleCoach) || coach.CoachID == nil {
+		t.Errorf("coach role or coach_id mismatch (role=%s, hasRole=%v)", coach.Role, coach.HasRole(models.RoleCoach))
 	}
 
 	student, err := store.GetUserByEmail("alex.vance@seriestkd.com")
@@ -1984,3 +1984,134 @@ func TestTrainingSessions_SupervisingAdminUserFKDecoupled(t *testing.T) {
 		})
 	}
 }
+
+func TestStore_CustomizableRolesAndPermissions(t *testing.T) {
+	drivers := []string{"memory", "sqlite"}
+	for _, drv := range drivers {
+		t.Run(drv, func(t *testing.T) {
+			var store repository.RepositoryStore
+			if drv == "memory" {
+				store = repository.NewMemoryStore()
+			} else {
+				dbPath := filepath.Join(t.TempDir(), "test_roles.db")
+				s, d, err := repository.InitDatabase(dbPath)
+				if err != nil {
+					t.Fatalf("failed to init sqlite db: %v (driver=%s)", err, d)
+				}
+				defer func() {
+					if sqlS, ok := s.(*repository.SQLStore); ok {
+						_ = sqlS.Close()
+					}
+				}()
+				store = s
+			}
+
+			// 1. Verify pre-created default roles (Coach, Admin, Manager)
+			roles, err := store.GetRoles()
+			if err != nil {
+				t.Fatalf("GetRoles failed: %v", err)
+			}
+			if len(roles) < 3 {
+				t.Fatalf("expected at least 3 roles, got %d", len(roles))
+			}
+
+			var coachRole, adminRole, managerRole *models.StaffRole
+			for _, r := range roles {
+				switch r.Slug {
+				case "coach":
+					coachRole = r
+				case "admin":
+					adminRole = r
+				case "manager":
+					managerRole = r
+				}
+			}
+			if coachRole == nil || adminRole == nil || managerRole == nil {
+				t.Fatalf("expected pre-created coach, admin, and manager roles")
+			}
+			if !coachRole.IsSystem || !adminRole.IsSystem || !managerRole.IsSystem {
+				t.Errorf("expected default roles to have IsSystem = true")
+			}
+
+			// 2. Prevent deleting system roles
+			if err := store.DeleteRole(coachRole.ID); err != models.ErrSystemRoleUndeletable {
+				t.Errorf("expected ErrSystemRoleUndeletable when deleting system role, got %v", err)
+			}
+
+			// 3. Create a custom role
+			customRole := &models.StaffRole{
+				Name:        "Front Desk Coordinator",
+				Slug:        "front-desk-coordinator",
+				Description: "Handles desk attendance check-in only",
+				Permissions: []string{models.PermSessionsRead, models.PermAttendanceCheckin},
+			}
+			if err := store.CreateRole(customRole); err != nil {
+				t.Fatalf("CreateRole failed: %v", err)
+			}
+
+			// Verify fetched by slug and ID
+			fetchedBySlug, err := store.GetRoleBySlug("front-desk-coordinator")
+			if err != nil {
+				t.Fatalf("GetRoleBySlug failed: %v", err)
+			}
+			if fetchedBySlug.Name != customRole.Name {
+				t.Errorf("name mismatch: expected %q, got %q", customRole.Name, fetchedBySlug.Name)
+			}
+
+			// 4. Create a staff user and assign custom role
+			staffUser := &models.User{
+				ID:          uuid.New(),
+				Email:       "coordinator@seriestkd.com",
+				Username:    "coordinator",
+				Role:        models.RoleStaff,
+				DisplayName: "Desk Coordinator",
+				IsActive:    true,
+				Roles:       []*models.StaffRole{fetchedBySlug},
+			}
+			_ = staffUser.SetPassword("staff123")
+			if err := store.CreateUser(staffUser); err != nil {
+				t.Fatalf("CreateUser failed: %v", err)
+			}
+
+			// Fetch user and verify enriched permissions
+			loadedStaff, err := store.GetUserByEmail("coordinator@seriestkd.com")
+			if err != nil {
+				t.Fatalf("GetUserByEmail failed: %v", err)
+			}
+			if !loadedStaff.IsStaff() {
+				t.Errorf("expected loadedStaff.IsStaff() = true")
+			}
+			if !loadedStaff.HasPermission(models.PermAttendanceCheckin) {
+				t.Errorf("expected loadedStaff to have PermAttendanceCheckin")
+			}
+			if loadedStaff.HasPermission(models.PermStudentsDelete) {
+				t.Errorf("loadedStaff should NOT have PermStudentsDelete")
+			}
+
+			// 5. Test GetUsersByRoleSlug
+			coordinators, err := store.GetUsersByRoleSlug("front-desk-coordinator")
+			if err != nil {
+				t.Fatalf("GetUsersByRoleSlug failed: %v", err)
+			}
+			if len(coordinators) != 1 || coordinators[0].Email != "coordinator@seriestkd.com" {
+				t.Errorf("expected 1 coordinator, got %d", len(coordinators))
+			}
+
+			// 6. Test preventing deletion while assigned
+			if err := store.DeleteRole(fetchedBySlug.ID); err != models.ErrRoleAssignedToUsers {
+				t.Errorf("expected ErrRoleAssignedToUsers when role is in use, got %v", err)
+			}
+
+			// Reassign user to Admin role
+			if err := store.AssignUserRoles(staffUser.ID, []uuid.UUID{adminRole.ID}); err != nil {
+				t.Fatalf("AssignUserRoles failed: %v", err)
+			}
+
+			// Now custom role can be deleted cleanly
+			if err := store.DeleteRole(fetchedBySlug.ID); err != nil {
+				t.Fatalf("DeleteRole failed after unassigning: %v", err)
+			}
+		})
+	}
+}
+

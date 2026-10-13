@@ -132,8 +132,8 @@ func TestAdminHandler_HandleCreateAdmin(t *testing.T) {
 	if err != nil || created == nil {
 		t.Fatalf("created user not found in store")
 	}
-	if created.Role != models.RoleAdmin {
-		t.Errorf("expected RoleAdmin, got %s", created.Role)
+	if !created.IsAdmin() {
+		t.Errorf("expected admin staff user, got %s", created.Role)
 	}
 	if created.DisplayName != "Sarah Connor" {
 		t.Errorf("expected DisplayName 'Sarah Connor', got '%s'", created.DisplayName)

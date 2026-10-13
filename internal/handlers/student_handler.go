@@ -391,7 +391,7 @@ func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 	}
 
 	user := GetUserFromContext(r.Context())
-	if user != nil && user.Role != models.RoleOperationManager {
+	if user != nil && !user.IsOperationManager() && !user.HasPermission(models.PermStudentsDelete) {
 		if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)

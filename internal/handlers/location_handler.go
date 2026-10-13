@@ -89,7 +89,7 @@ func (a *AppHandler) HandleCreateLocation(w http.ResponseWriter, r *http.Request
 	}
 
 	user := GetUserFromContext(r.Context())
-	if user != nil && user.Role != models.RoleOperationManager {
+	if user != nil && !user.IsOperationManager() && !user.HasPermission(models.PermLocationsManage) {
 		http.Error(w, "Forbidden: Only Operation Managers can modify locations", http.StatusForbidden)
 		return
 	}
@@ -138,7 +138,7 @@ func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request
 	}
 
 	user := GetUserFromContext(r.Context())
-	if user != nil && user.Role != models.RoleOperationManager {
+	if user != nil && !user.IsOperationManager() && !user.HasPermission(models.PermLocationsManage) {
 		http.Error(w, "Forbidden: Only Operation Managers can modify locations", http.StatusForbidden)
 		return
 	}
@@ -203,7 +203,7 @@ func (a *AppHandler) HandleDeleteLocation(w http.ResponseWriter, r *http.Request
 	}
 
 	user := GetUserFromContext(r.Context())
-	if user != nil && user.Role != models.RoleOperationManager {
+	if user != nil && !user.IsOperationManager() && !user.HasPermission(models.PermLocationsManage) {
 		http.Error(w, "Forbidden: Only Operation Managers can modify locations", http.StatusForbidden)
 		return
 	}

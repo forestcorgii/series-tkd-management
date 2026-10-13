@@ -16,6 +16,7 @@ import (
 type AdminsPageData struct {
 	CurrentUser    *models.User
 	Admins         []*models.User
+	AvailableRoles []*models.StaffRole
 	TotalAdmins    int
 	ActiveAdmins   int
 	PendingAdmins  int
@@ -106,9 +107,11 @@ func (a *AppHandler) HandleAdmins(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	availableRoles, _ := a.store.GetRoles()
 	data := AdminsPageData{
 		CurrentUser:    user,
 		Admins:         admins,
+		AvailableRoles: availableRoles,
 		TotalAdmins:    total,
 		ActiveAdmins:   active,
 		PendingAdmins:  pending,
@@ -201,7 +204,7 @@ func (a *AppHandler) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 		ID:          uuid.New(),
 		Email:       email,
 		Username:    username,
-		Role:        models.RoleAdmin,
+		Role:        models.RoleStaff,
 		DisplayName: fullName,
 		IsActive:    true,
 	}
@@ -214,6 +217,10 @@ func (a *AppHandler) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 	if err := a.store.CreateUser(newAdmin); err != nil {
 		respondError(http.StatusInternalServerError, "Failed to create administrator record: "+err.Error())
 		return
+	}
+
+	if adminRole, _ := a.store.GetRoleBySlug("admin"); adminRole != nil {
+		_ = a.store.AssignUserRoles(newAdmin.ID, []uuid.UUID{adminRole.ID})
 	}
 
 	a.LogAction(r, "ADMIN_PROVISION", models.AuditCategoryAdmins, "User", newAdmin.ID.String(), fullName, "Provisioned administrator account: "+newAdmin.Email)
@@ -276,7 +283,7 @@ func (a *AppHandler) HandleToggleAdminStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if targetUser.Role != models.RoleAdmin {
+	if !targetUser.IsAdmin() {
 		respondError(http.StatusBadRequest, "Only front-desk administrator accounts can be modified from this view.")
 		return
 	}
@@ -369,7 +376,7 @@ func (a *AppHandler) HandleDeleteAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if targetUser.Role != models.RoleAdmin {
+	if !targetUser.IsAdmin() {
 		if isJSONRequest(r) {
 			writeJSONResponse(w, http.StatusBadRequest, map[string]interface{}{
 				"error": "Only front-desk administrator accounts can be deleted from this view",
@@ -483,7 +490,7 @@ func (a *AppHandler) HandleResetAdminPassword(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if targetUser.Role != models.RoleAdmin {
+	if !targetUser.IsAdmin() {
 		respondError(http.StatusBadRequest, "Only front-desk administrator accounts can be modified from this view.")
 		return
 	}

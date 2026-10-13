@@ -272,7 +272,7 @@ func formatHourLabel(h int) string {
 func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	user := GetUserFromContext(r.Context())
 	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
-	if !r.URL.Query().Has("coach_id") && user != nil && user.Role == models.RoleCoach && user.CoachID != nil {
+	if !r.URL.Query().Has("coach_id") && user != nil && user.IsCoach() && user.CoachID != nil {
 		coachIDStr = user.CoachID.String()
 	}
 	studentIDStr := strings.TrimSpace(r.URL.Query().Get("student_id"))
@@ -1241,7 +1241,7 @@ func (a *AppHandler) HandleDeleteSession(w http.ResponseWriter, r *http.Request)
 	}
 
 	user := GetUserFromContext(r.Context())
-	isManager := user != nil && user.Role == models.RoleOperationManager
+	isManager := user != nil && (user.IsOperationManager() || user.HasPermission(models.PermSessionsDelete))
 
 	if !sess.IsOpen() && !isManager {
 		http.Error(w, "Only open attendance classes can be deleted", http.StatusBadRequest)

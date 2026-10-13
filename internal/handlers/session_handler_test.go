@@ -567,7 +567,7 @@ func TestSessionHandler_CalendarMultiHourAndHalfHour(t *testing.T) {
 	}
 
 	// 4. Verify calendar header grid style prevents vertical column collapse
-	if !strings.Contains(body, "grid-template-columns: 64px repeat(7, minmax(0, 1fr));") {
+	if !strings.Contains(body, "grid-template-columns: 64px repeat(7, minmax(0, 1fr));") && !strings.Contains(body, "md:grid-cols-[64px_repeat(7,1fr)]") {
 		t.Errorf("expected explicit grid-template-columns on calendar header to prevent vertical collapse")
 	}
 
@@ -817,13 +817,18 @@ func TestSessionHandler_RosterPagination(t *testing.T) {
 			t.Errorf("expected roster header 'Showing 11–15 of 15 matching'")
 		}
 
+		rosterBody := body
+		if idx := strings.Index(body, "Class Rosters"); idx != -1 {
+			rosterBody = body[idx:]
+		}
+
 		// Oldest session (Sess-Note-01) should be on Page 2
-		if !strings.Contains(body, "Sess-Note-01") {
+		if !strings.Contains(rosterBody, "Sess-Note-01") {
 			t.Errorf("expected oldest session (Sess-Note-01) on Page 2")
 		}
 		// Newest session should NOT be on Page 2
-		if strings.Contains(body, "Sess-Note-15") {
-			t.Errorf("did not expect newest session (Sess-Note-15) on Page 2")
+		if strings.Contains(rosterBody, "Sess-Note-15") {
+			t.Errorf("did not expect newest session (Sess-Note-15) on Page 2 roster")
 		}
 	})
 
@@ -1276,8 +1281,8 @@ func TestHandleCheckIn_SessionRate_NoPackageCreditDeduction(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	if !strings.Contains(body, "Fix Rate: ₱175.50") {
-		t.Errorf("expected response to contain Fix Rate badge 'Fix Rate: ₱175.50', got: %s", body)
+	if !strings.Contains(body, "Rate: ₱175.50") {
+		t.Errorf("expected response to contain Rate badge 'Rate: ₱175.50', got: %s", body)
 	}
 
 	// Verify package credit was NOT deducted/changed!
@@ -1312,8 +1317,8 @@ func TestHandleCheckIn_SessionRate_NoPackageCreditDeduction(t *testing.T) {
 	if recNoPkg.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK for student with no package when session_rate specified, got %d: %s", recNoPkg.Code, recNoPkg.Body.String())
 	}
-	if !strings.Contains(recNoPkg.Body.String(), "Fix Rate: ₱200.00") {
-		t.Errorf("expected response to contain 'Fix Rate: ₱200.00', got: %s", recNoPkg.Body.String())
+	if !strings.Contains(recNoPkg.Body.String(), "Rate: ₱200.00") {
+		t.Errorf("expected response to contain 'Rate: ₱200.00', got: %s", recNoPkg.Body.String())
 	}
 
 	// 3. Normal check-in WITHOUT session_rate on another student: deducts credit
@@ -1417,8 +1422,8 @@ func TestHandleCheckIn_ClassFixedRateAutoAppliesAndBypassesCreditDeduction(t *te
 	}
 
 	body := rec.Body.String()
-	if !strings.Contains(body, "Fix Rate: ₱250.00") {
-		t.Errorf("expected response to show inherited class fixed rate 'Fix Rate: ₱250.00', got: %s", body)
+	if !strings.Contains(body, "Rate: ₱250.00") {
+		t.Errorf("expected response to show inherited class fixed rate 'Rate: ₱250.00', got: %s", body)
 	}
 
 	// Verify student's package session credit was NOT deducted!

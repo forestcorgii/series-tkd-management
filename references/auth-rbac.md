@@ -321,3 +321,30 @@
   4. **Profile Submenu & Reactive UI**:
      - Desktop profile dropdown and mobile slide-out drawer include an **Activity Logs** entry exclusively rendered for OperationManager.
      - udit_logs.html provides live telemetry metrics, search, category/role/date filters, HTMX partial swapping via udit_log_rows.html, and a full detail inspection modal with formatted JSON payload display.
+
+### Context: Two-Tier User Model & Customizable Staff Roles & Permissions Architecture (/roles & /staff/{id}/roles)
+
+* **Problem**:
+  1. The platform had hardcoded 4-tier roles (STUDENT, COACH, ADMIN, OPERATION_MANAGER). This rigid enum prevented the dojang from defining custom staff assignments (e.g., front-desk trainee, head coach, assistant referee) with tailored permissions.
+  2. Transitioning to granular permissions needed full backward compatibility with existing route guards, template checks (IsAdmin(), IsCoach(), IsOperationManager()), and pre-seeded accounts without breaking floor operations.
+* **Enforced Solution**:
+  1. **Two-Tier Primary User Model**:
+     - Users are partitioned into strictly two primary roles: STUDENT and STAFF.
+     - STUDENT users remain focused on personal practitioner profile, prepaid passes, class attendance history, and 6-pillar athletic ability radars.
+     - STAFF users encompass all personnel. Each staff member can be assigned one or more customizable StaffRoles, accumulating granular permissions.
+  2. **Pre-Created Foundation System Roles (DefaultStaffRoles)**:
+     - System automatically provisions 3 foundation roles with immutable system slugs:
+       - **Coach (coach)**: Floor check-in, student viewing, coaching evaluations (evaluations:create, evaluations:read).
+       - **Admin (dmin)**: Front-desk operations, student intake/updates, packages assign/view, floor schedule creation/updates (students:create, students:update, packages:create, packages:assign, sessions:create, sessions:update, etc.).
+       - **Manager (manager)**: Complete operational authority via wildcard permission (*).
+     - System roles cannot be deleted or have their slug renamed, but custom staff roles can be dynamically created, updated, and deleted.
+  3. **Permission Matrix & Category Grouping (GetAllPermissions)**:
+     - Standard permissions partitioned across 8 operational categories: Floor Sessions, Student Directory, Memberships & Packages, Athletic Evaluations, Instructor Staff, Locations & Dojangs, System Settings, and Governance & Roles.
+     - Custom roles can select any permutation of permissions via a responsive modal matrix.
+  4. **Dynamic User Role Enrichment & Backward Compatibility**:
+     - GetUserBySessionToken, GetUserByEmail, GetUserByID, and GetUserByIdentifier in both MemoryStore and SQLStore enrich user.Roles and user.Permissions upon retrieval.
+     - Backward compatibility helper methods on models.User (IsAdmin(), IsCoach(), IsOperationManager(), HasPermission(), HasRoleSlug(), HasRole()) allow legacy handlers and templates to function seamlessly while new endpoints enforce RequirePermission(models.PermRolesManage) or specific permission guards.
+  5. **Governance UI (/roles & /admins)**:
+     - /roles provides a dedicated management dashboard to inspect role cards, view permission pill badges, create custom roles with permission checkboxes, edit permissions, and delete custom roles.
+     - /admins (Staff Directory) allows assigning one or multiple roles to each staff account via an interactive HTMX modal.
+     - Accessible via desktop navbar, mobile drawer, and profile dropdown for managers and staff with oles:manage.

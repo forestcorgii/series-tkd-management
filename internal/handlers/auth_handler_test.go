@@ -241,7 +241,7 @@ func TestAuthHandler_RESTAPI_Lifecycle(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
 		t.Fatalf("failed to decode login response: %v", err)
 	}
-	if loginResp.Token == "" || loginResp.User == nil || loginResp.User.Role != models.RoleAdmin {
+	if loginResp.Token == "" || loginResp.User == nil || !loginResp.User.IsAdmin() {
 		t.Fatalf("invalid login response structure: %+v", loginResp)
 	}
 

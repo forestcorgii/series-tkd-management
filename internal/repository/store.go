@@ -116,6 +116,17 @@ type RepositoryStore interface {
 	GetUserBySessionToken(token string) (*models.User, error)
 	DeleteSessionToken(token string) error
 
+	// Staff Roles & Permissions
+	GetRoles() ([]*models.StaffRole, error)
+	GetRoleByID(id uuid.UUID) (*models.StaffRole, error)
+	GetRoleBySlug(slug string) (*models.StaffRole, error)
+	CreateRole(role *models.StaffRole) error
+	UpdateRole(role *models.StaffRole) error
+	DeleteRole(id uuid.UUID) error
+	GetUserRoles(userID uuid.UUID) ([]*models.StaffRole, error)
+	AssignUserRoles(userID uuid.UUID, roleIDs []uuid.UUID) error
+	GetUsersByRoleSlug(slug string) ([]*models.User, error)
+
 	// Password Reset Tokens
 	CreatePasswordResetToken(token *models.PasswordResetToken) error
 	GetPasswordResetToken(token string) (*models.PasswordResetToken, error)
@@ -176,6 +187,8 @@ type MemoryStore struct {
 	notificationSettings *models.NotificationSettings
 	userPreferences     map[uuid.UUID]*models.UserNotificationPreferences
 	notifications       []*models.Notification
+	roles               map[uuid.UUID]*models.StaffRole
+	userRoles           map[uuid.UUID][]uuid.UUID
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -199,6 +212,8 @@ func NewMemoryStore() *MemoryStore {
 		notificationSettings: models.DefaultNotificationSettings(),
 		userPreferences:     make(map[uuid.UUID]*models.UserNotificationPreferences),
 		notifications:       make([]*models.Notification, 0),
+		roles:               make(map[uuid.UUID]*models.StaffRole),
+		userRoles:           make(map[uuid.UUID][]uuid.UUID),
 	}
 	m.seedData()
 	return m
@@ -1141,7 +1156,7 @@ func (m *MemoryStore) GetUserByEmail(email string) (*models.User, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return u, nil
+	return m.enrichUserLocked(u), nil
 }
 
 func (m *MemoryStore) GetUserByUsername(username string) (*models.User, error) {
@@ -1160,7 +1175,33 @@ func (m *MemoryStore) GetUserByUsername(username string) (*models.User, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return u, nil
+	return m.enrichUserLocked(u), nil
+}
+
+func (m *MemoryStore) enrichUserLocked(u *models.User) *models.User {
+	if u == nil {
+		return nil
+	}
+	roleIDs, ok := m.userRoles[u.ID]
+	if ok && len(roleIDs) > 0 {
+		u.Roles = make([]*models.StaffRole, 0, len(roleIDs))
+		permMap := make(map[string]bool)
+		for _, rid := range roleIDs {
+			if r, exists := m.roles[rid]; exists {
+				u.Roles = append(u.Roles, r)
+				for _, p := range r.Permissions {
+					permMap[p] = true
+				}
+			}
+		}
+		u.Permissions = make([]string, 0, len(permMap))
+		for p := range permMap {
+			u.Permissions = append(u.Permissions, p)
+		}
+	} else if u.Role == models.RoleOperationManager {
+		u.Permissions = []string{models.PermWildcard}
+	}
+	return u
 }
 
 func (m *MemoryStore) GetUserByIdentifier(identifier string) (*models.User, error) {
@@ -1175,14 +1216,14 @@ func (m *MemoryStore) GetUserByIdentifier(identifier string) (*models.User, erro
 	// Try email first
 	if id, ok := m.usersByEmail[norm]; ok {
 		if u, exists := m.users[id]; exists {
-			return u, nil
+			return m.enrichUserLocked(u), nil
 		}
 	}
 
 	// Try username
 	if id, ok := m.usersByUsername[norm]; ok {
 		if u, exists := m.users[id]; exists {
-			return u, nil
+			return m.enrichUserLocked(u), nil
 		}
 	}
 
@@ -1197,7 +1238,7 @@ func (m *MemoryStore) GetUserByID(id uuid.UUID) (*models.User, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return u, nil
+	return m.enrichUserLocked(u), nil
 }
 
 func (m *MemoryStore) GetUserByStudentID(studentID uuid.UUID) (*models.User, error) {
@@ -1205,7 +1246,7 @@ func (m *MemoryStore) GetUserByStudentID(studentID uuid.UUID) (*models.User, err
 	defer m.mu.RUnlock()
 	for _, u := range m.users {
 		if u.StudentID != nil && *u.StudentID == studentID {
-			return u, nil
+			return m.enrichUserLocked(u), nil
 		}
 	}
 	return nil, ErrNotFound
@@ -1216,7 +1257,7 @@ func (m *MemoryStore) GetUserByCoachID(coachID uuid.UUID) (*models.User, error) 
 	defer m.mu.RUnlock()
 	for _, u := range m.users {
 		if u.CoachID != nil && *u.CoachID == coachID {
-			return u, nil
+			return m.enrichUserLocked(u), nil
 		}
 	}
 	return nil, ErrNotFound
@@ -1228,7 +1269,8 @@ func (m *MemoryStore) GetUsersByRole(role models.UserRole) ([]*models.User, erro
 
 	var result []*models.User
 	for _, u := range m.users {
-		if u.Role == role {
+		m.enrichUserLocked(u)
+		if u.HasRole(role) || u.Role == role {
 			result = append(result, u)
 		}
 	}
@@ -1244,7 +1286,207 @@ func (m *MemoryStore) GetAllUsers() ([]*models.User, error) {
 
 	var result []*models.User
 	for _, u := range m.users {
-		result = append(result, u)
+		result = append(result, m.enrichUserLocked(u))
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+	return result, nil
+}
+
+// Staff Roles & Permissions implementation for MemoryStore
+func (m *MemoryStore) GetRoles() ([]*models.StaffRole, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	memberCounts := make(map[uuid.UUID]int)
+	for _, rIDs := range m.userRoles {
+		for _, rid := range rIDs {
+			memberCounts[rid]++
+		}
+	}
+
+	result := make([]*models.StaffRole, 0, len(m.roles))
+	for _, r := range m.roles {
+		clone := *r
+		clone.MemberCount = memberCounts[r.ID]
+		result = append(result, &clone)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].IsSystem != result[j].IsSystem {
+			return result[i].IsSystem
+		}
+		return result[i].Name < result[j].Name
+	})
+	return result, nil
+}
+
+func (m *MemoryStore) GetRoleByID(id uuid.UUID) (*models.StaffRole, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	r, ok := m.roles[id]
+	if !ok {
+		return nil, models.ErrRoleNotFound
+	}
+	clone := *r
+	return &clone, nil
+}
+
+func (m *MemoryStore) GetRoleBySlug(slug string) (*models.StaffRole, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	target := strings.ToLower(strings.TrimSpace(slug))
+	for _, r := range m.roles {
+		if strings.ToLower(r.Slug) == target {
+			clone := *r
+			return &clone, nil
+		}
+	}
+	return nil, models.ErrRoleNotFound
+}
+
+func (m *MemoryStore) CreateRole(role *models.StaffRole) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if err := role.Validate(); err != nil {
+		return err
+	}
+	for _, r := range m.roles {
+		if strings.ToLower(r.Slug) == strings.ToLower(role.Slug) {
+			return models.ErrRoleSlugExists
+		}
+	}
+	if role.ID == uuid.Nil {
+		role.ID = uuid.New()
+	}
+	now := time.Now()
+	role.CreatedAt = now
+	role.UpdatedAt = now
+
+	m.roles[role.ID] = role
+	return nil
+}
+
+func (m *MemoryStore) UpdateRole(role *models.StaffRole) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if err := role.Validate(); err != nil {
+		return err
+	}
+	existing, ok := m.roles[role.ID]
+	if !ok {
+		return models.ErrRoleNotFound
+	}
+	for _, r := range m.roles {
+		if r.ID != role.ID && strings.ToLower(r.Slug) == strings.ToLower(role.Slug) {
+			return models.ErrRoleSlugExists
+		}
+	}
+
+	existing.Name = role.Name
+	existing.Slug = role.Slug
+	existing.Description = role.Description
+	existing.Permissions = role.Permissions
+	existing.UpdatedAt = time.Now()
+	return nil
+}
+
+func (m *MemoryStore) DeleteRole(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.roles[id]
+	if !ok {
+		return models.ErrRoleNotFound
+	}
+	if existing.IsSystem {
+		return models.ErrSystemRoleUndeletable
+	}
+
+	// Check if assigned to any user
+	for _, rIDs := range m.userRoles {
+		for _, rid := range rIDs {
+			if rid == id {
+				return models.ErrRoleAssignedToUsers
+			}
+		}
+	}
+
+	delete(m.roles, id)
+	return nil
+}
+
+func (m *MemoryStore) GetUserRoles(userID uuid.UUID) ([]*models.StaffRole, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	roleIDs, ok := m.userRoles[userID]
+	if !ok || len(roleIDs) == 0 {
+		return []*models.StaffRole{}, nil
+	}
+
+	result := make([]*models.StaffRole, 0, len(roleIDs))
+	for _, rid := range roleIDs {
+		if r, exists := m.roles[rid]; exists {
+			clone := *r
+			result = append(result, &clone)
+		}
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) AssignUserRoles(userID uuid.UUID, roleIDs []uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.users[userID]; !ok {
+		return ErrNotFound
+	}
+
+	validIDs := make([]uuid.UUID, 0, len(roleIDs))
+	for _, rid := range roleIDs {
+		if _, exists := m.roles[rid]; exists {
+			validIDs = append(validIDs, rid)
+		}
+	}
+	m.userRoles[userID] = validIDs
+
+	// If user object is loaded in memory, sync enriched roles
+	if u, exists := m.users[userID]; exists {
+		u.Roles = make([]*models.StaffRole, 0, len(validIDs))
+		permMap := make(map[string]bool)
+		for _, rid := range validIDs {
+			if r, rExists := m.roles[rid]; rExists {
+				u.Roles = append(u.Roles, r)
+				for _, p := range r.Permissions {
+					permMap[p] = true
+				}
+			}
+		}
+		u.Permissions = make([]string, 0, len(permMap))
+		for p := range permMap {
+			u.Permissions = append(u.Permissions, p)
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) GetUsersByRoleSlug(slug string) ([]*models.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	target := strings.ToLower(strings.TrimSpace(slug))
+	var result []*models.User
+	for _, u := range m.users {
+		m.enrichUserLocked(u)
+		if u.HasRoleSlug(target) {
+			result = append(result, u)
+		}
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].CreatedAt.After(result[j].CreatedAt)
@@ -1272,6 +1514,13 @@ func (m *MemoryStore) CreateUser(u *models.User) error {
 	m.usersByEmail[normEmail] = u.ID
 	if normUsername != "" {
 		m.usersByUsername[normUsername] = u.ID
+	}
+	if len(u.Roles) > 0 {
+		roleIDs := make([]uuid.UUID, 0, len(u.Roles))
+		for _, r := range u.Roles {
+			roleIDs = append(roleIDs, r.ID)
+		}
+		m.userRoles[u.ID] = roleIDs
 	}
 	return nil
 }
@@ -1345,6 +1594,10 @@ func (m *MemoryStore) DeleteUser(userID uuid.UUID) error {
 		}
 	}
 	delete(m.usersByEmail, user.Email)
+	if user.Username != "" {
+		delete(m.usersByUsername, user.Username)
+	}
+	delete(m.userRoles, userID)
 	delete(m.users, userID)
 	return nil
 }
@@ -1391,7 +1644,7 @@ func (m *MemoryStore) GetUserBySessionToken(token string) (*models.User, error) 
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return u, nil
+	return m.enrichUserLocked(u), nil
 }
 
 func (m *MemoryStore) DeleteSessionToken(token string) error {

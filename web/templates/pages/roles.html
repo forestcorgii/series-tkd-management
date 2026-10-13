@@ -1,0 +1,458 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Roles & Permissions - STMS{{end}}
+
+{{define "content"}}
+<div class="space-y-4 sm:space-y-5">
+    <!-- Top Action Bar -->
+    <div class="flex items-center justify-between gap-2.5">
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Governance &amp; Access Control</span>
+            <div class="has-tooltip">
+                <button type="button" class="tooltip-icon" aria-label="Role Management Info">ⓘ</button>
+                <div class="tooltip-content">
+                    Configure custom staff roles, toggle granular permissions across floor operations, and govern access levels for coaches and administrators.
+                </div>
+            </div>
+        </div>
+        <button onclick="openCreateRoleModal()" class="btn btn-primary btn-xs sm:btn-sm shadow-sm">
+            ➕ Create Custom Role
+        </button>
+    </div>
+
+    <!-- Notification Banners -->
+    {{if .SuccessNotice}}
+    <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>✅</span>
+            <span>{{.SuccessNotice}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
+    {{if .ErrorMessage}}
+    <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{{.ErrorMessage}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
+    <!-- Telemetry & Role Stats Grid -->
+    <div class="kpi-strip grid grid-cols-2 lg:grid-cols-4">
+        <!-- Metric: Total Roles -->
+        <div class="kpi-tile">
+            <span class="kpi-label">Configured Roles</span>
+            <span class="kpi-val">{{.TotalRoles}}</span>
+            <span class="kpi-sub">System + Custom Definitions</span>
+        </div>
+
+        <!-- Metric: Custom Roles -->
+        <div class="kpi-tile">
+            <div class="flex items-center justify-between">
+                <span class="kpi-label">Custom Roles</span>
+                <span class="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                    User Defined
+                </span>
+            </div>
+            <span class="kpi-val text-indigo-600 dark:text-indigo-400">{{.CustomRoles}}</span>
+            <span class="kpi-sub">Tailored permission matrices</span>
+        </div>
+
+        <!-- Metric: Active Staff -->
+        <div class="kpi-tile">
+            <div class="flex items-center justify-between">
+                <span class="kpi-label">Staff Members</span>
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+            </div>
+            <span class="kpi-val text-emerald-600 dark:text-emerald-400">{{.TotalStaff}}</span>
+            <span class="kpi-sub">Assigned to staff roles</span>
+        </div>
+
+        <!-- Metric: Total Permissions -->
+        <div class="kpi-tile">
+            <span class="kpi-label">Available Capabilities</span>
+            <span class="kpi-val text-slate-700 dark:text-slate-300">{{len .AllPermissions}}</span>
+            <span class="kpi-sub">Granular permission nodes</span>
+        </div>
+    </div>
+
+    <!-- Roles Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {{range $role := .Roles}}
+        <div class="glass-panel rounded-xl p-4 sm:p-5 flex flex-col justify-between border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+            <div class="space-y-3">
+                <!-- Role Header -->
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                                {{$role.Name}}
+                            </h3>
+                        </div>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-neutral-700">
+                                {{$role.Slug}}
+                            </span>
+                            {{if $role.IsSystem}}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-200/70 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border border-slate-300/50 dark:border-neutral-700">
+                                🔒 System Role
+                            </span>
+                            {{else}}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-500/30">
+                                ✨ Custom Role
+                            </span>
+                            {{end}}
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 flex-shrink-0">
+                        👥 {{$role.MemberCount}} Staff
+                    </span>
+                </div>
+
+                <!-- Description -->
+                <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 min-h-[2rem]">
+                    {{if $role.Description}}{{$role.Description}}{{else}}No description provided for this staff role.{{end}}
+                </p>
+
+                <!-- Permission Capabilities Summary -->
+                <div class="pt-2 border-t border-slate-100 dark:border-neutral-800">
+                    <div class="flex items-center justify-between text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        <span>Assigned Permissions</span>
+                        {{if $role.HasPermission "*"}}
+                        <span class="text-[10px] font-bold text-[#990303] dark:text-red-400 uppercase tracking-wide">
+                            ⚡ Full Access (*)
+                        </span>
+                        {{else}}
+                        <span class="font-mono text-[10px] text-slate-500">
+                            {{len $role.Permissions}} capabilities
+                        </span>
+                        {{end}}
+                    </div>
+
+                    {{if $role.HasPermission "*"}}
+                    <div class="p-2.5 rounded-lg bg-[#990303]/5 dark:bg-red-950/20 border border-[#990303]/20 dark:border-red-900/40 text-[11px] text-[#990303] dark:text-red-300 font-semibold flex items-center gap-2">
+                        <span>🛡️</span>
+                        <span>Full Operations Superuser (all current and future capabilities granted)</span>
+                    </div>
+                    {{else}}
+                    <div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                        {{range $perm := $role.Permissions}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-neutral-700">
+                            {{$perm}}
+                        </span>
+                        {{else}}
+                        <span class="text-[11px] italic text-slate-600 dark:text-slate-400">No permissions granted yet.</span>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Card Actions -->
+            <div class="pt-4 mt-3 border-t border-slate-100 dark:border-neutral-800 flex items-center justify-between gap-2">
+                <button type="button" onclick="openEditRoleModal('{{$role.ID}}')" class="btn btn-secondary btn-xs flex-1">
+                    ✏️ Edit Role
+                </button>
+                {{if not $role.IsSystem}}
+                <button type="button" onclick="openDeleteRoleModal('{{$role.ID}}', '{{$role.Name}}', {{$role.MemberCount}})" class="btn btn-danger btn-xs px-2" title="Delete custom role">
+                    🗑️
+                </button>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- Modal: Create Custom Role                  -->
+<!-- ========================================== -->
+<div id="new-role-modal" class="modal-backdrop hidden z-50">
+    <div class="modal-dialog max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <div class="modal-header px-4 py-3 bg-slate-50 dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 flex items-center justify-between">
+            <div>
+                <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">
+                    ➕ Create Custom Staff Role
+                </h3>
+                <p class="text-[11px] text-slate-600 dark:text-slate-400">Define a new operational role and check allowed permission capabilities.</p>
+            </div>
+            <button type="button" onclick="closeCreateRoleModal()" class="modal-close text-lg leading-none">&times;</button>
+        </div>
+
+        <form action="/roles" method="POST" class="flex flex-col flex-1 overflow-hidden" id="create-role-form">
+            <div class="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" for="create-role-name">Role Name *</label>
+                        <input type="text" id="create-role-name" name="name" required placeholder="e.g. Front-Desk Receptionist"
+                            class="form-input text-xs w-full" oninput="autoGenerateSlug(this.value, 'create-role-slug')">
+                    </div>
+                    <div>
+                        <label class="form-label" for="create-role-slug">Slug Identifier *</label>
+                        <input type="text" id="create-role-slug" name="slug" required placeholder="e.g. receptionist"
+                            class="form-input text-xs w-full lowercase font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label" for="create-role-desc">Role Description</label>
+                    <textarea id="create-role-desc" name="description" rows="2" placeholder="Brief summary of duties and permissions granted to this role..."
+                        class="form-textarea text-xs w-full"></textarea>
+                </div>
+
+                <!-- Permission Checkboxes Catalog -->
+                <div class="space-y-3 pt-2 border-t border-slate-200 dark:border-neutral-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Permissions Matrix</span>
+                            <p class="text-[10px] text-slate-600 dark:text-slate-400">Check the capabilities granted to staff with this role</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="toggleAllRoleCheckboxes('create-role-form', true)" class="btn btn-ghost btn-xs text-[10px]">
+                                Select All
+                            </button>
+                            <button type="button" onclick="toggleAllRoleCheckboxes('create-role-form', false)" class="btn btn-ghost btn-xs text-[10px]">
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        {{range $perm := .AllPermissions}}
+                        <label class="flex items-start gap-3 p-2.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-800/50 cursor-pointer transition">
+                            <input type="checkbox" name="permissions" value="{{$perm.Code}}"
+                                class="mt-0.5 rounded border-slate-300 text-[#990303] focus:ring-[#990303]">
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-900 dark:text-white">{{$perm.Name}}</span>
+                                    <span class="text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-neutral-800 px-1 py-0.5 rounded">{{$perm.Code}}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{{$perm.Description}}</p>
+                                <span class="inline-block text-[9px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mt-1">{{$perm.Category}}</span>
+                            </div>
+                        </label>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer px-4 py-3 bg-slate-50 dark:bg-neutral-900 border-t border-slate-200 dark:border-neutral-800 flex justify-end gap-2">
+                <button type="button" onclick="closeCreateRoleModal()" class="btn btn-secondary btn-xs sm:btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-xs sm:btn-sm shadow-sm">
+                    Create Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- Modals: Edit Role Permissions              -->
+<!-- ========================================== -->
+{{range $role := .Roles}}
+<div id="edit-role-modal-{{$role.ID}}" class="modal-backdrop hidden z-50">
+    <div class="modal-dialog max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <div class="modal-header px-4 py-3 bg-slate-50 dark:bg-neutral-900 border-b border-slate-200 dark:border-neutral-800 flex items-center justify-between">
+            <div>
+                <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">
+                    ✏️ Configure Role: {{$role.Name}}
+                </h3>
+                <p class="text-[11px] text-slate-600 dark:text-slate-400">
+                    {{if $role.IsSystem}}
+                    <span class="text-amber-600 dark:text-amber-400 font-semibold">🔒 System Role</span>: Name, slug identifier, and granular permissions can be updated.
+                    {{else}}
+                    Modify role title, slug identifier, and granular permission assignments.
+                    {{end}}
+                </p>
+            </div>
+            <button type="button" onclick="closeEditRoleModal('{{$role.ID}}')" class="modal-close text-lg leading-none">&times;</button>
+        </div>
+
+        <form action="/roles/{{$role.ID}}/edit" method="POST" class="flex flex-col flex-1 overflow-hidden" id="edit-role-form-{{$role.ID}}">
+            <div class="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" for="edit-role-name-{{$role.ID}}">Role Name *</label>
+                        <input type="text" id="edit-role-name-{{$role.ID}}" name="name" value="{{$role.Name}}" required
+                            class="form-input text-xs w-full">
+                    </div>
+                    <div>
+                        <label class="form-label" for="edit-role-slug-{{$role.ID}}">Slug Identifier *</label>
+                        <input type="text" id="edit-role-slug-{{$role.ID}}" name="slug" value="{{$role.Slug}}" required
+                            class="form-input text-xs w-full lowercase font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label" for="edit-role-desc-{{$role.ID}}">Role Description</label>
+                    <textarea id="edit-role-desc-{{$role.ID}}" name="description" rows="2"
+                        class="form-textarea text-xs w-full">{{$role.Description}}</textarea>
+                </div>
+
+                {{if $role.HasPermission "*"}}
+                <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-start gap-2">
+                    <span class="text-base">🛡️</span>
+                    <div>
+                        <div class="font-bold">Superuser Operations Role</div>
+                        <div class="text-[11px] font-normal mt-0.5">This role inherently possesses the wildcard permission (<code class="font-mono font-bold">*</code>), unlocking every feature across STMS. Explicit checkboxes below reflect specific sub-grants.</div>
+                    </div>
+                </div>
+                {{end}}
+
+                <!-- Permission Checkboxes Catalog -->
+                <div class="space-y-3 pt-2 border-t border-slate-200 dark:border-neutral-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Permissions Matrix</span>
+                            <p class="text-[10px] text-slate-600 dark:text-slate-400">Toggle capabilities granted to this role</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="toggleAllRoleCheckboxes('edit-role-form-{{$role.ID}}', true)" class="btn btn-ghost btn-xs text-[10px]">
+                                Select All
+                            </button>
+                            <button type="button" onclick="toggleAllRoleCheckboxes('edit-role-form-{{$role.ID}}', false)" class="btn btn-ghost btn-xs text-[10px]">
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        {{range $perm := $.AllPermissions}}
+                        <label class="flex items-start gap-3 p-2.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-800/50 cursor-pointer transition">
+                            <input type="checkbox" name="permissions" value="{{$perm.Code}}"
+                                {{if hasPerm $role $perm.Code}}checked{{end}}
+                                class="mt-0.5 rounded border-slate-300 text-[#990303] focus:ring-[#990303]">
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-900 dark:text-white">{{$perm.Name}}</span>
+                                    <span class="text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-neutral-800 px-1 py-0.5 rounded">{{$perm.Code}}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{{$perm.Description}}</p>
+                                <span class="inline-block text-[9px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mt-1">{{$perm.Category}}</span>
+                            </div>
+                        </label>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer px-4 py-3 bg-slate-50 dark:bg-neutral-900 border-t border-slate-200 dark:border-neutral-800 flex justify-end gap-2">
+                <button type="button" onclick="closeEditRoleModal('{{$role.ID}}')" class="btn btn-secondary btn-xs sm:btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-xs sm:btn-sm shadow-sm">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
+
+<!-- ========================================== -->
+<!-- Modal: Delete Role Confirmation            -->
+<!-- ========================================== -->
+<div id="delete-role-modal" class="modal-backdrop hidden z-50">
+    <div class="modal-dialog max-w-md p-0 overflow-hidden">
+        <div class="modal-header px-4 py-3 bg-rose-50 dark:bg-rose-950/20 border-b border-rose-200 dark:border-rose-900/40 flex items-center justify-between">
+            <h3 class="font-display font-bold text-sm text-rose-700 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                ⚠️ Delete Custom Role
+            </h3>
+            <button type="button" onclick="closeDeleteRoleModal()" class="modal-close text-lg leading-none">&times;</button>
+        </div>
+
+        <form id="delete-role-form" method="POST" class="p-4 sm:p-5 space-y-4">
+            <p class="text-xs text-slate-700 dark:text-slate-300">
+                Are you sure you want to permanently delete the custom role <strong id="delete-role-name-display" class="font-bold text-slate-900 dark:text-white"></strong>?
+            </p>
+
+            <div id="delete-role-member-warning" class="hidden p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-semibold">
+                ⚠️ This role is currently assigned to <span id="delete-role-member-count">0</span> staff member(s). Deleting this role will revoke these permissions from assigned staff accounts.
+            </div>
+
+            <div class="modal-footer pt-3 border-t border-slate-200 dark:border-neutral-800 flex justify-end gap-2">
+                <button type="button" onclick="closeDeleteRoleModal()" class="btn btn-secondary btn-xs sm:btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-danger btn-xs sm:btn-sm shadow-sm">
+                    Delete Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openCreateRoleModal() {
+    const modal = document.getElementById('new-role-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeCreateRoleModal() {
+    const modal = document.getElementById('new-role-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function openEditRoleModal(roleId) {
+    const modal = document.getElementById('edit-role-modal-' + roleId);
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeEditRoleModal(roleId) {
+    const modal = document.getElementById('edit-role-modal-' + roleId);
+    if (modal) modal.classList.add('hidden');
+}
+
+function openDeleteRoleModal(roleId, roleName, memberCount) {
+    const modal = document.getElementById('delete-role-modal');
+    const form = document.getElementById('delete-role-form');
+    const nameDisplay = document.getElementById('delete-role-name-display');
+    const warning = document.getElementById('delete-role-member-warning');
+    const countSpan = document.getElementById('delete-role-member-count');
+
+    if (modal && form) {
+        form.action = '/roles/' + roleId + '/delete';
+        if (nameDisplay) nameDisplay.textContent = roleName;
+        if (memberCount > 0) {
+            if (warning) warning.classList.remove('hidden');
+            if (countSpan) countSpan.textContent = memberCount;
+        } else {
+            if (warning) warning.classList.add('hidden');
+        }
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeDeleteRoleModal() {
+    const modal = document.getElementById('delete-role-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function autoGenerateSlug(name, targetId) {
+    const target = document.getElementById(targetId);
+    if (target && !target.dataset.manuallyEdited) {
+        target.value = name.toLowerCase().trim()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+}
+
+function toggleAllRoleCheckboxes(formId, check) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    const checkboxes = form.querySelectorAll('input[type="checkbox"][name="permissions"]');
+    checkboxes.forEach(cb => {
+        cb.checked = check;
+    });
+}
+</script>
+{{end}}

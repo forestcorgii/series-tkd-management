@@ -19,6 +19,7 @@ const (
 	AuditCategorySafety     AuditCategory = "SAFETY"
 	AuditCategorySettings   AuditCategory = "SETTINGS"
 	AuditCategoryLocations  AuditCategory = "LOCATIONS"
+	AuditCategoryGovernance AuditCategory = "GOVERNANCE"
 )
 
 type AuditLog struct {
