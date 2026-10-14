@@ -44,8 +44,11 @@
     <script src="/static/js/push-client.js"></script>
 </head>
 
-<body hx-boost="true"
+<body hx-boost="true" hx-indicator="#htmx-indicator"
     class="h-full flex flex-col font-sans antialiased bg-[#FFFDF4] text-[#000000] dark:bg-[#000000] dark:text-[#FFFDF4] transition-colors duration-200 overflow-x-hidden w-full max-w-full">
+    <!-- Global HTMX Loading Progress Bar -->
+    <div id="htmx-indicator" class="htmx-indicator fixed top-0 left-0 right-0 z-[100] h-1 bg-gradient-to-r from-[#990303] via-red-500 to-amber-500 animate-pulse pointer-events-none"></div>
+
     <!-- Top Navigation Header -->
     <header class="sticky top-0 z-50 glass-panel border-b border-[#E5E3D8] dark:border-neutral-800 px-3 sm:px-5 py-2 w-full max-w-full">
         {{$user := currentUser .}}
@@ -1082,14 +1085,85 @@
             }
         });
 
+        // Active Navigation Highlighting Engine
+        function syncActiveNavLinks() {
+            const currentPath = (window.location && window.location.pathname) ? window.location.pathname : '/';
+
+            // Desktop Navbar Links
+            const desktopLinks = document.querySelectorAll('header nav.hidden.lg\\:flex a');
+            desktopLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (!href) return;
+                const isMatch = href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+                if (isMatch) {
+                    link.classList.add('bg-[#990303]/10', 'text-[#990303]', 'dark:bg-[#990303]/25', 'dark:text-red-400', 'font-bold');
+                    link.classList.remove('text-slate-700', 'dark:text-[#8C8A82]');
+                } else {
+                    link.classList.remove('bg-[#990303]/10', 'text-[#990303]', 'dark:bg-[#990303]/25', 'dark:text-red-400', 'font-bold');
+                    link.classList.add('text-slate-700', 'dark:text-[#8C8A82]');
+                }
+            });
+
+            // Mobile Bottom Quick Bar Links
+            const bottomBarLinks = document.querySelectorAll('#mobile-bottom-bar a');
+            bottomBarLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (!href) return;
+                const isMatch = href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+                if (isMatch) {
+                    link.classList.add('text-[#990303]', 'dark:text-red-400', 'font-bold', 'bg-[#990303]/10', 'dark:bg-[#990303]/20');
+                    link.classList.remove('text-slate-600', 'dark:text-slate-400');
+                } else {
+                    link.classList.remove('text-[#990303]', 'dark:text-red-400', 'font-bold', 'bg-[#990303]/10', 'dark:bg-[#990303]/20');
+                    link.classList.add('text-slate-600', 'dark:text-slate-400');
+                }
+            });
+        }
+
+        // Global Modal Keyboard & Backdrop Dismissal Engine
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-backdrop:not(.hidden)').forEach(modal => {
+                    modal.classList.add('hidden');
+                });
+            }
+        });
+        document.addEventListener('click', (e) => {
+            if (e.target.classList && e.target.classList.contains('modal-backdrop')) {
+                e.target.classList.add('hidden');
+            }
+        });
+
+        // Auto-Dismiss Notice Banners Engine
+        function autoDismissNotices() {
+            const alerts = document.querySelectorAll('.animate-fade-in');
+            alerts.forEach(alert => {
+                if (alert.dataset.dismissScheduled === 'true') return;
+                alert.dataset.dismissScheduled = 'true';
+                setTimeout(() => {
+                    alert.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-4px)';
+                    setTimeout(() => {
+                        if (alert.parentNode) alert.remove();
+                    }, 400);
+                }, 5000);
+            });
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             initSearchableSelects(document);
             syncAllUppercaseInputs(document);
+            syncActiveNavLinks();
+            autoDismissNotices();
         });
+        window.addEventListener('popstate', syncActiveNavLinks);
         document.addEventListener('htmx:afterSwap', (e) => {
             const target = e.detail.target || e.target;
             initSearchableSelects(target);
             syncAllUppercaseInputs(target);
+            syncActiveNavLinks();
+            autoDismissNotices();
         });
 
         // ==========================================
