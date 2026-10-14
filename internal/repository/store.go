@@ -158,6 +158,14 @@ type RepositoryStore interface {
 	GetUnreadNotificationCount(userID *uuid.UUID, role *models.UserRole) (int, error)
 	MarkNotificationRead(id uuid.UUID) error
 	MarkAllNotificationsRead(userID *uuid.UUID, role *models.UserRole) error
+
+	// Web Push Subscriptions
+	CreateOrUpdatePushSubscription(sub *models.PushSubscription) error
+	DeletePushSubscription(endpoint string) error
+	DeletePushSubscriptionsByUserID(userID uuid.UUID) error
+	GetPushSubscriptionsByUserID(userID uuid.UUID) ([]*models.PushSubscription, error)
+	GetPushSubscriptionsByRole(role models.UserRole) ([]*models.PushSubscription, error)
+	GetAllPushSubscriptions() ([]*models.PushSubscription, error)
 }
 
 type SessionTokenRecord struct {
@@ -189,6 +197,7 @@ type MemoryStore struct {
 	notifications       []*models.Notification
 	roles               map[uuid.UUID]*models.StaffRole
 	userRoles           map[uuid.UUID][]uuid.UUID
+	pushSubscriptions   map[string]*models.PushSubscription
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -214,6 +223,7 @@ func NewMemoryStore() *MemoryStore {
 		notifications:       make([]*models.Notification, 0),
 		roles:               make(map[uuid.UUID]*models.StaffRole),
 		userRoles:           make(map[uuid.UUID][]uuid.UUID),
+		pushSubscriptions:   make(map[string]*models.PushSubscription),
 	}
 	m.seedData()
 	return m
@@ -2252,5 +2262,88 @@ func (m *MemoryStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.U
 		n.IsRead = true
 	}
 	return nil
+}
+
+func (m *MemoryStore) CreateOrUpdatePushSubscription(sub *models.PushSubscription) error {
+	if sub == nil {
+		return errors.New("subscription cannot be nil")
+	}
+	if strings.TrimSpace(sub.Endpoint) == "" {
+		return errors.New("subscription endpoint is required")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if sub.ID == uuid.Nil {
+		sub.ID = uuid.New()
+	}
+	now := time.Now()
+	if sub.CreatedAt.IsZero() {
+		sub.CreatedAt = now
+	}
+	sub.UpdatedAt = now
+
+	cp := *sub
+	m.pushSubscriptions[sub.Endpoint] = &cp
+	return nil
+}
+
+func (m *MemoryStore) DeletePushSubscription(endpoint string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.pushSubscriptions, strings.TrimSpace(endpoint))
+	return nil
+}
+
+func (m *MemoryStore) DeletePushSubscriptionsByUserID(userID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for ep, sub := range m.pushSubscriptions {
+		if sub.UserID != nil && *sub.UserID == userID {
+			delete(m.pushSubscriptions, ep)
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) GetPushSubscriptionsByUserID(userID uuid.UUID) ([]*models.PushSubscription, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*models.PushSubscription
+	for _, sub := range m.pushSubscriptions {
+		if sub.UserID != nil && *sub.UserID == userID {
+			cp := *sub
+			result = append(result, &cp)
+		}
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) GetPushSubscriptionsByRole(role models.UserRole) ([]*models.PushSubscription, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*models.PushSubscription
+	for _, sub := range m.pushSubscriptions {
+		if sub.Role == role {
+			cp := *sub
+			result = append(result, &cp)
+		}
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) GetAllPushSubscriptions() ([]*models.PushSubscription, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*models.PushSubscription
+	for _, sub := range m.pushSubscriptions {
+		cp := *sub
+		result = append(result, &cp)
+	}
+	return result, nil
 }
 

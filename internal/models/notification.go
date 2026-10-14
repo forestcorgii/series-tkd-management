@@ -288,3 +288,36 @@ type NotificationFilter struct {
 	Limit      int
 	Offset     int
 }
+
+func (s *NotificationSettings) HasVAPIDKeys() bool {
+	if s == nil {
+		return false
+	}
+	return strings.TrimSpace(s.WebPushPublicKey) != "" && strings.TrimSpace(s.WebPushPrivateKey) != ""
+}
+
+// PushSubscription stores a Web Push subscription tied to a client device and user
+type PushSubscription struct {
+	ID        uuid.UUID  `json:"id"`
+	UserID    *uuid.UUID `json:"user_id,omitempty"`
+	Role      UserRole   `json:"role,omitempty"`
+	Endpoint  string     `json:"endpoint"`
+	P256dh    string     `json:"p256dh"`
+	Auth      string     `json:"auth"`
+	UserAgent string     `json:"user_agent,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// WebPushPayload represents the JSON payload sent inside the encrypted push message
+type WebPushPayload struct {
+	Title     string                 `json:"title"`
+	Body      string                 `json:"body"`
+	Icon      string                 `json:"icon,omitempty"`
+	Badge     string                 `json:"badge,omitempty"`
+	Tag       string                 `json:"tag,omitempty"`
+	URL       string                 `json:"url,omitempty"`
+	Timestamp int64                  `json:"timestamp,omitempty"`
+	Data      map[string]interface{} `json:"data,omitempty"`
+}
+

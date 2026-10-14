@@ -307,3 +307,98 @@ func TestNotificationService_NoDuplicateNotifications(t *testing.T) {
 		t.Fatalf("expected total notifications to remain 4 after rapid duplicate trigger, got %d", totalAfterDebounce)
 	}
 }
+
+func TestNotificationService_EnsureVAPIDKeys(t *testing.T) {
+	svc, store := setupTestNotificationService()
+
+	// Initial settings have blank VAPID keys
+	settings, err := store.GetNotificationSettings()
+	if err != nil {
+		t.Fatalf("failed to get settings: %v", err)
+	}
+	settings.WebPushPublicKey = ""
+	settings.WebPushPrivateKey = ""
+	_ = store.UpdateNotificationSettings(settings)
+
+	// EnsureVAPIDKeys should auto-generate valid keys
+	ensured, err := svc.EnsureVAPIDKeys()
+	if err != nil {
+		t.Fatalf("EnsureVAPIDKeys failed: %v", err)
+	}
+	if !ensured.HasVAPIDKeys() {
+		t.Fatalf("expected ensured settings to have valid VAPID keys")
+	}
+
+	// Calling again should preserve existing keys without regenerating
+	pubKey := ensured.WebPushPublicKey
+	ensuredAgain, err := svc.EnsureVAPIDKeys()
+	if err != nil {
+		t.Fatalf("EnsureVAPIDKeys second call failed: %v", err)
+	}
+	if ensuredAgain.WebPushPublicKey != pubKey {
+		t.Fatalf("expected VAPID public key to remain stable, changed from %s to %s", pubKey, ensuredAgain.WebPushPublicKey)
+	}
+
+	// GenerateAndSaveVAPIDKeys forces fresh keys
+	fresh, err := svc.GenerateAndSaveVAPIDKeys()
+	if err != nil {
+		t.Fatalf("GenerateAndSaveVAPIDKeys failed: %v", err)
+	}
+	if fresh.WebPushPublicKey == pubKey {
+		t.Fatalf("expected fresh VAPID keys to differ from old keys")
+	}
+}
+
+func TestNotificationService_PushSubscriptions(t *testing.T) {
+	_, store := setupTestNotificationService()
+	userID := uuid.New()
+
+	sub := &models.PushSubscription{
+		ID:        uuid.New(),
+		UserID:    &userID,
+		Role:      models.RoleCoach,
+		Endpoint:  "https://updates.push.services.mozilla.com/wpush/v2/test-1",
+		P256dh:    "mock-key",
+		Auth:      "mock-auth",
+		UserAgent: "Mozilla/5.0",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// 1. Create subscription
+	if err := store.CreateOrUpdatePushSubscription(sub); err != nil {
+		t.Fatalf("failed to create push subscription: %v", err)
+	}
+
+	// 2. Query by user ID
+	subs, err := store.GetPushSubscriptionsByUserID(userID)
+	if err != nil || len(subs) != 1 {
+		t.Fatalf("expected 1 subscription for user, got %d (err: %v)", len(subs), err)
+	}
+
+	// 3. Upsert on same endpoint updates without duplication
+	sub.UserAgent = "Updated Agent"
+	if err := store.CreateOrUpdatePushSubscription(sub); err != nil {
+		t.Fatalf("failed to update push subscription: %v", err)
+	}
+	subs, _ = store.GetPushSubscriptionsByUserID(userID)
+	if len(subs) != 1 || subs[0].UserAgent != "Updated Agent" {
+		t.Fatalf("expected 1 updated subscription, got %d", len(subs))
+	}
+
+	// 4. Query by role
+	roleSubs, err := store.GetPushSubscriptionsByRole(models.RoleCoach)
+	if err != nil || len(roleSubs) != 1 {
+		t.Fatalf("expected 1 subscription for coach role, got %d", len(roleSubs))
+	}
+
+	// 5. Delete by endpoint
+	if err := store.DeletePushSubscription(sub.Endpoint); err != nil {
+		t.Fatalf("failed to delete subscription: %v", err)
+	}
+	subsAfterDelete, _ := store.GetPushSubscriptionsByUserID(userID)
+	if len(subsAfterDelete) != 0 {
+		t.Fatalf("expected 0 subscriptions after delete, got %d", len(subsAfterDelete))
+	}
+}
+

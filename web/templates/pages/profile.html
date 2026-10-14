@@ -432,18 +432,27 @@
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-0.5">
                 <!-- Push Notification Toggle -->
-                <label class="relative flex flex-col p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
+                <div class="relative flex flex-col p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition">
                     <div class="flex items-center justify-between mb-1.5">
                         <div class="flex items-center gap-1.5">
                             <span class="text-base">🔔</span>
                             <span class="font-bold text-xs text-slate-900 dark:text-white">Push Alerts</span>
                         </div>
-                        <input type="checkbox" name="pref_push" class="h-3.5 w-3.5 rounded accent-[#990303]" {{if or (not .Preferences) .Preferences.PushEnabled}}checked{{end}}>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="pref_push" name="pref_push" class="h-3.5 w-3.5 rounded accent-[#990303]" {{if or (not .Preferences) .Preferences.PushEnabled}}checked{{end}} onchange="togglePushAlerts(this)">
+                        </label>
                     </div>
                     <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
                         Immediate device &amp; browser alerts for live dojang events.
                     </p>
-                </label>
+                    <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-neutral-800 flex items-center justify-between">
+                        <span id="push-perm-status" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-slate-400">Detecting...</span>
+                        <button type="button" id="btn-test-push" onclick="triggerTestPush(this)" class="text-[10px] font-bold text-[#990303] dark:text-red-400 hover:underline flex items-center gap-1 transition">
+                            <span>🚀</span> Test Push
+                        </button>
+                    </div>
+                    <div id="push-test-result" class="hidden text-[10px] mt-1.5 font-medium"></div>
+                </div>
 
                 <!-- SMS Notification Toggle -->
                 <label class="relative flex flex-col p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
@@ -546,5 +555,93 @@ function toggleAvatarRemoval(checkbox) {
         }
     }
 }
+
+async function updatePushStatusUI() {
+    const statusEl = document.getElementById('push-perm-status');
+    const checkbox = document.getElementById('pref_push');
+    if (!statusEl || !window.STMSPush) return;
+
+    if (!STMSPush.isSupported()) {
+        statusEl.textContent = 'Unsupported';
+        statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500';
+        if (checkbox) checkbox.disabled = true;
+        return;
+    }
+
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+        const sub = await STMSPush.getSubscription();
+        if (sub) {
+            statusEl.textContent = 'Active (Connected)';
+            statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
+        } else {
+            statusEl.textContent = 'Permitted (Syncing...)';
+            statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
+            try { await STMSPush.subscribe(); statusEl.textContent = 'Active (Connected)'; } catch (e) {}
+        }
+    } else if (perm === 'denied') {
+        statusEl.textContent = 'Blocked by Browser';
+        statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
+        if (checkbox) checkbox.checked = false;
+    } else {
+        statusEl.textContent = 'Ready to Enable';
+        statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+    }
+}
+
+async function togglePushAlerts(input) {
+    if (!window.STMSPush) return;
+    if (input.checked) {
+        try {
+            const res = await STMSPush.subscribe();
+            if (!res.success) {
+                input.checked = false;
+                alert('Push notifications permission was not granted. Please check browser permissions.');
+            }
+        } catch (err) {
+            input.checked = false;
+            alert('Could not enable push: ' + err.message);
+        }
+    } else {
+        await STMSPush.unsubscribe();
+    }
+    updatePushStatusUI();
+}
+
+async function triggerTestPush(btn) {
+    const resultEl = document.getElementById('push-test-result');
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span>⏳</span> Sending...';
+    if (resultEl) {
+        resultEl.classList.add('hidden');
+        resultEl.textContent = '';
+    }
+
+    try {
+        if (Notification.permission !== 'granted') {
+            const subRes = await STMSPush.subscribe();
+            if (!subRes.success) throw new Error('Notification permission required');
+        }
+        const res = await STMSPush.sendTestPush();
+        if (resultEl) {
+            resultEl.textContent = '✓ ' + (res.message || 'Push delivered!');
+            resultEl.className = 'text-[10px] mt-1.5 font-bold text-emerald-600 dark:text-emerald-400 block';
+        }
+    } catch (err) {
+        if (resultEl) {
+            resultEl.textContent = '✗ ' + err.message;
+            resultEl.className = 'text-[10px] mt-1.5 font-bold text-rose-600 dark:text-rose-400 block';
+        }
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        updatePushStatusUI();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', updatePushStatusUI);
+window.addEventListener('load', updatePushStatusUI);
 </script>
 {{end}}
+

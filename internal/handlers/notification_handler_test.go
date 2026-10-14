@@ -259,3 +259,81 @@ func TestNotificationHandler_NoDuplicateNotificationsDropdown(t *testing.T) {
 		t.Fatalf("expected exactly 2 notification items rendered in dropdown, got %d", countNotifItems)
 	}
 }
+
+func TestPushNotification_Handlers(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	token := uuid.New().String()
+	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
+
+	// 1. GET /api/push/vapid-public-key
+	reqKey := httptest.NewRequest("GET", "/api/push/vapid-public-key", nil)
+	recKey := httptest.NewRecorder()
+	app.HandleGetVAPIDPublicKey(recKey, reqKey)
+
+	if recKey.Code != http.StatusOK {
+		t.Fatalf("expected 200 for VAPID key endpoint, got %d", recKey.Code)
+	}
+	var keyResp struct {
+		PublicKey string `json:"public_key"`
+	}
+	if err := json.Unmarshal(recKey.Body.Bytes(), &keyResp); err != nil || keyResp.PublicKey == "" {
+		t.Fatalf("expected valid public key in response, got: %s", recKey.Body.String())
+	}
+
+	// 2. POST /api/push/subscribe
+	subPayload := `{"endpoint":"https://fcm.googleapis.com/fcm/send/test-token","keys":{"p256dh":"BMockP256dhKey123","auth":"MockAuthKey123"}}`
+	reqSub := httptest.NewRequest("POST", "/api/push/subscribe", strings.NewReader(subPayload))
+	reqSub.Header.Set("Content-Type", "application/json")
+	reqSub.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recSub := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandlePushSubscribe)).ServeHTTP(recSub, reqSub)
+
+	if recSub.Code != http.StatusOK {
+		t.Fatalf("expected 200 for subscribe, got %d: %s", recSub.Code, recSub.Body.String())
+	}
+
+	// Verify subscription saved in store
+	subs, err := store.GetPushSubscriptionsByUserID(managerUser.ID)
+	if err != nil || len(subs) != 1 {
+		t.Fatalf("expected 1 subscription stored for manager, got %d", len(subs))
+	}
+
+	// 3. POST /api/push/test (with mock endpoint, webpush will attempt dispatch)
+	reqTest := httptest.NewRequest("POST", "/api/push/test", nil)
+	reqTest.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recTest := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandlePushTest)).ServeHTTP(recTest, reqTest)
+
+	if recTest.Code != http.StatusOK {
+		t.Fatalf("expected 200 for push test, got %d: %s", recTest.Code, recTest.Body.String())
+	}
+
+	// 4. POST /api/push/unsubscribe
+	unsubPayload := `{"endpoint":"https://fcm.googleapis.com/fcm/send/test-token"}`
+	reqUnsub := httptest.NewRequest("POST", "/api/push/unsubscribe", strings.NewReader(unsubPayload))
+	reqUnsub.Header.Set("Content-Type", "application/json")
+	reqUnsub.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recUnsub := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandlePushUnsubscribe)).ServeHTTP(recUnsub, reqUnsub)
+
+	if recUnsub.Code != http.StatusOK {
+		t.Fatalf("expected 200 for unsubscribe, got %d", recUnsub.Code)
+	}
+	subsAfter, _ := store.GetPushSubscriptionsByUserID(managerUser.ID)
+	if len(subsAfter) != 0 {
+		t.Fatalf("expected 0 subscriptions after unsubscribe, got %d", len(subsAfter))
+	}
+
+	// 5. POST /settings/notifications/generate-vapid
+	reqGen := httptest.NewRequest("POST", "/settings/notifications/generate-vapid", nil)
+	reqGen.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recGen := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleGenerateVAPIDKeys)).ServeHTTP(recGen, reqGen)
+
+	if recGen.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect (303) after generating VAPID keys, got %d", recGen.Code)
+	}
+}
+

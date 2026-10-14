@@ -336,7 +336,20 @@ func (s *SQLStore) runMigrations() error {
 			status TEXT NOT NULL,
 			is_read INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL
-		);`
+		);
+
+		CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			role TEXT DEFAULT '',
+			endpoint TEXT NOT NULL UNIQUE,
+			p256dh TEXT NOT NULL,
+			auth TEXT NOT NULL,
+			user_agent TEXT DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_push_sub_user ON push_subscriptions(user_id);`
 	} else {
 		schema = `
 		CREATE TABLE IF NOT EXISTS coaches (
@@ -576,7 +589,20 @@ func (s *SQLStore) runMigrations() error {
 			status VARCHAR(30) NOT NULL,
 			is_read BOOLEAN NOT NULL DEFAULT FALSE,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		);`
+		);
+
+		CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id UUID PRIMARY KEY,
+			user_id UUID,
+			role VARCHAR(50) DEFAULT '',
+			endpoint TEXT NOT NULL UNIQUE,
+			p256dh TEXT NOT NULL,
+			auth TEXT NOT NULL,
+			user_agent TEXT DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_push_sub_user ON push_subscriptions(user_id);`
 	}
 
 	if _, err := s.db.Exec(schema); err != nil {
@@ -705,6 +731,19 @@ func (s *SQLStore) runMigrations() error {
 			is_read INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL
 		)`)
+
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			role TEXT DEFAULT '',
+			endpoint TEXT NOT NULL UNIQUE,
+			p256dh TEXT NOT NULL,
+			auth TEXT NOT NULL,
+			user_agent TEXT DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_push_sub_user ON push_subscriptions(user_id)`)
 
 		var notifSettingsCountSQLite int
 		if err := s.db.QueryRow(`SELECT COUNT(*) FROM notification_settings`).Scan(&notifSettingsCountSQLite); err == nil && notifSettingsCountSQLite == 0 {
@@ -906,6 +945,19 @@ func (s *SQLStore) runMigrations() error {
 			is_read BOOLEAN NOT NULL DEFAULT FALSE,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
+
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id UUID PRIMARY KEY,
+			user_id UUID,
+			role VARCHAR(50) DEFAULT '',
+			endpoint TEXT NOT NULL UNIQUE,
+			p256dh TEXT NOT NULL,
+			auth TEXT NOT NULL,
+			user_agent TEXT DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_push_sub_user ON push_subscriptions(user_id)`)
 
 		var notifSettingsCountPG int
 		if err := s.db.QueryRow(`SELECT COUNT(*) FROM notification_settings`).Scan(&notifSettingsCountPG); err == nil && notifSettingsCountPG == 0 {
@@ -4865,3 +4917,145 @@ func (s *SQLStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.User
 	}
 	return nil
 }
+
+func (s *SQLStore) CreateOrUpdatePushSubscription(sub *models.PushSubscription) error {
+	if sub == nil {
+		return errors.New("subscription cannot be nil")
+	}
+	if strings.TrimSpace(sub.Endpoint) == "" {
+		return errors.New("subscription endpoint is required")
+	}
+
+	if sub.ID == uuid.Nil {
+		sub.ID = uuid.New()
+	}
+	now := time.Now()
+	if sub.CreatedAt.IsZero() {
+		sub.CreatedAt = now
+	}
+	sub.UpdatedAt = now
+
+	var userIDVal sql.NullString
+	if sub.UserID != nil && *sub.UserID != uuid.Nil {
+		userIDVal = sql.NullString{String: sub.UserID.String(), Valid: true}
+	}
+
+	var createdAtVal, updatedAtVal interface{}
+	if s.driver == "sqlite" {
+		createdAtVal = formatTimeForDB(sub.CreatedAt)
+		updatedAtVal = formatTimeForDB(sub.UpdatedAt)
+	} else {
+		createdAtVal = sub.CreatedAt
+		updatedAtVal = sub.UpdatedAt
+	}
+
+	query := `INSERT INTO push_subscriptions (
+		id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	ON CONFLICT(endpoint) DO UPDATE SET
+		user_id = excluded.user_id,
+		role = excluded.role,
+		p256dh = excluded.p256dh,
+		auth = excluded.auth,
+		user_agent = excluded.user_agent,
+		updated_at = excluded.updated_at`
+
+	_, err := s.db.Exec(query,
+		sub.ID.String(),
+		userIDVal,
+		string(sub.Role),
+		sub.Endpoint,
+		sub.P256dh,
+		sub.Auth,
+		sub.UserAgent,
+		createdAtVal,
+		updatedAtVal,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to upsert push subscription: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) DeletePushSubscription(endpoint string) error {
+	_, err := s.db.Exec("DELETE FROM push_subscriptions WHERE endpoint = $1", strings.TrimSpace(endpoint))
+	if err != nil {
+		return fmt.Errorf("failed to delete push subscription: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) DeletePushSubscriptionsByUserID(userID uuid.UUID) error {
+	_, err := s.db.Exec("DELETE FROM push_subscriptions WHERE user_id = $1", userID.String())
+	if err != nil {
+		return fmt.Errorf("failed to delete push subscriptions by user: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) scanPushSubscriptions(rows *sql.Rows) ([]*models.PushSubscription, error) {
+	defer rows.Close()
+	var subs []*models.PushSubscription
+
+	for rows.Next() {
+		var sub models.PushSubscription
+		var idStr string
+		var nullUserID sql.NullString
+		var roleStr string
+		var createdVal, updatedVal interface{}
+
+		if err := rows.Scan(
+			&idStr,
+			&nullUserID,
+			&roleStr,
+			&sub.Endpoint,
+			&sub.P256dh,
+			&sub.Auth,
+			&sub.UserAgent,
+			&createdVal,
+			&updatedVal,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan push subscription: %w", err)
+		}
+
+		sub.ID = uuid.Must(uuid.Parse(idStr))
+		if nullUserID.Valid && nullUserID.String != "" {
+			uid, _ := uuid.Parse(nullUserID.String)
+			sub.UserID = &uid
+		}
+		sub.Role = models.UserRole(roleStr)
+		sub.CreatedAt, _ = parseTimeFlex(createdVal)
+		sub.UpdatedAt, _ = parseTimeFlex(updatedVal)
+
+		subs = append(subs, &sub)
+	}
+	return subs, nil
+}
+
+func (s *SQLStore) GetPushSubscriptionsByUserID(userID uuid.UUID) ([]*models.PushSubscription, error) {
+	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
+		FROM push_subscriptions WHERE user_id = $1`, userID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query push subscriptions by user: %w", err)
+	}
+	return s.scanPushSubscriptions(rows)
+}
+
+func (s *SQLStore) GetPushSubscriptionsByRole(role models.UserRole) ([]*models.PushSubscription, error) {
+	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
+		FROM push_subscriptions WHERE role = $1`, string(role))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query push subscriptions by role: %w", err)
+	}
+	return s.scanPushSubscriptions(rows)
+}
+
+func (s *SQLStore) GetAllPushSubscriptions() ([]*models.PushSubscription, error) {
+	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
+		FROM push_subscriptions`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all push subscriptions: %w", err)
+	}
+	return s.scanPushSubscriptions(rows)
+}
+

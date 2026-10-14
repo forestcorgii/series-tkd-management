@@ -1,5 +1,5 @@
 // Series Taekwondo Management System (STMS) - Progressive Web App Service Worker
-const CACHE_VERSION = 'stms-v4';
+const CACHE_VERSION = 'stms-v5';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 const PRECACHE_ASSETS = [
@@ -7,6 +7,7 @@ const PRECACHE_ASSETS = [
     '/manifest.webmanifest',
     '/static/css/tailwind.css',
     '/static/js/htmx.min.js',
+    '/static/js/push-client.js',
     '/static/icons/icon-192.png',
     '/static/icons/icon-512.png',
     '/static/icons/icon-maskable-192.png',
@@ -127,4 +128,69 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// ==========================================
+// Web Push Event Notification Handler
+// ==========================================
+self.addEventListener('push', (event) => {
+    let payload = {
+        title: 'Series Taekwondo',
+        body: 'New notification from Series TKD',
+        icon: '/static/icons/icon-192.png',
+        badge: '/static/icons/icon.svg',
+        tag: 'stms-notification',
+        url: '/dashboard'
+    };
+
+    if (event.data) {
+        try {
+            const json = event.data.json();
+            payload = Object.assign(payload, json);
+        } catch (e) {
+            payload.body = event.data.text() || payload.body;
+        }
+    }
+
+    const targetUrl = (payload.data && payload.data.url) || payload.url || '/dashboard';
+    const options = {
+        body: payload.body,
+        icon: payload.icon || '/static/icons/icon-192.png',
+        badge: payload.badge || '/static/icons/icon.svg',
+        tag: payload.tag || 'stms-notification',
+        renotify: true,
+        vibrate: [100, 50, 100],
+        data: {
+            url: targetUrl,
+            timestamp: Date.now()
+        }
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(payload.title || 'Series Taekwondo', options)
+    );
+});
+
+// ==========================================
+// Notification Click Handler (Deep Linking & Window Focus)
+// ==========================================
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    if ('navigate' in client && targetUrl !== '/') {
+                        client.navigate(targetUrl);
+                    }
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
 });

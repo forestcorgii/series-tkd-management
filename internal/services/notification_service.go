@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/google/uuid"
 
 	"series-tkd-management/internal/models"
@@ -47,6 +49,52 @@ func (s *NotificationService) UpdateSettings(settings *models.NotificationSettin
 		return errors.New("notification settings cannot be nil")
 	}
 	return s.store.UpdateNotificationSettings(settings)
+}
+
+// EnsureVAPIDKeys guarantees a valid VAPID public/private keypair exists, auto-generating if blank
+func (s *NotificationService) EnsureVAPIDKeys() (*models.NotificationSettings, error) {
+	settings, err := s.store.GetNotificationSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultNotificationSettings()
+	}
+	if !settings.HasVAPIDKeys() {
+		priv, pub, err := webpush.GenerateVAPIDKeys()
+		if err != nil {
+			return settings, fmt.Errorf("failed to generate VAPID keys: %w", err)
+		}
+		settings.WebPushPrivateKey = priv
+		settings.WebPushPublicKey = pub
+		if strings.TrimSpace(settings.WebPushSubject) == "" {
+			settings.WebPushSubject = "mailto:admin@seriestkd.com"
+		}
+		if err := s.store.UpdateNotificationSettings(settings); err != nil {
+			return settings, fmt.Errorf("failed to save generated VAPID keys: %w", err)
+		}
+		log.Printf("🔑 Auto-generated new VAPID keypair for Web Push")
+	}
+	return settings, nil
+}
+
+// GenerateAndSaveVAPIDKeys forces creation and saving of a fresh VAPID keypair
+func (s *NotificationService) GenerateAndSaveVAPIDKeys() (*models.NotificationSettings, error) {
+	settings, err := s.store.GetNotificationSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultNotificationSettings()
+	}
+	priv, pub, err := webpush.GenerateVAPIDKeys()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate VAPID keys: %w", err)
+	}
+	settings.WebPushPrivateKey = priv
+	settings.WebPushPublicKey = pub
+	if strings.TrimSpace(settings.WebPushSubject) == "" {
+		settings.WebPushSubject = "mailto:admin@seriestkd.com"
+	}
+	if err := s.store.UpdateNotificationSettings(settings); err != nil {
+		return nil, fmt.Errorf("failed to save VAPID keys: %w", err)
+	}
+	log.Printf("🔑 Generated and saved new VAPID keypair for Web Push")
+	return settings, nil
 }
 
 // User preferences management
@@ -174,6 +222,7 @@ func (s *NotificationService) dispatch(event models.NotificationEventType, recip
 		if settings.IsChannelEnabled(models.ChannelPush) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelPush)) {
 			dispatchedChannels = append(dispatchedChannels, models.ChannelPush)
 			log.Printf("🔔 [PUSH NOTIFICATION] To: %s (%s) | %s: %s", r.Name, r.Role, title, message)
+			s.sendWebPush(r, title, message, event, metadata, settings)
 		}
 
 		if settings.IsChannelEnabled(models.ChannelSMS) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelSMS)) && strings.TrimSpace(r.Phone) != "" {
@@ -564,3 +613,187 @@ func (s *NotificationService) getStudentAndGuardianRecipients(student *models.St
 
 	return list
 }
+
+func determineDeepLinkURL(event models.NotificationEventType, metadata string) string {
+	var meta map[string]interface{}
+	if err := json.Unmarshal([]byte(metadata), &meta); err == nil {
+		if sessID, ok := meta["session_id"].(string); ok && sessID != "" {
+			return "/sessions/" + sessID + "/live"
+		}
+		if studentID, ok := meta["student_id"].(string); ok && studentID != "" {
+			return "/students/" + studentID
+		}
+	}
+	switch event {
+	case models.EventStudentAdmitted, models.EventNewClassOpened, models.EventClassCancelled:
+		return "/sessions"
+	case models.EventStaffRegistered:
+		return "/admins"
+	case models.EventPromotionEligible, models.EventStudentInjured, models.EventNewEvaluation:
+		return "/students"
+	case models.EventMembershipAwarded, models.EventMembershipRevoked, models.EventPassExpiring:
+		return "/packages"
+	default:
+		return "/dashboard"
+	}
+}
+
+func (s *NotificationService) sendWebPush(recipient RecipientInfo, title, message string, event models.NotificationEventType, metadata string, settings *models.NotificationSettings) {
+	if settings == nil || !settings.HasVAPIDKeys() {
+		return
+	}
+
+	var subs []*models.PushSubscription
+	if recipient.UserID != nil && *recipient.UserID != uuid.Nil {
+		userSubs, err := s.store.GetPushSubscriptionsByUserID(*recipient.UserID)
+		if err == nil {
+			subs = append(subs, userSubs...)
+		}
+	} else if recipient.Role != "" {
+		roleSubs, err := s.store.GetPushSubscriptionsByRole(recipient.Role)
+		if err == nil {
+			subs = append(subs, roleSubs...)
+		}
+	}
+
+	if len(subs) == 0 {
+		return
+	}
+
+	deepLink := determineDeepLinkURL(event, metadata)
+	payload := models.WebPushPayload{
+		Title:     title,
+		Body:      message,
+		Icon:      "/static/icons/icon-192.png",
+		Badge:     "/static/icons/icon.svg",
+		Tag:       fmt.Sprintf("stms-%s", string(event)),
+		URL:       deepLink,
+		Timestamp: time.Now().Unix(),
+		Data: map[string]interface{}{
+			"url":   deepLink,
+			"event": string(event),
+		},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+
+	subject := strings.TrimSpace(settings.WebPushSubject)
+	if subject == "" {
+		subject = "mailto:admin@seriestkd.com"
+	}
+
+	// Dispatch asynchronously in background to avoid blocking request handler
+	go func(targetSubs []*models.PushSubscription, payloadData []byte, vapidPub, vapidPriv, subContact string) {
+		for _, sub := range targetSubs {
+			sSub := webpush.Subscription{
+				Endpoint: sub.Endpoint,
+				Keys: webpush.Keys{
+					P256dh: sub.P256dh,
+					Auth:   sub.Auth,
+				},
+			}
+			opts := &webpush.Options{
+				Subscriber:      subContact,
+				VAPIDPublicKey:  vapidPub,
+				VAPIDPrivateKey: vapidPriv,
+				TTL:             60,
+				Urgency:         webpush.UrgencyHigh,
+			}
+			resp, err := webpush.SendNotification(payloadData, &sSub, opts)
+			if err != nil {
+				log.Printf("⚠️ WebPush delivery error to %s: %v", sub.Endpoint, err)
+			}
+			if resp != nil {
+				if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
+					_ = s.store.DeletePushSubscription(sub.Endpoint)
+					log.Printf("🧹 Pruned expired WebPush subscription: %s", sub.Endpoint)
+				}
+				_ = resp.Body.Close()
+			}
+		}
+	}(subs, payloadBytes, settings.WebPushPublicKey, settings.WebPushPrivateKey, subject)
+}
+
+// SendTestPushNotification sends an immediate test web push to all active subscriptions of the specified user
+func (s *NotificationService) SendTestPushNotification(userID uuid.UUID, title, message string) (int, error) {
+	settings, err := s.EnsureVAPIDKeys()
+	if err != nil {
+		return 0, err
+	}
+	if !settings.PushEnabled {
+		return 0, errors.New("web push notifications are globally disabled in settings")
+	}
+
+	subs, err := s.store.GetPushSubscriptionsByUserID(userID)
+	if err != nil {
+		return 0, err
+	}
+	if len(subs) == 0 {
+		return 0, errors.New("no active push subscriptions found for this browser/device; please enable push in profile first")
+	}
+
+	if title == "" {
+		title = "🥋 Series Taekwondo: Test Push"
+	}
+	if message == "" {
+		message = "Web Push notifications are working perfectly on this device!"
+	}
+
+	payload := models.WebPushPayload{
+		Title:     title,
+		Body:      message,
+		Icon:      "/static/icons/icon-192.png",
+		Badge:     "/static/icons/icon.svg",
+		Tag:       "stms-test-push",
+		URL:       "/profile",
+		Timestamp: time.Now().Unix(),
+		Data: map[string]interface{}{
+			"url":   "/profile",
+			"event": "TEST_PUSH",
+		},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return 0, err
+	}
+
+	subject := strings.TrimSpace(settings.WebPushSubject)
+	if subject == "" {
+		subject = "mailto:admin@seriestkd.com"
+	}
+
+	sentCount := 0
+	for _, sub := range subs {
+		sSub := webpush.Subscription{
+			Endpoint: sub.Endpoint,
+			Keys: webpush.Keys{
+				P256dh: sub.P256dh,
+				Auth:   sub.Auth,
+			},
+		}
+		opts := &webpush.Options{
+			Subscriber:      subject,
+			VAPIDPublicKey:  settings.WebPushPublicKey,
+			VAPIDPrivateKey: settings.WebPushPrivateKey,
+			TTL:             60,
+			Urgency:         webpush.UrgencyHigh,
+		}
+		resp, err := webpush.SendNotification(payloadBytes, &sSub, opts)
+		if err != nil {
+			log.Printf("⚠️ Test WebPush error: %v", err)
+		}
+		if resp != nil {
+			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+				sentCount++
+			} else if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
+				_ = s.store.DeletePushSubscription(sub.Endpoint)
+			}
+			_ = resp.Body.Close()
+		}
+	}
+
+	return sentCount, nil
+}
+

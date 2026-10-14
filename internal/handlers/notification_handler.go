@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -206,3 +207,151 @@ func (a *AppHandler) HandleMarkAllNotificationsRead(w http.ResponseWriter, r *ht
 	// Re-render the dropdown content cleanly
 	a.HandleNotificationDropdown(w, r)
 }
+
+type PushSubscriptionRequest struct {
+	Endpoint string `json:"endpoint"`
+	Keys     struct {
+		P256dh string `json:"p256dh"`
+		Auth   string `json:"auth"`
+	} `json:"keys"`
+}
+
+// HandleGetVAPIDPublicKey returns the active VAPID public key
+func (a *AppHandler) HandleGetVAPIDPublicKey(w http.ResponseWriter, r *http.Request) {
+	settings, err := a.notifSvc.EnsureVAPIDKeys()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"public_key": settings.WebPushPublicKey,
+	})
+}
+
+// HandlePushSubscribe stores a Web Push subscription for the authenticated user
+func (a *AppHandler) HandlePushSubscribe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var req PushSubscriptionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid subscription payload"})
+		return
+	}
+
+	if strings.TrimSpace(req.Endpoint) == "" || strings.TrimSpace(req.Keys.P256dh) == "" || strings.TrimSpace(req.Keys.Auth) == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "endpoint, p256dh, and auth keys are required"})
+		return
+	}
+
+	sub := &models.PushSubscription{
+		ID:        uuid.New(),
+		UserID:    &user.ID,
+		Role:      user.Role,
+		Endpoint:  strings.TrimSpace(req.Endpoint),
+		P256dh:    strings.TrimSpace(req.Keys.P256dh),
+		Auth:      strings.TrimSpace(req.Keys.Auth),
+		UserAgent: r.UserAgent(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := a.store.CreateOrUpdatePushSubscription(sub); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Update user preferences to ensure PushEnabled is true
+	if prefs, err := a.store.GetUserNotificationPreferences(user.ID); err == nil && prefs != nil {
+		prefs.PushEnabled = true
+		_ = a.store.UpdateUserNotificationPreferences(prefs)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "ok",
+		"message": "Push notifications subscribed successfully",
+	})
+}
+
+// HandlePushUnsubscribe removes a Web Push subscription
+func (a *AppHandler) HandlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	endpoint := strings.TrimSpace(r.FormValue("endpoint"))
+	if endpoint == "" {
+		var body struct {
+			Endpoint string `json:"endpoint"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			endpoint = strings.TrimSpace(body.Endpoint)
+		}
+	}
+
+	if endpoint != "" {
+		_ = a.store.DeletePushSubscription(endpoint)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "ok",
+		"message": "Unsubscribed successfully",
+	})
+}
+
+// HandlePushTest dispatches an immediate test push to the user's active device(s)
+func (a *AppHandler) HandlePushTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	title := "🥋 Series Taekwondo: Test Alert"
+	message := fmt.Sprintf("Live push notification test for %s (%s). Connected and operational!", user.DisplayName, user.Role)
+
+	sentCount, err := a.notifSvc.SendTestPushNotification(user.ID, title, message)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "ok",
+		"sent_count": sentCount,
+		"message":    fmt.Sprintf("Dispatched test push to %d connected device(s)", sentCount),
+	})
+}
+

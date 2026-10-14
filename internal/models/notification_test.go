@@ -120,3 +120,37 @@ func TestNotification_MarkAsRead(t *testing.T) {
 		t.Errorf("expected martial arts icon for student admitted, got %s", n.Icon())
 	}
 }
+
+func TestNotificationSettings_HasVAPIDKeys(t *testing.T) {
+	settings := models.DefaultNotificationSettings()
+	if settings.HasVAPIDKeys() {
+		t.Errorf("expected HasVAPIDKeys to be false initially")
+	}
+
+	settings.WebPushPublicKey = "test-pub"
+	if settings.HasVAPIDKeys() {
+		t.Errorf("expected HasVAPIDKeys to be false when private key is empty")
+	}
+
+	settings.WebPushPrivateKey = "test-priv"
+	if !settings.HasVAPIDKeys() {
+		t.Errorf("expected HasVAPIDKeys to be true when both keys are present")
+	}
+}
+
+func TestPushSubscription_Model(t *testing.T) {
+	userID := uuid.New()
+	sub := &models.PushSubscription{
+		ID:       uuid.New(),
+		UserID:   &userID,
+		Role:     models.RoleCoach,
+		Endpoint: "https://fcm.googleapis.com/fcm/send/test-endpoint",
+		P256dh:   "mock-p256dh",
+		Auth:     "mock-auth",
+	}
+
+	if sub.Endpoint == "" || sub.P256dh == "" || sub.Auth == "" {
+		t.Fatalf("expected valid push subscription fields")
+	}
+}
+

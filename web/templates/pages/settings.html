@@ -506,14 +506,32 @@
 
                 <div class="border-t border-slate-200 dark:border-neutral-800 pt-4 space-y-3">
                     <!-- 3. Web Push VAPID Settings -->
-                    <h4 class="font-bold text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
-                        <span>🔔</span> Web Push (VAPID) Credentials
-                    </h4>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h4 class="font-bold text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                            <span>🔔</span> Web Push (VAPID) Credentials
+                        </h4>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" form="form-generate-vapid" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-purple-300 dark:border-purple-800 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 transition flex items-center gap-1">
+                                <span>🔑</span> Generate New VAPID Keys
+                            </button>
+                            <button type="button" onclick="triggerAdminTestPush(this)" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-[#990303]/30 bg-rose-50 hover:bg-rose-100 dark:bg-red-950/60 dark:hover:bg-red-900/60 text-[#990303] dark:text-red-300 transition flex items-center gap-1">
+                                <span>🚀</span> Test Push
+                            </button>
+                        </div>
+                    </div>
+                    <div id="admin-push-test-result" class="hidden text-xs font-semibold py-1.5 px-3 rounded-lg"></div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="form-label">VAPID Public Key</label>
                             <input type="text" name="web_push_public_key" value="{{if .NotificationSettings}}{{.NotificationSettings.WebPushPublicKey}}{{end}}" placeholder="BEl62iUYgUivxIkv69yViEuiBIa-Ib9-Skv..."
                                    autocapitalize="none" spellcheck="false"
+                                   class="form-input font-mono text-xs no-uppercase" data-no-uppercase="true" />
+                        </div>
+                        <div>
+                            <label class="form-label">VAPID Private Key</label>
+                            <input type="password" name="web_push_private_key" placeholder="Leave blank to preserve current key"
+                                   autocomplete="new-password"
                                    class="form-input font-mono text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div>
@@ -533,6 +551,7 @@
                 </div>
             </div>
         </form>
+        <form id="form-generate-vapid" action="/settings/notifications/generate-vapid" method="POST" class="hidden"></form>
         {{end}}
     </div>
 </div>
@@ -829,5 +848,37 @@
         badgePreview.style.backgroundColor = color + '15';
         badgePreview.style.borderColor = color + '40';
     }
+
+    async function triggerAdminTestPush(btn) {
+        const resultEl = document.getElementById('admin-push-test-result');
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>⏳</span> Sending...';
+        if (resultEl) {
+            resultEl.classList.add('hidden');
+            resultEl.textContent = '';
+        }
+
+        try {
+            if (window.STMSPush && Notification.permission !== 'granted') {
+                const subRes = await STMSPush.subscribe();
+                if (!subRes.success) throw new Error('Notification permission required in browser');
+            }
+            const res = await window.STMSPush.sendTestPush();
+            if (resultEl) {
+                resultEl.textContent = '✓ ' + (res.message || 'Push delivered successfully!');
+                resultEl.className = 'text-xs font-bold text-emerald-800 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 py-1.5 px-3 rounded-lg block';
+            }
+        } catch (err) {
+            if (resultEl) {
+                resultEl.textContent = '✗ ' + err.message;
+                resultEl.className = 'text-xs font-bold text-rose-800 bg-rose-100 dark:bg-rose-950 dark:text-rose-300 py-1.5 px-3 rounded-lg block';
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
 </script>
 {{end}}
+

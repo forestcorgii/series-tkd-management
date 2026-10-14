@@ -264,3 +264,21 @@ func (a *AppHandler) HandleUpdateNotificationSettings(w http.ResponseWriter, r *
 
 	http.Redirect(w, r, "/settings?tab=notifications&success="+url.QueryEscape("Notification settings updated successfully"), http.StatusSeeOther)
 }
+
+func (a *AppHandler) HandleGenerateVAPIDKeys(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	settings, err := a.notifSvc.GenerateAndSaveVAPIDKeys()
+	if err != nil {
+		http.Redirect(w, r, "/settings?tab=notifications&error="+url.QueryEscape("Failed to generate VAPID keys: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	a.LogAction(r, "VAPID_KEYS_GENERATE", models.AuditCategorySettings, "Settings", settings.ID.String(), "VAPID Keys", "Generated fresh Web Push VAPID cryptographic keypair")
+
+	http.Redirect(w, r, "/settings?tab=notifications&success="+url.QueryEscape("Fresh Web Push VAPID keypair generated and saved successfully"), http.StatusSeeOther)
+}
+
