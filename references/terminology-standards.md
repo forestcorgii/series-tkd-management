@@ -110,12 +110,14 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
 
 ## 7. Class Scheduling Navigation Flow
 
-### Context: Post-Schedule Calendar View Retention
-- **Problem**: When staff or coaches scheduled a class from the 7-day calendar, `HandleCreateSession` automatically redirected to the floor check-in view (`/sessions/{id}/live`), interrupting schedule planning and kicking the user away from the calendar view.
+### Context: Post-Schedule Calendar View Anchor Retention
+- **Problem**: When staff or coaches scheduled or edited a class on a future or past date within the calendar (e.g. clicking Friday on a Wednesday-anchored week), the modal previously updated `redirect_url` to `/sessions?date=<session_date>`. Consequently, the calendar reloaded with Friday shifted into Column 1, pushing earlier days out of view.
 - **Enforced Solution**:
-  - **Handler Navigation**: [HandleCreateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) and [HandleUpdateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) default to `/sessions?date=YYYY-MM-DD` matching the scheduled class date, or honor `redirect_url` when explicitly specified.
+  - **Anchor Retention**: The calendar exposes its active first-column date via `data-anchor-date="{{.Calendar.StartDateStr}}"` on `#session-cards-wrapper`.
+  - **Redirect URL Composition**: `getCurrentCalendarRedirectURL()` captures the active calendar anchor date along with any active filter parameters (`coach_id`, `category`, `location_id`, etc.), populating `redirect_url` in both `openNewSessionModal` and `openEditSessionModal`.
+  - **Natural Column Placement**: After creating or updating a session on any future or past day, the calendar returns to the currently viewed week anchor so the session appears in its appropriate weekday column (e.g. Column 3 for Friday) without jumping to Column 1.
+  - **Handler Navigation**: [HandleCreateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) and [HandleUpdateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) honor explicit `redirect_url` targets, and default to `/sessions?date=YYYY-MM-DD` when omitted.
   - **HTMX Support**: Evaluates `HX-Request` header and responds with `HX-Redirect` when requested via hypermedia.
-  - **UI Button & Modals**: Scheduling modal CTA is labeled `Schedule Class` (never `Schedule & Launch Attendance`), with dynamic `redirect_url` parameters updated on date selection to ensure the user stays focused on that class's week in the calendar view.
 
 ---
 

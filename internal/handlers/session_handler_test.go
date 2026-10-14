@@ -606,7 +606,8 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 	_ = store.CreateStudent(studentB)
 
 	// Session 1: Older date
-	d1, _ := time.Parse("2006-01-02", "2026-10-10")
+	now := time.Now()
+	d1 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 	s1 := &models.TrainingSession{
 		ID:           uuid.New(),
 		SessionDate:  d1,
@@ -620,7 +621,7 @@ func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 	_ = store.CreateSession(s1)
 
 	// Session 2: Newer date, morning
-	d2, _ := time.Parse("2006-01-02", "2026-10-12")
+	d2 := d1.AddDate(0, 0, 1)
 	s2 := &models.TrainingSession{
 		ID:           uuid.New(),
 		SessionDate:  d2,
@@ -1599,7 +1600,7 @@ func TestSessionHandler_OverlappingSchedulesAndCardClickability(t *testing.T) {
 	_ = store.CreateLocation(loc1)
 	_ = store.CreateLocation(loc2)
 
-	sessDate, _ := time.Parse("2006-01-02", "2026-10-14")
+	sessDate, _ := time.Parse("2006-01-02", "2026-11-18")
 	sess1 := &models.TrainingSession{
 		ID:           uuid.New(),
 		SessionDate:  sessDate,
@@ -1623,7 +1624,7 @@ func TestSessionHandler_OverlappingSchedulesAndCardClickability(t *testing.T) {
 	_ = store.CreateSession(sess1)
 	_ = store.CreateSession(sess2)
 
-	req := httptest.NewRequest(http.MethodGet, "/sessions?date=2026-10-14", nil)
+	req := httptest.NewRequest(http.MethodGet, "/sessions?date=2026-11-18", nil)
 	rec := httptest.NewRecorder()
 	app.HandleSessions(rec, req)
 
@@ -2382,6 +2383,76 @@ func TestHandleLiveSession_DutyAndEventRedirect(t *testing.T) {
 	})
 }
 
+func TestCalendar_RetainAnchorDateOnScheduleAddOrEdit(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
 
+	// 1. Verify creating session with explicit anchor redirect_url (future date in week)
+	calendarAnchor := "2026-10-14"
+	futureDate := "2026-10-16"
 
+	form := url.Values{
+		"session_date":  {futureDate},
+		"start_time":    {"16:00"},
+		"end_time":      {"18:00"},
+		"training_type": {"Sparring"},
+		"redirect_url":  {"/sessions?date=" + calendarAnchor},
+	}
+	reqCreate := httptest.NewRequest(http.MethodPost, "/sessions", strings.NewReader(form.Encode()))
+	reqCreate.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recCreate := httptest.NewRecorder()
 
+	app.HandleCreateSession(recCreate, reqCreate)
+	if recCreate.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 SeeOther, got %d", recCreate.Code)
+	}
+	if loc := recCreate.Header().Get("Location"); loc != "/sessions?date="+calendarAnchor {
+		t.Fatalf("expected redirect to calendar anchor %s, got %s", "/sessions?date="+calendarAnchor, loc)
+	}
+
+	// 2. Verify calendar renders with anchor date in Column 1 and future session in Column 3 (index 2)
+	reqCal := httptest.NewRequest(http.MethodGet, "/sessions?date="+calendarAnchor, nil)
+	recCal := httptest.NewRecorder()
+	app.HandleSessions(recCal, reqCal)
+
+	if recCal.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", recCal.Code)
+	}
+	calBody := recCal.Body.String()
+
+	// Ensure wrapper has the data-anchor-date
+	if !strings.Contains(calBody, `data-anchor-date="2026-10-14"`) {
+		t.Errorf("expected data-anchor-date=\"2026-10-14\" in rendered HTML")
+	}
+
+	// 3. Verify updating session with explicit anchor redirect_url (e.g. past or future date)
+	sessions, _ := store.GetAllSessions()
+	if len(sessions) == 0 {
+		t.Fatalf("expected created session in store")
+	}
+	createdSess := sessions[0]
+
+	pastDate := "2026-10-15"
+	editForm := url.Values{
+		"session_id":    {createdSess.ID.String()},
+		"session_date":  {pastDate},
+		"start_time":    {"10:00"},
+		"end_time":      {"12:00"},
+		"training_type": {"Poomsae"},
+		"redirect_url":  {"/sessions?date=" + calendarAnchor},
+	}
+	reqEdit := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/edit", createdSess.ID), strings.NewReader(editForm.Encode()))
+	reqEdit.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recEdit := httptest.NewRecorder()
+
+	app.HandleUpdateSession(recEdit, reqEdit)
+	if recEdit.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 SeeOther, got %d", recEdit.Code)
+	}
+	if loc := recEdit.Header().Get("Location"); loc != "/sessions?date="+calendarAnchor {
+		t.Fatalf("expected update redirect to calendar anchor %s, got %s", "/sessions?date="+calendarAnchor, loc)
+	}
+}

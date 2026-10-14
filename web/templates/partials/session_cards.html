@@ -1,6 +1,6 @@
 {{define "session_cards.html"}}
 {{$user := currentUser .}}
-<div class="space-y-3" id="session-cards-wrapper" data-selected-date="{{.SelectedDate}}">
+<div class="space-y-3" id="session-cards-wrapper" data-selected-date="{{.SelectedDate}}" data-anchor-date="{{.Calendar.StartDateStr}}">
     <!-- Week Navigation Bar -->
     <div class="flex items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800">
         <!-- Week Controls -->
@@ -75,7 +75,7 @@
             </span>
             <div class="has-tooltip relative inline-flex">
                 <button type="button"
-                        onclick="openNewSessionModal(currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
+                        onclick="openNewSessionModal(currentCalendarAnchor || currentSelectedDate || '{{.Calendar.TodayStr}}', '16:00')"
                         class="btn btn-primary btn-xs flex items-center justify-center gap-1 shadow-xs py-1.5 px-2.5 sm:px-3 text-xs"
                         title="Schedule Class"
                         aria-label="Schedule Class">

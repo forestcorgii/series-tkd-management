@@ -182,7 +182,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div class="min-w-0">
                         <label class="form-label">Date</label>
-                        <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm w-full" onchange="if(document.getElementById('modal-redirect-url')) document.getElementById('modal-redirect-url').value = '/sessions?date=' + this.value;">
+                        <input type="date" id="modal-session-date" name="session_date" required class="form-input text-xs sm:text-sm w-full">
                     </div>
                     <div class="min-w-0">
                         <label class="form-label">Start Time</label>
@@ -361,7 +361,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div class="min-w-0">
                         <label class="form-label">Date</label>
-                        <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm w-full" onchange="if(document.getElementById('edit-redirect-url')) document.getElementById('edit-redirect-url').value = '/sessions?date=' + this.value;">
+                        <input type="date" id="edit-session-date" name="session_date" required class="form-input text-xs sm:text-sm w-full">
                     </div>
                     <div class="min-w-0">
                         <label class="form-label">Start Time</label>
@@ -678,6 +678,27 @@
 <script>
 var isOperationManager = {{if and $user $user.IsOperationManager}}true{{else}}false{{end}};
 var currentSelectedDate = '{{.SelectedDate}}' || new Date().toISOString().split('T')[0];
+var currentCalendarAnchor = '{{.Calendar.StartDateStr}}' || currentSelectedDate;
+
+function getCurrentCalendarRedirectURL() {
+    const params = new URLSearchParams(window.location.search);
+    const wrapper = document.getElementById('session-cards-wrapper');
+    const anchor = (wrapper && wrapper.getAttribute('data-anchor-date')) || currentCalendarAnchor || currentSelectedDate;
+    if (anchor) {
+        params.set('date', anchor);
+    }
+    const filterForm = document.getElementById('session-filter-form');
+    if (filterForm) {
+        const formData = new FormData(filterForm);
+        for (const [key, value] of formData.entries()) {
+            if (value && !params.has(key)) {
+                params.set(key, value);
+            }
+        }
+    }
+    const qs = params.toString();
+    return '/sessions' + (qs ? ('?' + qs) : '');
+}
 
 // Calendar Drag & Drop Rescheduling Support
 var draggedCalendarCard = null;
@@ -1043,7 +1064,8 @@ function openNewSessionModal(dateStr, timeStr, defaultType) {
     if (dateInput) {
         if (dateStr) {
             dateInput.value = dateStr;
-            currentSelectedDate = dateStr;
+        } else if (currentCalendarAnchor) {
+            dateInput.value = currentCalendarAnchor;
         } else if (currentSelectedDate) {
             dateInput.value = currentSelectedDate;
         } else {
@@ -1065,7 +1087,7 @@ function openNewSessionModal(dateStr, timeStr, defaultType) {
     
     const redirectInput = document.getElementById('modal-redirect-url');
     if (redirectInput) {
-        redirectInput.value = '/sessions?date=' + (dateInput ? dateInput.value : '');
+        redirectInput.value = getCurrentCalendarRedirectURL();
     }
 
     setNewSessionEntryType(defaultType || 'class');
@@ -1109,7 +1131,7 @@ function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID,
     
     const redirectInput = document.getElementById('edit-redirect-url');
     if (redirectInput) {
-        redirectInput.value = '/sessions?date=' + (dateStr || '');
+        redirectInput.value = getCurrentCalendarRedirectURL();
     }
     
     const titleInput = document.getElementById('edit-modal-title-input');
@@ -1577,8 +1599,13 @@ document.addEventListener('DOMContentLoaded', () => {
 document.body.addEventListener('htmx:afterSwap', (evt) => {
     if (evt.detail && (evt.detail.target.id === 'classes-container' || evt.detail.target.closest('#classes-container'))) {
         const wrapper = document.getElementById('session-cards-wrapper');
-        if (wrapper && wrapper.getAttribute('data-selected-date')) {
-            currentSelectedDate = wrapper.getAttribute('data-selected-date');
+        if (wrapper) {
+            if (wrapper.getAttribute('data-selected-date')) {
+                currentSelectedDate = wrapper.getAttribute('data-selected-date');
+            }
+            if (wrapper.getAttribute('data-anchor-date')) {
+                currentCalendarAnchor = wrapper.getAttribute('data-anchor-date');
+            }
         }
         setTimeout(scrollToCurrentDayOnMobile, 100);
     }
