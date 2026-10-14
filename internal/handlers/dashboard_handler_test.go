@@ -232,3 +232,135 @@ func TestAdminDashboard_RendersFloorScheduleAndRenewalAlerts(t *testing.T) {
 	}
 }
 
+func TestCoachDashboard_FiltersScheduleTypesToClassesAndOpenSessions(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	coaches, _ := store.GetAllCoaches()
+	if len(coaches) == 0 {
+		t.Fatalf("expected seeded coaches")
+	}
+	coach := coaches[0]
+
+	coachUser := &models.User{
+		ID:          uuid.New(),
+		Email:       coach.Email,
+		Role:        models.RoleCoach,
+		CoachID:     &coach.ID,
+		IsActive:    true,
+		DisplayName: coach.FullName,
+	}
+
+	now := time.Now()
+	// Seed 4 types of sessions for today:
+	// 1. Class (must show)
+	classSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  now,
+		StartTime:    "10:00",
+		EndTime:      "11:00",
+		TrainingType: models.TrainingPoomsae,
+		Title:        "Morning Poomsae Class",
+		CoachID:      &coach.ID,
+		CoachName:    coach.FullName,
+		EntryType:    models.EntryTypeClass,
+	}
+	_ = store.CreateSession(classSess)
+
+	// 2. Open session (must show)
+	openSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  now,
+		StartTime:    "14:00",
+		EndTime:      "15:30",
+		TrainingType: models.TrainingSparring,
+		Title:        "Open Floor Sparring Lab",
+		CoachID:      &coach.ID,
+		CoachName:    coach.FullName,
+		EntryType:    models.EntryTypeOpenSession,
+	}
+	_ = store.CreateSession(openSess)
+
+	// 3. Duty session (must NOT show on coach dashboard)
+	dutySess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  now,
+		StartTime:    "08:00",
+		EndTime:      "12:00",
+		TrainingType: models.TrainingConditioning,
+		Title:        "Front Desk Duty Shift",
+		EntryType:    models.EntryTypeDuty,
+	}
+	_ = store.CreateSession(dutySess)
+
+	// 4. Special Event (must NOT show on coach dashboard)
+	eventSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  now,
+		StartTime:    "16:00",
+		EndTime:      "20:00",
+		TrainingType: models.TrainingPromotionPrep,
+		Title:        "Invitational Regional Championship",
+		EntryType:    models.EntryTypeEvent,
+	}
+	_ = store.CreateSession(eventSess)
+
+	// 1. Default GET /: should show class and open session, but hide duty and event
+	req := httptest.NewRequest("GET", "/", nil)
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, coachUser)
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+	app.HandleDashboard(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Morning Poomsae Class") {
+		t.Errorf("expected Coach Dashboard to show Class session 'Morning Poomsae Class'")
+	}
+	if !strings.Contains(body, "Open Floor Sparring Lab") {
+		t.Errorf("expected Coach Dashboard to show Free/Open session 'Open Floor Sparring Lab'")
+	}
+	if strings.Contains(body, "Front Desk Duty Shift") {
+		t.Errorf("expected Coach Dashboard NOT to show duty schedule 'Front Desk Duty Shift'")
+	}
+	if strings.Contains(body, "Invitational Regional Championship") {
+		t.Errorf("expected Coach Dashboard NOT to show event schedule 'Invitational Regional Championship'")
+	}
+
+	// 2. Filter with ?entry_type=class: should only include classes in today's list
+	reqClass := httptest.NewRequest("GET", "/?entry_type=class", nil)
+	reqClass = reqClass.WithContext(ctx)
+	recClass := httptest.NewRecorder()
+	app.HandleDashboard(recClass, reqClass)
+
+	bodyClass := recClass.Body.String()
+	if !strings.Contains(bodyClass, "Morning Poomsae Class") {
+		t.Errorf("expected ?entry_type=class to show class session")
+	}
+	if strings.Contains(bodyClass, "Open Floor Sparring Lab") {
+		t.Errorf("expected ?entry_type=class to exclude open session from today's list")
+	}
+
+	// 3. Filter with ?entry_type=open_session: should only include open sessions
+	reqOpen := httptest.NewRequest("GET", "/?entry_type=open_session", nil)
+	reqOpen = reqOpen.WithContext(ctx)
+	recOpen := httptest.NewRecorder()
+	app.HandleDashboard(recOpen, reqOpen)
+
+	bodyOpen := recOpen.Body.String()
+	if !strings.Contains(bodyOpen, "Open Floor Sparring Lab") {
+		t.Errorf("expected ?entry_type=open_session to show open session")
+	}
+	if strings.Contains(bodyOpen, "Morning Poomsae Class") {
+		t.Errorf("expected ?entry_type=open_session to exclude class session")
+	}
+}
+
+

@@ -348,3 +348,18 @@
      - /roles provides a dedicated management dashboard to inspect role cards, view permission pill badges, create custom roles with permission checkboxes, edit permissions, and delete custom roles.
      - /admins (Staff Directory) allows assigning one or multiple roles to each staff account via an interactive HTMX modal.
      - Accessible via desktop navbar, mobile drawer, and profile dropdown for managers and staff with oles:manage.
+
+### Context: Coach Dashboard Schedule Scoping & Floor Telemetry Filtering
+
+* **Problem**:
+  1. The Coach Dashboard (`/` for `RoleCoach`) was rendering all training sessions without filtering by schedule type (`EntryType`), causing non-coaching entries like administrative staff on-duty shifts (`duty`) and special dojang events (`event`) to appear in Today's Training Sessions, the quick session switcher, telemetry counts, and the live roster default selection.
+  2. Coaches need rapid, unencumbered floor oversight focused strictly on instructional classes and free/open drop-in sessions where practitioner check-in and 6-pillar athletic grading apply.
+* **Enforced Solution**:
+  1. **Domain Model Scoping**:
+     - Added `IsCoachSchedule() bool` helper on `models.TrainingSession` which returns `s.IsClass() || s.IsOpenSession()`. Standard classes (`class` or default empty) and open sessions (`open_session`) evaluate to true; staff duty (`duty`) and events (`event`) evaluate to false.
+  2. **Backend Handler Partitioning**:
+     - In `renderCoachDashboard` (`dashboard_handler.go`) and `HandleCoachPortal` (`portal_handler.go`), raw store sessions are filtered through `s.IsCoachSchedule()` for `TodaySessions`, `AllSessions`, `LiveSession`, and `ClassesConductedCount`.
+     - Supports optional query parameter filtering (`?entry_type=class` or `?entry_type=open_session`) while preserving the full session map for student promotion readiness evaluation calculations.
+  3. **Interactive Dashboard UI**:
+     - `coach_dashboard.html` features responsive schedule filter pills (`All`, `?? Classes`, `?? Free / Open`) with immediate client-side and URL filtering, badge count updates, and empty state handlers.
+     - Clear visual indicators (`?? Free / Open` pill badge and custom titles) identify drop-in sessions in both the session card roster and header quick select combobox.

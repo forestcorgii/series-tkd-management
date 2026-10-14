@@ -44,8 +44,8 @@
                 <select id="session-select" onchange="window.location.href='/portal/coach?session_id=' + this.value"
                         class="px-2.5 py-1 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#990303]">
                     {{range .AllSessions}}
-                    <option value="{{.ID}}" {{if eq $.LiveSession.ID .ID}}selected{{end}}>
-                        {{.StartTime}} - {{.EndTime}} ({{.TrainingType}})
+                    <option value="{{.ID}}" {{if and $.LiveSession (eq $.LiveSession.ID.String .ID.String)}}selected{{end}}>
+                        {{.StartTime}} - {{.EndTime}} ({{if .IsOpenSession}}🔓 Free/Open{{else}}{{.TrainingType}}{{end}})
                     </option>
                     {{end}}
                 </select>
@@ -62,7 +62,7 @@
                 <div class="flex items-center justify-between gap-2.5 mb-3">
                     <div class="flex items-center gap-1.5">
                         <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
-                            Live Mat Roster ({{if .LiveSession}}{{.LiveSession.TrainingType}} @ {{.LiveSession.StartTime}}{{else}}Floor Standby{{end}})
+                            Live Mat Roster ({{if .LiveSession}}{{if .LiveSession.IsOpenSession}}Free/Open{{else}}{{.LiveSession.TrainingType}}{{end}} @ {{.LiveSession.StartTime}}{{else}}Floor Standby{{end}})
                         </h2>
                         <div class="has-tooltip inline-flex items-center">
                             <button type="button" class="tooltip-icon" aria-label="Live mat roster note">ⓘ</button>

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,6 +53,7 @@ type CoachDashboardViewData struct {
 	ClassesConductedCount int
 	Categories            []*models.TrainingCategory
 	Locations             []*models.Location
+	FilterEntryType       string
 }
 
 type AdminDashboardViewData struct {
@@ -128,20 +130,43 @@ func (a *AppHandler) renderCoachDashboard(w http.ResponseWriter, r *http.Request
 	now := time.Now()
 	todayStr := now.Format("2006-01-02")
 
+	// Filter schedule types for coach dashboard to strictly classes and free/open sessions
+	var coachSessions []*models.TrainingSession
+	for _, s := range sessions {
+		if s.IsCoachSchedule() {
+			coachSessions = append(coachSessions, s)
+		}
+	}
+
+	entryTypeFilter := strings.TrimSpace(r.URL.Query().Get("entry_type"))
+	if entryTypeFilter == "" {
+		entryTypeFilter = strings.TrimSpace(r.URL.Query().Get("type"))
+	}
+
 	var todaySessions []*models.TrainingSession
 	var liveSess *models.TrainingSession
 
 	if sid := r.URL.Query().Get("session_id"); sid != "" {
 		if parsed, err := uuid.Parse(sid); err == nil {
-			if s, err := a.store.GetSessionByID(parsed); err == nil {
+			if s, err := a.store.GetSessionByID(parsed); err == nil && s.IsCoachSchedule() {
 				liveSess = s
 			}
 		}
 	}
 
-	for _, s := range sessions {
+	for _, s := range coachSessions {
 		if s.SessionDate.Format("2006-01-02") == todayStr {
-			todaySessions = append(todaySessions, s)
+			if entryTypeFilter == "class" {
+				if s.IsClass() {
+					todaySessions = append(todaySessions, s)
+				}
+			} else if entryTypeFilter == "open_session" {
+				if s.IsOpenSession() {
+					todaySessions = append(todaySessions, s)
+				}
+			} else {
+				todaySessions = append(todaySessions, s)
+			}
 		}
 		if liveSess == nil && s.IsOpen() {
 			if coach != nil && s.CoachID != nil && *s.CoachID == coach.ID {
@@ -154,8 +179,8 @@ func (a *AppHandler) renderCoachDashboard(w http.ResponseWriter, r *http.Request
 
 	if liveSess == nil && len(todaySessions) > 0 {
 		liveSess = todaySessions[0]
-	} else if liveSess == nil && len(sessions) > 0 {
-		liveSess = sessions[0]
+	} else if liveSess == nil && len(coachSessions) > 0 {
+		liveSess = coachSessions[0]
 	}
 
 	var liveAtts []*models.Attendance
@@ -193,7 +218,7 @@ func (a *AppHandler) renderCoachDashboard(w http.ResponseWriter, r *http.Request
 
 	conductedCount := 0
 	if coach != nil {
-		for _, s := range sessions {
+		for _, s := range coachSessions {
 			if s.CoachID != nil && *s.CoachID == coach.ID {
 				conductedCount++
 			}
@@ -209,13 +234,14 @@ func (a *AppHandler) renderCoachDashboard(w http.ResponseWriter, r *http.Request
 		TodaySessions:         todaySessions,
 		LiveSession:           liveSess,
 		LiveAttendances:       liveAtts,
-		AllSessions:           sessions,
+		AllSessions:           coachSessions,
 		AllStudents:           students,
 		PriorityReviewQueue:   reviewQueue,
 		OpenSafetyIncidents:   openIncidents,
 		ClassesConductedCount: conductedCount,
 		Categories:            categories,
 		Locations:             locations,
+		FilterEntryType:       entryTypeFilter,
 	}
 
 	a.RenderPage(w, "coach_dashboard.html", data)

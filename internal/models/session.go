@@ -84,6 +84,11 @@ func (s *TrainingSession) IsClass() bool {
 	return s.EntryType == "" || s.EntryType == EntryTypeClass
 }
 
+// IsCoachSchedule returns true if this session represents a training class or open floor session for coaches.
+func (s *TrainingSession) IsCoachSchedule() bool {
+	return s.IsClass() || s.IsOpenSession()
+}
+
 // DisplayTitle returns the custom title or falls back to the type/category name.
 func (s *TrainingSession) DisplayTitle() string {
 	if strings.TrimSpace(s.Title) != "" {

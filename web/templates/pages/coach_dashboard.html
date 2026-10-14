@@ -49,7 +49,7 @@
                             class="form-select text-xs py-1 px-2.5 min-w-[180px]">
                         {{range .AllSessions}}
                         <option value="{{.ID}}" {{if and $.LiveSession (eq $.LiveSession.ID.String .ID.String)}}selected{{end}}>
-                            {{.StartTime}} - {{.EndTime}} &bull; {{.TrainingType}}
+                            {{.StartTime}} - {{.EndTime}} &bull; {{if .IsOpenSession}}🔓 Free/Open{{else}}{{.TrainingType}}{{end}}
                         </option>
                         {{end}}
                     </select>
@@ -122,28 +122,49 @@
         <div class="lg:col-span-2 space-y-3.5 sm:space-y-4">
             <!-- Today's Classes List -->
             <div class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs">
-                <div class="flex items-center justify-between mb-4 gap-2">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
                     <div class="flex items-center gap-2">
                         <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
                             Today's Training Sessions
                         </h2>
-                        <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-300 border border-[#E5E3D8] dark:border-neutral-700">
+                        <span id="coach-session-count-badge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-300 border border-[#E5E3D8] dark:border-neutral-700">
                             {{len .TodaySessions}} Scheduled
                         </span>
                     </div>
-                    <a href="/sessions" class="text-xs font-bold text-[#990303] dark:text-red-400 hover:underline">
-                        Full Schedule &rarr;
-                    </a>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- Quick Filter Pills: All, Classes, Free/Open -->
+                        <div class="inline-flex rounded-lg border border-[#E5E3D8] dark:border-neutral-800 p-0.5 bg-neutral-100 dark:bg-neutral-900 text-xs shadow-xs">
+                            <button type="button" onclick="filterCoachTodaySessions('all', this)" class="coach-filter-pill px-2.5 py-1 rounded-md text-[11px] font-bold transition-all {{if or (eq .FilterEntryType "") (eq .FilterEntryType "all")}}bg-white dark:bg-neutral-800 text-black dark:text-white shadow-xs{{else}}text-slate-600 dark:text-slate-400 hover:text-black dark:hover:text-white{{end}}">
+                                All
+                            </button>
+                            <button type="button" onclick="filterCoachTodaySessions('class', this)" class="coach-filter-pill px-2.5 py-1 rounded-md text-[11px] font-bold transition-all {{if eq .FilterEntryType "class"}}bg-white dark:bg-neutral-800 text-black dark:text-white shadow-xs{{else}}text-slate-600 dark:text-slate-400 hover:text-black dark:hover:text-white{{end}}">
+                                🥋 Classes
+                            </button>
+                            <button type="button" onclick="filterCoachTodaySessions('open_session', this)" class="coach-filter-pill px-2.5 py-1 rounded-md text-[11px] font-bold transition-all {{if eq .FilterEntryType "open_session"}}bg-white dark:bg-neutral-800 text-black dark:text-white shadow-xs{{else}}text-slate-600 dark:text-slate-400 hover:text-black dark:hover:text-white{{end}}">
+                                🔓 Free / Open
+                            </button>
+                        </div>
+                        <a href="/sessions" class="text-xs font-bold text-[#990303] dark:text-red-400 hover:underline">
+                            Full Schedule &rarr;
+                        </a>
+                    </div>
                 </div>
 
-                <div class="space-y-3">
+                <div id="coach-today-sessions-list" class="space-y-3">
                     {{range .TodaySessions}}
-                    <div class="p-3.5 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-[#990303]/40 transition">
+                    <div class="coach-session-item p-3.5 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-900/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-[#990303]/40 transition"
+                         data-schedule-type="{{if .IsOpenSession}}open_session{{else}}class{{end}}">
                         <div class="space-y-1">
                             <div class="flex items-center gap-2 flex-wrap">
+                                {{if .IsOpenSession}}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                    🔓 Free / Open
+                                </span>
+                                {{else}}
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 text-slate-800 dark:text-slate-200">
                                     {{.TrainingType}}
                                 </span>
+                                {{end}}
                                 {{if .IsOpen}}
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                                     <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Open Now
@@ -164,29 +185,30 @@
                                 {{end}}
                             </div>
                             <h3 class="font-display font-extrabold text-sm sm:text-base text-black dark:text-white mt-0.5">
-                                {{.StartTime}} - {{.EndTime}}
+                                {{.StartTime}} - {{.EndTime}}{{if .Title}} &bull; {{.Title}}{{end}}
                             </h3>
                             <p class="text-xs text-slate-600 dark:text-slate-400">
                                 Coach: <strong class="text-black dark:text-white">{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}</strong>
                                 {{if .LocationName}} &bull; 📍 {{.LocationName}}{{end}}
                             </p>
                         </div>
-                        {{if not (or .IsDuty .IsEvent)}}
                         <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
                             <a href="/sessions/{{.ID}}/live" class="btn btn-primary btn-sm flex-1 sm:flex-initial">
                                 🥋 Live Attendance &rarr;
                             </a>
                         </div>
-                        {{end}}
                     </div>
                     {{else}}
-                    <div class="p-8 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
+                    <div id="coach-no-sessions-msg" class="p-8 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
                         <p class="text-xs sm:text-sm font-medium">No sessions scheduled for today.</p>
                         <a href="/sessions" class="mt-2 inline-block text-xs font-bold text-[#990303] dark:text-red-400 hover:underline">
                             Open Schedule Timetable &rarr;
                         </a>
                     </div>
                     {{end}}
+                    <div id="coach-filtered-empty-msg" class="hidden p-8 text-center text-slate-600 dark:text-slate-400 bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-dashed border-[#E5E3D8] dark:border-neutral-800">
+                        <p class="text-xs sm:text-sm font-medium">No sessions match this filter for today.</p>
+                    </div>
                 </div>
             </div>
 
@@ -195,7 +217,7 @@
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <div class="flex items-center gap-2">
                         <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
-                            Live Mat Roster ({{if .LiveSession}}{{.LiveSession.TrainingType}} @ {{.LiveSession.StartTime}}{{else}}Standby{{end}})
+                            Live Mat Roster ({{if .LiveSession}}{{if .LiveSession.IsOpenSession}}Free/Open{{else}}{{.LiveSession.TrainingType}}{{end}} @ {{.LiveSession.StartTime}}{{else}}Standby{{end}})
                         </h2>
                         <span class="has-tooltip inline-flex items-center">
                             <button type="button" class="tooltip-icon" aria-label="Live mat roster note">ⓘ</button>
@@ -577,6 +599,40 @@ function handleSafetySubmit(e) {
         closeSafetyModal();
         window.location.reload();
     }, 500);
+}
+
+function filterCoachTodaySessions(type, btn) {
+    var items = document.querySelectorAll('.coach-session-item');
+    var emptyMsg = document.getElementById('coach-filtered-empty-msg');
+    var badge = document.getElementById('coach-session-count-badge');
+    var visibleCount = 0;
+    items.forEach(function(el) {
+        var itemType = el.getAttribute('data-schedule-type');
+        if (type === 'all' || itemType === type) {
+            el.classList.remove('hidden');
+            visibleCount++;
+        } else {
+            el.classList.add('hidden');
+        }
+    });
+    if (emptyMsg) {
+        if (visibleCount === 0 && items.length > 0) {
+            emptyMsg.classList.remove('hidden');
+        } else {
+            emptyMsg.classList.add('hidden');
+        }
+    }
+    if (badge) {
+        badge.textContent = visibleCount + " Scheduled";
+    }
+    document.querySelectorAll('.coach-filter-pill').forEach(function(b) {
+        b.classList.remove('bg-white', 'dark:bg-neutral-800', 'text-black', 'dark:text-white', 'shadow-xs');
+        b.classList.add('text-slate-600', 'dark:text-slate-400');
+    });
+    if (btn) {
+        btn.classList.add('bg-white', 'dark:bg-neutral-800', 'text-black', 'dark:text-white', 'shadow-xs');
+        btn.classList.remove('text-slate-600', 'dark:text-slate-400');
+    }
 }
 </script>
 {{end}}

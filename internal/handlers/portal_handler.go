@@ -176,15 +176,21 @@ func (a *AppHandler) HandleCoachPortal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessions, _ := a.store.GetAllSessions()
+	var coachSessions []*models.TrainingSession
+	for _, s := range sessions {
+		if s.IsCoachSchedule() {
+			coachSessions = append(coachSessions, s)
+		}
+	}
 	var liveSess *models.TrainingSession
-	if len(sessions) > 0 {
-		liveSess = sessions[0]
+	if len(coachSessions) > 0 {
+		liveSess = coachSessions[0]
 	}
 
 	// If session_id query specified
 	if sid := r.URL.Query().Get("session_id"); sid != "" {
 		if parsed, err := uuid.Parse(sid); err == nil {
-			if s, err := a.store.GetSessionByID(parsed); err == nil {
+			if s, err := a.store.GetSessionByID(parsed); err == nil && s.IsCoachSchedule() {
 				liveSess = s
 			}
 		}
@@ -229,7 +235,7 @@ func (a *AppHandler) HandleCoachPortal(w http.ResponseWriter, r *http.Request) {
 		Coach:               coach,
 		LiveSession:         liveSess,
 		LiveAttendances:     liveAtts,
-		AllSessions:         sessions,
+		AllSessions:         coachSessions,
 		AllStudents:         students,
 		PriorityReviewQueue: reviewQueue,
 		OpenSafetyIncidents: openIncidents,

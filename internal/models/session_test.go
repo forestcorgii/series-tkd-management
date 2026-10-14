@@ -219,7 +219,7 @@ func TestTrainingSession_EntryTypesAndStaff(t *testing.T) {
 		EntryType:    EntryTypeClass,
 		TrainingType: TrainingSparring,
 	}
-	if !classSess.IsClass() || classSess.IsEvent() || classSess.IsDuty() || classSess.IsOpenSession() {
+	if !classSess.IsClass() || classSess.IsEvent() || classSess.IsDuty() || classSess.IsOpenSession() || !classSess.IsCoachSchedule() {
 		t.Errorf("expected class session, got: %+v", classSess)
 	}
 	if classSess.DisplayTitle() != "Sparring" {
@@ -230,7 +230,7 @@ func TestTrainingSession_EntryTypesAndStaff(t *testing.T) {
 		EntryType: EntryTypeEvent,
 		Title:     "Belt Promotion Exam",
 	}
-	if !eventSess.IsEvent() || eventSess.IsClass() {
+	if !eventSess.IsEvent() || eventSess.IsClass() || eventSess.IsCoachSchedule() {
 		t.Errorf("expected event session, got: %+v", eventSess)
 	}
 	if eventSess.DisplayTitle() != "Belt Promotion Exam" {
@@ -245,7 +245,7 @@ func TestTrainingSession_EntryTypesAndStaff(t *testing.T) {
 			{ID: "staff-2", Name: "Admin Lisa", Role: "Admin"},
 		},
 	}
-	if !dutySess.IsDuty() {
+	if !dutySess.IsDuty() || dutySess.IsCoachSchedule() {
 		t.Errorf("expected duty session, got: %+v", dutySess)
 	}
 	if !dutySess.HasAssignedStaffID("staff-1") || !dutySess.HasAssignedStaffID("staff-2") || dutySess.HasAssignedStaffID("unknown") {
@@ -258,7 +258,7 @@ func TestTrainingSession_EntryTypesAndStaff(t *testing.T) {
 	openSess := TrainingSession{
 		EntryType: EntryTypeOpenSession,
 	}
-	if !openSess.IsOpenSession() {
+	if !openSess.IsOpenSession() || !openSess.IsCoachSchedule() {
 		t.Errorf("expected open session, got: %+v", openSess)
 	}
 	if openSess.DisplayTitle() != "Free / Open Session" {
