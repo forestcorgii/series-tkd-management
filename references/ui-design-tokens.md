@@ -164,7 +164,7 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
        - Coaches Table: `min-w-[750px]`
        - Admins Table: `min-w-[700px]`
        - Packages / Memberships: `min-w-[700px]`
-       - Locations Table: `min-w-[700px]`
+       - Locations Table: `min-w-[600px]`
        - Training Categories: `min-w-[600px]`
        - Live Floor Roster: `min-w-[550px]`
        - Promotion Pipeline Tables: `min-w-[540px]` to `min-w-[700px]`
@@ -183,7 +183,7 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
    - Entire case-sensitive routes (/login, /register, /settings, /forgot-password, /reset-password) are automatically exempted.
    - Case-sensitive names (username, identifier, 	oken, key, secret, smtp_host, smtp_user, web_push_public_key, web_push_subject, sms_from_number, display_name) are exempted globally across all routes.
 3. **Template Declarations**:
-   - Explicitly annotate forms and inputs in login.html, egister.html, settings.html, orgot_password.html, eset_password.html, dmins.html, and profile.html with .no-uppercase, data-no-uppercase=true, utocapitalize=none, and spellcheck=false where appropriate.
+   - Explicitly annotate forms and inputs in login.html, egister.html, settings.html, orgot_password.html, eset_password.html, dmins.html, and profile.html with .no-uppercase, data-no-uppercase=true, utocapitalize=none, and spellcheck=false where appropriate.
 
 ### Context: High-Density Compact System Redesign & Redundancy Purging
 
@@ -245,3 +245,17 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   1. **Calendar Toolbar Scheduling CTA ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Removed the redundant date range text from the navigation bar (as dates are already visible in the sticky timeline day headers). Consolidated the total classes badge immediately before the `+ Schedule Class` action button on the right side of the navigation bar, keeping controls on a single, non-wrapping row across mobile and desktop.
   2. **Mobile Space Optimization with Responsive Tooltip ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html), [input.css](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/input.css))**: On mobile screens (`< sm`), the button text collapses to a space-saving `+` icon wrapped in `.has-tooltip` with a right-aligned tooltip (`.tooltip-content.tooltip-right.sm:hidden`) revealing "Schedule Class". On tablet and desktop (`>= sm`), the full `+ Schedule Class` text is rendered.
   3. **Collapsible Filter Bar ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html))**: The filter form is wrapped in a collapsible container (`#session-filter-container`) toggled by an accessible `#filter-toggle-btn` with active-count badge and animated chevron. Filter preferences persist across page views via `localStorage` and automatically remain expanded whenever any filter criteria are active.
+
+### Context: Active Navigation Highlighting, Global HTMX Progress, & Auto-Dismiss Notices
+
+* **Problem:**
+  1. Top navigation and mobile bottom quick bar links lacked visual active state feedback, making path location ambiguous.
+  2. HTMX requests (searches, pagination, filters) gave no immediate feedback while requests were in flight.
+  3. Success and error notice banners persisted indefinitely unless manually closed.
+  4. Modals required manual click on close buttons and lacked backdrop click or Escape key dismissal.
+* **Enforced Solution:**
+  1. **Active Link Highlighting Engine ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**: `syncActiveNavLinks()` dynamically updates desktop navbar and mobile bottom bar links matching `window.location.pathname` with crimson text/background accents on `DOMContentLoaded`, `popstate`, and `htmx:afterSwap`.
+  2. **Global Progress Indicator ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html), [input.css](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/input.css))**: `#htmx-indicator` renders a fixed top gradient bar during HTMX requests via `hx-indicator="#htmx-indicator"`.
+  3. **Auto-Dismiss Notice Banners ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**: `autoDismissNotices()` automatically fades out and removes `.animate-fade-in` notice banners after 5 seconds with vertical translation.
+  4. **Global Modal Keyboard & Backdrop Dismissal ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**: Listens to global `Escape` key and backdrop clicks on `.modal-backdrop` to hide open dialogs.
+  5. **Empty Search Directory States ([student_table_rows.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/student_table_rows.html))**: Added an `{{else}}` empty state row with search icon and actionable message when search queries yield zero matching rows.

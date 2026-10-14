@@ -211,6 +211,15 @@ input[name="sms_from_number"] {
     border-width: 0;
 }
 
+/* HTMX Loading Progress Indicator */
+.htmx-indicator {
+    display: none;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: block;
+}
+
 /* Tooltip System */
 .has-tooltip {
     position: relative;
