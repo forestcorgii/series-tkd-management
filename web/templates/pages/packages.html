@@ -58,7 +58,7 @@
 
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <span class="text-[10px] uppercase font-bold tracking-wider {{if .IsActive}}text-[#990303] dark:text-red-400{{else}}text-slate-500{{end}}">
+                        <span class="text-[10px] uppercase font-bold tracking-wider {{if .IsActive}}text-[#990303] dark:text-red-400{{else}}text-slate-600 dark:text-slate-400{{end}}">
                             {{if .IsFourWeek}}4-Week ({{.WeeklyCadence}}x/wk){{else if .IsUnlimited}}Unlimited Pass{{else}}Class Package{{end}}
                         </span>
                         <span class="font-display font-black text-xl text-slate-900 dark:text-white">
@@ -75,7 +75,7 @@
                             {{.Description}}
                         </p>
                         {{else}}
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500 italic mt-0.5">
+                        <p class="text-[11px] text-slate-600 dark:text-slate-400 italic mt-0.5">
                             Standard training curriculum plan.
                         </p>
                         {{end}}
@@ -210,11 +210,11 @@
                             <span class="font-bold text-slate-900 dark:text-slate-200">₱{{formatCurrency .Package.CustomPrice}}</span>
                             {{end}}
                             {{if .Package.Notes}}
-                            <span class="block text-[10px] italic truncate max-w-xs text-slate-500" title="{{.Package.Notes}}">
+                            <span class="block text-[10px] italic truncate max-w-xs text-slate-600 dark:text-slate-400" title="{{.Package.Notes}}">
                                 "{{.Package.Notes}}"
                             </span>
                             {{else if not .Package.CustomPrice}}
-                            <span class="text-slate-400">—</span>
+                            <span class="text-slate-400 dark:text-slate-500">—</span>
                             {{end}}
                         </td>
                         <td class="py-2 px-3 text-center">
@@ -239,7 +239,7 @@
                         <td class="py-2 px-3 text-right">
                             {{if and $user $user.IsOperationManager}}
                                 {{if eq .Package.PaymentStatus "revoked"}}
-                                <span class="text-slate-400 dark:text-slate-500 text-[11px] italic font-medium">Revoked</span>
+                                <span class="text-slate-600 dark:text-slate-400 text-[11px] italic font-medium">Revoked</span>
                                 {{else}}
                                 <form action="/packages/student-packages/{{.Package.ID}}/revoke" method="POST" class="inline" onsubmit="return confirm('Revoke membership for {{.StudentName}} ({{.Package.TemplateTitle}})? This will immediately invalidate the membership.');">
                                     <input type="hidden" name="redirect_url" value="/packages">
@@ -249,7 +249,7 @@
                                 </form>
                                 {{end}}
                             {{else}}
-                            <span class="text-slate-400 dark:text-slate-500 text-xs">—</span>
+                            <span class="text-slate-600 dark:text-slate-400 text-xs">—</span>
                             {{end}}
                         </td>
                     </tr>
@@ -501,7 +501,7 @@
                     <span class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
                         ⚙️ Checkout Overrides (Optional)
                     </span>
-                    <span class="text-[10px] text-slate-500">Auto-filled from template</span>
+                    <span class="text-[10px] text-slate-600 dark:text-slate-400">Auto-filled from template</span>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 text-xs">

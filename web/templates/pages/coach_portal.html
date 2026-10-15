@@ -123,11 +123,11 @@
                                 <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-xs">
                                     {{if .PackageTitle}}{{.PackageTitle}}{{else}}Membership Verified{{end}}
                                 </td>
-                                <td class="py-1.5 px-2.5 text-slate-500 text-[11px]">{{formatDate .CheckedInAt}}</td>
+                                <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-[11px]">{{formatDate .CheckedInAt}}</td>
                             </tr>
                             {{else}}
                             <tr>
-                                <td colspan="4" class="py-5 text-center text-slate-500">No students checked into this class yet.</td>
+                                <td colspan="4" class="py-5 text-center text-slate-600 dark:text-slate-400">No students checked into this class yet.</td>
                             </tr>
                             {{end}}
                         </tbody>
@@ -166,7 +166,7 @@
                                     {{.Readiness.Status}}
                                 </span>
                             </div>
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                            <span class="text-[10px] text-slate-600 dark:text-slate-400 block mt-0.5">
                                 Current: {{.Student.CurrentBelt}} &bull; Target: {{.Student.NextBelt}}
                             </span>
                         </div>
@@ -177,7 +177,7 @@
                         </button>
                     </div>
                     {{else}}
-                    <p class="text-xs text-slate-500 col-span-2 text-center py-3">No candidates currently eligible in queue.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 col-span-2 text-center py-3">No candidates currently eligible in queue.</p>
                     {{end}}
                 </div>
             </div>

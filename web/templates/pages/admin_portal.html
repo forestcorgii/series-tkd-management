@@ -29,7 +29,7 @@
             <div class="kpi-val {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400{{else}}text-black dark:text-white{{end}}">
                 {{.OpenIncidentsCount}}
             </div>
-            <p class="kpi-sub {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400 font-bold{{else}}text-slate-500{{end}}">
+            <p class="kpi-sub {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400 font-bold{{else}}text-slate-600 dark:text-slate-400{{end}}">
                 {{if gt .OpenIncidentsCount 0}}Action Due{{else}}All Clear{{end}}
             </p>
         </div>
@@ -173,7 +173,7 @@
                     </tr>
                     {{else}}
                     <tr>
-                        <td colspan="7" class="py-6 text-center text-slate-500">No student records found.</td>
+                        <td colspan="7" class="py-6 text-center text-slate-600 dark:text-slate-400">No student records found.</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -197,7 +197,7 @@
                         </div>
                     </div>
                 </div>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-500{{end}} flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400{{end}} flex-shrink-0">
                     {{.OpenIncidentsCount}} Open
                 </span>
             </div>
@@ -217,7 +217,7 @@
                                 Incident: <strong class="text-black dark:text-white">{{.IncidentType}}</strong>
                             </span>
                         </div>
-                        <span class="text-[10px] text-slate-500">{{formatDate .CreatedAt}}</span>
+                        <span class="text-[10px] text-slate-600 dark:text-slate-400">{{formatDate .CreatedAt}}</span>
                     </div>
 
                     <p class="p-1.5 rounded bg-neutral-100 dark:bg-neutral-800/80 text-[11px] text-slate-700 dark:text-slate-300 mb-2 italic">
@@ -225,7 +225,7 @@
                     </p>
 
                     <div class="flex items-center justify-between pt-0.5">
-                        <span class="text-[10px] text-slate-500">
+                        <span class="text-[10px] text-slate-600 dark:text-slate-400">
                             {{if .Resolved}}Resolved: {{.ResolvedBy}}{{else}}By: {{.CoachName}}{{end}}
                         </span>
 
@@ -240,7 +240,7 @@
                     </div>
                 </div>
                 {{else}}
-                <p class="text-xs text-slate-500 py-4 text-center">No safety incidents on record.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 py-4 text-center">No safety incidents on record.</p>
                 {{end}}
             </div>
         </div>

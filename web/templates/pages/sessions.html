@@ -51,7 +51,7 @@
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 items-end">
                         <!-- Schedule Type Filter -->
                         <div>
-                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Type</label>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-1">Type</label>
                             <select name="entry_type" class="form-select text-xs py-1 px-2">
                                 <option value="">All Types</option>
                                 <option value="class" {{if eq $.FilterEntryType "class"}}selected{{end}}>🥋 Classes</option>
@@ -63,7 +63,7 @@
 
                         <!-- Coach Filter -->
                         <div>
-                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Coach</label>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-1">Coach</label>
                             <select name="coach_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Coaches">
                                 <option value="">All Coaches</option>
                                 {{range .Coaches}}
@@ -74,7 +74,7 @@
 
                         <!-- Category Filter -->
                         <div>
-                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</label>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-1">Category</label>
                             <select name="category" class="form-select text-xs py-1 px-2">
                                 <option value="">All Categories</option>
                                 {{range .TrainingCategories}}
@@ -85,7 +85,7 @@
 
                         <!-- Location Filter -->
                         <div>
-                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Location</label>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-1">Location</label>
                             <select name="location_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Locations">
                                 <option value="">All Locations</option>
                                 {{range .Locations}}
@@ -96,7 +96,7 @@
 
                         <!-- Student Filter -->
                         <div>
-                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Student</label>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-1">Student</label>
                             <select name="student_id" class="form-select text-xs py-1 px-2 searchable-select" data-placeholder="All Students">
                                 <option value="">All Students</option>
                                 {{range .Students}}
@@ -600,7 +600,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
                 <!-- Location -->
                 <div class="space-y-0.5">
-                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Training Location</span>
+                    <span class="form-label text-[10px] text-slate-700 dark:text-slate-400">Training Location</span>
                     <div class="flex items-center gap-1 text-slate-900 dark:text-white font-semibold">
                         <span>📍</span>
                         <span id="info-modal-location">Unassigned</span>
@@ -612,7 +612,7 @@
 
                 <!-- Fixed Rate (if any) -->
                 <div class="space-y-0.5">
-                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Pricing / Rate</span>
+                    <span class="form-label text-[10px] text-slate-700 dark:text-slate-400">Pricing / Rate</span>
                     <div class="font-semibold text-slate-900 dark:text-white">
                         <span id="info-modal-rate">Standard Membership Deduction</span>
                     </div>
@@ -620,20 +620,20 @@
 
                 <!-- Lead Coach / Assigned Staff -->
                 <div class="space-y-0.5">
-                    <span id="info-modal-coach-label" class="form-label text-[10px] text-slate-500 dark:text-slate-400">Lead Coach</span>
+                    <span id="info-modal-coach-label" class="form-label text-[10px] text-slate-700 dark:text-slate-400">Lead Coach</span>
                     <p id="info-modal-coach" class="font-semibold text-slate-900 dark:text-white">Unassigned</p>
                 </div>
 
                 <!-- Supervising Admin -->
                 <div id="info-modal-admin-group" class="space-y-0.5">
-                    <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Supervising Admin</span>
+                    <span class="form-label text-[10px] text-slate-700 dark:text-slate-400">Supervising Admin</span>
                     <p id="info-modal-admin" class="font-semibold text-slate-900 dark:text-white">Unassigned</p>
                 </div>
 
                 <!-- Attendance Count -->
                 <div id="info-modal-attendance-group" class="space-y-0.5 sm:col-span-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
                     <div>
-                        <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Attendance Roster</span>
+                        <span class="form-label text-[10px] text-slate-700 dark:text-slate-400">Attendance Roster</span>
                         <p id="info-modal-attendance" class="font-semibold text-slate-900 dark:text-white">0 students checked in</p>
                     </div>
                     <a id="info-modal-live-btn" href="#" class="btn btn-primary btn-xs py-1 px-3 flex items-center gap-1 font-bold">
@@ -644,7 +644,7 @@
 
             <!-- Notes / Remarks -->
             <div class="space-y-1">
-                <span class="form-label text-[10px] text-slate-500 dark:text-slate-400">Class Remarks / Focus</span>
+                <span class="form-label text-[10px] text-slate-700 dark:text-slate-400">Class Remarks / Focus</span>
                 <p id="info-modal-notes" class="text-xs text-slate-700 dark:text-slate-300 italic p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200/60 dark:border-slate-800">
                     No specific remarks provided.
                 </p>
