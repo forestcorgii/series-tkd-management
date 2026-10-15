@@ -152,6 +152,12 @@
         {{end}}
     </div>
 {{else}}
-    <div class="text-xs text-slate-600 dark:text-slate-400 text-center py-4">No matching student found. Register a new student or adjust search query.</div>
+    <div class="p-8 text-center bg-slate-50/70 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
+        <span class="text-3xl block">🔍</span>
+        <h4 class="font-display font-bold text-sm text-slate-900 dark:text-white">No Matching Students Found</h4>
+        <p class="text-xs text-slate-600 dark:text-slate-400 max-w-xs mx-auto">
+            {{if .Query}}No registered student matches "{{.Query}}". Check spelling or phone number.{{else}}No active student records available in dojang roster.{{end}}
+        </p>
+    </div>
 {{end}}
 {{end}}
