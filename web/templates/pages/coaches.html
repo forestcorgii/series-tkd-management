@@ -237,7 +237,26 @@
                             </div>
                         </td>
                     </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="6" class="py-10 text-center bg-slate-50/50 dark:bg-neutral-900/40">
+                            <div class="max-w-xs mx-auto space-y-2">
+                                <span class="text-3xl block">🏅</span>
+                                <p class="font-display font-bold text-sm text-slate-800 dark:text-slate-200">No Coaches Registered</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">There are no coaches currently in the roster. Click "Add Coach" above to create one.</p>
+                            </div>
+                        </td>
+                    </tr>
                     {{end}}
+                    <tr id="coaches-no-results-row" class="hidden">
+                        <td colspan="6" class="py-10 text-center bg-slate-50/50 dark:bg-neutral-900/40">
+                            <div class="max-w-xs mx-auto space-y-2">
+                                <span class="text-3xl block">🔍</span>
+                                <p class="font-display font-bold text-sm text-slate-800 dark:text-slate-200">No Matching Coaches</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">No coach profiles matched your search terms.</p>
+                            </div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -400,10 +419,24 @@
     function filterCoachList(query) {
         var q = query.toLowerCase().trim();
         var rows = document.querySelectorAll('.coach-row');
+        var visibleCount = 0;
         rows.forEach(function(row) {
             var text = row.innerText.toLowerCase();
-            row.style.display = text.includes(q) ? '' : 'none';
+            if (text.includes(q)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
         });
+        var noResRow = document.getElementById('coaches-no-results-row');
+        if (noResRow) {
+            if (visibleCount === 0 && rows.length > 0) {
+                noResRow.classList.remove('hidden');
+            } else {
+                noResRow.classList.add('hidden');
+            }
+        }
     }
 </script>
 

@@ -19,24 +19,43 @@
                     </div>
                 </div>
             </div>
-            <!-- Collapsible Filter Toggle Button -->
-            <button type="button"
-                    id="filter-toggle-btn"
-                    onclick="toggleFilterCollapse()"
-                    class="btn btn-secondary btn-xs flex items-center gap-1.5 py-1 px-2.5 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-xs"
-                    aria-expanded="false"
-                    aria-controls="session-filter-container">
-                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                <span>Filter</span>
-                <span id="active-filter-badge" class="{{if or $.FilterEntryType $.FilterCoachID $.FilterCategory $.FilterLocationID $.FilterStudentID}}{{else}}hidden{{end}} px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#990303] text-white">
-                    Active
-                </span>
-                <svg id="filter-chevron" class="w-3 h-3 text-slate-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
+            <div class="flex items-center gap-1.5">
+                <button type="button"
+                        hx-get="/sessions?date={{.SelectedDate}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        onclick="clearFilters()"
+                        id="header-clear-filters-btn"
+                        class="{{if or $.FilterEntryType $.FilterCoachID $.FilterCategory $.FilterLocationID $.FilterStudentID}}{{else}}hidden{{end}} btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 text-[11px] font-bold py-1 px-2">
+                    ✕ Clear Filters
+                </button>
+                <button type="button"
+                        hx-get="/sessions?date={{.Calendar.TodayStr}}"
+                        hx-target="#classes-container"
+                        hx-push-url="true"
+                        class="btn btn-outline btn-xs py-1 px-2.5 text-xs font-bold"
+                        title="Jump calendar to today">
+                    📅 Today
+                </button>
+                <!-- Collapsible Filter Toggle Button -->
+                <button type="button"
+                        id="filter-toggle-btn"
+                        onclick="toggleFilterCollapse()"
+                        class="btn btn-secondary btn-xs flex items-center gap-1.5 py-1 px-2.5 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-xs"
+                        aria-expanded="false"
+                        aria-controls="session-filter-container">
+                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span>Filter</span>
+                    <span id="active-filter-badge" class="{{if or $.FilterEntryType $.FilterCoachID $.FilterCategory $.FilterLocationID $.FilterStudentID}}{{else}}hidden{{end}} px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#990303] text-white">
+                        Active
+                    </span>
+                    <svg id="filter-chevron" class="w-3 h-3 text-slate-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <!-- Attendance & Class Filter Bar (Collapsible) -->
@@ -1500,6 +1519,7 @@ function toggleFilterCollapse() {
 function updateActiveFilterBadge() {
     var form = document.getElementById('session-filter-form');
     var badge = document.getElementById('active-filter-badge');
+    var clearBtn = document.getElementById('header-clear-filters-btn');
     if (!form || !badge) return;
 
     var count = 0;
@@ -1511,8 +1531,10 @@ function updateActiveFilterBadge() {
     if (count > 0) {
         badge.textContent = count;
         badge.classList.remove('hidden');
+        if (clearBtn) clearBtn.classList.remove('hidden');
     } else {
         badge.classList.add('hidden');
+        if (clearBtn) clearBtn.classList.add('hidden');
     }
 }
 
