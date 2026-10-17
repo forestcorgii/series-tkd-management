@@ -11,7 +11,7 @@
             <span>✅</span>
             <span>{{.SuccessNotice}}</span>
         </div>
-        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-xs">&times;</button>
+        <button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss notice" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-xs">&times;</button>
     </div>
     {{end}}
     {{if .ErrorNotice}}
@@ -20,7 +20,7 @@
             <span>⚠️</span>
             <span>{{.ErrorNotice}}</span>
         </div>
-        <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-xs">&times;</button>
+        <button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss notice" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-xs">&times;</button>
     </div>
     {{end}}
 
@@ -87,7 +87,7 @@
     <div class="modal-dialog">
         <div class="modal-header">
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Register New Student</h3>
-            <button onclick="document.getElementById('new-student-modal').classList.add('hidden')" class="modal-close">&times;</button>
+            <button onclick="document.getElementById('new-student-modal').classList.add('hidden')" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form action="/students" method="POST" class="space-y-4">
             <div>
@@ -251,7 +251,7 @@
                     <span class="tooltip-content">Select a plan and customize credits, validity, or discounted rates on the fly.</span>
                 </span>
             </div>
-            <button type="button" onclick="closeAssignModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeAssignModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form action="/packages/assign" method="POST" class="space-y-4">
             <input type="hidden" name="redirect_url" value="/students">
