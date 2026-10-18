@@ -363,3 +363,23 @@
   3. **Interactive Dashboard UI**:
      - `coach_dashboard.html` features responsive schedule filter pills (`All`, `?? Classes`, `?? Free / Open`) with immediate client-side and URL filtering, badge count updates, and empty state handlers.
      - Clear visual indicators (`?? Free / Open` pill badge and custom titles) identify drop-in sessions in both the session card roster and header quick select combobox.
+
+### Context: Public Landing Page & Authenticated Workspace Redirection (`/` & `/landing/schedule`)
+
+* **Problem**:
+  1. The root route (`GET /`) was previously guarded by `RequireRole(Coach, Admin, OperationManager)`, redirecting any unauthenticated public visitors or prospective practitioners directly to `/login`.
+  2. Public visitors needed an athletic, high-contrast landing page showcasing dojang programs, facilities, interactive schedules, and direct portal access points.
+  3. Authenticated users landing on `/` should be automatically redirected to their specific workspace (`/portal/student` for students, `/sessions` for coaches and admins, and `/dashboard` for managers), while retaining a `?preview=1` override parameter for staff previewing the public marketing view.
+
+* **Enforced Solution**:
+  1. **Route Architecture**:
+     - `GET /` routes to `app.HandleLandingPage` without authentication guards.
+     - `GET /landing/schedule` provides an HTMX-targeted partial endpoint (`HandleLandingSchedule`) returning `landing_schedule_grid.html`.
+     - `GET /dashboard` retains strict role guards for management dashboards (`RequireRole(Coach, Admin, OperationManager)`).
+  2. **Role Workspace Redirection**:
+     - `HandleLandingPage` inspects the user context: if `user != nil` and `r.URL.Query().Get("preview") != "1"`, redirects students to `/portal/student`, coaches and admins to `/sessions`, and managers to `/dashboard`.
+  3. **HTMX Interactive Schedule & Locations Matrix**:
+     - Dynamic branch and training discipline filters (`All`, `Sparring`, `Poomsae`, `Conditioning`, `Promotion Prep`) fetch updated cards from `/landing/schedule` and swap `#landing-schedule-container`.
+  4. **Brand Navigation Standard**:
+     - `layout.html` logo link resolves to `{{if $user}}{{$user.RoleDashboardURL}}{{else}}/{{end}}`, and public header navigation exposes `#programs`, `#schedule`, and `#portals` links for guests.
+

@@ -56,7 +56,7 @@
                     ST
                 </div>
                 <div>
-                    <a href="{{if $user}}{{if or $user.IsOperationManager $user.IsAdmin $user.IsCoach}}/{{else}}/portal/student{{end}}{{else}}/login{{end}}"
+                    <a href="{{if $user}}{{$user.RoleDashboardURL}}{{else}}/{{end}}"
                         class="font-display font-black text-sm sm:text-base tracking-wide text-[#000000] dark:text-[#FFFDF4] uppercase flex items-center gap-2">
                         SERIES TAEKWONDO
                         {{if $user}}
@@ -82,7 +82,7 @@
             <nav class="hidden lg:flex items-center space-x-1 font-semibold text-xs">
                 {{if $user}}
                 {{if $user.IsOperationManager}}
-                <a href="/"
+                <a href="/dashboard"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
                 <a href="/students"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
@@ -97,10 +97,10 @@
                 <a href="/locations"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
                 {{else if $user.IsAdmin}}
-                <a href="/"
-                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
                 <a href="/sessions"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
+                <a href="/dashboard"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
                 <a href="/students"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
                 <a href="/packages"
@@ -108,15 +108,22 @@
                 <a href="/locations"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
                 {{else if $user.IsCoach}}
-                <a href="/"
-                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
                 <a href="/sessions"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Attendance</a>
+                <a href="/dashboard"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Dashboard</a>
                 <a href="/students"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
                 <a href="/locations"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
                 {{end}}
+                {{else}}
+                <a href="/#programs"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Programs</a>
+                <a href="/#schedule"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Schedule &amp; Locations</a>
+                <a href="/#portals"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Portals</a>
                 {{end}}
             </nav>
 

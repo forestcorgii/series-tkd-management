@@ -1,0 +1,493 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Series Taekwondo &bull; Elite Martial Arts Training &amp; Dojang Operations{{end}}
+
+{{define "navAuthAction"}}
+<div class="flex items-center gap-1.5 sm:gap-2">
+    <a href="/register" class="btn btn-secondary btn-xs sm:btn-sm shadow-xs">
+        Register
+    </a>
+    <a href="/login" class="btn btn-primary btn-xs sm:btn-sm shadow-xs">
+        Sign In
+    </a>
+</div>
+{{end}}
+
+{{define "content"}}
+<div class="space-y-12 sm:space-y-16 lg:space-y-20 py-2 sm:py-4">
+
+    <!-- Authenticated Preview Notice (Only shown if visiting with ?preview=1 while logged in) -->
+    {{if .CurrentUser}}
+    <div class="glass-panel p-3 sm:p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2">
+            <span class="text-base">🥋</span>
+            <span>You are currently previewing the public landing page while signed in as <strong>{{if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}{{.CurrentUser.Email}}{{end}}</strong> ({{.CurrentUser.PrimaryRoleName}}).</span>
+        </div>
+        <a href="{{.CurrentUser.RoleDashboardURL}}" class="btn btn-primary btn-xs whitespace-nowrap">
+            Return to Operational Workspace &rarr;
+        </a>
+    </div>
+    {{end}}
+
+    <!-- 1. HERO BANNER SECTION -->
+    <section class="relative rounded-3xl overflow-hidden glass-panel border border-[#E5E3D8] dark:border-neutral-800 bg-gradient-to-b from-[#FFFDF4] via-[#F4F1E4] to-[#FFFDF4] dark:from-neutral-950 dark:via-neutral-900/90 dark:to-black p-6 sm:p-10 lg:p-14 shadow-xl">
+        <!-- Ambient Background Glow & Geometric Grid Accent -->
+        <div class="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#990303]/10 dark:bg-red-600/15 blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-amber-500/10 dark:bg-amber-600/10 blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 max-w-4xl mx-auto text-center space-y-6">
+            <!-- Brand Ribbon / Affiliation Badge -->
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 dark:bg-neutral-900/90 border border-[#E5E3D8] dark:border-neutral-800 shadow-xs text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                <span class="inline-block w-2 h-2 rounded-full bg-[#990303] dark:bg-[#DC2626] animate-pulse"></span>
+                <span>Kukkiwon WT Affiliated &bull; High Performance Martial Arts</span>
+            </div>
+
+            <!-- Main Headline -->
+            <h1 class="font-display font-black text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tight text-slate-950 dark:text-white leading-[1.08]">
+                Where Discipline Meets<br>
+                <span class="bg-gradient-to-r from-[#990303] via-red-600 to-[#7D0202] dark:from-[#DC2626] dark:via-red-400 dark:to-rose-500 bg-clip-text text-transparent">
+                    Championship Performance
+                </span>
+            </h1>
+
+            <!-- Mission / Subtitle -->
+            <p class="font-sans text-sm sm:text-base lg:text-lg text-slate-700 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed font-medium">
+                Series Taekwondo is an elite training academy and operational dojang. From foundational youth motor development to Olympic-level sparring and traditional Poomsae precision, we forge resilient athletes through discipline, technique, and character.
+            </p>
+
+            <!-- Call-to-Action Group -->
+            <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <a href="/login" class="btn btn-primary btn-md sm:btn-lg shadow-lg shadow-[#990303]/25 flex items-center gap-2 group">
+                    <span>Enter Portal / Sign In</span>
+                    <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </a>
+                <a href="/register" class="btn btn-secondary btn-md sm:btn-lg flex items-center gap-2">
+                    <span>New Student Registration</span>
+                </a>
+                <a href="#schedule" class="btn btn-outline btn-md sm:btn-lg flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>View Schedule</span>
+                </a>
+            </div>
+
+            <!-- KPI Metric Strip -->
+            <div class="pt-8 sm:pt-10 border-t border-[#E5E3D8] dark:border-neutral-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
+                <div class="glass-panel p-3 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Training Branches</span>
+                    <span class="font-display font-black text-xl sm:text-2xl text-slate-950 dark:text-white mt-0.5 block">
+                        {{if .ActiveLocations}}{{.ActiveLocations}}{{else}}1{{end}} <span class="text-xs font-normal text-slate-500">Facilities</span>
+                    </span>
+                </div>
+                <div class="glass-panel p-3 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Weekly Classes</span>
+                    <span class="font-display font-black text-xl sm:text-2xl text-slate-950 dark:text-white mt-0.5 block">
+                        {{if .WeeklyClasses}}{{.WeeklyClasses}}{{else}}24+{{end}} <span class="text-xs font-normal text-slate-500">Sessions</span>
+                    </span>
+                </div>
+                <div class="glass-panel p-3 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Lead Instructors</span>
+                    <span class="font-display font-black text-xl sm:text-2xl text-slate-950 dark:text-white mt-0.5 block">
+                        {{if .CoachesCount}}{{.CoachesCount}}{{else}}6{{end}} <span class="text-xs font-normal text-slate-500">Dan Masters</span>
+                    </span>
+                </div>
+                <div class="glass-panel p-3 sm:p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Core Disciplines</span>
+                    <span class="font-display font-black text-xl sm:text-2xl text-slate-950 dark:text-white mt-0.5 block">
+                        4 <span class="text-xs font-normal text-slate-500">Curricula</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. TRAINING PROGRAMS SHOWCASE SECTION -->
+    <section id="programs" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#E5E3D8] dark:border-neutral-800 pb-4">
+            <div>
+                <span class="text-xs font-extrabold uppercase tracking-widest text-[#990303] dark:text-red-400 block mb-1">
+                    Discipline &bull; Technique &bull; Excellence
+                </span>
+                <h2 class="font-display font-extrabold text-2xl sm:text-3xl text-slate-950 dark:text-white uppercase tracking-tight">
+                    Training Programs
+                </h2>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md">
+                Carefully structured curricula balancing Olympic competitive readiness, traditional World Taekwondo technical forms, and youth character building.
+            </p>
+        </div>
+
+        <!-- 4 Core Programs Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+            {{range .Programs}}
+            <div class="glass-panel p-6 sm:p-7 rounded-2xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between group">
+                <div class="space-y-4">
+                    <!-- Card Top: Badge & Korean Calligraphy -->
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[11px] font-bold uppercase px-2.5 py-1 rounded-full border {{.BadgeClass}} tracking-wider">
+                            {{.Badge}}
+                        </span>
+                        <span class="font-display font-bold text-base sm:text-lg text-slate-400 dark:text-neutral-600 tracking-wider">
+                            {{.KoreanTitle}}
+                        </span>
+                    </div>
+
+                    <!-- Program Title & Tagline -->
+                    <div>
+                        <h3 class="font-display font-black text-xl sm:text-2xl text-slate-950 dark:text-white group-hover:text-[#990303] dark:group-hover:text-[#DC2626] transition-colors uppercase">
+                            {{.Title}}
+                        </h3>
+                        <p class="text-xs font-semibold text-[#990303] dark:text-red-400 mt-1 uppercase tracking-wide">
+                            {{.Tagline}}
+                        </p>
+                    </div>
+
+                    <!-- Description -->
+                    <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                        {{.Description}}
+                    </p>
+
+                    <!-- Key Focus Points Checklist -->
+                    <div class="pt-3 border-t border-[#E5E3D8] dark:border-neutral-800">
+                        <h4 class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Key Training Pillars:</h4>
+                        <ul class="space-y-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                            {{range .FocusPoints}}
+                            <li class="flex items-center gap-2">
+                                <span class="h-4 w-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">✓</span>
+                                <span>{{.}}</span>
+                            </li>
+                            {{end}}
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Card Action Footer -->
+                <div class="pt-5 mt-5 border-t border-[#E5E3D8] dark:border-neutral-800 flex items-center justify-between">
+                    <button type="button"
+                            onclick="filterScheduleProgram('{{.ID}}')"
+                            class="text-xs font-bold text-[#990303] dark:text-red-400 hover:underline flex items-center gap-1 cursor-pointer">
+                        <span>Filter in Schedule</span>
+                        <span aria-hidden="true">&darr;</span>
+                    </button>
+                    <a href="/register" class="btn btn-secondary btn-xs">
+                        Enroll in {{.Title}}
+                    </a>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </section>
+
+    <!-- 3. INTERACTIVE DOJANG SCHEDULE & LOCATIONS PREVIEW -->
+    <section id="schedule" class="space-y-6 scroll-mt-20">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#E5E3D8] dark:border-neutral-800 pb-4">
+            <div>
+                <span class="text-xs font-extrabold uppercase tracking-widest text-[#990303] dark:text-red-400 block mb-1">
+                    Live Mat Operations
+                </span>
+                <h2 class="font-display font-extrabold text-2xl sm:text-3xl text-slate-950 dark:text-white uppercase tracking-tight">
+                    Schedule &amp; Locations
+                </h2>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md">
+                Browse upcoming training sessions across all dojang branches or filter dynamically by discipline and training facility.
+            </p>
+        </div>
+
+        <!-- Locations Overview Strip -->
+        {{if .Locations}}
+        <div class="glass-panel p-4 sm:p-5 rounded-2xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span>📍</span> <span>Dojang Facilities &amp; Branch Venues</span>
+                </h3>
+                <span class="text-[11px] text-slate-500">{{len .Locations}} Active Branches</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {{range .Locations}}
+                <div class="p-3 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4] dark:bg-neutral-950 flex items-center justify-between gap-2 shadow-xs">
+                    <div class="min-w-0">
+                        <h4 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">{{.Name}}</h4>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block">Training Floor &bull; Mat Facility</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        {{if .HasValidPin}}
+                        <a href="{{.DisplayPin}}" target="_blank" rel="noopener noreferrer"
+                           title="Open in Google Maps"
+                           class="btn btn-secondary btn-xs inline-flex items-center gap-1">
+                            <span>Maps</span>
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        </a>
+                        {{end}}
+                        <button type="button"
+                                onclick="filterScheduleLocation('{{.ID}}', '{{.Name}}')"
+                                class="btn btn-outline btn-xs">
+                            Filter
+                        </button>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Interactive Filters Bar (HTMX Driven) -->
+        <div class="glass-panel p-4 rounded-xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <!-- Location Filter Tabs -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none" id="location-filters-row">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex-shrink-0">Branch:</span>
+                <button type="button"
+                        id="loc-tab-all"
+                        onclick="setScheduleFilter('location', 'all', this)"
+                        hx-get="/landing/schedule?location=all&type=all"
+                        hx-target="#landing-schedule-container"
+                        class="loc-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all bg-[#990303] text-white dark:bg-[#DC2626] flex-shrink-0 shadow-xs cursor-pointer">
+                    All Branches
+                </button>
+                {{range .Locations}}
+                <button type="button"
+                        id="loc-tab-{{.ID}}"
+                        onclick="setScheduleFilter('location', '{{.ID}}', this)"
+                        hx-get="/landing/schedule?location={{.ID}}&type=all"
+                        hx-target="#landing-schedule-container"
+                        class="loc-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-slate-300 flex-shrink-0 cursor-pointer">
+                    {{.Name}}
+                </button>
+                {{end}}
+            </div>
+
+            <!-- Training Type Filter Pills -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none" id="type-filters-row">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex-shrink-0">Discipline:</span>
+                <button type="button"
+                        id="type-tab-all"
+                        onclick="setScheduleFilter('type', 'all', this)"
+                        hx-get="/landing/schedule?location=all&type=all"
+                        hx-target="#landing-schedule-container"
+                        class="type-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all bg-slate-900 text-white dark:bg-neutral-100 dark:text-neutral-900 flex-shrink-0 shadow-xs cursor-pointer">
+                    All
+                </button>
+                <button type="button"
+                        id="type-tab-sparring"
+                        onclick="setScheduleFilter('type', 'Sparring', this)"
+                        hx-get="/landing/schedule?type=Sparring"
+                        hx-target="#landing-schedule-container"
+                        class="type-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-slate-300 flex-shrink-0 cursor-pointer">
+                    Sparring
+                </button>
+                <button type="button"
+                        id="type-tab-poomsae"
+                        onclick="setScheduleFilter('type', 'Poomsae', this)"
+                        hx-get="/landing/schedule?type=Poomsae"
+                        hx-target="#landing-schedule-container"
+                        class="type-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-slate-300 flex-shrink-0 cursor-pointer">
+                    Poomsae
+                </button>
+                <button type="button"
+                        id="type-tab-conditioning"
+                        onclick="setScheduleFilter('type', 'Conditioning', this)"
+                        hx-get="/landing/schedule?type=Conditioning"
+                        hx-target="#landing-schedule-container"
+                        class="type-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-slate-300 flex-shrink-0 cursor-pointer">
+                    Conditioning
+                </button>
+                <button type="button"
+                        id="type-tab-promotion"
+                        onclick="setScheduleFilter('type', 'Promotion Prep', this)"
+                        hx-get="/landing/schedule?type=Promotion+Prep"
+                        hx-target="#landing-schedule-container"
+                        class="type-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-slate-300 flex-shrink-0 cursor-pointer">
+                    Promotion Prep
+                </button>
+            </div>
+        </div>
+
+        <!-- Schedule Grid Container (HTMX Swapped) -->
+        <div id="landing-schedule-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{template "landing_schedule_grid.html" (dict "ScheduleItems" .ScheduleItems "SelectedLocation" .SelectedLocation "SelectedType" .SelectedType)}}
+        </div>
+    </section>
+
+    <!-- 4. OPERATIONS PORTAL ACCESS HUB -->
+    <section id="portals" class="space-y-6">
+        <div class="text-center max-w-2xl mx-auto space-y-2">
+            <span class="text-xs font-extrabold uppercase tracking-widest text-[#990303] dark:text-red-400 block">
+                Integrated Operations Portals
+            </span>
+            <h2 class="font-display font-extrabold text-2xl sm:text-3xl text-slate-950 dark:text-white uppercase tracking-tight">
+                Unified Dojang Management
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                A purpose-built operational platform connecting students, coaches on the mat, and dojang desk administrators in real-time.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <!-- Student & Parent Portal -->
+            <div class="glass-panel p-6 rounded-2xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 shadow-md flex flex-col justify-between hover:border-blue-500/40 transition">
+                <div class="space-y-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl font-black">
+                        🥋
+                    </div>
+                    <h3 class="font-display font-black text-lg text-slate-950 dark:text-white uppercase">
+                        Student &amp; Parent Portal
+                    </h3>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        View active class packages, instant QR check-in history, belt promotion eligibility badges, and comprehensive 6-factor athletic radar evaluations.
+                    </p>
+                </div>
+                <div class="pt-5 mt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <a href="/login?redirect=/portal/student" class="btn btn-secondary btn-sm w-full">
+                        Sign In as Student &rarr;
+                    </a>
+                </div>
+            </div>
+
+            <!-- Coach Floor Console -->
+            <div class="glass-panel p-6 rounded-2xl border border-[#990303]/30 dark:border-red-500/30 bg-white/80 dark:bg-neutral-900/80 shadow-lg flex flex-col justify-between hover:border-[#990303] dark:hover:border-red-500 transition relative">
+                <div class="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-[#990303] text-white text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                    Floor Console
+                </div>
+                <div class="space-y-3">
+                    <div class="w-10 h-10 rounded-xl bg-[#990303]/10 text-[#990303] dark:text-red-400 flex items-center justify-center text-xl font-black">
+                        ⏱️
+                    </div>
+                    <h3 class="font-display font-black text-lg text-slate-950 dark:text-white uppercase">
+                        Coach Floor Tablet
+                    </h3>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        Instant live floor check-in, real-time student radar evaluations, attendance management, safety injury flagging, and verified session logs.
+                    </p>
+                </div>
+                <div class="pt-5 mt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <a href="/login?redirect=/sessions" class="btn btn-primary btn-sm w-full">
+                        Coach Floor Sign In &rarr;
+                    </a>
+                </div>
+            </div>
+
+            <!-- Administration & Management Desk -->
+            <div class="glass-panel p-6 rounded-2xl border border-[#E5E3D8] dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 shadow-md flex flex-col justify-between hover:border-purple-500/40 transition">
+                <div class="space-y-3">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl font-black">
+                        🛡️
+                    </div>
+                    <h3 class="font-display font-black text-lg text-slate-950 dark:text-white uppercase">
+                        Dojang Administration
+                    </h3>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        Comprehensive timetable scheduling, membership pass templates, staff compensation audit logs, multi-branch operations, and RBAC control.
+                    </p>
+                </div>
+                <div class="pt-5 mt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <a href="/login?redirect=/dashboard" class="btn btn-secondary btn-sm w-full">
+                        Administrator Access &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. CALL TO ACTION / ENROLLMENT FOOTER BANNER -->
+    <section class="rounded-3xl p-8 sm:p-12 text-center bg-gradient-to-tr from-[#990303] via-[#850202] to-neutral-950 text-white shadow-2xl relative overflow-hidden border border-red-500/30">
+        <div class="relative z-10 max-w-2xl mx-auto space-y-4">
+            <span class="inline-block px-3 py-1 rounded-full bg-white/10 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider">
+                Begin Your Martial Arts Journey
+            </span>
+            <h2 class="font-display font-black text-2xl sm:text-4xl uppercase tracking-tight">
+                Ready to Step on the Mat?
+            </h2>
+            <p class="text-xs sm:text-sm text-red-100 font-medium leading-relaxed">
+                Whether you are training for international competition, building youth character and focus, or seeking peak physical conditioning, Series Taekwondo welcomes practitioners of all ages.
+            </p>
+            <div class="pt-3 flex flex-wrap items-center justify-center gap-3">
+                <a href="/register" class="btn bg-white hover:bg-slate-100 text-[#990303] font-display font-bold uppercase tracking-wider text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-lg">
+                    Register Online Now
+                </a>
+                <a href="/login" class="btn border border-white/40 hover:bg-white/10 text-white font-display font-bold uppercase tracking-wider text-xs sm:text-sm px-5 py-2.5 rounded-xl">
+                    Member Portal Sign In
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. FOOTER ATTRIBUTION -->
+    <footer class="pt-8 pb-4 border-t border-[#E5E3D8] dark:border-neutral-800 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
+        <div class="flex items-center space-x-2">
+            <div class="h-6 w-6 rounded-md bg-[#990303] text-white flex items-center justify-center font-display font-bold text-xs">
+                ST
+            </div>
+            <span class="font-display font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Series Taekwondo Management System
+            </span>
+        </div>
+        <div class="flex items-center space-x-4 font-semibold text-[11px]">
+            <a href="#programs" class="hover:text-black dark:hover:text-white transition">Programs</a>
+            <a href="#schedule" class="hover:text-black dark:hover:text-white transition">Schedule</a>
+            <a href="/register" class="hover:text-black dark:hover:text-white transition">Register</a>
+            <a href="/login" class="hover:text-black dark:hover:text-white transition">Portal Sign In</a>
+        </div>
+        <div class="text-[10px] text-slate-400">
+            &copy; Series Taekwondo. All rights reserved.
+        </div>
+    </footer>
+
+</div>
+
+<!-- Interactive Schedule Filtering State Script -->
+<script>
+    let activeLocation = 'all';
+    let activeType = 'all';
+
+    function setScheduleFilter(category, val, btnElem) {
+        if (category === 'location') {
+            activeLocation = val;
+            document.querySelectorAll('.loc-filter-btn').forEach(btn => {
+                btn.className = 'loc-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-slate-300 flex-shrink-0 cursor-pointer';
+            });
+            btnElem.className = 'loc-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all bg-[#990303] text-white dark:bg-[#DC2626] flex-shrink-0 shadow-xs cursor-pointer';
+        } else if (category === 'type') {
+            activeType = val;
+            document.querySelectorAll('.type-filter-btn').forEach(btn => {
+                btn.className = 'type-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-slate-300 flex-shrink-0 cursor-pointer';
+            });
+            btnElem.className = 'type-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all bg-slate-900 text-white dark:bg-neutral-100 dark:text-neutral-900 flex-shrink-0 shadow-xs cursor-pointer';
+        }
+
+        // Trigger dynamic HTMX request with combined filters
+        const url = '/landing/schedule?location=' + encodeURIComponent(activeLocation) + '&type=' + encodeURIComponent(activeType);
+        htmx.ajax('GET', url, { target: '#landing-schedule-container', swap: 'innerHTML' });
+    }
+
+    function filterScheduleLocation(locId, locName) {
+        const btn = document.getElementById('loc-tab-' + locId);
+        if (btn) {
+            setScheduleFilter('location', locId, btn);
+        }
+        const scheduleElem = document.getElementById('schedule');
+        if (scheduleElem) {
+            scheduleElem.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    function filterScheduleProgram(programId) {
+        let typeName = 'all';
+        if (programId === 'sparring') typeName = 'Sparring';
+        else if (programId === 'poomsae') typeName = 'Poomsae';
+        else if (programId === 'cadets') typeName = 'all';
+        else if (programId === 'conditioning') typeName = 'Conditioning';
+
+        const tabBtn = document.getElementById('type-tab-' + (programId === 'cadets' ? 'all' : programId));
+        if (tabBtn) {
+            setScheduleFilter('type', typeName, tabBtn);
+        }
+        const scheduleElem = document.getElementById('schedule');
+        if (scheduleElem) {
+            scheduleElem.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+</script>
+{{end}}

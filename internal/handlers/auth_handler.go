@@ -209,17 +209,8 @@ type LoginPageData struct {
 func (a *AppHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	user := GetUserFromContext(r.Context())
 	if user != nil {
-		switch user.Role {
-		case models.RoleOperationManager, models.RoleAdmin, models.RoleCoach:
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		case models.RoleStudent:
-			http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
-			return
-		default:
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		}
+		http.Redirect(w, r, user.RoleDashboardURL(), http.StatusSeeOther)
+		return
 	}
 
 	data := LoginPageData{
@@ -278,14 +269,7 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch user.Role {
-	case models.RoleOperationManager, models.RoleAdmin, models.RoleCoach:
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	case models.RoleStudent:
-		http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
-	default:
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	}
+	http.Redirect(w, r, user.RoleDashboardURL(), http.StatusSeeOther)
 }
 
 func (a *AppHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {

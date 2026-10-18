@@ -169,8 +169,11 @@ func main() {
 	mux.HandleFunc("PUT /api/admin/schedule", app.RequireRole(models.RoleOperationManager)(app.HandleAPIAdminSchedule))
 	mux.HandleFunc("POST /api/admin/promote", app.RequireRole(models.RoleOperationManager)(app.HandleAPIAdminPromote))
 
+	// Public Landing Page & Interactive Schedule
+	mux.HandleFunc("GET /", app.HandleLandingPage)
+	mux.HandleFunc("GET /landing/schedule", app.HandleLandingSchedule)
+
 	// Dashboard (Customized Dashboards for Operation Manager, Coach & Admin)
-	mux.HandleFunc("GET /", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
 	mux.HandleFunc("GET /dashboard", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
 	mux.HandleFunc("GET /dashboard/", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
 
