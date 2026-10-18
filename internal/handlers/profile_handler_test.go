@@ -94,8 +94,8 @@ func TestProfileHandler_StudentFlow(t *testing.T) {
 	if !strings.Contains(body, "SERIES TAEKWONDO") {
 		t.Errorf("expected 'SERIES TAEKWONDO' brand title in navbar")
 	}
-	if !strings.Contains(body, "Students") {
-		t.Errorf("expected 'Students' role badge in navbar")
+	if !strings.Contains(body, "Student") {
+		t.Errorf("expected 'Student' role badge in navbar")
 	}
 	// Verify student navbar menu item is removed (should not contain center nav link for student)
 	if strings.Contains(body, ">My Profile</a>") {

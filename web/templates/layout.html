@@ -66,7 +66,7 @@
                             {{else if $user.IsCoach}}bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30
                             {{else}}bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30{{end}}">
                             {{if $user.IsOperationManager}}Manager{{else if $user.IsAdmin}}Admin{{else if
-                            $user.IsCoach}}Coach{{else if $user.IsStudent}}Students{{end}}
+                            $user.IsCoach}}Coach{{else if $user.IsStudent}}Student{{end}}
                         </span>
                         {{else}}
                         <span

@@ -1,5 +1,5 @@
 // Series Taekwondo Management System (STMS) - Progressive Web App Service Worker
-const CACHE_VERSION = 'stms-v5';
+const CACHE_VERSION = 'stms-v6';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 const PRECACHE_ASSETS = [

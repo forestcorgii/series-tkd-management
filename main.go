@@ -310,10 +310,10 @@ func main() {
 	log.Printf("🥋 Series Taekwondo Management System (STMS) Server Started")
 	log.Printf("📍 Listening on http://localhost:%s", port)
 	log.Printf("🛡️  RBAC Engine Online: Student, Coach & Admin Portals Activated")
-	log.Printf("⚡ Gzip Compression & Database Indexing Engine Online")
+	log.Printf("🔒 HTTPS Redirection & HSTS Engine Online")
 	log.Printf("=========================================================")
 
-	handler := handlers.GzipMiddleware(app.AuthMiddleware(mux))
+	handler := handlers.HTTPSRedirectMiddleware(handlers.GzipMiddleware(app.AuthMiddleware(mux)))
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}

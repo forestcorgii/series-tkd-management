@@ -28,3 +28,15 @@
   - **Distribution**: Precompiled minified output is committed at [`web/static/css/tailwind.css`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/tailwind.css) and served via HTTP with `Cache-Control: public, max-age=86400`.
   - **Layout & PWA**: [`web/templates/layout.html`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html) links directly to `/static/css/tailwind.css`, and [`web/static/sw.js`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/sw.js) precaches the stylesheet under `PRECACHE_ASSETS`.
 
+### Context: Automatic HTTPS Redirection & HSTS Enforcement
+
+- **Problem**:
+  - When deployed behind reverse proxies (e.g. Railway edge proxies, AWS ALB, Cloudflare), incoming plain HTTP traffic must be automatically redirected to HTTPS without breaking local development on `localhost` or downgrading state-changing HTTP methods (`POST`, `PUT`, `DELETE`).
+- **Enforced Solution**:
+  - **Middleware**: [`internal/handlers/https_redirect_middleware.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/https_redirect_middleware.go) wraps the root handler in [`main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/main.go) and [`cmd/server/main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/cmd/server/main.go).
+  - **Protocol Detection**: Checks `r.TLS != nil`, `X-Forwarded-Proto` (supporting comma-separated lists), `X-Forwarded-SSL`, and `Front-End-Https`.
+  - **Status Codes**: Returns HTTP `301 Moved Permanently` for idempotent `GET`/`HEAD` requests, and HTTP `308 Permanent Redirect` (RFC 7538) for `POST`/`PUT`/`DELETE` requests to preserve payload bodies and HTTP verbs.
+  - **HSTS Headers**: Automatically sets `Strict-Transport-Security: max-age=31536000; includeSubDomains` on HTTPS responses for non-loopback hosts.
+  - **Localhost & Override Exemption**: Requests on `localhost`, `127.0.0.1`, `[::1]`, or with `DISABLE_HTTPS_REDIRECT=true` bypass redirection to permit local testing without SSL certificates.
+  - **Session Cookie Security**: [`internal/handlers/auth_handler.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/auth_handler.go) sets `Secure: IsHTTPS(r)` on session cookies, ensuring cookies are encrypted in transit over HTTPS.
+

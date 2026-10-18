@@ -266,6 +266,7 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   IsHTTPS(r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   7 * 24 * 3600,
 	})
@@ -300,6 +301,7 @@ func (a *AppHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   IsHTTPS(r),
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})
@@ -356,6 +358,7 @@ func (a *AppHandler) HandleAPILogin(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   IsHTTPS(r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   7 * 24 * 3600,
 	})
@@ -394,6 +397,7 @@ func (a *AppHandler) HandleAPILogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   IsHTTPS(r),
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})
