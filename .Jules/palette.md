@@ -1,0 +1,3 @@
+## 2026-10-18 - Keyboard Navigation & Skip Links in Go/HTMX Templates
+**Learning:** In sticky-header web applications, keyboard and screen reader users must tab through all navigation items and controls before reaching main content. Adding a visually hidden "Skip to main content" link at the top of layout.html that reveals on focus (`sr-only focus:not-sr-only`) targeting `<main id="main-content" tabindex="-1">` dramatically improves keyboard accessibility without cluttering visual design.
+**Action:** Always include a skip-to-content link in base HTML layouts and pair it with `tabindex="-1"` on `<main>` so target focus shifts cleanly.
