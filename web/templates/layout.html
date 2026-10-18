@@ -46,6 +46,12 @@
 
 <body hx-boost="true"
     class="h-full flex flex-col font-sans antialiased bg-[#FFFDF4] text-[#000000] dark:bg-[#000000] dark:text-[#FFFDF4] transition-colors duration-200 overflow-x-hidden w-full max-w-full">
+    <!-- Skip to Main Content Link for Accessibility -->
+    <a href="#main-content"
+        class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[#990303] focus:text-white focus:font-bold focus:rounded-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2">
+        Skip to main content
+    </a>
+
     <!-- Top Navigation Header -->
     <header class="sticky top-0 z-50 glass-panel border-b border-[#E5E3D8] dark:border-neutral-800 px-3 sm:px-5 py-2 w-full max-w-full">
         {{$user := currentUser .}}
@@ -288,7 +294,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-5 py-3 sm:py-4 pb-16 lg:pb-4 min-w-0">
+    <main id="main-content" tabindex="-1" class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-5 py-3 sm:py-4 pb-16 lg:pb-4 min-w-0 focus:outline-none">
         {{block "content" .}}{{end}}
     </main>
 
