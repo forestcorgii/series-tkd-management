@@ -115,6 +115,18 @@ func TestHTTPSRedirectMiddleware_PassesThroughWhenAlreadyHTTPS(t *testing.T) {
 	if hsts := rec.Header().Get("Strict-Transport-Security"); hsts == "" {
 		t.Errorf("expected Strict-Transport-Security header to be set on HTTPS responses")
 	}
+	if csp := rec.Header().Get("Content-Security-Policy"); csp != "upgrade-insecure-requests" {
+		t.Errorf("expected Content-Security-Policy: upgrade-insecure-requests, got %q", csp)
+	}
+	if xcto := rec.Header().Get("X-Content-Type-Options"); xcto != "nosniff" {
+		t.Errorf("expected X-Content-Type-Options: nosniff, got %q", xcto)
+	}
+	if xfo := rec.Header().Get("X-Frame-Options"); xfo != "SAMEORIGIN" {
+		t.Errorf("expected X-Frame-Options: SAMEORIGIN, got %q", xfo)
+	}
+	if ref := rec.Header().Get("Referrer-Policy"); ref != "strict-origin-when-cross-origin" {
+		t.Errorf("expected Referrer-Policy: strict-origin-when-cross-origin, got %q", ref)
+	}
 
 	// Case B: direct TLS connection
 	innerCalled = false
@@ -133,6 +145,9 @@ func TestHTTPSRedirectMiddleware_PassesThroughWhenAlreadyHTTPS(t *testing.T) {
 	}
 	if hsts := recTLS.Header().Get("Strict-Transport-Security"); hsts == "" {
 		t.Errorf("expected Strict-Transport-Security header on TLS response")
+	}
+	if csp := recTLS.Header().Get("Content-Security-Policy"); csp != "upgrade-insecure-requests" {
+		t.Errorf("expected Content-Security-Policy: upgrade-insecure-requests on TLS response, got %q", csp)
 	}
 }
 

@@ -56,9 +56,13 @@ func HTTPSRedirectMiddleware(next http.Handler) http.Handler {
 		}
 
 		if IsHTTPS(r) {
-			// Request is already HTTPS; enforce HSTS header if not localhost
+			// Request is already HTTPS; enforce HSTS and security headers if not localhost
 			if !isLocalhostAddress(r.Host) {
-				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+				w.Header().Set("Content-Security-Policy", "upgrade-insecure-requests")
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+				w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 			}
 			next.ServeHTTP(w, r)
 			return

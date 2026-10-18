@@ -98,7 +98,14 @@ func (s *S3Storage) Upload(ctx context.Context, key string, data io.Reader, cont
 
 	// Determine public URL
 	if s.cfg.PublicURL != "" {
-		return fmt.Sprintf("%s/%s", strings.TrimRight(s.cfg.PublicURL, "/"), cleanKey), nil
+		pub := s.cfg.PublicURL
+		if strings.HasPrefix(pub, "http://") {
+			trimmed := strings.TrimPrefix(pub, "http://")
+			if !strings.HasPrefix(trimmed, "localhost") && !strings.HasPrefix(trimmed, "127.0.0.1") {
+				pub = "https://" + trimmed
+			}
+		}
+		return fmt.Sprintf("%s/%s", strings.TrimRight(pub, "/"), cleanKey), nil
 	}
 
 	// Railway Buckets are private S3-compatible buckets with no public URL by default.
