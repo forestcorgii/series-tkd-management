@@ -48,6 +48,12 @@
 
 <body hx-boost="true"
     class="h-full flex flex-col font-sans antialiased bg-[#FFFDF4] text-[#000000] dark:bg-[#000000] dark:text-[#FFFDF4] transition-colors duration-200 overflow-x-hidden w-full max-w-full">
+    <!-- Skip to main content link for keyboard & screen reader accessibility -->
+    <a href="#main-content"
+       class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-2.5 focus:bg-[#990303] focus:text-white focus:font-bold focus:text-xs focus:rounded-xl focus:shadow-2xl focus:outline-none focus:ring-2 focus:ring-amber-400 transition">
+        Skip to main content &darr;
+    </a>
+
     <!-- Top Navigation Header -->
     <header class="sticky top-0 z-50 glass-panel border-b border-[#E5E3D8] dark:border-neutral-800 px-3 sm:px-5 py-2 w-full max-w-full">
         {{$user := currentUser .}}
@@ -157,6 +163,8 @@
                     <button type="button" id="notif-bell-btn" onclick="toggleNotifDropdown(event)"
                         title="Notifications Center"
                         aria-label="View notifications"
+                        aria-haspopup="true"
+                        aria-expanded="false"
                         class="relative p-1.5 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition flex items-center justify-center cursor-pointer">
                         <svg class="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -297,7 +305,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-5 py-3 sm:py-4 pb-16 lg:pb-4 min-w-0">
+    <main id="main-content" tabindex="-1" class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-5 py-3 sm:py-4 pb-16 lg:pb-4 min-w-0 outline-hidden">
         {{block "content" .}}{{end}}
     </main>
 
@@ -944,14 +952,17 @@
             if (event) event.stopPropagation();
             const dropdown = document.getElementById('profile-menu-dropdown');
             const chevron = document.getElementById('profile-menu-chevron');
+            const btn = document.getElementById('profile-menu-button');
             if (!dropdown) return;
             const isHidden = dropdown.classList.contains('hidden');
             if (isHidden) {
                 dropdown.classList.remove('hidden');
                 if (chevron) chevron.classList.add('rotate-180');
+                if (btn) btn.setAttribute('aria-expanded', 'true');
             } else {
                 dropdown.classList.add('hidden');
                 if (chevron) chevron.classList.remove('rotate-180');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
             }
         }
 
@@ -959,18 +970,22 @@
             const container = document.getElementById('profile-dropdown-container');
             const dropdown = document.getElementById('profile-menu-dropdown');
             const chevron = document.getElementById('profile-menu-chevron');
+            const profileBtn = document.getElementById('profile-menu-button');
             if (dropdown && !dropdown.classList.contains('hidden')) {
                 if (container && !container.contains(event.target)) {
                     dropdown.classList.add('hidden');
                     if (chevron) chevron.classList.remove('rotate-180');
+                    if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
                 }
             }
 
             const notifContainer = document.getElementById('notifications-center-container');
             const notifPopover = document.getElementById('notif-dropdown-popover');
+            const notifBtn = document.getElementById('notif-bell-btn');
             if (notifPopover && !notifPopover.classList.contains('hidden')) {
                 if (notifContainer && !notifContainer.contains(event.target)) {
                     notifPopover.classList.add('hidden');
+                    if (notifBtn) notifBtn.setAttribute('aria-expanded', 'false');
                 }
             }
         });
@@ -978,13 +993,16 @@
         function toggleNotifDropdown(event) {
             if (event) event.stopPropagation();
             const popover = document.getElementById('notif-dropdown-popover');
+            const btn = document.getElementById('notif-bell-btn');
             if (!popover) return;
             const isHidden = popover.classList.contains('hidden');
             if (isHidden) {
                 popover.classList.remove('hidden');
+                if (btn) btn.setAttribute('aria-expanded', 'true');
                 htmx.ajax('GET', '/api/notifications/dropdown', { target: '#notif-dropdown-popover', swap: 'innerHTML' });
             } else {
                 popover.classList.add('hidden');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
             }
         }
 
