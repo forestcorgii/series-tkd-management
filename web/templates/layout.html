@@ -1198,6 +1198,27 @@
         document.body.addEventListener('htmx:sendError', () => {
             syncOnlineStatus();
         });
+
+        // --- STMS Accessible Password Visibility Toggle Engine ---
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input || !btn) return;
+            const eyeIcon = btn.querySelector('.icon-eye');
+            const eyeOffIcon = btn.querySelector('.icon-eye-off');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.setAttribute('aria-label', 'Hide password');
+                btn.setAttribute('title', 'Hide password');
+                if (eyeIcon) eyeIcon.classList.add('hidden');
+                if (eyeOffIcon) eyeOffIcon.classList.remove('hidden');
+            } else {
+                input.type = 'password';
+                btn.setAttribute('aria-label', 'Show password');
+                btn.setAttribute('title', 'Show password');
+                if (eyeIcon) eyeIcon.classList.remove('hidden');
+                if (eyeOffIcon) eyeOffIcon.classList.add('hidden');
+            }
+        }
     </script>
 
     <!-- Floating PWA Offline Alert -->
