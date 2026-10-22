@@ -7,3 +7,6 @@ out.exe
 web/static/uploads/*
 !web/static/uploads/.gitkeep
 node_modules/
+playwright-report/
+test-results/
+blob-report/

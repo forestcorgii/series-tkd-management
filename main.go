@@ -35,6 +35,7 @@ func main() {
 		managerUser := &models.User{
 			ID:          uuid.New(),
 			Email:       managerEmail,
+			Username:    "manager",
 			Role:        models.RoleOperationManager,
 			IsActive:    true,
 			DisplayName: "Operation Manager",
@@ -58,6 +59,7 @@ func main() {
 		adminUser := &models.User{
 			ID:          uuid.New(),
 			Email:       adminEmail,
+			Username:    "admin",
 			Role:        models.RoleAdmin,
 			IsActive:    true,
 			DisplayName: "Dojang Administrator",
@@ -274,6 +276,7 @@ func main() {
 	mux.HandleFunc("GET /sessions/{id}/search-student", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSearchStudent))
 	mux.HandleFunc("POST /sessions/{id}/search-student", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleSearchStudent))
 	mux.HandleFunc("POST /sessions/{id}/checkin/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCheckIn))
+	mux.HandleFunc("POST /sessions/{id}/checkin-attendee", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleCheckInAttendee))
 	mux.HandleFunc("POST /sessions/{id}/attendance/{student_id}/remove", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
 	mux.HandleFunc("DELETE /sessions/{id}/attendance/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
 	mux.HandleFunc("POST /sessions/{id}/remove/{student_id}", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleRemoveAttendance))
