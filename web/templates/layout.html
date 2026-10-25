@@ -48,6 +48,12 @@
 
 <body hx-boost="true"
     class="h-full flex flex-col font-sans antialiased bg-[#FFFDF4] text-[#000000] dark:bg-[#000000] dark:text-[#FFFDF4] transition-colors duration-200 overflow-x-hidden w-full max-w-full">
+    <!-- Skip to main content link for keyboard & screen reader accessibility -->
+    <a href="#main-content"
+        class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-3.5 focus:py-2 focus:bg-[#990303] focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none font-bold text-xs">
+        Skip to main content
+    </a>
+
     <!-- Top Navigation Header -->
     <header class="sticky top-0 z-50 glass-panel border-b border-[#E5E3D8] dark:border-neutral-800 px-3 sm:px-5 py-2 w-full max-w-full">
         {{$user := currentUser .}}
@@ -157,6 +163,9 @@
                     <button type="button" id="notif-bell-btn" onclick="toggleNotifDropdown(event)"
                         title="Notifications Center"
                         aria-label="View notifications"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-controls="notif-dropdown-popover"
                         class="relative p-1.5 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition flex items-center justify-center cursor-pointer">
                         <svg class="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -179,6 +188,7 @@
                         title="User Menu & Settings"
                         aria-expanded="false"
                         aria-haspopup="true"
+                        aria-controls="profile-menu-dropdown"
                         class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-neutral-100 hover:bg-[#F4F1E4] dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-[#E5E3D8] dark:border-neutral-800 transition text-xs shadow-xs cursor-pointer select-none">
                         <div class="h-5 w-5 rounded-md overflow-hidden bg-gradient-to-tr from-[#990303] to-[#7D0202] text-white flex items-center justify-center flex-shrink-0 shadow-xs border border-red-500/30">
                             {{if $user.ProfilePictureURL}}
@@ -280,6 +290,7 @@
                 </div>
                 <!-- Mobile Menu Hamburger Button -->
                 <button type="button" id="mobile-menu-btn" onclick="toggleMobileDrawer(true)" aria-label="Open Navigation Menu"
+                    aria-expanded="false" aria-controls="mobile-nav-panel"
                     class="lg:hidden p-1.5 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition flex items-center justify-center">
                     <svg class="w-4 h-4 text-slate-700 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -297,7 +308,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-5 py-3 sm:py-4 pb-16 lg:pb-4 min-w-0">
+    <main id="main-content" class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-5 py-3 sm:py-4 pb-16 lg:pb-4 min-w-0">
         {{block "content" .}}{{end}}
     </main>
 
@@ -529,6 +540,7 @@
             const drawer = document.getElementById('mobile-nav-drawer');
             const backdrop = document.getElementById('mobile-nav-backdrop');
             const panel = document.getElementById('mobile-nav-panel');
+            const btn = document.getElementById('mobile-menu-btn');
             if (!drawer || !backdrop || !panel) return;
             if (open) {
                 drawer.classList.remove('pointer-events-none');
@@ -536,12 +548,14 @@
                 backdrop.classList.add('pointer-events-auto', 'opacity-100');
                 panel.classList.remove('translate-x-full');
                 panel.classList.add('translate-x-0');
+                if (btn) btn.setAttribute('aria-expanded', 'true');
                 document.body.style.overflow = 'hidden';
             } else {
                 backdrop.classList.remove('pointer-events-auto', 'opacity-100');
                 backdrop.classList.add('pointer-events-none', 'opacity-0');
                 panel.classList.remove('translate-x-0');
                 panel.classList.add('translate-x-full');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
                 setTimeout(() => {
                     drawer.classList.add('pointer-events-none');
                     document.body.style.overflow = '';
@@ -944,14 +958,17 @@
             if (event) event.stopPropagation();
             const dropdown = document.getElementById('profile-menu-dropdown');
             const chevron = document.getElementById('profile-menu-chevron');
+            const btn = document.getElementById('profile-menu-button');
             if (!dropdown) return;
             const isHidden = dropdown.classList.contains('hidden');
             if (isHidden) {
                 dropdown.classList.remove('hidden');
                 if (chevron) chevron.classList.add('rotate-180');
+                if (btn) btn.setAttribute('aria-expanded', 'true');
             } else {
                 dropdown.classList.add('hidden');
                 if (chevron) chevron.classList.remove('rotate-180');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
             }
         }
 
@@ -963,6 +980,8 @@
                 if (container && !container.contains(event.target)) {
                     dropdown.classList.add('hidden');
                     if (chevron) chevron.classList.remove('rotate-180');
+                    const btn = document.getElementById('profile-menu-button');
+                    if (btn) btn.setAttribute('aria-expanded', 'false');
                 }
             }
 
@@ -971,6 +990,8 @@
             if (notifPopover && !notifPopover.classList.contains('hidden')) {
                 if (notifContainer && !notifContainer.contains(event.target)) {
                     notifPopover.classList.add('hidden');
+                    const notifBtn = document.getElementById('notif-bell-btn');
+                    if (notifBtn) notifBtn.setAttribute('aria-expanded', 'false');
                 }
             }
         });
@@ -978,13 +999,16 @@
         function toggleNotifDropdown(event) {
             if (event) event.stopPropagation();
             const popover = document.getElementById('notif-dropdown-popover');
+            const btn = document.getElementById('notif-bell-btn');
             if (!popover) return;
             const isHidden = popover.classList.contains('hidden');
             if (isHidden) {
                 popover.classList.remove('hidden');
+                if (btn) btn.setAttribute('aria-expanded', 'true');
                 htmx.ajax('GET', '/api/notifications/dropdown', { target: '#notif-dropdown-popover', swap: 'innerHTML' });
             } else {
                 popover.classList.add('hidden');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
             }
         }
 
