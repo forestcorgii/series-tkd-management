@@ -95,7 +95,7 @@
             {{$user := currentUser $}}
             {{if and $user $user.IsOperationManager}}
             <form action="/students/{{.Student.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete student {{.Student.FullName}}? All associated records will be deleted.');">
-                <button type="submit" class="btn btn-secondary btn-xs py-0.5 px-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40" title="Delete Student">
+                <button type="submit" class="btn btn-secondary btn-xs py-0.5 px-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40" title="Delete Student" aria-label="Delete student {{.Student.FullName}}">
                     🗑️
                 </button>
             </form>
