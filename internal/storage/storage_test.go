@@ -255,4 +255,26 @@ func TestNewStorageFromEnv_S3Configuration(t *testing.T) {
 	}
 }
 
+func TestGetFirstEnv_SanitizationAndRailwayAliases(t *testing.T) {
+	// Test quotes trimming and whitespace stripping
+	os.Setenv("TEST_S3_KEY", "  \"clean-value\"  ")
+	defer os.Unsetenv("TEST_S3_KEY")
+
+	got := getFirstEnv("TEST_S3_KEY")
+	if got != "clean-value" {
+		t.Errorf("expected clean-value, got %q", got)
+	}
+
+	// Test unresolved Railway reference is skipped
+	os.Setenv("TEST_UNRESOLVED", "${{ bucket.BUCKET_NAME }}")
+	os.Setenv("TEST_FALLBACK", "resolved-fallback")
+	defer os.Unsetenv("TEST_UNRESOLVED")
+	defer os.Unsetenv("TEST_FALLBACK")
+
+	resolved := getFirstEnv("TEST_UNRESOLVED", "TEST_FALLBACK")
+	if resolved != "resolved-fallback" {
+		t.Errorf("expected unresolved reference to be skipped and fallback returned, got %q", resolved)
+	}
+}
+
 

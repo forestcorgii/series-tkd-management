@@ -64,3 +64,23 @@
      - Target URL: `https://{bucket}.{endpoint_host}/{key}`.
   2. Automatic Fallback to Path-Style:
      - Only activated if the host is `localhost`, an IP address (e.g. `127.0.0.1:9000`), or if `FORCE_PATH_STYLE=true` is explicitly set.
+
+### Context: Railway Storage Bucket Variable Reference Mapping & Local Fallback
+
+* **Problem**:
+  1. **Image saves successfully in UI but does not appear in Railway Bucket**:
+     When the web application service lacks S3 credentials (`BUCKET`, `ACCESS_KEY_ID`, or `SECRET_ACCESS_KEY`), `storage.NewStorageFromEnv()` automatically falls back to `storage.LocalStorage`. Uploads succeed without error and save under `web/static/uploads/avatars/` on the ephemeral container disk, leaving the bucket empty.
+  2. **`NoSuchBucket` on Railway variable references**:
+     Railway's Storage Bucket service defines the bucket name variable as **`BUCKET`** (not `BUCKET_NAME`). Referencing `${{ bucket.BUCKET_NAME }}` fails to resolve, and Railway passes the literal string `"${{ bucket.BUCKET_NAME }}"` as the bucket name to Tigris/S3, triggering `NoSuchBucket`.
+
+* **Enforced Solution**:
+  1. Map the bucket's generated variables in your **Web Application Service** (Variables tab) using Railway's reference syntax (replace `bucket` with your actual bucket service name on the Railway canvas):
+     - `BUCKET` = `${{ bucket.BUCKET }}`  *(or `BUCKET_NAME=${{ bucket.BUCKET }}`)*
+     - `ACCESS_KEY_ID` = `${{ bucket.ACCESS_KEY_ID }}`
+     - `SECRET_ACCESS_KEY` = `${{ bucket.SECRET_ACCESS_KEY }}`
+     - `ENDPOINT` = `${{ bucket.ENDPOINT }}`
+     - `REGION` = `${{ bucket.REGION }}`
+  2. In `internal/storage/storage.go`:
+     - `getFirstEnv` strips surrounding quotes and whitespace, and detects unresolved Railway template references (`${{ ... }}`) to prevent invalid bucket queries.
+     - Logs explicit startup warnings when partial credentials are provided or when falling back to local storage in Railway.
+
