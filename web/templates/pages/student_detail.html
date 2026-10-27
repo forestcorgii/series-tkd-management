@@ -337,7 +337,7 @@
                 <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Edit Student Information</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400">Personal &amp; emergency contact records</p>
             </div>
-            <button type="button" onclick="document.getElementById('edit-student-modal').classList.add('hidden')" class="modal-close">&times;</button>
+            <button type="button" onclick="document.getElementById('edit-student-modal').classList.add('hidden')" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form action="/students/{{.Student.ID}}" method="POST" class="space-y-4">
             <div>

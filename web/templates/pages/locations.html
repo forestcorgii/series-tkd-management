@@ -196,7 +196,7 @@
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <span>📍</span> Add Training Location
             </h3>
-            <button type="button" onclick="closeNewLocationModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeNewLocationModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form action="/locations" method="POST" class="space-y-4">
             <div>
@@ -256,7 +256,7 @@
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <span>✏️</span> Edit Training Location
             </h3>
-            <button type="button" onclick="closeEditLocationModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeEditLocationModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form id="edit-location-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div>
@@ -318,7 +318,7 @@
             <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
                 <span>⚠️</span> Delete Location
             </h3>
-            <button type="button" onclick="closeDeleteLocationModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeDeleteLocationModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form id="delete-location-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">

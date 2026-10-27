@@ -129,7 +129,7 @@
     <div class="modal-dialog modal-dialog-scrollable max-w-lg">
         <div class="modal-header">
             <h3 id="new-modal-header-title" class="font-display font-bold text-lg text-slate-900 dark:text-white">Schedule Calendar Item</h3>
-            <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" class="modal-close">&times;</button>
+            <button type="button" onclick="document.getElementById('new-session-modal').classList.add('hidden')" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
 
         <!-- Segmented Type Switcher -->
@@ -307,7 +307,7 @@
             <h3 id="edit-modal-header-title" class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <span>✏️</span> Edit Training Class / Schedule Item
             </h3>
-            <button type="button" onclick="closeEditModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeEditModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
 
         <!-- Segmented Type Switcher -->
@@ -492,7 +492,7 @@
             <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
                 <span>🗑️</span> Delete Training Class
             </h3>
-            <button type="button" onclick="closeDeleteModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeDeleteModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form id="delete-session-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
@@ -518,7 +518,7 @@
             <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
                 <span>⚠️</span> Cancel Training Class
             </h3>
-            <button type="button" onclick="closeCancelModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeCancelModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form id="cancel-session-form" method="POST" action="" hx-boost="false" class="space-y-4">
             <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1">
@@ -572,7 +572,7 @@
                     Upcoming
                 </span>
             </div>
-            <button type="button" onclick="closeClassInfoModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeClassInfoModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
 
         <div class="modal-body">

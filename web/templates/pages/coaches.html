@@ -264,7 +264,7 @@
                     <p class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{{.Coach.BeltRank}}</p>
                 </div>
             </div>
-            <button onclick="closeCoachModal('coach-modal-{{.Coach.ID}}')" class="modal-close">&times;</button>
+            <button onclick="closeCoachModal('coach-modal-{{.Coach.ID}}')" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
 
         <div class="space-y-4 pt-2">
@@ -412,7 +412,7 @@
     <div class="modal-dialog">
         <div class="modal-header">
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Create Coach Profile</h3>
-            <button onclick="document.getElementById('new-coach-modal').classList.add('hidden')" class="modal-close">&times;</button>
+            <button onclick="document.getElementById('new-coach-modal').classList.add('hidden')" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form action="/coaches" method="POST" class="space-y-4">
             <div>
