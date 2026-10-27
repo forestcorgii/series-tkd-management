@@ -235,7 +235,7 @@
             <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
                 <span>⚠️</span> Cancel Training Class
             </h3>
-            <button type="button" onclick="document.getElementById('cancel-session-modal').classList.add('hidden')" class="modal-close">&times;</button>
+            <button type="button" onclick="document.getElementById('cancel-session-modal').classList.add('hidden')" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form action="/sessions/{{.Session.ID}}/cancel" method="POST" class="space-y-4">
             <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1">
@@ -284,7 +284,7 @@
             <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <span>✏️</span> Edit Training Class
             </h3>
-            <button type="button" onclick="closeEditModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeEditModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form id="edit-session-form" method="POST" action="/sessions/{{.Session.ID}}/edit" class="flex flex-col flex-1 min-h-0 overflow-hidden">
             <input type="hidden" name="redirect_url" value="/sessions/{{.Session.ID}}/live">
@@ -395,7 +395,7 @@
             <h3 class="font-display font-bold text-lg text-rose-600 dark:text-rose-400 flex items-center gap-2">
                 <span>🗑️</span> Delete Training Class
             </h3>
-            <button type="button" onclick="closeDeleteModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeDeleteModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
         <form id="delete-session-form" method="POST" action="/sessions/{{.Session.ID}}/delete" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
