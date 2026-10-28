@@ -1,15 +1,41 @@
-# Reference Documentation Index
+# Reference Documentation Index & Tier 3 Context Router
 
-## Map of Contents
-- [Go HTML Template Parsing & Layout Isolation](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/templates.md)
-- [Deployment & Build Configuration](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/deployment.md)
-- [UI Design Tokens & Contrast Patterns](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/ui-design-tokens.md)
-- [Database & Persistence Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/database.md)
-- [Authentication & Multi-Role RBAC Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/auth-rbac.md)
-- [Testing & Verification Operations](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/testing-operations.md)
-- [UI & Operations Terminology Standards](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/terminology-standards.md)
-- [Performance Standards & Optimization Patterns](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/performance.md)
-- [Multi-Channel Notifications Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/notifications.md)
-- [PWA & Offline Resilience Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/pwa-mobile-offline.md)
-- [Profile Picture & Railway Bucket Storage Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/profile-picture-storage.md)
+Use the routing table below to jump directly to the single reference file needed for your task—do not read unrelated reference files.
 
+## 1. Domain & Keyword Routing Matrix (Map of Contents)
+
+| Reference File | Trigger Keywords / Routes | Core Topics & Invariants Covered |
+| :--- | :--- | :--- |
+| [Authentication & Multi-Role RBAC](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/auth-rbac.md) | `auth`, `login`, `register`, `roles`, `permissions`, `portal`, `/admins`, `/coaches`, `/logs`, `/dashboard`, `/` | Two-Tier User (`STUDENT` / `STAFF`) + Custom `StaffRole`s; 4-Role matrix (`OPERATION_MANAGER`, `ADMIN`, `COACH`, `STUDENT`); `currentUser` template helper; cascade deletions (`DeleteCoach`, `DeleteStudent`); `/logs` audit trail; public landing `GET /` vs `/dashboard`. |
+| [UI Design Tokens & Contrast Patterns](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/ui-design-tokens.md) | `UI`, `UX`, `Tailwind`, `CSS`, `buttons`, `modals`, `tables`, `calendar`, `uppercase`, `tooltips`, `mobile` | Series Crimson (`#990303` / `#DC2626`) & Cream (`#FFFDF4`) palette; light-mode contrast (`text-slate-600`); `.btn-*`, `.kpi-strip`, `.table-compact`, `.modal-dialog-scrollable`; `<h1 class="sr-only">`; global uppercase engine & `.no-uppercase` opt-out; 7-day calendar grid (`64px repeat(7, 1fr)`). |
+| [HTMX Interaction & UX Patterns](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/htmx-ux-patterns.md) | `HTMX`, `hx-boost`, `HX-Request`, `partials`, `modals`, `attendanceUpdated`, `searchable-select`, `drag-and-drop` | `HX-Request == "true" && HX-Boosted != "true"` partial check; dynamic JS modal form hazard (`hx-boost="false" hx-disable="true"`); `HX-Trigger: attendanceUpdated` multi-widget sync; `.searchable-select` event isolation; calendar drag-and-drop rescheduling. |
+| [Go HTML Template Parsing & Isolation](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/templates.md) | `templates`, `RenderPage`, `RenderPartial`, `layout.html`, `formatCurrency`, `FuncMap` | `baseTmpl.Clone()` per-page block isolation; mandatory `{{define "<filename>.html"}}` wrapper in `web/templates/partials/*.html`; `{{formatCurrency ...}}` for pointer float fields (`*float64`). |
+| [Database & Persistence Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/database.md) | `SQL`, `PostgreSQL`, `SQLite`, `SQLStore`, `MemoryStore`, `migrations`, `attendance`, `session_rate`, `locations` | Dual Postgres/SQLite engine (`$1` args); strict boolean `COALESCE(col, FALSE)`; batch N+1 prevention (`GetAllAttendances`, `GetLatestEvaluations`, `GetAllStudentPackagesGrouped`, `GetAllUsers`); class/location `fixed_rate` credit exemption; `entry_type` (`class`, `open_session`, `duty`, `event`); `admin_id` FK decoupling. |
+| [UI & Operations Terminology Standards](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/terminology-standards.md) | `terminology`, `belts`, `PTA`, `radar`, `evaluation`, `four_week`, `phone`, `schedule` | Canonical UI terms (`Class`, `Attendance`, `Memberships`, `₱`); 12-stage PTA Belt hierarchy (`White` to `3rd Dan Black`); 3-axis SVG radar (`Sparring`, `Flexibility`, `Poomsae`); `four_week` 28-day cadence plans; 11-digit `09XXXXXXXXX` phone inputs; calendar anchor retention. |
+| [Performance Standards & Optimization](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/performance.md) | `performance`, `N+1`, `indexes`, `gzip`, `latency`, `buffers`, `htmx.min.js` | Locally vendored `htmx.min.js`; `GzipMiddleware` & `sync.Pool` template buffers; SQLite WAL tuning; dynamic modal `hx-boost="false"` & `HandleCreateSession` ID guard. |
+| [Profile Picture & Railway Bucket Storage](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/profile-picture-storage.md) | `avatar`, `profile picture`, `storage`, `S3`, `Railway Bucket`, `NoSuchBucket`, `/storage/` | `internal/storage` (`S3Storage` + `LocalStorage` fallback); Railway env vars (`BUCKET`, `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `ENDPOINT`, `REGION`); Virtual-Hosted Style (`{bucket}.{endpoint_host}`) to prevent `NoSuchBucket`; `/storage/{key...}` SigV4 streaming. |
+| [Multi-Channel Notifications Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/notifications.md) | `notifications`, `Web Push`, `VAPID`, `SMS`, `Email`, `push-client.js`, `sw.js` | Master switches (`PushEnabled`, `SMSEnabled`, `EmailEnabled`) & per-user opt-out; `ChannelInApp` always active; RFC 8291/8292 VAPID auto-key generation & `push_subscriptions` table. |
+| [PWA & Offline Resilience Architecture](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/pwa-mobile-offline.md) | `PWA`, `Service Worker`, `sw.js`, `offline`, `manifest.webmanifest`, `icons` | Root-scoped `/sw.js` (`Service-Worker-Allowed: /`); `request.mode === 'navigate'` isolation from HTMX AJAX; `/offline` fallback page; stale-while-revalidate static assets. |
+| [Deployment & Build Configuration](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/deployment.md) | `Railway`, `Railpack`, `Nixpacks`, `mise.toml`, `HTTPS`, `HSTS`, `build:css` | Root `main.go` required for Railpack; `.go-version` & `mise.toml`; `npm.cmd run build:css` Tailwind compilation; `https_redirect_middleware.go` (`301` GET / `308` POST + HSTS). |
+| [Testing & Verification Operations](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/testing-operations.md) | `test`, `go test`, `Playwright`, `E2E`, `port 8080`, `port 8085` | Mandatory port `8080` / `8085` PowerShell cleanup after test runs; Playwright E2E isolation on `PORT=8085` with `series_tkd_e2e.db`; use `npm.cmd` on Windows PowerShell. |
+
+---
+
+## 2. Fast-Path Core Invariants (Top 8 Rules)
+
+1. **Dual Entry Point Sync**: Always register new HTTP routes in **both** [`main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/main.go) and [`cmd/server/main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/cmd/server/main.go).
+2. **Dual Store Parity**: Every `RepositoryStore` change must be implemented in both [`MemoryStore`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/store.go) and [`SQLStore`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/sql_store.go) (supporting both PostgreSQL and SQLite).
+3. **HTMX Boost Partial Guard**: Check `r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"` before returning HTML partial fragments from page handlers.
+4. **Dynamic Modal Forms**: Add `hx-boost="false" hx-disable="true"` and a hidden entity ID input to any modal `<form>` whose `action` is set dynamically by JavaScript.
+5. **Partial Template Wrapper**: Every file in `web/templates/partials/*.html` must wrap its body in `{{define "<filename>.html"}}...{{end}}`.
+6. **Case-Sensitive Inputs**: Add `.no-uppercase`, `data-no-uppercase="true"`, and `autocapitalize="none"` to credentials, usernames, identifiers, keys, and URLs.
+7. **Tailwind Compilation**: Run `npm.cmd run build:css` whenever modifying `web/static/css/input.css` or adding new Tailwind classes.
+8. **Port 8080/8085 Cleanup**: Always terminate lingering processes on ports `8080` and `8085` after running tests or verification servers.
+
+---
+
+## 3. On-Demand Workspace Skills (`.agents/skills/`)
+
+- [`stms-testing-verification`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/.agents/skills/stms-testing-verification/SKILL.md): Domain-only TDD, full Go test suite, Playwright E2E (`npm.cmd run test:e2e`), and port cleanup commands.
+- [`stms-ui-htmx-workflow`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/.agents/skills/stms-ui-htmx-workflow/SKILL.md): Go HTML template creation, HTMX partial/modal checklists, and Tailwind CSS build workflow.
+- [`stms-db-storage-ops`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/.agents/skills/stms-db-storage-ops/SKILL.md): PostgreSQL/SQLite schema evolution, batch query patterns, and Railway S3 Bucket (`internal/storage`) configuration.

@@ -33,10 +33,10 @@
 ### Context: Centralized Component Utilities Architecture
 
 **Problem:**
-Repeated inline utility classes across 11 pages and 3 partials led to discrepancies in button padding, corner radiuses (`rounded-xl` vs `rounded-lg`), form focus ring colors (emerald vs brand crimson), and modal structures.
+Repeated inline utility classes across pages and partials led to discrepancies in button padding, corner radiuses (`rounded-xl` vs `rounded-lg`), form focus ring colors (emerald vs brand crimson), and modal structures.
 
 **Enforced Solution:**
-Components are centralized in `web/templates/layout.html` within `<style type="text/tailwindcss">` using `@layer components`:
+Components are centralized in [`web/static/css/input.css`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/input.css) using `@layer components`:
 
 | Component Class | Description | Standard Usage |
 | :--- | :--- | :--- |
@@ -117,21 +117,18 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
   2. **Hover Elevation & Location Clarity ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Overlapping cards feature `hover:z-30 hover:shadow-xl hover:border-slate-400` to smoothly surface on mouseover, and prominently render the location tag (`📍 LocationName`) in bold contrast.
   3. **Full-Card Clickability & Data Contract ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: The entire card and roster table rows expose `data-*` attributes (`data-id`, `data-type`, `data-date`, `data-time`, `data-location`, `data-coach`, `data-rate`, etc.) and bind `onclick="openClassInfoFromCard(this)"`, while preserving `e.stopPropagation()` on direct live attendance links.
   4. **Class Info Modal ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html))**: Displays category, status, date, time, venue with map pin, pricing, instructor, admin, attendance tally, remarks, and complete action CTAs ("+ Add Overlapping Class", "Edit", "Delete", "Cancel", and "⚡ Open Live Attendance").
-  5. **Explicit Scheduling CTAs ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Unconditional `+ Schedule Class` action buttons in both the page header and calendar navigation bar ensure front-desk staff can schedule concurrent sessions without needing an empty calendar grid slot.
-
-
-
+  5. **Explicit Scheduling CTAs ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Unconditional `+ Schedule Class` action buttons in the calendar navigation bar ensure front-desk staff can schedule concurrent sessions without needing an empty calendar grid slot.
 
 ### Context: Floor Attendance Search Pagination & Result Simplicity
 
 * **Problem:** 
   1. Floor attendance search previously returned an empty state when the query was blank, forcing staff to know exact student names or scan barcodes.
   2. Large dojang rosters need clean pagination capped at top 10 students per page without overloading front-desk tablet DOM trees.
-  3. Displaying promotion readiness badges (READY, PRE-TEST, DEVELOPING) in attendance search results created visual clutter and diverted staff attention from rapid floor admittance and membership verification.
+  3. Displaying promotion readiness badges (`READY`, `PRE-TEST`, `DEVELOPING`) in attendance search results created visual clutter and diverted staff attention from rapid floor admittance and membership verification.
 * **Enforced Solution:**
-  1. **Blank Query Directory Listing ([session_handler.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go))**: When text input is blank, HandleSearchStudent returns all active students deterministically ordered by full name, defaulting to top 10 on page 1.
-  2. **Top-10 Pagination Controls ([search_results.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/search_results.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html))**: Renders responsive pagination summary (Showing 1 to 10 of 42 students (Page 1 of 5)), Previous/Next buttons, and numbered page buttons with HTMX post handlers and page synchronization on ttendanceUpdated.
-  3. **Readiness Omission in Search**: Promotion readiness status badges are removed from search_results.html, keeping the search result card focused purely on student identity, belt rank, membership/rate status, and admittance/removal actions.
+  1. **Blank Query Directory Listing ([session_handler.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go))**: When text input is blank, `HandleSearchStudent` returns all active students deterministically ordered by full name, defaulting to top 10 on page 1.
+  2. **Top-10 Pagination Controls ([search_results.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/search_results.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html))**: Renders responsive pagination summary (`Showing 1 to 10 of 42 students (Page 1 of 5)`), Previous/Next buttons, and numbered page buttons with HTMX post handlers and page synchronization on `attendanceUpdated`.
+  3. **Readiness Omission in Search**: Promotion readiness status badges are removed from `search_results.html`, keeping the search result card focused purely on student identity, belt rank, membership/rate status, and admittance/removal actions.
 
 ### Context: Mobile-First Uncluttered UX & Touchscreen Universal Tooltip System
 
@@ -168,22 +165,23 @@ Components are centralized in `web/templates/layout.html` within `<style type="t
        - Training Categories: `min-w-[600px]`
        - Live Floor Roster: `min-w-[550px]`
        - Promotion Pipeline Tables: `min-w-[540px]` to `min-w-[700px]`
+
 ### Context: Case-Sensitive Input & Targeted Textbox Uppercase Suppression
 
 **Problem:**
-1. Global alpha-numeric uppercase engine and CSS (	ext-transform: uppercase) forcibly transformed all textboxes into uppercase on typing, paste, and form submit.
+1. Global alpha-numeric uppercase engine and CSS (`text-transform: uppercase`) forcibly transformed all textboxes into uppercase on typing, paste, and form submit.
 2. Case-sensitive or casing-specific credentials and configuration settings—including login/forgot-password identifiers (email or username), user registration handles, display names, SMTP hosts/usernames, SMS phone numbers, and cryptographic Web Push VAPID public keys—were corrupted or visually distorted when transformed into uppercase.
 
 **Enforced Solution:**
 1. **Multi-Layer Selector & Property Opt-Out ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
-   - CSS 	ext-transform: uppercase excludes .no-uppercase, [data-no-uppercase=true], [autocapitalize=none], [autocapitalize=off], [name=username], [name=identifier], and [autocomplete=username].
-   - Explicit override rule 	ext-transform: none !important; applies to .no-uppercase, its child inputs/textareas, and known credential field names (smtp_host, smtp_user, web_push_public_key, web_push_subject, sms_from_number).
+   - CSS `text-transform: uppercase` excludes `.no-uppercase`, `[data-no-uppercase="true"]`, `[autocapitalize="none"]`, `[autocapitalize="off"]`, `[name="username"]`, `[name="identifier"]`, and `[autocomplete="username"]`.
+   - Explicit override rule `text-transform: none !important;` applies to `.no-uppercase`, its child inputs/textareas, and known credential field names (`smtp_host`, `smtp_user`, `web_push_public_key`, `web_push_subject`, `sms_from_number`).
 2. **Path & Identifier Aware JS Engine ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**:
-   - isAlphaNumericTextInput(el) inspects el.closest('.no-uppercase, [data-no-uppercase=true]') as well as standard HTML utocapitalize=none.
-   - Entire case-sensitive routes (/login, /register, /settings, /forgot-password, /reset-password) are automatically exempted.
-   - Case-sensitive names (username, identifier, 	oken, key, secret, smtp_host, smtp_user, web_push_public_key, web_push_subject, sms_from_number, display_name) are exempted globally across all routes.
+   - `isAlphaNumericTextInput(el)` inspects `el.closest('.no-uppercase, [data-no-uppercase="true"]')` as well as standard HTML `autocapitalize="none"`.
+   - Entire case-sensitive routes (`/login`, `/register`, `/settings`, `/forgot-password`, `/reset-password`) are automatically exempted.
+   - Case-sensitive names (`username`, `identifier`, `token`, `key`, `secret`, `smtp_host`, `smtp_user`, `web_push_public_key`, `web_push_subject`, `sms_from_number`, `display_name`) are exempted globally across all routes.
 3. **Template Declarations**:
-   - Explicitly annotate forms and inputs in login.html, egister.html, settings.html, orgot_password.html, eset_password.html, dmins.html, and profile.html with .no-uppercase, data-no-uppercase=true, utocapitalize=none, and spellcheck=false where appropriate.
+   - Explicitly annotate forms and inputs in `login.html`, `register.html`, `settings.html`, `forgot_password.html`, `reset_password.html`, `admins.html`, and `profile.html` with `.no-uppercase`, `data-no-uppercase="true"`, `autocapitalize="none"`, and `spellcheck="false"` where appropriate.
 
 ### Context: High-Density Compact System Redesign & Redundancy Purging
 

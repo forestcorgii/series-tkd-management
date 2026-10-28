@@ -1,77 +1,26 @@
 ---
 trigger: model_decision
-description: when working on design tokens, typography rules, layout hierarchy, and HTMX interaction patterns.
+description: When working on UI, UX, design tokens, typography rules, layout hierarchy, Tailwind CSS, and HTMX interaction patterns.
 ---
 
-# Series Taekwondo - UI/UX & Design System Guide (Go + HTMX)
+# Series Taekwondo — UI/UX & Design System Quick Rules
 
-This guide defines the design tokens, typography rules, layout hierarchy, and HTMX interaction patterns for building the Series Taekwondo dojang management system.
+For detailed component classes and layout patterns, consult [`references/ui-design-tokens.md`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/ui-design-tokens.md) and [`references/htmx-ux-patterns.md`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/references/htmx-ux-patterns.md).
 
----
+## 1. Brand Identity & Color Tokens
+- **Series Black (`#000000`)**: Dark backgrounds, structural headers, high-contrast borders.
+- **Series Crimson (`#990303` light / `#DC2626` dark)**: Primary CTAs (`.btn-primary`), active states, focus rings. Hover: `#7D0202` (light) / `#B91C1C` (dark).
+- **Warm Cream (`#FFFDF4` / `#F4F1E4`)**: Light-mode canvas and card surfaces; borders use `#E5E3D8`.
+- **Light Mode Contrast Rule**: Never use `text-slate-400` or `text-slate-500` for body/helper text on light backgrounds; use `text-slate-600 dark:text-slate-400` for secondary text and `text-slate-700 dark:text-slate-400` for labels/headers.
 
-## 1. Brand Identity & Visual Language
+## 2. Typography & Input Rules
+- **Display Font (`Good Timing` / `font-display`)**: Headings, KPI callouts, buttons (`uppercase tracking-wider`).
+- **Body Font (`Montserrat` / `font-sans`)**: Operational text, tables, inputs, badges.
+- **Global Uppercase Input Engine**: General text inputs and textareas automatically transform to uppercase via `layout.html`. Always add `.no-uppercase`, `data-no-uppercase="true"`, and `autocapitalize="none"` to case-sensitive fields (usernames, identifiers, passwords, tokens, keys, SMTP/VAPID settings).
+- **Phone Inputs**: 11-digit Philippine mobile format (`09XXXXXXXXX`, `pattern="09[0-9]{9}"`, `maxlength="11"`, `inputmode="numeric"`).
 
-Series Taekwondo blends a sharp, modern athletic aesthetic with martial arts discipline. The UI emphasizes high contrast, geometric precision, bold typography, and clear visual state transitions suitable for floor tablets and desktop admin desks.
-
-### Core Color Palette
-* **Series Black (`#000000`)**: Deep neutral used for dark backgrounds, structural headers, high-contrast borders, and primary dark buttons.
-* **Series Crimson (`#990303`)**: High-impact brand red. Used for active badges, alerts, primary action buttons, destructive operations, and accent highlights.
-* **Warm Cream / Off-White (`#FFFDF4`)**: The signature canvas surface. Used for light-mode view backgrounds, card surfaces, input fills, and contrasting text on dark elements.
-
-### Supporting / Functional Palette
-* **Pure White (`#FFFFFF`)**: Modal backdrops, crisp card highlights, and icon fills on dark backgrounds.
-* **Border Gray (`#E5E3D8`)**: Subtle borders and table dividers on cream backgrounds.
-* **Muted Gray (`#666666` / `#8C8A82`)**: Secondary helper text, timestamps, and placeholder copy.
-* **Status Success (`#1B7F43`)**: Package active, attendance logged, promotion ready.
-* **Status Warning (`#C98A0C`)**: Package expiring soon, pre-test eligible.
-
----
-
-## 2. Typography Rules
-
-The visual identity relies on two distinct typefaces:
-
-### Primary Display Font: **Good Timing**
-* **Role**: Primary brand identity, major section titles, modal headers, scorecard numbers, and brand hero elements.
-* **Characteristics**: Extended, modern, geometric sans-serif with a technical, high-performance edge.
-* **Usage Rules**:
-  * Headings (`h1`, `h2`), large metric callouts, and dojang branding.
-  * Always use uppercase or title case for headers (`text-transform: uppercase; letter-spacing: 0.05em;`).
-
-### Body & Interface Font: **Montserrat**
-* **Role**: All operational text, navigation labels, data tables, form inputs, status badges, and metadata.
-* **Characteristics**: Clean, geometric, legible grotesque sans-serif with multiple weights.
-* **Usage Rules**:
-  * Body copy: Regular (`400`) or Medium (`500`).
-  * Table headers & Buttons: SemiBold (`600`) or Bold (`700`) with slight letter-spacing.
-  * Microcopy & Tags: Medium (`500`) at 11px–13px.
-
----
-
-## 3. Tailwind CSS Configuration Preset
-
-When compiling Tailwind CSS alongside Go templates, map the brand tokens as follows:
-
-```javascript
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: ["./templates/**/*.html"],
-  theme: {
-    extend: {
-      colors: {
-        brand: {
-          black: '#000000',
-          red: '#990303',
-          cream: '#FFFDF4',
-          'cream-dark': '#F4F1E4',
-          'red-hover': '#7D0202',
-        }
-      },
-      fontFamily: {
-        display: ['"Good Timing"', 'sans-serif'],
-        sans: ['Montserrat', 'sans-serif'],
-      }
-    },
-  },
-  plugins: [],
-}
+## 3. Compact Layout & Component Standards
+- **No Visible Page `<h1>` Banners**: Operational pages use `<h1 class="sr-only">Title</h1>` to preserve vertical viewport space on floor tablets.
+- **KPI Strips & Compact Tables**: Use `.kpi-strip` + `.kpi-tile` for metrics and `.table-compact` inside `overflow-x-auto` containers with `min-w-[700px]` guardrails.
+- **Scrollable Modals**: Use `.modal-dialog-scrollable` with `.modal-header` (`shrink-0`), `.modal-body` (`overflow-y-auto flex-1`), and sticky `.modal-footer` (`shrink-0`).
+- **Tailwind CSS Build**: After editing `web/static/css/input.css` or adding new Tailwind classes in templates, compile via `npm.cmd run build:css`.
