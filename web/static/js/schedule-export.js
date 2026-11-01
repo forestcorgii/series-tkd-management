@@ -2,7 +2,7 @@
  * schedule-export.js
  * Series Taekwondo Management System (STMS)
  * Modular vanilla JavaScript engine for client-side DOM-to-image schedule snapshot export.
- * Version: 2.6.0 - Dynamic System Theme Detection (Light/Dark), Clean Card Typography, Zero Attendance
+ * Version: 2.7.0 - Dynamic System Theme Detection (Light/Dark), Pixel-Perfect Badge Alignment, Clean Card Typography, Zero Attendance
  */
 
 (function (root, factory) {
@@ -465,21 +465,70 @@
                                 }
                             });
 
-                            // Polish status & type badges
-                            card.querySelectorAll('.flex.items-center.justify-between span').forEach(badge => {
-                                const badgeText = badge.textContent.trim();
-                                if (badgeText === 'CLOSED' || badgeText === 'DONE') {
-                                    badge.style.backgroundColor = isDark ? '#374151' : '#F1F5F9';
-                                    badge.style.color = isDark ? '#D1D5DB' : '#475569';
-                                    badge.style.border = `1px solid ${isDark ? '#4B5563' : '#CBD5E1'}`;
-                                } else if (badgeText === 'LIVE') {
-                                    badge.style.backgroundColor = '#10B981';
-                                    badge.style.color = '#FFFFFF';
-                                }
-                                badge.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                                badge.style.fontSize = isSplitCard ? '7.5px' : '8.5px';
-                                badge.style.fontWeight = '700';
-                            });
+                            // Ensure content wrapper inside card is flex column
+                            const contentWrapper = card.firstElementChild;
+                            if (contentWrapper && contentWrapper.tagName === 'DIV') {
+                                contentWrapper.style.display = 'flex';
+                                contentWrapper.style.flexDirection = 'column';
+                                contentWrapper.style.width = '100%';
+                            }
+
+                            // Polish status & type badges for pixel-perfect vertical & horizontal alignment
+                            const badgeRow = card.querySelector('.flex.items-center.justify-between, [class*="justify-between"]');
+                            if (badgeRow) {
+                                badgeRow.style.display = 'flex';
+                                badgeRow.style.flexDirection = 'row';
+                                badgeRow.style.alignItems = 'center';
+                                badgeRow.style.justifyContent = 'space-between';
+                                badgeRow.style.gap = '4px';
+                                badgeRow.style.height = '18px';
+                                badgeRow.style.minHeight = '18px';
+                                badgeRow.style.maxHeight = '18px';
+                                badgeRow.style.lineHeight = '1';
+                                badgeRow.style.marginBottom = '4px';
+
+                                // Ensure right-aligned wrapper div (containing CLOSED / Fixed Rate) is aligned to center
+                                badgeRow.querySelectorAll('div').forEach(d => {
+                                    d.style.display = 'inline-flex';
+                                    d.style.alignItems = 'center';
+                                    d.style.height = '18px';
+                                    d.style.gap = '3px';
+                                    d.style.margin = '0';
+                                    d.style.padding = '0';
+                                });
+
+                                // Style both type badge and status badge with identical dimensions and vertical centering
+                                badgeRow.querySelectorAll('span').forEach(badge => {
+                                    badge.style.display = 'inline-flex';
+                                    badge.style.alignItems = 'center';
+                                    badge.style.justifyContent = 'center';
+                                    badge.style.height = '18px';
+                                    badge.style.minHeight = '18px';
+                                    badge.style.maxHeight = '18px';
+                                    badge.style.lineHeight = '1';
+                                    badge.style.boxSizing = 'border-box';
+                                    badge.style.padding = isSplitCard ? '0 3px' : '0 5px';
+                                    badge.style.borderRadius = '3px';
+                                    badge.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                                    badge.style.fontSize = isSplitCard ? '7.5px' : '8.5px';
+                                    badge.style.fontWeight = '700';
+                                    badge.style.textTransform = 'uppercase';
+                                    badge.style.letterSpacing = '0.04em';
+                                    badge.style.verticalAlign = 'middle';
+                                    badge.style.margin = '0';
+
+                                    const badgeText = badge.textContent.trim();
+                                    if (badgeText === 'CLOSED' || badgeText === 'DONE') {
+                                        badge.style.backgroundColor = isDark ? '#374151' : '#F1F5F9';
+                                        badge.style.color = isDark ? '#D1D5DB' : '#475569';
+                                        badge.style.border = `1px solid ${isDark ? '#4B5563' : '#CBD5E1'}`;
+                                    } else if (badgeText === 'LIVE') {
+                                        badge.style.backgroundColor = '#10B981';
+                                        badge.style.color = '#FFFFFF';
+                                        badge.style.border = '1px solid #059669';
+                                    }
+                                });
+                            }
                         });
 
                         // 10. Remove the administrative roster table at the bottom ("Class Rosters & Quick Operations")
