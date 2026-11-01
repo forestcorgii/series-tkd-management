@@ -31,7 +31,7 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 	}
 	_ = store.CreateCoach(coach)
 
-	sessDate, _ := time.Parse("2006-01-02", "2026-10-15")
+	sessDate := time.Now().Truncate(24 * time.Hour)
 	sess := &models.TrainingSession{
 		ID:           uuid.New(),
 		SessionDate:  sessDate,
@@ -576,7 +576,6 @@ func TestSessionHandler_CalendarMultiHourAndHalfHour(t *testing.T) {
 		t.Errorf("expected horizontal flex alignment for day name and date number")
 	}
 }
-
 
 func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 	store := repository.NewMemoryStore()
@@ -2306,7 +2305,7 @@ func TestHandleLiveSession_DutyAndEventRedirect(t *testing.T) {
 		t.Fatalf("failed to initialize AppHandler: %v", err)
 	}
 
-	sessDate, _ := time.Parse("2006-01-02", "2026-10-15")
+	sessDate := time.Now().Truncate(24 * time.Hour)
 
 	// 1. Duty Session
 	dutySess := &models.TrainingSession{
@@ -2454,5 +2453,67 @@ func TestCalendar_RetainAnchorDateOnScheduleAddOrEdit(t *testing.T) {
 	}
 	if loc := recEdit.Header().Get("Location"); loc != "/sessions?date="+calendarAnchor {
 		t.Fatalf("expected update redirect to calendar anchor %s, got %s", "/sessions?date="+calendarAnchor, loc)
+	}
+}
+
+func TestSessionHandler_ScheduleSocialExportElements(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// 1. Full Page GET /sessions
+	req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+	rec := httptest.NewRecorder()
+	app.HandleSessions(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+
+	// Verify #schedule container ID exists
+	if !strings.Contains(body, `id="schedule"`) {
+		t.Errorf("expected id=\"schedule\" container in sessions page")
+	}
+
+	// Verify export button exists in calendar header toolbar
+	if !strings.Contains(body, `id="export-schedule-btn"`) {
+		t.Errorf("expected id=\"export-schedule-btn\" in rendered sessions page")
+	}
+	if !strings.Contains(body, `onclick="exportScheduleSnapshot(this)"`) {
+		t.Errorf("expected onclick=\"exportScheduleSnapshot(this)\" on export button")
+	}
+
+	// Verify html2canvas CDN integration script exists
+	if !strings.Contains(body, "html2canvas.min.js") {
+		t.Errorf("expected html2canvas CDN script in rendered sessions page")
+	}
+
+	// Verify schedule-export.js script is included
+	if !strings.Contains(body, "/static/js/schedule-export.js") {
+		t.Errorf("expected /static/js/schedule-export.js script in rendered layout")
+	}
+
+	// 2. Partial HTMX GET /sessions (HX-Request: true)
+	reqPartial := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+	reqPartial.Header.Set("HX-Request", "true")
+	recPartial := httptest.NewRecorder()
+	app.HandleSessions(recPartial, reqPartial)
+
+	if recPartial.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for partial, got %d", recPartial.Code)
+	}
+	partialBody := recPartial.Body.String()
+
+	// Verify data-calendar-title attribute exists on session cards wrapper
+	if !strings.Contains(partialBody, "data-calendar-title=") {
+		t.Errorf("expected data-calendar-title attribute in session cards wrapper partial")
+	}
+
+	// Verify quick export button in session cards toolbar
+	if !strings.Contains(partialBody, `onclick="exportScheduleSnapshot(this)"`) {
+		t.Errorf("expected export button in session cards toolbar partial")
 	}
 }

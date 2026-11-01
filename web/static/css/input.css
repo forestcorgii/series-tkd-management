@@ -330,3 +330,28 @@ html.dark .tooltip-icon:hover {
     color: #FFFFFF;
     background-color: rgba(148, 163, 184, 0.3);
 }
+
+/* Print & Social Export Utilities */
+@media print {
+    .no-print,
+    #export-schedule-btn,
+    #filter-toggle-btn,
+    #session-filter-container,
+    .tooltip-icon,
+    .has-tooltip,
+    .modal-backdrop,
+    header,
+    nav {
+        display: none !important;
+    }
+    body {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+    }
+}
+
+.stms-export-social-header,
+.stms-export-social-footer {
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+}

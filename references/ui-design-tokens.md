@@ -243,3 +243,28 @@ Components are centralized in [`web/static/css/input.css`](file:///c:/Users/USER
   1. **Calendar Toolbar Scheduling CTA ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html))**: Removed the redundant date range text from the navigation bar (as dates are already visible in the sticky timeline day headers). Consolidated the total classes badge immediately before the `+ Schedule Class` action button on the right side of the navigation bar, keeping controls on a single, non-wrapping row across mobile and desktop.
   2. **Mobile Space Optimization with Responsive Tooltip ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html), [input.css](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/input.css))**: On mobile screens (`< sm`), the button text collapses to a space-saving `+` icon wrapped in `.has-tooltip` with a right-aligned tooltip (`.tooltip-content.tooltip-right.sm:hidden`) revealing "Schedule Class". On tablet and desktop (`>= sm`), the full `+ Schedule Class` text is rendered.
   3. **Collapsible Filter Bar ([sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html))**: The filter form is wrapped in a collapsible container (`#session-filter-container`) toggled by an accessible `#filter-toggle-btn` with active-count badge and animated chevron. Filter preferences persist across page views via `localStorage` and automatically remain expanded whenever any filter criteria are active.
+
+### Context: Calendar Social Media Snapshot & Canvas Export
+
+* **Problem:**
+  1. Exporting client-rendered DOM schedules to high-resolution social media graphics requires removing interactive UI elements (filter forms, modals, drag-to-reschedule indicators, "Sign In to Attend →" links, administrative tables).
+  2. Rendering directly on the active DOM causes UI flickering, scrollbar clipping, or layout shifts on mobile viewports.
+  3. Exported social graphics require consistent dark mode `#111827` branding with high contrast, legible coach names, branch venues, and dates regardless of the user's local theme toggle.
+
+* **Enforced Solution:**
+  1. **Non-Destructive Clone Sanitization (`onclone`)**: Use `html2canvas`'s `onclone(clonedDoc, clonedElement)` hook in [`schedule-export.js`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/js/schedule-export.js) to strip interactive elements (`#filter-toggle-btn`, `#session-filter-container`, `.calendar-slot-dropzone span`, `.calendar-session-card a`, `.table-compact`), un-clamp scroll heights, expand all 7 day columns, and inject branded header/footer banners without mutating the live DOM.
+  2. **Retina 2x Scaling & Fixed 1080px Width**: Explicitly set `windowWidth: 1200`, `scale: 2`, and `backgroundColor: '#111827'` so responsive breakpoints render the full 7-day schedule at 2160px canvas resolution, ready for Instagram and Facebook feed posts.
+  3. **Visual Feedback & Automatic Download**: The trigger button immediately enters a disabled `aria-busy="true"` state displaying `⏳ Generating...`, automatically initiates a PNG download named `SeriesTKD-Schedule-YYYY-MM-DD.png`, and cleanly restores button state in a `finally` block.
+  4. **12-Hour AM/PM Time Formatting & Social Card Cleansing**:
+     - Converted all 24-hour card time displays (`10:00 - 12:00`, `17:00 - 18:15`) to 12-hour AM/PM (`10:00 AM - 12:00 PM`, `5:00 PM - 6:15 PM`) using `to12Hour()` and `formatTimeRange12H()`.
+     - Completely stripped internal `Coach: ...`, `Admin: ...`, and `Staff: ...` entries to keep public social schedules clean and focused purely on class offerings.
+     - Prevented `html2canvas` vertical text slicing by removing `truncate` and `overflow: hidden`, switching card text to standard system font stack (`-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`), setting `line-height: 1.35`, and enforcing `minHeight: 68px` on cards to ensure attendance (`👥 X Attending`) and times never clip.
+     - Purged redundant week navigation bar (`#calendar-week-nav-bar`) and live current time indicator (`#calendar-now-pill`, `#calendar-now-line`).
+     - Added cache busting query parameters (`?v=2.6.0`) in [layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html) and [sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), and bumped PWA Service Worker to `stms-v12` in [sw.js](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/sw.js) to invalidate stale browser script caches.
+  5. **Dynamic System Theme Matching & Clean Social Export**:
+     - Dynamically detects the system's current theme (`isDark` from `document.documentElement.classList.contains('dark')` / `localStorage.getItem('stms-theme')`):
+       - When system is Dark: exports `#111827` dark background, `#DC2626` accents, and `#F9FAFB` high contrast text.
+       - When system is Light: exports `#FFFFFF` clean background, `#990303` accents, and `#0F172A` deep slate text.
+     - Formats split overlapping cards (narrow width < 80px) with stacked 2-line times (`11:30 AM` / `1:30 PM`) so digits never get cut or wrapped across letter boundaries.
+     - Stripped internal coaching/curriculum notes (`"Taegeuk 1 through 8..."`) and all attendant counts/icons (`👥`).
+     - Fixed header and footer HTML template formatting to eliminate raw string leaks.
