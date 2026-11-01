@@ -1,62 +1,54 @@
 package handlers
 
 import (
-	"html/template"
+	"errors"
 	"net/http"
-	"sort"
 	"strings"
 
+	"github.com/google/uuid"
 	"series-tkd-management/internal/models"
+	"series-tkd-management/internal/repository"
 )
-
-// LandingProgram represents a martial arts discipline highlighted on the landing page.
-type LandingProgram struct {
-	ID          string
-	Title       string
-	KoreanTitle string
-	Tagline     string
-	Badge       string
-	BadgeClass  string
-	Description string
-	FocusPoints []string
-	IconSVG     template.HTML
-}
-
-// LandingScheduleItem represents a plotted class slot on the landing schedule preview.
-type LandingScheduleItem struct {
-	SessionID      string
-	Title          string
-	FormattedDate  string
-	DayOfWeek      string
-	FormattedTime  string
-	TrainingType   string
-	TypeColorClass string
-	LocationID     string
-	LocationName   string
-	LocationPin    string
-	CoachName      string
-	IsClass        bool
-}
 
 // LandingPageViewData is the data context passed to landing.html.
 type LandingPageViewData struct {
-	CurrentUser      *models.User
-	Locations        []*models.Location
-	ScheduleItems    []LandingScheduleItem
-	Programs         []LandingProgram
-	ActiveLocations  int
-	WeeklyClasses    int
-	CoachesCount     int
-	SelectedLocation string
-	SelectedType     string
+	CurrentUser        *models.User
+	Locations          []*models.Location
+	SelectedLocation   *models.Location
+	SelectedLocationID string
+	Calendar           CalendarWeek
+	SelectedDate       string
 }
 
-// LandingSchedulePartialData is the data context for landing_schedule_grid.html.
+// LandingSchedulePartialData is the data context for landing_calendar_grid.html.
 type LandingSchedulePartialData struct {
-	ScheduleItems    []LandingScheduleItem
-	SelectedLocation string
-	SelectedType     string
-	TotalCount       int
+	Calendar           CalendarWeek
+	Locations          []*models.Location
+	SelectedLocation   *models.Location
+	SelectedLocationID string
+	SelectedDate       string
+}
+
+// GuestReserveFormData is the data context passed to guest_reservation_form.html.
+type GuestReserveFormData struct {
+	SessionID     string
+	SessionTitle  string
+	TrainingType  string
+	FormattedDate string
+	FormattedTime string
+	CoachName     string
+	LocationName  string
+	GuestName     string
+	ContactNumber string
+	ErrorMessage  string
+}
+
+// GuestReservationSuccessData is the data context for guest_reservation_success.html.
+type GuestReservationSuccessData struct {
+	Session       *models.TrainingSession
+	Attendance    *models.Attendance
+	FormattedDate string
+	FormattedTime string
 }
 
 // HandleLandingPage serves the public landing page at GET /.
@@ -77,204 +69,221 @@ func (a *AppHandler) HandleLandingPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	locations, _ := a.store.GetAllLocations()
-	coaches, _ := a.store.GetAllCoaches()
-	scheduleItems := a.getLandingScheduleItems("", "")
+
+	// Determine selected location: check query param first, then fallback to default location
+	locQuery := strings.TrimSpace(r.URL.Query().Get("location"))
+	var selectedLoc *models.Location
+	if locQuery != "" && locQuery != "all" {
+		if locID, err := uuid.Parse(locQuery); err == nil {
+			selectedLoc, _ = a.store.GetLocationByID(locID)
+		}
+	}
+	if selectedLoc == nil && locQuery != "all" {
+		selectedLoc, _ = a.store.GetDefaultLocation()
+		if selectedLoc == nil && len(locations) > 0 {
+			selectedLoc = locations[0]
+		}
+	}
+
+	selectedLocID := ""
+	if selectedLoc != nil {
+		selectedLocID = selectedLoc.ID.String()
+	} else if locQuery != "" {
+		selectedLocID = locQuery
+	}
+
+	dateParam := strings.TrimSpace(r.URL.Query().Get("date"))
+	if dateParam == "" {
+		dateParam = strings.TrimSpace(r.URL.Query().Get("week_date"))
+	}
+
+	calWeek, _, err := a.BuildCalendarWeek(dateParam, selectedLocID, "", "", "", "", true)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	data := LandingPageViewData{
-		CurrentUser:      user,
-		Locations:        locations,
-		ScheduleItems:    scheduleItems,
-		Programs:         getLandingPrograms(),
-		ActiveLocations:  len(locations),
-		WeeklyClasses:    len(scheduleItems),
-		CoachesCount:     len(coaches),
-		SelectedLocation: "all",
-		SelectedType:     "all",
+		CurrentUser:        user,
+		Locations:          locations,
+		SelectedLocation:   selectedLoc,
+		SelectedLocationID: selectedLocID,
+		Calendar:           calWeek,
+		SelectedDate:       dateParam,
 	}
 
 	a.RenderPage(w, "landing.html", data)
 }
 
-// HandleLandingSchedule serves the HTMX partial for filtering the schedule grid.
+// HandleLandingSchedule serves the HTMX partial for filtering the schedule grid by location/week.
 func (a *AppHandler) HandleLandingSchedule(w http.ResponseWriter, r *http.Request) {
-	loc := strings.TrimSpace(r.URL.Query().Get("location"))
-	trainType := strings.TrimSpace(r.URL.Query().Get("type"))
+	locations, _ := a.store.GetAllLocations()
+	locQuery := strings.TrimSpace(r.URL.Query().Get("location"))
+	var selectedLoc *models.Location
+	if locQuery != "" && locQuery != "all" {
+		if locID, err := uuid.Parse(locQuery); err == nil {
+			selectedLoc, _ = a.store.GetLocationByID(locID)
+		}
+	}
+	if selectedLoc == nil && locQuery != "all" {
+		selectedLoc, _ = a.store.GetDefaultLocation()
+		if selectedLoc == nil && len(locations) > 0 {
+			selectedLoc = locations[0]
+		}
+	}
 
-	items := a.getLandingScheduleItems(loc, trainType)
+	selectedLocID := ""
+	if selectedLoc != nil {
+		selectedLocID = selectedLoc.ID.String()
+	} else if locQuery != "" {
+		selectedLocID = locQuery
+	}
+
+	dateParam := strings.TrimSpace(r.URL.Query().Get("date"))
+	if dateParam == "" {
+		dateParam = strings.TrimSpace(r.URL.Query().Get("week_date"))
+	}
+
+	calWeek, _, err := a.BuildCalendarWeek(dateParam, selectedLocID, "", "", "", "", true)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	data := LandingSchedulePartialData{
-		ScheduleItems:    items,
-		SelectedLocation: loc,
-		SelectedType:     trainType,
-		TotalCount:       len(items),
+		Calendar:           calWeek,
+		Locations:          locations,
+		SelectedLocation:   selectedLoc,
+		SelectedLocationID: selectedLocID,
+		SelectedDate:       dateParam,
 	}
 
-	a.RenderPartial(w, "landing_schedule_grid.html", data)
+	a.RenderPartial(w, "landing_calendar_grid.html", data)
 }
 
-// getLandingScheduleItems filters, extracts, and sorts upcoming sessions for public preview.
-func (a *AppHandler) getLandingScheduleItems(locationFilter, typeFilter string) []LandingScheduleItem {
-	allSessions, err := a.store.GetAllSessions()
+// HandleGuestReserveForm renders the modal form for guest slot reservation at GET /landing/reserve-form.
+func (a *AppHandler) HandleGuestReserveForm(w http.ResponseWriter, r *http.Request) {
+	sessionIDStr := strings.TrimSpace(r.URL.Query().Get("session_id"))
+	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
-		return nil
+		http.Error(w, "Invalid session ID", http.StatusBadRequest)
+		return
 	}
 
-	var items []LandingScheduleItem
-	for _, s := range allSessions {
-		if s.IsCancelled {
-			continue
-		}
-
-		// Filter by location if specified
-		if locationFilter != "" && locationFilter != "all" {
-			locMatch := false
-			if s.LocationID != nil && s.LocationID.String() == locationFilter {
-				locMatch = true
-			} else if strings.EqualFold(s.LocationName, locationFilter) {
-				locMatch = true
-			}
-			if !locMatch {
-				continue
-			}
-		}
-
-		// Filter by training type if specified
-		if typeFilter != "" && typeFilter != "all" {
-			if !strings.EqualFold(string(s.TrainingType), typeFilter) {
-				continue
-			}
-		}
-
-		// Theme category badge
-		typeColor := "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
-		switch strings.ToLower(string(s.TrainingType)) {
-		case "sparring":
-			typeColor = "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
-		case "poomsae":
-			typeColor = "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
-		case "conditioning":
-			typeColor = "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
-		case "promotion prep":
-			typeColor = "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30"
-		default:
-			typeColor = "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
-		}
-
-		coachName := s.CoachName
-		if coachName == "" {
-			coachName = "Lead Instructor"
-		}
-
-		locationName := s.LocationName
-		if locationName == "" {
-			locationName = "Main Dojang"
-		}
-
-		locID := ""
-		if s.LocationID != nil {
-			locID = s.LocationID.String()
-		}
-
-		dateStr := s.SessionDate.Format("Jan 02, 2006")
-		dayStr := s.SessionDate.Format("Monday")
-		timeStr := s.StartTime
-		if s.EndTime != "" {
-			timeStr += " – " + s.EndTime
-		}
-
-		title := s.Title
-		if title == "" {
-			title = string(s.TrainingType) + " Session"
-		}
-
-		items = append(items, LandingScheduleItem{
-			SessionID:      s.ID.String(),
-			Title:          title,
-			FormattedDate:  dateStr,
-			DayOfWeek:      dayStr,
-			FormattedTime:  timeStr,
-			TrainingType:   string(s.TrainingType),
-			TypeColorClass: typeColor,
-			LocationID:     locID,
-			LocationName:   locationName,
-			LocationPin:    s.LocationPin,
-			CoachName:      coachName,
-			IsClass:        s.EntryTypeVal() == "class" || s.EntryTypeVal() == "",
-		})
+	sess, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		http.Error(w, "Session not found", http.StatusNotFound)
+		return
 	}
 
-	// Sort chronologically
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].FormattedDate != items[j].FormattedDate {
-			return items[i].FormattedDate < items[j].FormattedDate
-		}
-		return items[i].FormattedTime < items[j].FormattedTime
-	})
+	title := sess.Title
+	if title == "" {
+		title = string(sess.TrainingType) + " Session"
+	}
+	timeStr := sess.StartTime
+	if sess.EndTime != "" {
+		timeStr += " – " + sess.EndTime
+	}
 
-	return items
+	data := GuestReserveFormData{
+		SessionID:     sess.ID.String(),
+		SessionTitle:  title,
+		TrainingType:  string(sess.TrainingType),
+		FormattedDate: sess.SessionDate.Format("Monday, Jan 02, 2006"),
+		FormattedTime: timeStr,
+		CoachName:     sess.CoachName,
+		LocationName:  sess.LocationName,
+	}
+
+	a.RenderPartial(w, "guest_reservation_form.html", data)
 }
 
-func getLandingPrograms() []LandingProgram {
-	return []LandingProgram{
-		{
-			ID:          "sparring",
-			Title:       "Sparring (Kyorugi)",
-			KoreanTitle: "겨루기",
-			Tagline:     "Olympic Combat, Speed & Tactical Ring IQ",
-			Badge:       "Olympic & Competitive",
-			BadgeClass:  "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30",
-			Description: "High-octane competitive sparring training emphasizing speed, reaction timing, footwork angles, electronic sensor scoring, and ring strategy under World Taekwondo rules.",
-			FocusPoints: []string{
-				"Footwork angles, ring cut-offs & distance control",
-				"Electronic sensor impact delivery & scoring combos",
-				"High-speed counter-kicking tactical setups",
-				"Cadet, Junior & Senior tournament preparation",
-			},
-		},
-		{
-			ID:          "poomsae",
-			Title:       "Forms (Poomsae)",
-			KoreanTitle: "품새",
-			Tagline:     "Mastery of Precision, Balance & Power Delivery",
-			Badge:       "Traditional & Technical",
-			BadgeClass:  "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
-			Description: "Comprehensive WT Kukkiwon curriculum from Taegeuk 1-Jang through advanced Black Belt Dan patterns. Honing stance stability, breath control, and explosive technical snaps.",
-			FocusPoints: []string{
-				"Official Kukkiwon Dan & Kup syllabus lineage",
-				"Biomechanical stance depth & balance transitions",
-				"Speed, acceleration, and dynamic power pauses",
-				"Belt promotion & technical championship readiness",
-			},
-		},
-		{
-			ID:          "cadets",
-			Title:       "Cadets & Kids Fundamentals",
-			KoreanTitle: "어린이 태권도",
-			Tagline:     "Confidence, Respect & Motor Agility",
-			Badge:       "Ages 4–12 Youth Development",
-			BadgeClass:  "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
-			Description: "Dynamic, values-centered training designed for young martial artists. Cultivates dojang respect, athletic coordination, focus, anti-bullying confidence, and teamwork.",
-			FocusPoints: []string{
-				"Traditional bowing, etiquette & respect for elders",
-				"Speed ladders, agility & motor coordination skills",
-				"Anti-bullying assertiveness, voice & confidence",
-				"Fun, rewarding belt milestone progression",
-			},
-		},
-		{
-			ID:          "conditioning",
-			Title:       "Athletic Conditioning & Promotion Prep",
-			KoreanTitle: "체력단련",
-			Tagline:     "Peak Conditioning & Test Benchmark Readiness",
-			Badge:       "Fitness & Promotion Prep",
-			BadgeClass:  "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-			Description: "High-intensity conditioning aligned directly with the 6-factor ability evaluation: Flexibility, Stamina, Power, Technique, Sparring IQ, and Discipline.",
-			FocusPoints: []string{
-				"High-intensity interval circuits (HIIT) & core power",
-				"Dynamic flexibility, hip mobility & kick range",
-				"Belt test stamina simulation & benchmark drills",
-				"6-Factor athletic radar metric optimization",
-			},
-		},
+// HandleGuestReservation processes guest slot reservation at POST /landing/reserve.
+func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	sessionIDStr := strings.TrimSpace(r.FormValue("session_id"))
+	guestName := strings.TrimSpace(r.FormValue("guest_name"))
+	contactNumber := strings.TrimSpace(r.FormValue("contact_number"))
+
+	sessionID, err := uuid.Parse(sessionIDStr)
+	if err != nil {
+		a.renderGuestReserveError(w, nil, guestName, contactNumber, "Invalid session selected.")
+		return
+	}
+
+	sess, err := a.store.GetSessionByID(sessionID)
+	if err != nil {
+		a.renderGuestReserveError(w, nil, guestName, contactNumber, "Training session not found.")
+		return
+	}
+
+	if guestName == "" {
+		a.renderGuestReserveError(w, sess, guestName, contactNumber, "Please enter your full name.")
+		return
+	}
+
+	if contactNumber == "" {
+		a.renderGuestReserveError(w, sess, guestName, contactNumber, "Please enter your contact number.")
+		return
+	}
+
+	att, err := a.store.ReserveSessionSlot(sessionID, guestName, contactNumber)
+	if err != nil {
+		errMsg := err.Error()
+		if errors.Is(err, repository.ErrAlreadyInRoster) {
+			errMsg = "You have already reserved a slot for this training session."
+		}
+		a.renderGuestReserveError(w, sess, guestName, contactNumber, errMsg)
+		return
+	}
+
+	dateStr := sess.SessionDate.Format("Monday, Jan 02, 2006")
+	timeStr := sess.StartTime
+	if sess.EndTime != "" {
+		timeStr += " – " + sess.EndTime
+	}
+
+	data := GuestReservationSuccessData{
+		Session:       sess,
+		Attendance:    att,
+		FormattedDate: dateStr,
+		FormattedTime: timeStr,
+	}
+
+	a.RenderPartial(w, "guest_reservation_success.html", data)
+}
+
+func (a *AppHandler) renderGuestReserveError(w http.ResponseWriter, sess *models.TrainingSession, guestName, contactNumber, errMsg string) {
+	data := GuestReserveFormData{
+		GuestName:     guestName,
+		ContactNumber: contactNumber,
+		ErrorMessage:  errMsg,
+	}
+	if sess != nil {
+		data.SessionID = sess.ID.String()
+		title := sess.Title
+		if title == "" {
+			title = string(sess.TrainingType) + " Session"
+		}
+		data.SessionTitle = title
+		data.TrainingType = string(sess.TrainingType)
+		data.FormattedDate = sess.SessionDate.Format("Monday, Jan 02, 2006")
+		timeStr := sess.StartTime
+		if sess.EndTime != "" {
+			timeStr += " – " + sess.EndTime
+		}
+		data.FormattedTime = timeStr
+		data.CoachName = sess.CoachName
+		data.LocationName = sess.LocationName
+	}
+	a.RenderPartial(w, "guest_reservation_form.html", data)
 }

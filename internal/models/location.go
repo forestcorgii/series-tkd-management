@@ -13,6 +13,7 @@ type Location struct {
 	Name      string    `json:"name"`
 	Pin       string    `json:"pin"` // Google Maps link / share URL
 	FixedRate *float64  `json:"fixed_rate,omitempty"` // Default session rate pre-filled for classes at this location
+	IsDefault bool      `json:"is_default"`           // Pre-selected default location for public schedules and check-ins
 	CreatedAt time.Time `json:"created_at"`
 }
 

@@ -33,6 +33,8 @@ type RepositoryStore interface {
 	// Locations
 	GetAllLocations() ([]*models.Location, error)
 	GetLocationByID(id uuid.UUID) (*models.Location, error)
+	GetDefaultLocation() (*models.Location, error)
+	SetDefaultLocation(id uuid.UUID) error
 	CreateLocation(loc *models.Location) error
 	UpdateLocation(loc *models.Location) error
 	DeleteLocation(id uuid.UUID) error
@@ -85,6 +87,7 @@ type RepositoryStore interface {
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
 	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
 	CheckInAttendee(sessionID uuid.UUID, attendeeType string, attendeeID *uuid.UUID, attendeeName, attendeeRole string, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
+	ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error)
 	RemoveAttendance(sessionID, studentID uuid.UUID) error
 
 	// Batch Optimizations
@@ -1006,6 +1009,55 @@ func (m *MemoryStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, 
 	return att, nil
 }
 
+func (m *MemoryStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sess, ok := m.sessions[sessionID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if sess.IsCancelled {
+		return nil, errors.New("cannot reserve slot: class has been cancelled")
+	}
+
+	trimmedName := strings.TrimSpace(guestName)
+	trimmedPhone := strings.TrimSpace(contactNumber)
+	if trimmedName == "" {
+		return nil, errors.New("guest name is required")
+	}
+	if trimmedPhone == "" {
+		return nil, errors.New("contact number is required")
+	}
+
+	for _, a := range m.attendances {
+		if a.SessionID == sessionID && strings.EqualFold(strings.TrimSpace(a.AttendeeName), trimmedName) {
+			return nil, ErrAlreadyInRoster
+		}
+	}
+
+	att := &models.Attendance{
+		ID:            uuid.New(),
+		SessionID:     sessionID,
+		CheckedInAt:   time.Now(),
+		AttendeeType:  "guest",
+		AttendeeName:  trimmedName,
+		AttendeeRole:  "Reserved Guest",
+		ContactNumber: trimmedPhone,
+	}
+
+	if sess.LocationID != nil {
+		att.LocationID = sess.LocationID
+		if loc, okLoc := m.locations[*sess.LocationID]; okLoc {
+			att.LocationName = loc.Name
+			att.LocationPin = loc.Pin
+		}
+	}
+
+	m.attendances[att.ID] = att
+	return att, nil
+}
+
 func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	return m.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
 }
@@ -1811,6 +1863,9 @@ func (m *MemoryStore) GetAllLocations() ([]*models.Location, error) {
 		result = append(result, l)
 	}
 	sort.Slice(result, func(i, j int) bool {
+		if result[i].IsDefault != result[j].IsDefault {
+			return result[i].IsDefault
+		}
 		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
 	})
 	return result, nil
@@ -1827,6 +1882,40 @@ func (m *MemoryStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
 	return l, nil
 }
 
+func (m *MemoryStore) GetDefaultLocation() (*models.Location, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, l := range m.locations {
+		if l.IsDefault {
+			return l, nil
+		}
+	}
+	// Fallback to earliest created
+	var first *models.Location
+	for _, l := range m.locations {
+		if first == nil || l.CreatedAt.Before(first.CreatedAt) {
+			first = l
+		}
+	}
+	return first, nil
+}
+
+func (m *MemoryStore) SetDefaultLocation(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	target, ok := m.locations[id]
+	if !ok {
+		return ErrNotFound
+	}
+	for _, l := range m.locations {
+		l.IsDefault = false
+	}
+	target.IsDefault = true
+	return nil
+}
+
 func (m *MemoryStore) CreateLocation(loc *models.Location) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1836,6 +1925,11 @@ func (m *MemoryStore) CreateLocation(loc *models.Location) error {
 	}
 	if loc.CreatedAt.IsZero() {
 		loc.CreatedAt = time.Now()
+	}
+	if loc.IsDefault {
+		for _, l := range m.locations {
+			l.IsDefault = false
+		}
 	}
 	m.locations[loc.ID] = loc
 	return nil
@@ -1849,9 +1943,15 @@ func (m *MemoryStore) UpdateLocation(loc *models.Location) error {
 	if !ok {
 		return ErrNotFound
 	}
+	if loc.IsDefault {
+		for _, l := range m.locations {
+			l.IsDefault = false
+		}
+	}
 	existing.Name = loc.Name
 	existing.Pin = loc.Pin
 	existing.FixedRate = loc.FixedRate
+	existing.IsDefault = loc.IsDefault
 	return nil
 }
 

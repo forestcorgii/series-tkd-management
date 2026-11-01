@@ -1563,6 +1563,44 @@ func TestSQLStore_Locations(t *testing.T) {
 	if _, err := store.GetLocationByID(otherLoc.ID); err != repository.ErrNotFound {
 		t.Errorf("expected ErrNotFound after DeleteLocation, got: %v", err)
 	}
+
+	// 9. Default Location & ReserveSessionSlot Verification
+	defLoc := &models.Location{
+		ID:        uuid.New(),
+		Name:      "Makati Central (HQ)",
+		Pin:       "https://maps.google.com/?q=makati",
+		IsDefault: true,
+	}
+	if err := store.CreateLocation(defLoc); err != nil {
+		t.Fatalf("CreateLocation with IsDefault failed: %v", err)
+	}
+	activeDefault, err := store.GetDefaultLocation()
+	if err != nil || activeDefault == nil || activeDefault.ID != defLoc.ID {
+		t.Fatalf("expected default location to be %v, got %v (err: %v)", defLoc.ID, activeDefault, err)
+	}
+
+	// Set another location as default
+	if err := store.SetDefaultLocation(loc.ID); err != nil {
+		t.Fatalf("SetDefaultLocation failed: %v", err)
+	}
+	updatedDefault, err := store.GetDefaultLocation()
+	if err != nil || updatedDefault == nil || updatedDefault.ID != loc.ID {
+		t.Fatalf("expected new default location %v, got %v", loc.ID, updatedDefault)
+	}
+
+	// 10. ReserveSessionSlot Verification
+	resAtt, err := store.ReserveSessionSlot(sess.ID, "Grandmaster Park", "09171234567")
+	if err != nil {
+		t.Fatalf("ReserveSessionSlot failed: %v", err)
+	}
+	if resAtt.AttendeeName != "Grandmaster Park" || resAtt.AttendeeType != "guest" || resAtt.ContactNumber != "09171234567" {
+		t.Errorf("unexpected reservation attendance details: %+v", resAtt)
+	}
+	// Duplicate reservation rejection
+	_, err = store.ReserveSessionSlot(sess.ID, "Grandmaster Park", "09171234567")
+	if err != repository.ErrAlreadyInRoster {
+		t.Errorf("expected ErrAlreadyInRoster for duplicate guest reservation, got: %v", err)
+	}
 }
 
 func TestStore_Attendance_SessionRate(t *testing.T) {

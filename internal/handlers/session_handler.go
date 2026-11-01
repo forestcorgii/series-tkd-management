@@ -269,36 +269,10 @@ func formatHourLabel(h int) string {
 	return fmt.Sprintf("%02d:00 %s", displayH, period)
 }
 
-func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
-	user := GetUserFromContext(r.Context())
-	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
-	if !r.URL.Query().Has("coach_id") && user != nil && user.IsCoach() && user.CoachID != nil {
-		coachIDStr = user.CoachID.String()
-	}
-	studentIDStr := strings.TrimSpace(r.URL.Query().Get("student_id"))
-	locationIDStr := strings.TrimSpace(r.URL.Query().Get("location_id"))
-	category := strings.TrimSpace(r.URL.Query().Get("category"))
-	viewMode := strings.TrimSpace(r.URL.Query().Get("view"))
-	if viewMode == "" {
-		viewMode = "grid"
-	}
-
-	dateParam := strings.TrimSpace(r.URL.Query().Get("date"))
-	if dateParam == "" {
-		dateParam = strings.TrimSpace(r.URL.Query().Get("day"))
-	}
-	if dateParam == "" {
-		dateParam = strings.TrimSpace(r.URL.Query().Get("week_date"))
-	}
-
+func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, category, studentIDStr, entryTypeFilter string, excludeInternalShifts bool) (CalendarWeek, []*models.TrainingSession, error) {
 	today := time.Now().In(phLocation)
 	todayStr := today.Format("2006-01-02")
 	refDate := today
-
-	entryTypeFilter := strings.TrimSpace(r.URL.Query().Get("entry_type"))
-	if entryTypeFilter == "" {
-		entryTypeFilter = strings.TrimSpace(r.URL.Query().Get("type"))
-	}
 
 	// Pre-filter by coach, student, location, category, and entry type
 	baseFilter := repository.SessionFilter{
@@ -323,8 +297,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 
 	allMatching, err := a.store.GetSessions(baseFilter)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return CalendarWeek{}, nil, err
 	}
 
 	if dateParam != "" {
@@ -332,10 +305,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			refDate = t
 		}
 	}
-	// Note: When dateParam is empty (e.g. on opening attendance), refDate always remains 'today',
-	// ensuring the calendar always centers on the current week.
 
-	// Anchor calendar directly from refDate (today by default), so today's date is always in Column 1
 	weekStart := time.Date(refDate.Year(), refDate.Month(), refDate.Day(), 0, 0, 0, 0, refDate.Location())
 	weekEnd := weekStart.AddDate(0, 0, 6)
 	startDateStr := weekStart.Format("2006-01-02")
@@ -348,12 +318,14 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	// Filter sessions within the selected week
 	var sessions []*models.TrainingSession
 	for _, s := range allMatching {
+		if excludeInternalShifts && s.IsDuty() {
+			continue
+		}
 		sDate := s.SessionDate.Format("2006-01-02")
 		if sDate >= startDateStr && sDate <= endDateStr {
 			sessions = append(sessions, s)
 		}
 	}
-	coaches, _ := a.store.GetAllCoaches()
 
 	// Initialize 7 days (Monday through Sunday)
 	days := make([]*CalendarDay, 7)
@@ -596,7 +568,9 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().In(phLocation)
-	nowTotalMin := now.Hour()*60 + now.Minute()
+	nowH := now.Hour()
+	nowM := now.Minute()
+	nowTotalMin := nowH*60 + nowM
 	minTotalMin := minHour * 60
 	maxTotalMin := (maxHour + 1) * 60
 	showNowLine := false
@@ -629,7 +603,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	calWeek := CalendarWeek{
+	return CalendarWeek{
 		StartDate:           weekStart,
 		EndDate:             weekEnd,
 		StartDateStr:        startDateStr,
@@ -642,19 +616,55 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		Title:               weekTitle,
 		MobileTitle:         mobileTitle,
 		MobileTotalSessions: mobileTotalSessions,
-		MonthYear:        weekStart.Format("January 2006"),
-		Days:             days,
-		Hours:            hours,
-		TotalSessions:    len(sessions),
-		MinHour:          minHour,
-		MaxHour:          maxHour,
-		HourHeight:       hourHeight,
-		GridHeight:       gridHeight,
-		NowOffset:        nowOffset,
-		ShowNowLine:      showNowLine,
-		CurrentTimeLabel: currentTimeLabel,
+		MonthYear:           weekStart.Format("January 2006"),
+		Days:                days,
+		Hours:               hours,
+		TotalSessions:       len(sessions),
+		MinHour:             minHour,
+		MaxHour:             maxHour,
+		HourHeight:          hourHeight,
+		GridHeight:          gridHeight,
+		NowOffset:           nowOffset,
+		ShowNowLine:         showNowLine,
+		CurrentTimeLabel:    currentTimeLabel,
+	}, allMatching, nil
+}
+
+func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
+	if !r.URL.Query().Has("coach_id") && user != nil && user.IsCoach() && user.CoachID != nil {
+		coachIDStr = user.CoachID.String()
+	}
+	studentIDStr := strings.TrimSpace(r.URL.Query().Get("student_id"))
+	locationIDStr := strings.TrimSpace(r.URL.Query().Get("location_id"))
+	category := strings.TrimSpace(r.URL.Query().Get("category"))
+	viewMode := strings.TrimSpace(r.URL.Query().Get("view"))
+	if viewMode == "" {
+		viewMode = "grid"
 	}
 
+	dateParam := strings.TrimSpace(r.URL.Query().Get("date"))
+	if dateParam == "" {
+		dateParam = strings.TrimSpace(r.URL.Query().Get("day"))
+	}
+	if dateParam == "" {
+		dateParam = strings.TrimSpace(r.URL.Query().Get("week_date"))
+	}
+
+	entryTypeFilter := strings.TrimSpace(r.URL.Query().Get("entry_type"))
+	if entryTypeFilter == "" {
+		entryTypeFilter = strings.TrimSpace(r.URL.Query().Get("type"))
+	}
+
+	calWeek, allMatching, err := a.BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, category, studentIDStr, entryTypeFilter, false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	categories, _ := a.store.GetAllTrainingCategories()
+	coaches, _ := a.store.GetAllCoaches()
 	students, _ := a.store.GetAllStudents()
 
 	// Fetch active Administrators and Operation Managers for Supervising Admin field

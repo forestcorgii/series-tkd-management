@@ -1009,7 +1009,7 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 		allSess, _ := store.GetAllSessions()
 		var sess *models.TrainingSession
 		for _, s := range allSess {
-			if s.SessionDate.Format("2006-01-02") == "2026-10-22" && s.StartTime == "17:00" {
+			if s.Notes == "Coach unassigned class" {
 				sess = s
 				break
 			}
@@ -1564,7 +1564,7 @@ func TestHandleCreateSession_LocationFixedRatePreFill(t *testing.T) {
 	sessions, _ := store.GetAllSessions()
 	var adminSess *models.TrainingSession
 	for _, s := range sessions {
-		if s.SessionDate.Format("2006-01-02") == "2026-10-27" {
+		if s.SessionDate.Format("2006-01-02") == "2026-10-27" && s.LocationID != nil && *s.LocationID == loc.ID {
 			adminSess = s
 			break
 		}

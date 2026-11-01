@@ -26,9 +26,16 @@
             🛡️ {{if .Attendance.AttendeeRole}}{{.Attendance.AttendeeRole}} (Staff){{else}}Staff{{end}}
         </span>
         {{else if .Attendance.IsGuest}}
-        <span class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-            👤 {{if .Attendance.AttendeeRole}}{{.Attendance.AttendeeRole}} (Guest){{else}}Guest{{end}}
-        </span>
+        <div class="flex items-center gap-1 flex-wrap">
+            <span class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                👤 {{if .Attendance.AttendeeRole}}{{.Attendance.AttendeeRole}}{{if not (eq .Attendance.AttendeeRole "Reserved Guest")}} (Guest){{end}}{{else}}Guest{{end}}
+            </span>
+            {{if .Attendance.ContactNumber}}
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono" title="Contact Number">
+                📞 {{.Attendance.ContactNumber}}
+            </span>
+            {{end}}
+        </div>
         {{else}}
         <span class="badge-belt text-[10px]">
             {{.Attendance.DisplayRole}}

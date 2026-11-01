@@ -162,6 +162,7 @@ func (s *SQLStore) runMigrations() error {
 			name TEXT NOT NULL,
 			pin TEXT NOT NULL,
 			fixed_rate REAL,
+			is_default INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL
 		);
 
@@ -202,7 +203,8 @@ func (s *SQLStore) runMigrations() error {
 			checked_in_at TEXT NOT NULL,
 			attendee_type TEXT NOT NULL DEFAULT 'student',
 			attendee_name TEXT DEFAULT '',
-			attendee_role TEXT DEFAULT ''
+			attendee_role TEXT DEFAULT '',
+			contact_number TEXT DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS student_evaluations (
@@ -415,6 +417,7 @@ func (s *SQLStore) runMigrations() error {
 			name VARCHAR(150) NOT NULL,
 			pin TEXT NOT NULL,
 			fixed_rate NUMERIC(10, 2),
+			is_default BOOLEAN NOT NULL DEFAULT FALSE,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -455,7 +458,8 @@ func (s *SQLStore) runMigrations() error {
 			checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			attendee_type VARCHAR(20) NOT NULL DEFAULT 'student',
 			attendee_name VARCHAR(120) DEFAULT '',
-			attendee_role VARCHAR(50) DEFAULT ''
+			attendee_role VARCHAR(50) DEFAULT '',
+			contact_number VARCHAR(50) DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS student_evaluations (
@@ -642,6 +646,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN fixed_rate REAL`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN is_default INTEGER DEFAULT 0`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE,
@@ -658,6 +663,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_type TEXT DEFAULT 'student'`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_name TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_role TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN contact_number TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 			id TEXT PRIMARY KEY,
 			user_id TEXT,
@@ -812,11 +818,54 @@ func (s *SQLStore) runMigrations() error {
 						is_cancelled INTEGER NOT NULL DEFAULT 0,
 						cancellation_reason TEXT DEFAULT '',
 						cancelled_at TEXT,
+						entry_type TEXT NOT NULL DEFAULT 'class',
+						title TEXT DEFAULT '',
+						assigned_staff TEXT DEFAULT '[]',
 						created_at TEXT NOT NULL
 					);
-					INSERT INTO training_sessions_dg_tmp SELECT id, session_date, start_time, end_time, coach_id, admin_id, location_id, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, created_at FROM training_sessions;
+					INSERT INTO training_sessions_dg_tmp SELECT id, session_date, start_time, end_time, coach_id, admin_id, location_id, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, entry_type, title, assigned_staff, created_at FROM training_sessions;
 					DROP TABLE training_sessions;
 					ALTER TABLE training_sessions_dg_tmp RENAME TO training_sessions;
+					PRAGMA foreign_keys=ON;
+				`
+				_, _ = s.db.Exec(migrationSQL)
+			}
+		}
+
+		// Drop NOT NULL on student_id in attendance if table was previously created with NOT NULL
+		if rows, err := s.db.Query(`PRAGMA table_info(attendance)`); err == nil {
+			needsStudentNullable := false
+			for rows.Next() {
+				var cid, notnull, pk int
+				var name, colType string
+				var dfltValue sql.NullString
+				if err := rows.Scan(&cid, &name, &colType, &notnull, &dfltValue, &pk); err == nil {
+					if name == "student_id" && notnull == 1 {
+						needsStudentNullable = true
+					}
+				}
+			}
+			rows.Close()
+			if needsStudentNullable {
+				migrationSQL := `
+					PRAGMA foreign_keys=OFF;
+					CREATE TABLE attendance_dg_tmp (
+						id TEXT PRIMARY KEY,
+						session_id TEXT NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
+						student_id TEXT,
+						student_package_id TEXT REFERENCES student_packages(id),
+						location_id TEXT REFERENCES locations(id),
+						session_rate REAL,
+						checked_in_at TEXT NOT NULL,
+						attendee_type TEXT NOT NULL DEFAULT 'student',
+						attendee_name TEXT DEFAULT '',
+						attendee_role TEXT DEFAULT '',
+						contact_number TEXT DEFAULT ''
+					);
+					INSERT INTO attendance_dg_tmp (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role, contact_number)
+					SELECT id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role, contact_number FROM attendance;
+					DROP TABLE attendance;
+					ALTER TABLE attendance_dg_tmp RENAME TO attendance;
 					PRAGMA foreign_keys=ON;
 				`
 				_, _ = s.db.Exec(migrationSQL)
@@ -853,6 +902,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS fixed_rate NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id UUID PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
@@ -870,6 +920,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_type VARCHAR(20) DEFAULT 'student'`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_name VARCHAR(120) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_role VARCHAR(50) DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS contact_number VARCHAR(50) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_admin_id_fkey`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
@@ -1215,7 +1266,7 @@ func formatDateForDB(t time.Time) string {
 
 // Locations
 func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, created_at FROM locations ORDER BY name ASC`
+	query := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY is_default DESC, name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -1226,14 +1277,16 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 	for rows.Next() {
 		var idStr, createdStr string
 		var nullRate sql.NullFloat64
+		var isDefault bool
 		loc := &models.Location{}
-		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &createdStr); err != nil {
+		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr); err != nil {
 			return nil, err
 		}
 		loc.ID = uuid.Must(uuid.Parse(idStr))
 		if nullRate.Valid {
 			loc.FixedRate = &nullRate.Float64
 		}
+		loc.IsDefault = isDefault
 		loc.CreatedAt, _ = parseTimeFlex(createdStr)
 		locations = append(locations, loc)
 	}
@@ -1241,11 +1294,12 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 }
 
 func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, created_at FROM locations WHERE id = $1`
+	query := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations WHERE id = $1`
 	var idStr, createdStr string
 	var nullRate sql.NullFloat64
+	var isDefault bool
 	loc := &models.Location{}
-	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &createdStr)
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -1256,8 +1310,71 @@ func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
 	if nullRate.Valid {
 		loc.FixedRate = &nullRate.Float64
 	}
+	loc.IsDefault = isDefault
 	loc.CreatedAt, _ = parseTimeFlex(createdStr)
 	return loc, nil
+}
+
+func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
+	query := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations WHERE is_default = TRUE or is_default = 1 ORDER BY created_at ASC LIMIT 1`
+	var idStr, createdStr string
+	var nullRate sql.NullFloat64
+	var isDefault bool
+	loc := &models.Location{}
+	err := s.db.QueryRow(query).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr)
+	if err == nil {
+		loc.ID = uuid.Must(uuid.Parse(idStr))
+		if nullRate.Valid {
+			loc.FixedRate = &nullRate.Float64
+		}
+		loc.IsDefault = isDefault
+		loc.CreatedAt, _ = parseTimeFlex(createdStr)
+		return loc, nil
+	}
+	if err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// Fallback to earliest created location
+	queryFallback := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY created_at ASC LIMIT 1`
+	err = s.db.QueryRow(queryFallback).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	loc.ID = uuid.Must(uuid.Parse(idStr))
+	if nullRate.Valid {
+		loc.FixedRate = &nullRate.Float64
+	}
+	loc.IsDefault = isDefault
+	loc.CreatedAt, _ = parseTimeFlex(createdStr)
+	return loc, nil
+}
+
+func (s *SQLStore) SetDefaultLocation(id uuid.UUID) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("UPDATE locations SET is_default = FALSE"); err != nil {
+		return err
+	}
+	res, err := tx.Exec("UPDATE locations SET is_default = TRUE WHERE id = $1", id.String())
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit()
 }
 
 func (s *SQLStore) CreateLocation(loc *models.Location) error {
@@ -1267,14 +1384,20 @@ func (s *SQLStore) CreateLocation(loc *models.Location) error {
 	if loc.CreatedAt.IsZero() {
 		loc.CreatedAt = time.Now()
 	}
-	query := `INSERT INTO locations (id, name, pin, fixed_rate, created_at) VALUES ($1, $2, $3, $4, $5)`
-	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, formatTimeForDB(loc.CreatedAt))
+	if loc.IsDefault {
+		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE")
+	}
+	query := `INSERT INTO locations (id, name, pin, fixed_rate, is_default, created_at) VALUES ($1, $2, $3, $4, $5, $6)`
+	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, loc.IsDefault, formatTimeForDB(loc.CreatedAt))
 	return err
 }
 
 func (s *SQLStore) UpdateLocation(loc *models.Location) error {
-	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3 WHERE id = $4`
-	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.ID.String())
+	if loc.IsDefault {
+		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE WHERE id != $1", loc.ID.String())
+	}
+	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3, is_default = $4 WHERE id = $5`
+	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.IsDefault, loc.ID.String())
 	if err != nil {
 		return err
 	}
@@ -1899,7 +2022,6 @@ func (s *SQLStore) DeleteCoach(coachID uuid.UUID) error {
 
 	return tx.Commit()
 }
-
 
 // Packages
 func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
@@ -2695,14 +2817,14 @@ func (s *SQLStore) scanAttendanceRow(rows *sql.Rows) (*models.Attendance, error)
 	var pkgIDStr, stName, belt, pkgTitle sql.NullString
 	var locIDStr, locName, locPin sql.NullString
 	var sessionRateVal sql.NullFloat64
-	var attendeeType, attendeeName, attendeeRole sql.NullString
+	var attendeeType, attendeeName, attendeeRole, contactNum sql.NullString
 	att := &models.Attendance{}
 	err := rows.Scan(
 		&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
 		&stName, &belt, &pkgTitle,
 		&locIDStr, &locName, &locPin,
 		&sessionRateVal,
-		&attendeeType, &attendeeName, &attendeeRole,
+		&attendeeType, &attendeeName, &attendeeRole, &contactNum,
 	)
 	if err != nil {
 		return nil, err
@@ -2753,6 +2875,9 @@ func (s *SQLStore) scanAttendanceRow(rows *sql.Rows) (*models.Attendance, error)
 	if attendeeRole.Valid {
 		att.AttendeeRole = attendeeRole.String
 	}
+	if contactNum.Valid {
+		att.ContactNumber = contactNum.String
+	}
 	return att, nil
 }
 
@@ -2765,7 +2890,8 @@ func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attenda
 		a.session_rate,
 		COALESCE(a.attendee_type, 'student'),
 		COALESCE(a.attendee_name, ''),
-		COALESCE(a.attendee_role, '')
+		COALESCE(a.attendee_role, ''),
+		COALESCE(a.contact_number, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2801,7 +2927,8 @@ func (s *SQLStore) GetAllAttendances() ([]*models.Attendance, error) {
 		a.session_rate,
 		COALESCE(a.attendee_type, 'student'),
 		COALESCE(a.attendee_name, ''),
-		COALESCE(a.attendee_role, '')
+		COALESCE(a.attendee_role, ''),
+		COALESCE(a.contact_number, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2858,7 +2985,8 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 		a.session_rate,
 		COALESCE(a.attendee_type, 'student'),
 		COALESCE(a.attendee_name, ''),
-		COALESCE(a.attendee_role, '')
+		COALESCE(a.attendee_role, ''),
+		COALESCE(a.contact_number, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -3023,6 +3151,61 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 
 func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	return s.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
+}
+
+func (s *SQLStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error) {
+	sess, err := s.GetSessionByID(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if sess.IsCancelled {
+		return nil, errors.New("cannot reserve slot: class has been cancelled")
+	}
+
+	trimmedName := strings.TrimSpace(guestName)
+	trimmedPhone := strings.TrimSpace(contactNumber)
+	if trimmedName == "" {
+		return nil, errors.New("guest name is required")
+	}
+	if trimmedPhone == "" {
+		return nil, errors.New("contact number is required")
+	}
+
+	// Check if already in roster
+	var existingID string
+	err = s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND attendee_name = $2", sessionID.String(), trimmedName).Scan(&existingID)
+	if err == nil {
+		return nil, ErrAlreadyInRoster
+	}
+
+	att := &models.Attendance{
+		ID:            uuid.New(),
+		SessionID:     sessionID,
+		CheckedInAt:   time.Now(),
+		AttendeeType:  "guest",
+		AttendeeName:  trimmedName,
+		AttendeeRole:  "Reserved Guest",
+		ContactNumber: trimmedPhone,
+		LocationID:    sess.LocationID,
+		LocationName:  sess.LocationName,
+		LocationPin:   sess.LocationPin,
+	}
+
+	var locIDVal interface{}
+	if sess.LocationID != nil {
+		locIDVal = sess.LocationID.String()
+	}
+
+	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role, contact_number)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	_, err = s.db.Exec(query,
+		att.ID.String(), att.SessionID.String(), nil, nil, locIDVal, nil, formatTimeForDB(att.CheckedInAt),
+		att.AttendeeType, att.AttendeeName, att.AttendeeRole, att.ContactNumber,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return att, nil
 }
 
 func (s *SQLStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
@@ -5058,4 +5241,3 @@ func (s *SQLStore) GetAllPushSubscriptions() ([]*models.PushSubscription, error)
 	}
 	return s.scanPushSubscriptions(rows)
 }
-

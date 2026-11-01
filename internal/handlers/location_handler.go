@@ -113,11 +113,14 @@ func (a *AppHandler) HandleCreateLocation(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	isDefault := r.FormValue("is_default") == "on" || r.FormValue("is_default") == "true" || r.FormValue("is_default") == "1"
+
 	loc := &models.Location{
 		ID:        uuid.New(),
 		Name:      name,
 		Pin:       pin,
 		FixedRate: fixedRate,
+		IsDefault: isDefault,
 		CreatedAt: time.Now(),
 	}
 
@@ -175,11 +178,14 @@ func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	isDefault := r.FormValue("is_default") == "on" || r.FormValue("is_default") == "true" || r.FormValue("is_default") == "1"
+
 	loc := &models.Location{
 		ID:        locID,
 		Name:      name,
 		Pin:       pin,
 		FixedRate: fixedRate,
+		IsDefault: isDefault,
 	}
 
 	if err := a.store.UpdateLocation(loc); err != nil {
@@ -194,6 +200,46 @@ func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request
 	a.LogAction(r, "LOCATION_UPDATE", models.AuditCategoryLocations, "Location", loc.ID.String(), loc.Name, "Updated branch location: "+loc.Name)
 
 	http.Redirect(w, r, "/locations?success="+url.QueryEscape(fmt.Sprintf("Location \"%s\" updated successfully", loc.Name)), http.StatusSeeOther)
+}
+
+func (a *AppHandler) HandleSetDefaultLocation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user != nil && !user.IsOperationManager() && !user.HasPermission(models.PermLocationsManage) {
+		http.Error(w, "Forbidden: Only Operation Managers can modify locations", http.StatusForbidden)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		path := strings.TrimPrefix(r.URL.Path, "/locations/")
+		path = strings.TrimSuffix(path, "/set-default")
+		idStr = path
+	}
+	locID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid location ID", http.StatusBadRequest)
+		return
+	}
+
+	loc, err := a.store.GetLocationByID(locID)
+	if err != nil {
+		http.Redirect(w, r, "/locations?error="+url.QueryEscape("Location not found"), http.StatusSeeOther)
+		return
+	}
+
+	if err := a.store.SetDefaultLocation(locID); err != nil {
+		http.Redirect(w, r, "/locations?error="+url.QueryEscape("Failed to set default location: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	a.LogAction(r, "LOCATION_SET_DEFAULT", models.AuditCategoryLocations, "Location", loc.ID.String(), loc.Name, "Set default branch location: "+loc.Name)
+
+	http.Redirect(w, r, "/locations?success="+url.QueryEscape(fmt.Sprintf("\"%s\" is now the default location", loc.Name)), http.StatusSeeOther)
 }
 
 func (a *AppHandler) HandleDeleteLocation(w http.ResponseWriter, r *http.Request) {

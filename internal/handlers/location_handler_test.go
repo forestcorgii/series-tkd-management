@@ -302,3 +302,55 @@ func TestLocationHandler_RESTMethodVariations(t *testing.T) {
 	}
 }
 
+func TestLocationHandler_SetDefaultLocation(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	token := uuid.New().String()
+	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
+
+	locs, _ := store.GetAllLocations()
+	if len(locs) < 2 {
+		t.Fatalf("expected at least 2 seeded locations")
+	}
+
+	loc1 := locs[0]
+	loc2 := locs[1]
+
+	// 1. Set loc1 as default
+	req1 := httptest.NewRequest("POST", "/locations/"+loc1.ID.String()+"/set-default", nil)
+	req1.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	rec1 := httptest.NewRecorder()
+
+	app.AuthMiddleware(app.RequireRole(models.RoleOperationManager)(app.HandleSetDefaultLocation)).ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after set-default, got %d", rec1.Code)
+	}
+
+	defLoc, err := store.GetDefaultLocation()
+	if err != nil || defLoc == nil || defLoc.ID != loc1.ID {
+		t.Fatalf("expected default location to be loc1 (%s), got %v", loc1.ID, defLoc)
+	}
+
+	// 2. Set loc2 as default, verify loc1 is no longer default
+	req2 := httptest.NewRequest("POST", "/locations/"+loc2.ID.String()+"/set-default", nil)
+	req2.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	rec2 := httptest.NewRecorder()
+
+	app.AuthMiddleware(app.RequireRole(models.RoleOperationManager)(app.HandleSetDefaultLocation)).ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after set-default, got %d", rec2.Code)
+	}
+
+	defLoc2, err := store.GetDefaultLocation()
+	if err != nil || defLoc2 == nil || defLoc2.ID != loc2.ID {
+		t.Fatalf("expected default location to be loc2 (%s), got %v", loc2.ID, defLoc2)
+	}
+
+	freshLoc1, _ := store.GetLocationByID(loc1.ID)
+	if freshLoc1.IsDefault {
+		t.Errorf("expected loc1.IsDefault to be false after loc2 was made default")
+	}
+}
+
+

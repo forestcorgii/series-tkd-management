@@ -267,6 +267,7 @@ type Attendance struct {
 	AttendeeType     string     `json:"attendee_type,omitempty"` // "student", "coach", "admin", "guest"
 	AttendeeName     string     `json:"attendee_name,omitempty"`
 	AttendeeRole     string     `json:"attendee_role,omitempty"`
+	ContactNumber    string     `json:"contact_number,omitempty"`
 }
 
 func (a *Attendance) SessionRateVal() float64 {

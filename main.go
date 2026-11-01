@@ -171,9 +171,11 @@ func main() {
 	mux.HandleFunc("PUT /api/admin/schedule", app.RequireRole(models.RoleOperationManager)(app.HandleAPIAdminSchedule))
 	mux.HandleFunc("POST /api/admin/promote", app.RequireRole(models.RoleOperationManager)(app.HandleAPIAdminPromote))
 
-	// Public Landing Page & Interactive Schedule
+	// Public Landing Page & Interactive Schedule & Guest Slot Reservations
 	mux.HandleFunc("GET /", app.HandleLandingPage)
 	mux.HandleFunc("GET /landing/schedule", app.HandleLandingSchedule)
+	mux.HandleFunc("GET /landing/reserve-form", app.HandleGuestReserveForm)
+	mux.HandleFunc("POST /landing/reserve", app.HandleGuestReservation)
 
 	// Dashboard (Customized Dashboards for Operation Manager, Coach & Admin)
 	mux.HandleFunc("GET /dashboard", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
@@ -196,7 +198,6 @@ func main() {
 	mux.HandleFunc("POST /coaches/{id}/toggle", app.RequireRole(models.RoleOperationManager)(app.HandleToggleCoachStatus))
 	mux.HandleFunc("POST /coaches/{id}/delete", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteCoach))
 	mux.HandleFunc("DELETE /coaches/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteCoach))
-
 
 	// Administrators Management (Only Operation Manager)
 	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) {
@@ -258,6 +259,7 @@ func main() {
 	mux.HandleFunc("POST /locations", app.RequireRole(models.RoleOperationManager)(app.HandleCreateLocation))
 	mux.HandleFunc("POST /locations/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleUpdateLocation))
 	mux.HandleFunc("POST /locations/{id}/edit", app.RequireRole(models.RoleOperationManager)(app.HandleUpdateLocation))
+	mux.HandleFunc("POST /locations/{id}/set-default", app.RequireRole(models.RoleOperationManager)(app.HandleSetDefaultLocation))
 	mux.HandleFunc("PUT /locations/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleUpdateLocation))
 	mux.HandleFunc("POST /locations/{id}/delete", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteLocation))
 	mux.HandleFunc("DELETE /locations/{id}", app.RequireRole(models.RoleOperationManager)(app.HandleDeleteLocation))
