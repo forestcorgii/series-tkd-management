@@ -21,7 +21,7 @@
                 </span>
                 {{end}}
                 <span class="text-xs text-slate-500 dark:text-slate-400 font-medium {{if .Session.IsCancelled}}line-through{{end}}">
-                    &bull; {{.Session.StartTime}} - {{.Session.EndTime}}
+                    &bull; {{formatTimeRange .Session.StartTime .Session.EndTime}}
                 </span>
                 <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">&bull; {{formatDate .Session.SessionDate}}</span>
                 {{if .Session.LocationName}}
@@ -239,7 +239,7 @@
         </div>
         <form action="/sessions/{{.Session.ID}}/cancel" method="POST" class="space-y-4">
             <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1">
-                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
+                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{formatTimeRange .Session.StartTime .Session.EndTime}})</p>
                 <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{if .Session.CoachName}}{{.Session.CoachName}}{{else}}None / Unassigned{{end}}</p>
             </div>
 
@@ -399,7 +399,7 @@
         </div>
         <form id="delete-session-form" method="POST" action="/sessions/{{.Session.ID}}/delete" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
-                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
+                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{formatTimeRange .Session.StartTime .Session.EndTime}})</p>
                 <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{if .Session.CoachName}}{{.Session.CoachName}}{{else}}None / Unassigned{{end}}</p>
                 <p class="text-xs text-rose-700 dark:text-rose-300 font-medium pt-1 border-t border-rose-200/60 dark:border-rose-900/60">
                     ⚠️ Deleting this open class will permanently purge the attendance roster and restore any deducted student membership credits.

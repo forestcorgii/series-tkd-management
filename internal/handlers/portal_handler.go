@@ -17,47 +17,47 @@ import (
 
 // View Data Structs for Portals
 type StudentPortalData struct {
-	CurrentUser            *models.User
-	Student                *models.Student
-	Readiness              services.PromotionReadiness
-	SessionCompletionPct   int
-	TenureCompletionPct    int
-	LatestEvaluation       *models.StudentEvaluation
-	SVGRadarPolygon        string
-	ActivePackage          *models.StudentPackage
-	PastPackages           []*models.StudentPackage
-	RecentAttendances      []*models.Attendance
-	UpcomingSessions       []*models.TrainingSession
-	CheckedInSessions      map[string]bool
-	HasActiveSafetyHold    bool
+	CurrentUser          *models.User
+	Student              *models.Student
+	Readiness            services.PromotionReadiness
+	SessionCompletionPct int
+	TenureCompletionPct  int
+	LatestEvaluation     *models.StudentEvaluation
+	SVGRadarPolygon      string
+	ActivePackage        *models.StudentPackage
+	PastPackages         []*models.StudentPackage
+	RecentAttendances    []*models.Attendance
+	UpcomingSessions     []*models.TrainingSession
+	CheckedInSessions    map[string]bool
+	HasActiveSafetyHold  bool
 }
 
 type CoachPortalData struct {
-	CurrentUser          *models.User
-	Coach                *models.Coach
-	LiveSession          *models.TrainingSession
-	LiveAttendances      []*models.Attendance
-	AllSessions          []*models.TrainingSession
-	AllStudents          []*models.Student
-	PriorityReviewQueue  []StudentReadinessSummary
-	OpenSafetyIncidents  []*models.SafetyIncident
+	CurrentUser         *models.User
+	Coach               *models.Coach
+	LiveSession         *models.TrainingSession
+	LiveAttendances     []*models.Attendance
+	AllSessions         []*models.TrainingSession
+	AllStudents         []*models.Student
+	PriorityReviewQueue []StudentReadinessSummary
+	OpenSafetyIncidents []*models.SafetyIncident
 }
 
 type AdminPortalData struct {
-	CurrentUser          *models.User
-	ActiveStudentsCount  int
-	TotalSessionsCount   int
-	ActiveCoachesCount   int
-	OpenIncidentsCount   int
-	PendingCoachesCount  int
-	PendingAdminsCount   int
+	CurrentUser           *models.User
+	ActiveStudentsCount   int
+	TotalSessionsCount    int
+	ActiveCoachesCount    int
+	OpenIncidentsCount    int
+	PendingCoachesCount   int
+	PendingAdminsCount    int
 	StudentsWithReadiness []StudentReadinessSummary
-	SafetyIncidents      []*models.SafetyIncident
-	Coaches              []*models.Coach
-	PackageTemplates     []*models.PackageTemplate
-	Sessions             []*models.TrainingSession
-	Locations            []*models.Location
-	TrainingCategories   []*models.TrainingCategory
+	SafetyIncidents       []*models.SafetyIncident
+	Coaches               []*models.Coach
+	PackageTemplates      []*models.PackageTemplate
+	Sessions              []*models.TrainingSession
+	Locations             []*models.Location
+	TrainingCategories    []*models.TrainingCategory
 }
 
 func (a *AppHandler) HandleStudentPortal(w http.ResponseWriter, r *http.Request) {
@@ -633,9 +633,9 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 		itemData.IsCheckedIn = true
 		itemData.IsSuccess = true
 		if sessionRate != nil {
-			itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s - %s). School / Fix Rate: ₱%.2f.", session.TrainingType, session.StartTime, session.EndTime, *sessionRate)
+			itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s). School / Fix Rate: ₱%.2f.", session.TrainingType, session.TimeRange(), *sessionRate)
 		} else {
-			itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s - %s). 1 class credit deducted.", session.TrainingType, session.StartTime, session.EndTime)
+			itemData.FeedbackMessage = fmt.Sprintf("Checked in successfully to %s (%s). 1 class credit deducted.", session.TrainingType, session.TimeRange())
 		}
 		a.RenderPartial(w, "student_session_item.html", itemData)
 		return

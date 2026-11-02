@@ -139,7 +139,7 @@
                                 <span
                                     class="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">Open</span>
                             </div>
-                            <h3 class="font-bold text-slate-900 dark:text-white text-xs mt-0.5">{{.StartTime}} - {{.EndTime}}</h3>
+                            <h3 class="font-bold text-slate-900 dark:text-white text-xs mt-0.5">{{formatTimeRange .StartTime .EndTime}}</h3>
                             <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">Lead: {{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}</p>
                         </div>
                         {{if not (or .IsDuty .IsEvent)}}

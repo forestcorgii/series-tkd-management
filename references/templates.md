@@ -24,3 +24,11 @@
   3. **Template Standard:** Replace `{{printf "%.2f" ...}}` with `{{formatCurrency ...}}` in templates (`packages.html`, `student_detail.html`) when rendering pointer rates and prices.
 
 
+
+### Context: Universal 12-Hour Time Presentation Standard
+
+* **Problem:** Session times (`StartTime`, `EndTime`) are stored in 24-hour machine format (`"17:00"`, `"18:30"`) to comply with standard HTML5 `<input type="time">` submission payloads. Displaying raw strings in UI templates resulted in inconsistent 24-hour presentation (`17:00 - 18:30`) across landing schedules, session calendar cards, live attendance headers, and dashboards.
+* **Enforced Solution:**
+  1. **Domain Format Helpers:** Added pure domain formatters [`models.FormatTime12`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) and [`models.FormatTimeRange12`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go), with convenience methods [`TrainingSession.TimeRange()`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go), [`FormattedStartTime()`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go), and [`FormattedEndTime()`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go).
+  2. **Template FuncMap Helpers:** Registered `formatTime` and `formatTimeRange` in `funcMap` inside [`internal/handlers/app_handler.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/app_handler.go) supporting `time.Time`, `*time.Time`, and time strings.
+  3. **Universal 12-Hour Presentation:** Updated all user-facing template views (`landing_calendar_grid.html`, `session_cards.html`, `admin_dashboard.html`, `coach_dashboard.html`, `coach_portal.html`, `live_checkin.html`, `student_session_item.html`, and `admin_portal.html`) to display times in 12-hour format (`5:00 PM - 6:30 PM`, `8:00 AM`), while preserving 24-hour values on form input attributes (`value="17:00"`).

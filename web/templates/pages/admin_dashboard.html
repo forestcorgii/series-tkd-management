@@ -120,7 +120,7 @@
                                 {{end}}
                             </div>
                             <h3 class="font-display font-extrabold text-xs sm:text-sm text-black dark:text-white mt-0.5">
-                                {{.StartTime}} - {{.EndTime}}
+                                {{formatTimeRange .StartTime .EndTime}}
                             </h3>
                             <p class="text-[11px] text-slate-600 dark:text-slate-400">
                                 Lead: <strong class="text-black dark:text-white">{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}</strong>

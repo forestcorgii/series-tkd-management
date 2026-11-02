@@ -748,11 +748,20 @@ function formatDisplayDate(dateStr) {
     return dateStr;
 }
 
-function formatDisplayTime12(time24) {
-    if (!time24) return '';
-    const parts = time24.split(':');
+function formatDisplayTime12(timeStr) {
+    if (!timeStr) return '';
+    timeStr = timeStr.trim();
+    if (timeStr.includes('AM') || timeStr.includes('PM') || timeStr.includes('am') || timeStr.includes('pm')) {
+        return timeStr;
+    }
+    if (timeStr.includes('-') || timeStr.includes('–') || timeStr.includes('—')) {
+        return timeStr.replace(/(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–—]\s*(\d{1,2}:\d{2}(?::\d{2})?)/g, function(_, t1, t2) {
+            return formatDisplayTime12(t1) + ' - ' + formatDisplayTime12(t2);
+        });
+    }
+    const parts = timeStr.split(':');
     let h = parseInt(parts[0], 10) || 0;
-    const m = parts[1] || '00';
+    const m = (parts[1] || '00').substring(0, 2);
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     if (h === 0) h = 12;
@@ -1202,7 +1211,7 @@ function openEditSessionModal(id, dateStr, startTime, endTime, coachID, adminID,
             deleteBtn.classList.remove('hidden');
             deleteBtn.onclick = function() {
                 closeEditModal();
-                openDeleteSessionModal(id, title || trainingType, dateStr, startTime + ' - ' + endTime);
+                openDeleteSessionModal(id, title || trainingType, dateStr, formatDisplayTime12(startTime) + ' - ' + formatDisplayTime12(endTime));
             };
         } else {
             deleteBtn.classList.add('hidden');
@@ -1222,7 +1231,7 @@ function openDeleteSessionModal(id, category, date, time) {
         form.action = '/sessions/' + id + '/delete';
         form.setAttribute('action', '/sessions/' + id + '/delete');
     }
-    document.getElementById('delete-modal-title').textContent = category + ' (' + time + ')';
+    document.getElementById('delete-modal-title').textContent = category + ' (' + formatDisplayTime12(time) + ')';
     document.getElementById('delete-modal-meta').textContent = 'Date: ' + date;
     document.getElementById('delete-session-modal').classList.remove('hidden');
 }
@@ -1237,7 +1246,7 @@ function openCancelModal(id, category, date, time, coach) {
         form.action = '/sessions/' + id + '/cancel';
         form.setAttribute('action', '/sessions/' + id + '/cancel');
     }
-    document.getElementById('cancel-modal-title').textContent = category + ' (' + time + ')';
+    document.getElementById('cancel-modal-title').textContent = category + ' (' + formatDisplayTime12(time) + ')';
     document.getElementById('cancel-modal-meta').textContent = 'Date: ' + date + ' • Staff: ' + coach;
     document.getElementById('cancel-session-modal').classList.remove('hidden');
 }

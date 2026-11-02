@@ -18,12 +18,12 @@ import (
 )
 
 type RecipientInfo struct {
-	UserID   *uuid.UUID
-	Role     models.UserRole
-	Type     string // "COACH", "ADMIN", "STUDENT", "GUARDIAN", "OPERATION_MANAGER"
-	Name     string
-	Email    string
-	Phone    string
+	UserID *uuid.UUID
+	Role   models.UserRole
+	Type   string // "COACH", "ADMIN", "STUDENT", "GUARDIAN", "OPERATION_MANAGER"
+	Name   string
+	Email  string
+	Phone  string
 }
 
 type NotificationService struct {
@@ -298,8 +298,8 @@ func (s *NotificationService) NotifyNewClassOpened(sess *models.TrainingSession,
 	}
 
 	title := fmt.Sprintf("📅 New Class Opened: %s", sess.TrainingType)
-	message := fmt.Sprintf("A new %s class was scheduled for %s (%s - %s) by %s.",
-		sess.TrainingType, sess.SessionDate.Format("Monday, Jan 02"), sess.StartTime, sess.EndTime, creatorName)
+	message := fmt.Sprintf("A new %s class was scheduled for %s (%s) by %s.",
+		sess.TrainingType, sess.SessionDate.Format("Monday, Jan 02"), sess.TimeRange(), creatorName)
 
 	recipients := s.getCoachAndAdminRecipients(sess.CoachID)
 	metadata := fmt.Sprintf(`{"session_id":"%s","training_type":"%s"}`, sess.ID, sess.TrainingType)
@@ -796,4 +796,3 @@ func (s *NotificationService) SendTestPushNotification(userID uuid.UUID, title, 
 
 	return sentCount, nil
 }
-

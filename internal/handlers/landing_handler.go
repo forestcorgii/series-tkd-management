@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 // LandingPageViewData is the data context passed to landing.html.
@@ -213,10 +214,7 @@ func (a *AppHandler) HandleGuestReserveForm(w http.ResponseWriter, r *http.Reque
 	if title == "" {
 		title = string(sess.TrainingType) + " Session"
 	}
-	timeStr := sess.StartTime
-	if sess.EndTime != "" {
-		timeStr += " – " + sess.EndTime
-	}
+	timeStr := sess.TimeRange()
 
 	data := GuestReserveFormData{
 		SessionID:     sess.ID.String(),
@@ -371,10 +369,7 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 	}
 
 	dateStr := sess.SessionDate.Format("Monday, Jan 02, 2006")
-	timeStr := sess.StartTime
-	if sess.EndTime != "" {
-		timeStr += " – " + sess.EndTime
-	}
+	timeStr := sess.TimeRange()
 
 	data := GuestReservationSuccessData{
 		Session:       sess,
@@ -422,10 +417,7 @@ func (a *AppHandler) renderStudentReserveError(w http.ResponseWriter, sess *mode
 		data.SessionTitle = title
 		data.TrainingType = string(sess.TrainingType)
 		data.FormattedDate = sess.SessionDate.Format("Monday, Jan 02, 2006")
-		timeStr := sess.StartTime
-		if sess.EndTime != "" {
-			timeStr += " – " + sess.EndTime
-		}
+		timeStr := sess.TimeRange()
 		data.FormattedTime = timeStr
 		data.CoachName = sess.CoachName
 		data.LocationName = sess.LocationName
@@ -448,10 +440,7 @@ func (a *AppHandler) renderGuestReserveError(w http.ResponseWriter, sess *models
 		data.SessionTitle = title
 		data.TrainingType = string(sess.TrainingType)
 		data.FormattedDate = sess.SessionDate.Format("Monday, Jan 02, 2006")
-		timeStr := sess.StartTime
-		if sess.EndTime != "" {
-			timeStr += " – " + sess.EndTime
-		}
+		timeStr := sess.TimeRange()
 		data.FormattedTime = timeStr
 		data.CoachName = sess.CoachName
 		data.LocationName = sess.LocationName

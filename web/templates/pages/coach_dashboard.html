@@ -49,7 +49,7 @@
                             class="form-select text-xs py-1 px-2.5 min-w-[180px]">
                         {{range .AllSessions}}
                         <option value="{{.ID}}" {{if and $.LiveSession (eq $.LiveSession.ID.String .ID.String)}}selected{{end}}>
-                            {{.StartTime}} - {{.EndTime}} &bull; {{if .IsOpenSession}}🔓 Free/Open{{else}}{{.TrainingType}}{{end}}
+                            {{formatTimeRange .StartTime .EndTime}} &bull; {{if .IsOpenSession}}🔓 Free/Open{{else}}{{.TrainingType}}{{end}}
                         </option>
                         {{end}}
                     </select>
@@ -185,7 +185,7 @@
                                 {{end}}
                             </div>
                             <h3 class="font-display font-extrabold text-sm sm:text-base text-black dark:text-white mt-0.5">
-                                {{.StartTime}} - {{.EndTime}}{{if .Title}} &bull; {{.Title}}{{end}}
+                                {{formatTimeRange .StartTime .EndTime}}{{if .Title}} &bull; {{.Title}}{{end}}
                             </h3>
                             <p class="text-xs text-slate-600 dark:text-slate-400">
                                 Coach: <strong class="text-black dark:text-white">{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}</strong>
@@ -217,7 +217,7 @@
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <div class="flex items-center gap-2">
                         <h2 class="font-display font-extrabold text-base sm:text-lg uppercase text-black dark:text-[#FFFDF4]">
-                            Live Mat Roster ({{if .LiveSession}}{{if .LiveSession.IsOpenSession}}Free/Open{{else}}{{.LiveSession.TrainingType}}{{end}} @ {{.LiveSession.StartTime}}{{else}}Standby{{end}})
+                            Live Mat Roster ({{if .LiveSession}}{{if .LiveSession.IsOpenSession}}Free/Open{{else}}{{.LiveSession.TrainingType}}{{end}} @ {{formatTime .LiveSession.StartTime}}{{else}}Standby{{end}})
                         </h2>
                         <span class="has-tooltip inline-flex items-center">
                             <button type="button" class="tooltip-icon" aria-label="Live mat roster note">ⓘ</button>

@@ -184,9 +184,9 @@
                                             ondragleave="onCalendarSlotDragLeave(event, this)"
                                             ondrop="onCalendarSlotDrop(event, this)"
                                             class="calendar-slot-dropzone h-[30px] w-full border-b border-dashed border-slate-100/90 dark:border-slate-800/40 hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
-                                            title="Schedule at {{$h.Time24}} on {{$day.DayName}}">
+                                            title="Schedule at {{$h.TimeLabel}} on {{$day.DayName}}">
                                         <span class="text-[10px] font-mono font-medium group-hover/slot:text-[#990303] dark:group-hover/slot:text-[#DC2626]">
-                                            + {{$h.Time24}}
+                                            + {{$h.TimeLabel}}
                                         </span>
                                         <span class="text-[9px] opacity-0 group-hover/slot:opacity-100 text-slate-400 font-sans">
                                             click to add
@@ -203,9 +203,9 @@
                                             ondragleave="onCalendarSlotDragLeave(event, this)"
                                             ondrop="onCalendarSlotDrop(event, this)"
                                             class="calendar-slot-dropzone h-[30px] w-full hover:bg-rose-50/60 dark:hover:bg-rose-950/30 transition-colors flex items-center justify-between px-2 text-transparent hover:text-slate-500 dark:hover:text-slate-400 group/slot text-left"
-                                            title="Schedule at {{printf "%02d:30" $h.Hour}} on {{$day.DayName}}">
+                                            title="Schedule at {{$h.TimeLabel30}} on {{$day.DayName}}">
                                         <span class="text-[10px] font-mono font-medium group-hover/slot:text-[#990303] dark:group-hover/slot:text-[#DC2626]">
-                                            + {{printf "%02d:30" $h.Hour}}
+                                            + {{$h.TimeLabel30}}
                                         </span>
                                         <span class="text-[9px] opacity-0 group-hover/slot:opacity-100 text-slate-400 font-sans">
                                             click to add
@@ -375,7 +375,7 @@
                         data-date-raw="{{.SessionDate.Format "2006-01-02"}}"
                         data-start="{{.StartTime}}"
                         data-end="{{.EndTime}}"
-                        data-time="{{.StartTime}} - {{.EndTime}}"
+                        data-time="{{formatTimeRange .StartTime .EndTime}}"
                         data-status="{{if .IsCancelled}}CANCELLED{{else if .IsDone}}CLOSED{{else}}LIVE / UPCOMING{{end}}"
                         data-status-badge="{{if .IsCancelled}}bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800{{else if .IsDone}}bg-slate-200 text-slate-600 border-slate-300 dark:bg-slate-800/80 dark:text-slate-400 dark:border-slate-700{{else}}bg-emerald-500 text-white font-bold{{end}}"
                         data-coach="{{if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}"
@@ -395,11 +395,11 @@
                         data-cancellation-reason="{{.CancellationReason}}"
                         data-is-open="{{if .IsOpen}}true{{else}}false{{end}}"
                         data-is-done="{{if .IsDone}}true{{else}}false{{end}}"
-                        title="Click to view info: {{.DisplayTitle}} ({{.StartTime}} - {{.EndTime}})">
+                        title="Click to view info: {{.DisplayTitle}} ({{formatTimeRange .StartTime .EndTime}})">
                         <!-- Date & Time -->
                         <td class="py-1.5 px-3 whitespace-nowrap">
                             <div class="font-bold text-slate-900 dark:text-white font-mono text-xs {{if .IsCancelled}}line-through text-slate-400{{end}}">
-                                {{.StartTime}} - {{.EndTime}}
+                                {{formatTimeRange .StartTime .EndTime}}
                             </div>
                             <div class="text-[10px] text-slate-500 dark:text-slate-400">
                                 {{formatDate .SessionDate}}
@@ -501,7 +501,7 @@
                                 {{end}}
                                 {{if or .IsOpen (and $user $user.IsOperationManager)}}
                                 <button type="button"
-                                        onclick="openDeleteSessionModal('{{.ID}}', '{{.DisplayTitle}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}')"
+                                        onclick="openDeleteSessionModal('{{.ID}}', '{{.DisplayTitle}}', '{{formatDate .SessionDate}}', '{{formatTimeRange .StartTime .EndTime}}')"
                                         class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 py-0.5 px-1.5 text-xs font-medium"
                                         title="Delete Entry">
                                     <span>🗑️</span> Delete
@@ -509,7 +509,7 @@
                                 {{end}}
                                 {{if not (or .IsCancelled .IsDone)}}
                                 <button type="button"
-                                        onclick="openCancelModal('{{.ID}}', '{{.DisplayTitle}}', '{{formatDate .SessionDate}}', '{{.StartTime}} - {{.EndTime}}', '{{if .IsDuty}}{{.StaffSummary}}{{else if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}')"
+                                        onclick="openCancelModal('{{.ID}}', '{{.DisplayTitle}}', '{{formatDate .SessionDate}}', '{{formatTimeRange .StartTime .EndTime}}', '{{if .IsDuty}}{{.StaffSummary}}{{else if .CoachName}}{{.CoachName}}{{else}}Unassigned{{end}}')"
                                         class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 py-0.5 px-1.5 text-xs font-medium"
                                         title="Cancel Entry">
                                     <span>✖</span> Cancel

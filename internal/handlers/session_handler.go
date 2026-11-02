@@ -138,16 +138,17 @@ func (d *CalendarDay) IsHourCompletelyFree(hour int) bool {
 }
 
 type CalendarHour struct {
-	Hour      int    // 8..21
-	TimeLabel string // "08:00 AM"
-	Time24    string // "08:00"
+	Hour        int    // 8..21
+	TimeLabel   string // "8:00 AM"
+	TimeLabel30 string // "8:30 AM"
+	Time24      string // "08:00"
 }
 
 type CalendarWeek struct {
-	StartDate        time.Time
-	EndDate          time.Time
-	StartDateStr     string // "2026-09-28"
-	EndDateStr       string // "2026-10-04"
+	StartDate           time.Time
+	EndDate             time.Time
+	StartDateStr        string // "2026-09-28"
+	EndDateStr          string // "2026-10-04"
 	PrevWeekStr         string // "2026-09-21"
 	NextWeekStr         string // "2026-10-05"
 	Prev3DaysStr        string // "2026-09-25"
@@ -156,17 +157,17 @@ type CalendarWeek struct {
 	Title               string // "Sep 28 – Oct 04, 2026"
 	MobileTitle         string // "Sep 28 – Sep 30, 2026"
 	MobileTotalSessions int
-	MonthYear        string // "September 2026"
-	Days             []*CalendarDay
-	Hours            []CalendarHour
-	TotalSessions    int
-	MinHour          int
-	MaxHour          int
-	HourHeight       int
-	GridHeight       int
-	NowOffset        int
-	ShowNowLine      bool
-	CurrentTimeLabel string
+	MonthYear           string // "September 2026"
+	Days                []*CalendarDay
+	Hours               []CalendarHour
+	TotalSessions       int
+	MinHour             int
+	MaxHour             int
+	HourHeight          int
+	GridHeight          int
+	NowOffset           int
+	ShowNowLine         bool
+	CurrentTimeLabel    string
 }
 
 type SessionsPageData struct {
@@ -269,7 +270,21 @@ func formatHourLabel(h int) string {
 	} else if h == 0 {
 		displayH = 12
 	}
-	return fmt.Sprintf("%02d:00 %s", displayH, period)
+	return fmt.Sprintf("%d:00 %s", displayH, period)
+}
+
+func formatHourLabel30(h int) string {
+	period := "AM"
+	displayH := h
+	if h >= 12 {
+		period = "PM"
+	}
+	if h > 12 {
+		displayH = h - 12
+	} else if h == 0 {
+		displayH = 12
+	}
+	return fmt.Sprintf("%d:30 %s", displayH, period)
 }
 
 func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, category, studentIDStr, entryTypeFilter string, excludeInternalShifts bool) (CalendarWeek, []*models.TrainingSession, error) {
@@ -409,10 +424,7 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 			statusBadge = "bg-emerald-500 text-white font-bold animate-pulse shadow-sm"
 		}
 
-		timeDisp := s.StartTime
-		if s.EndTime != "" {
-			timeDisp = fmt.Sprintf("%s - %s", s.StartTime, s.EndTime)
-		}
+		timeDisp := s.TimeRange()
 
 		startTotal := startH*60 + startM
 		endTotal := endH*60 + endM
@@ -603,9 +615,10 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 	var hours []CalendarHour
 	for h := minHour; h <= maxHour; h++ {
 		hours = append(hours, CalendarHour{
-			Hour:      h,
-			TimeLabel: formatHourLabel(h),
-			Time24:    fmt.Sprintf("%02d:00", h),
+			Hour:        h,
+			TimeLabel:   formatHourLabel(h),
+			TimeLabel30: formatHourLabel30(h),
+			Time24:      fmt.Sprintf("%02d:00", h),
 		})
 	}
 
@@ -1862,4 +1875,3 @@ func (a *AppHandler) HandleCheckInAttendee(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("HX-Trigger", "attendanceUpdated")
 	a.RenderPartial(w, "checkin_row.html", data)
 }
-

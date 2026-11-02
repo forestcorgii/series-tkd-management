@@ -302,3 +302,65 @@ func TestAttendance_AttendeeHelpers(t *testing.T) {
 		t.Errorf("student display mismatch: %s / %s", studentAtt.DisplayName(), studentAtt.DisplayRole())
 	}
 }
+
+func TestFormatTime12_And_Range(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"17:00", "5:00 PM"},
+		{"09:30", "9:30 AM"},
+		{"00:00", "12:00 AM"},
+		{"12:00", "12:00 PM"},
+		{"12:30", "12:30 PM"},
+		{"18:00:00", "6:00 PM"},
+		{"08:15:00", "8:15 AM"},
+		{"5:00 PM", "5:00 PM"},
+		{"05:00 PM", "5:00 PM"},
+		{"5:00pm", "5:00 PM"},
+		{"", ""},
+	}
+
+	for _, c := range cases {
+		got := FormatTime12(c.input)
+		if got != c.expected {
+			t.Errorf("FormatTime12(%q) = %q, want %q", c.input, got, c.expected)
+		}
+	}
+
+	rangeCases := []struct {
+		start    string
+		end      string
+		expected string
+	}{
+		{"17:00", "18:30", "5:00 PM - 6:30 PM"},
+		{"09:00", "11:00", "9:00 AM - 11:00 AM"},
+		{"10:00", "", "10:00 AM"},
+		{"", "12:00", "12:00 PM"},
+		{"", "", ""},
+	}
+
+	for _, rc := range rangeCases {
+		got := FormatTimeRange12(rc.start, rc.end)
+		if got != rc.expected {
+			t.Errorf("FormatTimeRange12(%q, %q) = %q, want %q", rc.start, rc.end, got, rc.expected)
+		}
+	}
+
+	sess := TrainingSession{
+		StartTime: "16:00",
+		EndTime:   "18:00",
+	}
+	if sess.FormattedStartTime() != "4:00 PM" {
+		t.Errorf("FormattedStartTime() = %q, want 4:00 PM", sess.FormattedStartTime())
+	}
+	if sess.FormattedEndTime() != "6:00 PM" {
+		t.Errorf("FormattedEndTime() = %q, want 6:00 PM", sess.FormattedEndTime())
+	}
+	if sess.TimeRange() != "4:00 PM - 6:00 PM" {
+		t.Errorf("TimeRange() = %q, want 4:00 PM - 6:00 PM", sess.TimeRange())
+	}
+	if sess.TimeDisplay() != "4:00 PM - 6:00 PM" {
+		t.Errorf("TimeDisplay() = %q, want 4:00 PM - 6:00 PM", sess.TimeDisplay())
+	}
+}

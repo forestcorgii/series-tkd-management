@@ -159,6 +159,36 @@ func (a *AppHandler) parseTemplates() error {
 			}
 			return fmt.Sprintf("%v", t)
 		},
+		"formatTime": func(t interface{}) string {
+			if t == nil {
+				return ""
+			}
+			switch v := t.(type) {
+			case time.Time:
+				if v.IsZero() {
+					return ""
+				}
+				return v.In(phLocation).Format("3:04 PM")
+			case *time.Time:
+				if v == nil || v.IsZero() {
+					return ""
+				}
+				return v.In(phLocation).Format("3:04 PM")
+			case string:
+				return models.FormatTime12(v)
+			}
+			return fmt.Sprintf("%v", t)
+		},
+		"formatTimeRange": func(start, end interface{}) string {
+			var sStr, eStr string
+			if start != nil {
+				sStr = fmt.Sprintf("%v", start)
+			}
+			if end != nil {
+				eStr = fmt.Sprintf("%v", end)
+			}
+			return models.FormatTimeRange12(sStr, eStr)
+		},
 		"sub": func(a, b int) int {
 			return a - b
 		},
