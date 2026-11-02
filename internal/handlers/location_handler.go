@@ -113,15 +113,24 @@ func (a *AppHandler) HandleCreateLocation(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	var maxTrainees *int
+	maxTraineesStr := strings.TrimSpace(r.FormValue("max_trainees"))
+	if maxTraineesStr != "" {
+		if val, err := strconv.Atoi(maxTraineesStr); err == nil && val > 0 {
+			maxTrainees = &val
+		}
+	}
+
 	isDefault := r.FormValue("is_default") == "on" || r.FormValue("is_default") == "true" || r.FormValue("is_default") == "1"
 
 	loc := &models.Location{
-		ID:        uuid.New(),
-		Name:      name,
-		Pin:       pin,
-		FixedRate: fixedRate,
-		IsDefault: isDefault,
-		CreatedAt: time.Now(),
+		ID:          uuid.New(),
+		Name:        name,
+		Pin:         pin,
+		FixedRate:   fixedRate,
+		MaxTrainees: maxTrainees,
+		IsDefault:   isDefault,
+		CreatedAt:   time.Now(),
 	}
 
 	if err := a.store.CreateLocation(loc); err != nil {
@@ -178,14 +187,23 @@ func (a *AppHandler) HandleUpdateLocation(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	var maxTrainees *int
+	maxTraineesStr := strings.TrimSpace(r.FormValue("max_trainees"))
+	if maxTraineesStr != "" {
+		if val, err := strconv.Atoi(maxTraineesStr); err == nil && val > 0 {
+			maxTrainees = &val
+		}
+	}
+
 	isDefault := r.FormValue("is_default") == "on" || r.FormValue("is_default") == "true" || r.FormValue("is_default") == "1"
 
 	loc := &models.Location{
-		ID:        locID,
-		Name:      name,
-		Pin:       pin,
-		FixedRate: fixedRate,
-		IsDefault: isDefault,
+		ID:          locID,
+		Name:        name,
+		Pin:         pin,
+		FixedRate:   fixedRate,
+		MaxTrainees: maxTrainees,
+		IsDefault:   isDefault,
 	}
 
 	if err := a.store.UpdateLocation(loc); err != nil {

@@ -254,8 +254,5 @@ func (u *User) RoleDashboardURL() string {
 	if u == nil {
 		return "/login"
 	}
-	if u.IsStudent() {
-		return "/portal/student"
-	}
 	return "/"
 }

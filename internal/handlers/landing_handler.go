@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -22,6 +23,7 @@ type LandingPageViewData struct {
 
 // LandingSchedulePartialData is the data context for landing_calendar_grid.html.
 type LandingSchedulePartialData struct {
+	CurrentUser        *models.User
 	Calendar           CalendarWeek
 	Locations          []*models.Location
 	SelectedLocation   *models.Location
@@ -31,16 +33,20 @@ type LandingSchedulePartialData struct {
 
 // GuestReserveFormData is the data context passed to guest_reservation_form.html.
 type GuestReserveFormData struct {
-	SessionID     string
-	SessionTitle  string
-	TrainingType  string
-	FormattedDate string
-	FormattedTime string
-	CoachName     string
-	LocationName  string
-	GuestName     string
-	ContactNumber string
-	ErrorMessage  string
+	SessionID         string
+	SessionTitle      string
+	TrainingType      string
+	FormattedDate     string
+	FormattedTime     string
+	CoachName         string
+	LocationName      string
+	GuestName         string
+	ContactNumber     string
+	ErrorMessage      string
+	IsStudent         bool
+	StudentName       string
+	StudentBelt       string
+	IsAlreadyReserved bool
 }
 
 // GuestReservationSuccessData is the data context for guest_reservation_success.html.
@@ -52,14 +58,11 @@ type GuestReservationSuccessData struct {
 }
 
 // HandleLandingPage serves the public landing page at GET /.
-// If an authenticated user visits without the preview parameter, they are redirected to their workspace.
+// If an authenticated staff user visits without the preview parameter, they are redirected to their workspace.
+// Students remain on the landing page as their default calendar view.
 func (a *AppHandler) HandleLandingPage(w http.ResponseWriter, r *http.Request) {
 	user := GetUserFromContext(r.Context())
-	if user != nil && r.URL.Query().Get("preview") != "1" {
-		if user.IsStudent() {
-			http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
-			return
-		}
+	if user != nil && r.URL.Query().Get("preview") != "1" && !user.IsStudent() {
 		if user.IsCoach() || user.IsAdmin() {
 			http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 			return
@@ -101,6 +104,10 @@ func (a *AppHandler) HandleLandingPage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if user != nil && user.IsStudent() && user.StudentID != nil {
+		markStudentReservations(&calWeek, a.store, *user.StudentID)
 	}
 
 	data := LandingPageViewData{
@@ -150,7 +157,13 @@ func (a *AppHandler) HandleLandingSchedule(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.IsStudent() && user.StudentID != nil {
+		markStudentReservations(&calWeek, a.store, *user.StudentID)
+	}
+
 	data := LandingSchedulePartialData{
+		CurrentUser:        user,
 		Calendar:           calWeek,
 		Locations:          locations,
 		SelectedLocation:   selectedLoc,
@@ -161,7 +174,27 @@ func (a *AppHandler) HandleLandingSchedule(w http.ResponseWriter, r *http.Reques
 	a.RenderPartial(w, "landing_calendar_grid.html", data)
 }
 
-// HandleGuestReserveForm renders the modal form for guest slot reservation at GET /landing/reserve-form.
+func markStudentReservations(calWeek *CalendarWeek, store repository.RepositoryStore, studentID uuid.UUID) {
+	attendances, _ := store.GetStudentAttendances(studentID)
+	if len(attendances) == 0 {
+		return
+	}
+	reservedMap := make(map[uuid.UUID]bool, len(attendances))
+	for _, att := range attendances {
+		reservedMap[att.SessionID] = true
+	}
+	for _, day := range calWeek.Days {
+		for _, cs := range day.Sessions {
+			if cs.Session != nil && reservedMap[cs.Session.ID] {
+				cs.IsUserReserved = true
+			}
+		}
+	}
+}
+
+// HandleGuestReserveForm renders the modal form for guest or student slot reservation at GET /landing/reserve-form.
+// For guests, it renders the form requiring full name and contact number.
+// For authenticated students, the input form is omitted since identity is known from the session context.
 func (a *AppHandler) HandleGuestReserveForm(w http.ResponseWriter, r *http.Request) {
 	sessionIDStr := strings.TrimSpace(r.URL.Query().Get("session_id"))
 	sessionID, err := uuid.Parse(sessionIDStr)
@@ -195,10 +228,46 @@ func (a *AppHandler) HandleGuestReserveForm(w http.ResponseWriter, r *http.Reque
 		LocationName:  sess.LocationName,
 	}
 
+	user := GetUserFromContext(r.Context())
+	if user != nil && user.IsStudent() {
+		data.IsStudent = true
+		if user.StudentID != nil {
+			if st, err := a.store.GetStudentByID(*user.StudentID); err == nil && st != nil {
+				data.StudentName = st.FullName
+				data.StudentBelt = string(st.CurrentBelt)
+			}
+			attendances, _ := a.store.GetStudentAttendances(*user.StudentID)
+			for _, att := range attendances {
+				if att.SessionID == sessionID {
+					data.IsAlreadyReserved = true
+					break
+				}
+			}
+		}
+		if data.StudentName == "" {
+			if user.DisplayName != "" {
+				data.StudentName = user.DisplayName
+			} else {
+				data.StudentName = user.Email
+			}
+		}
+	}
+
+	// Check location capacity
+	if sess.LocationID != nil && !data.IsAlreadyReserved {
+		if loc, err := a.store.GetLocationByID(*sess.LocationID); err == nil && loc != nil && loc.HasMaxTrainees() {
+			attendances, _ := a.store.GetSessionAttendances(sess.ID)
+			if len(attendances) >= loc.MaxTraineesVal() {
+				data.ErrorMessage = fmt.Sprintf("This training session has reached full capacity (%d trainees maximum).", loc.MaxTraineesVal())
+			}
+		}
+	}
+
 	a.RenderPartial(w, "guest_reservation_form.html", data)
 }
 
-// HandleGuestReservation processes guest slot reservation at POST /landing/reserve.
+// HandleGuestReservation processes slot reservation at POST /landing/reserve.
+// If an authenticated student reserves, their student ID is linked and form inputs are not required.
 func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -211,39 +280,94 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 	}
 
 	sessionIDStr := strings.TrimSpace(r.FormValue("session_id"))
-	guestName := strings.TrimSpace(r.FormValue("guest_name"))
-	contactNumber := strings.TrimSpace(r.FormValue("contact_number"))
-
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
-		a.renderGuestReserveError(w, nil, guestName, contactNumber, "Invalid session selected.")
+		a.renderGuestReserveError(w, nil, "", "", "Invalid session selected.")
 		return
 	}
 
 	sess, err := a.store.GetSessionByID(sessionID)
 	if err != nil {
-		a.renderGuestReserveError(w, nil, guestName, contactNumber, "Training session not found.")
+		a.renderGuestReserveError(w, nil, "", "", "Training session not found.")
 		return
 	}
 
-	if guestName == "" {
-		a.renderGuestReserveError(w, sess, guestName, contactNumber, "Please enter your full name.")
-		return
-	}
+	user := GetUserFromContext(r.Context())
+	isStudent := user != nil && user.IsStudent()
 
-	if contactNumber == "" {
-		a.renderGuestReserveError(w, sess, guestName, contactNumber, "Please enter your contact number.")
-		return
-	}
-
-	att, err := a.store.ReserveSessionSlot(sessionID, guestName, contactNumber)
-	if err != nil {
-		errMsg := err.Error()
-		if errors.Is(err, repository.ErrAlreadyInRoster) {
-			errMsg = "You have already reserved a slot for this training session."
+	// Check capacity
+	if sess.LocationID != nil {
+		if loc, err := a.store.GetLocationByID(*sess.LocationID); err == nil && loc != nil && loc.HasMaxTrainees() {
+			attendances, _ := a.store.GetSessionAttendances(sess.ID)
+			if len(attendances) >= loc.MaxTraineesVal() {
+				errMsg := fmt.Sprintf("This training session has reached full capacity (%d trainees maximum).", loc.MaxTraineesVal())
+				if isStudent {
+					a.renderStudentReserveError(w, sess, user, errMsg)
+				} else {
+					a.renderGuestReserveError(w, sess, r.FormValue("guest_name"), r.FormValue("contact_number"), errMsg)
+				}
+				return
+			}
 		}
-		a.renderGuestReserveError(w, sess, guestName, contactNumber, errMsg)
-		return
+	}
+
+	var att *models.Attendance
+	if isStudent {
+		if user.StudentID != nil {
+			var st *models.Student
+			st, _ = a.store.GetStudentByID(*user.StudentID)
+			att, err = a.store.CheckInStudent(sessionID, *user.StudentID, nil, nil)
+			if err != nil {
+				errMsg := err.Error()
+				if errors.Is(err, repository.ErrAlreadyInRoster) {
+					errMsg = "You have already reserved a slot for this training session."
+				}
+				a.renderStudentReserveError(w, sess, user, errMsg)
+				return
+			}
+			if st != nil && att.ContactNumber == "" {
+				att.ContactNumber = st.Phone
+			}
+			if a.notifSvc != nil && st != nil {
+				a.notifSvc.NotifyStudentAdmitted(sess, st, true, st.FullName)
+			}
+		} else {
+			name := user.DisplayName
+			if name == "" {
+				name = user.Email
+			}
+			att, err = a.store.ReserveSessionSlot(sessionID, name, "Student Account")
+			if err != nil {
+				errMsg := err.Error()
+				if errors.Is(err, repository.ErrAlreadyInRoster) {
+					errMsg = "You have already reserved a slot for this training session."
+				}
+				a.renderStudentReserveError(w, sess, user, errMsg)
+				return
+			}
+		}
+	} else {
+		guestName := strings.TrimSpace(r.FormValue("guest_name"))
+		contactNumber := strings.TrimSpace(r.FormValue("contact_number"))
+
+		if guestName == "" {
+			a.renderGuestReserveError(w, sess, guestName, contactNumber, "Please enter your full name.")
+			return
+		}
+		if contactNumber == "" {
+			a.renderGuestReserveError(w, sess, guestName, contactNumber, "Please enter your contact number.")
+			return
+		}
+
+		att, err = a.store.ReserveSessionSlot(sessionID, guestName, contactNumber)
+		if err != nil {
+			errMsg := err.Error()
+			if errors.Is(err, repository.ErrAlreadyInRoster) {
+				errMsg = "You have already reserved a slot for this training session."
+			}
+			a.renderGuestReserveError(w, sess, guestName, contactNumber, errMsg)
+			return
+		}
 	}
 
 	dateStr := sess.SessionDate.Format("Monday, Jan 02, 2006")
@@ -260,6 +384,53 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 	}
 
 	a.RenderPartial(w, "guest_reservation_success.html", data)
+}
+
+func (a *AppHandler) renderStudentReserveError(w http.ResponseWriter, sess *models.TrainingSession, user *models.User, errMsg string) {
+	data := GuestReserveFormData{
+		ErrorMessage: errMsg,
+		IsStudent:    true,
+	}
+	if user != nil && user.StudentID != nil {
+		if st, err := a.store.GetStudentByID(*user.StudentID); err == nil && st != nil {
+			data.StudentName = st.FullName
+			data.StudentBelt = string(st.CurrentBelt)
+		}
+		attendances, _ := a.store.GetStudentAttendances(*user.StudentID)
+		if sess != nil {
+			for _, att := range attendances {
+				if att.SessionID == sess.ID {
+					data.IsAlreadyReserved = true
+					break
+				}
+			}
+		}
+	}
+	if data.StudentName == "" && user != nil {
+		if user.DisplayName != "" {
+			data.StudentName = user.DisplayName
+		} else {
+			data.StudentName = user.Email
+		}
+	}
+	if sess != nil {
+		data.SessionID = sess.ID.String()
+		title := sess.Title
+		if title == "" {
+			title = string(sess.TrainingType) + " Session"
+		}
+		data.SessionTitle = title
+		data.TrainingType = string(sess.TrainingType)
+		data.FormattedDate = sess.SessionDate.Format("Monday, Jan 02, 2006")
+		timeStr := sess.StartTime
+		if sess.EndTime != "" {
+			timeStr += " – " + sess.EndTime
+		}
+		data.FormattedTime = timeStr
+		data.CoachName = sess.CoachName
+		data.LocationName = sess.LocationName
+	}
+	a.RenderPartial(w, "guest_reservation_form.html", data)
 }
 
 func (a *AppHandler) renderGuestReserveError(w http.ResponseWriter, sess *models.TrainingSession, guestName, contactNumber, errMsg string) {

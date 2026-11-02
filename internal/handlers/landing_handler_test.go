@@ -68,7 +68,7 @@ func TestLandingHandler_HandleLandingPage_Guest(t *testing.T) {
 func TestLandingHandler_HandleLandingPage_AuthenticatedRedirects(t *testing.T) {
 	app, store := setupTestApp(t)
 
-	// 1. Student User -> Redirect to /portal/student
+	// 1. Student User -> Defaults to landing page with calendar view (200 OK)
 	studentUser, err := store.GetUserByEmail("alex.vance@seriestkd.com")
 	if err != nil || studentUser == nil {
 		t.Fatalf("expected seeded student user: %v", err)
@@ -76,16 +76,45 @@ func TestLandingHandler_HandleLandingPage_AuthenticatedRedirects(t *testing.T) {
 	studentToken := uuid.New().String()
 	_ = store.CreateSessionToken(studentToken, studentUser.ID, time.Now().Add(time.Hour))
 
-	reqStudent := httptest.NewRequest("GET", "/", nil)
+	// Seed a future session at the default location that Alex is NOT registered for
+	locs, _ := store.GetAllLocations()
+	if len(locs) > 0 {
+		_ = store.SetDefaultLocation(locs[0].ID)
+		futureSess := &models.TrainingSession{
+			ID:           uuid.New(),
+			Title:        "Open Sparring Prep",
+			TrainingType: models.TrainingSparring,
+			LocationID:   &locs[0].ID,
+			LocationName: locs[0].Name,
+			SessionDate:  time.Now().In(time.FixedZone("Asia/Manila", 8*3600)).AddDate(0, 0, 1),
+			StartTime:    "15:00",
+			EndTime:      "16:30",
+		}
+		_ = store.CreateSession(futureSess)
+	}
+
+	reqStudent := httptest.NewRequest("GET", "/?location=all", nil)
 	reqStudent.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
 	recStudent := httptest.NewRecorder()
 	app.AuthMiddleware(http.HandlerFunc(app.HandleLandingPage)).ServeHTTP(recStudent, reqStudent)
 
-	if recStudent.Code != http.StatusSeeOther {
-		t.Errorf("expected 303 redirect for logged in student, got %d", recStudent.Code)
+	if recStudent.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for logged in student on default landing calendar, got %d", recStudent.Code)
 	}
-	if recStudent.Header().Get("Location") != "/portal/student" {
-		t.Errorf("expected redirect to /portal/student, got %s", recStudent.Header().Get("Location"))
+	if !strings.Contains(recStudent.Body.String(), "landing-calendar-container") {
+		t.Errorf("expected landing page calendar container for student")
+	}
+	if strings.Contains(recStudent.Body.String(), "previewing the public landing page") {
+		t.Errorf("student should not see preview notice on their default page")
+	}
+	if !strings.Contains(recStudent.Body.String(), `id="guest-reserve-modal"`) {
+		t.Errorf("logged in student should have reserve modal available on landing calendar")
+	}
+	if !strings.Contains(recStudent.Body.String(), "Reserved") {
+		t.Errorf("logged in student should see Reserved status for their enrolled class")
+	}
+	if !strings.Contains(recStudent.Body.String(), "Reserve Slot") {
+		t.Errorf("logged in student should see Reserve Slot button for open classes")
 	}
 
 	// 2. Coach User -> Redirect to /sessions
@@ -216,6 +245,40 @@ func TestLandingHandler_HandleGuestReserveForm(t *testing.T) {
 	if recBad.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 Bad Request for invalid session ID, got %d", recBad.Code)
 	}
+
+	// 3. Logged in student accessing reservation form:
+	// Renders simplified practitioner confirmation view WITHOUT text input form fields (no guest_name or contact_number inputs)
+	studentUser, _ := store.GetUserByEmail("alex.vance@seriestkd.com")
+	studentToken := uuid.New().String()
+	_ = store.CreateSessionToken(studentToken, studentUser.ID, time.Now().Add(time.Hour))
+
+	targetSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		Title:        "Saturday Form Practice",
+		TrainingType: models.TrainingPoomsae,
+		SessionDate:  time.Now().AddDate(0, 0, 2),
+		StartTime:    "10:00",
+		EndTime:      "11:30",
+	}
+	_ = store.CreateSession(targetSess)
+
+	reqStudent := httptest.NewRequest("GET", "/landing/reserve-form?session_id="+targetSess.ID.String(), nil)
+	reqStudent.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
+	recStudent := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleGuestReserveForm)).ServeHTTP(recStudent, reqStudent)
+	if recStudent.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for student on reserve form, got %d", recStudent.Code)
+	}
+	studentBody := recStudent.Body.String()
+	if !strings.Contains(studentBody, "Alex Vance") {
+		t.Errorf("expected student name in confirmation modal, got: %s", studentBody)
+	}
+	if strings.Contains(studentBody, `id="guest_name"`) || strings.Contains(studentBody, `id="contact_number"`) {
+		t.Errorf("logged in student should NOT see redundant text input form fields for name or phone")
+	}
+	if !strings.Contains(studentBody, "Confirm Slot Reservation") {
+		t.Errorf("expected student confirmation button in modal")
+	}
 }
 
 func TestLandingHandler_HandleGuestReservation(t *testing.T) {
@@ -313,5 +376,60 @@ func TestLandingHandler_HandleGuestReservation(t *testing.T) {
 	bodyDup := recDup.Body.String()
 	if !strings.Contains(bodyDup, "already reserved a slot") {
 		t.Errorf("expected duplicate error message, got: %s", bodyDup)
+	}
+
+	// 5. Logged in student can reserve a slot directly without filling out name or contact number
+	studentUser, _ := store.GetUserByEmail("alex.vance@seriestkd.com")
+	studentToken := uuid.New().String()
+	_ = store.CreateSessionToken(studentToken, studentUser.ID, time.Now().Add(time.Hour))
+
+	studentFormData := url.Values{
+		"session_id": {sess.ID.String()},
+	}
+	recStudentPost := httptest.NewRecorder()
+	reqStudentPost := httptest.NewRequest("POST", "/landing/reserve", strings.NewReader(studentFormData.Encode()))
+	reqStudentPost.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqStudentPost.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
+	app.AuthMiddleware(http.HandlerFunc(app.HandleGuestReservation)).ServeHTTP(recStudentPost, reqStudentPost)
+
+	if recStudentPost.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for student reserving slot, got %d (body: %s)", recStudentPost.Code, recStudentPost.Body.String())
+	}
+	studentRespBody := recStudentPost.Body.String()
+	if !strings.Contains(studentRespBody, "Slot Reservation Confirmed") {
+		t.Errorf("expected success banner for student, got: %s", studentRespBody)
+	}
+	if !strings.Contains(studentRespBody, "Alex Vance") {
+		t.Errorf("expected student full name in confirmation, got: %s", studentRespBody)
+	}
+
+	// Verify student attendance record in store
+	attendancesStudent, err := store.GetSessionAttendances(sess.ID)
+	if err != nil || len(attendancesStudent) != 2 {
+		t.Fatalf("expected 2 attendances in store (1 guest + 1 student), got %d (err: %v)", len(attendancesStudent), err)
+	}
+	var studentAtt *models.Attendance
+	for _, a := range attendancesStudent {
+		if a.AttendeeType == "student" {
+			studentAtt = a
+			break
+		}
+	}
+	if studentAtt == nil {
+		t.Fatalf("expected student attendance record to be created")
+	}
+	if studentAtt.StudentName != "Alex Vance" && studentAtt.AttendeeName != "Alex Vance" {
+		t.Errorf("expected student name Alex Vance, got %s / %s", studentAtt.StudentName, studentAtt.AttendeeName)
+	}
+
+	// 6. Duplicate student reservation is rejected
+	recStudentDup := httptest.NewRecorder()
+	reqStudentDup := httptest.NewRequest("POST", "/landing/reserve", strings.NewReader(studentFormData.Encode()))
+	reqStudentDup.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqStudentDup.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
+	app.AuthMiddleware(http.HandlerFunc(app.HandleGuestReservation)).ServeHTTP(recStudentDup, reqStudentDup)
+
+	if !strings.Contains(recStudentDup.Body.String(), "already reserved a slot") {
+		t.Errorf("expected duplicate reservation message for student, got: %s", recStudentDup.Body.String())
 	}
 }

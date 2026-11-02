@@ -120,6 +120,11 @@
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
                 <a href="/locations"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
+                {{else if $user.IsStudent}}
+                <a href="/"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Schedule</a>
+                <a href="/portal/student"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Practitioner Portal</a>
                 {{end}}
                 {{else}}
                 <a href="/"
@@ -398,6 +403,9 @@
                 <div>
                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Student Practitioner</p>
                     <div class="space-y-1">
+                        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">📅</span> <span>Schedule &amp; Calendar</span>
+                        </a>
                         <a href="/portal/student" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
                             <span class="text-base">🥋</span> <span>Practitioner Portal</span>
                         </a>

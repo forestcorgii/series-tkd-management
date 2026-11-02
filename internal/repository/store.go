@@ -1951,6 +1951,7 @@ func (m *MemoryStore) UpdateLocation(loc *models.Location) error {
 	existing.Name = loc.Name
 	existing.Pin = loc.Pin
 	existing.FixedRate = loc.FixedRate
+	existing.MaxTrainees = loc.MaxTrainees
 	existing.IsDefault = loc.IsDefault
 	return nil
 }

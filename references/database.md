@@ -73,6 +73,14 @@
   * **Real-Time Client-Side Pre-Fill**: Location dropdowns in [sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html), [live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html), and [admin_portal.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/admin_portal.html) embed `data-fixed-rate`. Selecting a location immediately populates the class's `session_rate` input in real-time, while still permitting manual administrative adjustment.
   * **Server-Side Fallback Guarantee**: If a session creation or schedule request specifies `location_id` but leaves `session_rate` blank or omitted, [HandleCreateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) and [HandleAPIAdminSchedule](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/portal_handler.go) automatically resolve and assign `sess.SessionRate = loc.FixedRate`.
 
+### Context: Location Max Trainees Per Session Capacity
+
+* **Problem**: Dojang branches and partner halls have physical mat size constraints and fire/safety limits that restrict the maximum number of students who can train simultaneously in a single session. Operators needed a way to configure and audit mat capacity per location.
+* **Enforced Solution**:
+  * **Database Evolution**: Added `max_trainees INT` (PostgreSQL) and `max_trainees INTEGER` (SQLite) column to `locations`, along with automatic startup migrations `ALTER TABLE locations ADD COLUMN ...`.
+  * **Domain Model**: Updated [Location](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/location.go) with `MaxTrainees *int`, `MaxTraineesVal() int`, and `HasMaxTrainees() bool`.
+  * **UI & Modals ([locations.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/locations.html))**: Added "Max Trainees" column to the active venues table displaying `🥋 X / session` badges, and added "Max Trainees Per Session" inputs to both "Add Location" and "Edit Location" modals.
+
 ### Context: Configurable Training Categories & Disciplines Schema Evolution
 
 * **Problem**: Training categories (e.g. Sparring, Poomsae, Conditioning, Promotion Prep) and their visual indicators were hardcoded across backend handlers and frontend templates. Operators had no self-service method to define new disciplines or configure customized badge colors without modifying codebase constants and CSS rules.

@@ -443,7 +443,8 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 	mux.HandleFunc("GET /portal/admin", app.RequireRole(models.RoleOperationManager)(app.HandleAdminPortal))
 
 	// Core Views
-	mux.HandleFunc("GET /", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
+	mux.HandleFunc("GET /", app.HandleLandingPage)
+	mux.HandleFunc("GET /dashboard", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))
 	mux.HandleFunc("GET /students", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudents))
 	mux.HandleFunc("GET /students/{id}", app.RequireRole(models.RoleStudent, models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleStudentDetail))
 	mux.HandleFunc("POST /students", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateStudent))
@@ -483,7 +484,7 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 
 	// 1. OPERATION MANAGER (Full Control: can view everything)
 	t.Run("OperationManager_FullControl", func(t *testing.T) {
-		for _, path := range []string{"/", "/students", "/sessions", "/coaches", "/packages", "/portal/admin"} {
+		for _, path := range []string{"/dashboard", "/students", "/sessions", "/coaches", "/packages", "/portal/admin"} {
 			rec := testReq(tokManager, path)
 			if rec.Code != http.StatusOK {
 				t.Errorf("Operation Manager expected 200 on %s, got %d", path, rec.Code)
@@ -493,7 +494,7 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 
 	// 2. COACH (Can view Dashboard, Students, Attendance, and Coach Portal)
 	t.Run("Coach_AllowedViews", func(t *testing.T) {
-		for _, path := range []string{"/", "/students", "/sessions", "/portal/coach"} {
+		for _, path := range []string{"/dashboard", "/students", "/sessions", "/portal/coach"} {
 			rec := testReq(tokCoach, path)
 			if rec.Code != http.StatusOK {
 				t.Errorf("Coach expected 200 on %s, got %d: %s", path, rec.Code, rec.Body.String())
@@ -513,7 +514,7 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 
 	// 3. ADMIN (Can view Dashboard, membership packages, attendance, and student directory)
 	t.Run("Admin_AllowedViews", func(t *testing.T) {
-		for _, path := range []string{"/", "/packages", "/sessions", "/students"} {
+		for _, path := range []string{"/dashboard", "/packages", "/sessions", "/students"} {
 			rec := testReq(tokAdmin, path)
 			if rec.Code != http.StatusOK {
 				t.Errorf("Admin expected 200 on %s, got %d", path, rec.Code)
@@ -546,13 +547,21 @@ func TestRolePermissions_ViewMatrix(t *testing.T) {
 		}
 	})
 
+	t.Run("Student_DefaultView", func(t *testing.T) {
+		// Student default page is the calendar view in the landing page (GET /)
+		rec := testReq(tokStudent, "/")
+		if rec.Code != http.StatusOK {
+			t.Errorf("Student expected 200 on landing page /, got %d", rec.Code)
+		}
+	})
+
 	t.Run("Student_RestrictedViews", func(t *testing.T) {
 		// Student cannot view other students, students list, sessions, coaches, packages, dashboard
 		otherStudentID := "22222222-2222-2222-2222-222222222222"
-		for _, path := range []string{"/", "/students", "/sessions", "/coaches", "/packages", "/portal/admin", "/students/" + otherStudentID} {
+		for _, path := range []string{"/students", "/sessions", "/coaches", "/packages", "/portal/admin", "/students/" + otherStudentID} {
 			rec := testReq(tokStudent, path)
-			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/portal/student" {
-				t.Errorf("Student expected redirect to /portal/student on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+				t.Errorf("Student expected redirect to / on %s, got %d to %s", path, rec.Code, rec.Header().Get("Location"))
 			}
 		}
 	})
@@ -865,8 +874,8 @@ func TestAuthHandler_UsernameLoginFlow(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("expected 303 on student login, got %d", rec.Code)
 	}
-	if rec.Header().Get("Location") != "/portal/student" {
-		t.Errorf("expected redirect to /portal/student, got %s", rec.Header().Get("Location"))
+	if rec.Header().Get("Location") != "/" {
+		t.Errorf("expected redirect to /, got %s", rec.Header().Get("Location"))
 	}
 
 	// 3. API Login with username
@@ -979,8 +988,8 @@ func TestAuthHandler_ForgotPasswordAndResetFlow(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec = httptest.NewRecorder()
 	app.HandleLoginSubmit(rec, req)
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/portal/student" {
-		t.Fatalf("expected login with new password to succeed and route to /portal/student, got %d to %s", rec.Code, rec.Header().Get("Location"))
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+		t.Fatalf("expected login with new password to succeed and route to /, got %d to %s", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
@@ -1321,7 +1330,3 @@ func TestAuthHandler_RegistrationRoutesAndAliases(t *testing.T) {
 		t.Fatalf("expected user to be created from POST /registration")
 	}
 }
-
-
-
-

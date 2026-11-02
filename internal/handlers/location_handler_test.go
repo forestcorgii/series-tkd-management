@@ -55,6 +55,7 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	form.Set("name", "Ortigas Training Center")
 	form.Set("pin", "https://maps.google.com/?q=Ortigas+Center")
 	form.Set("fixed_rate", "300.00")
+	form.Set("max_trainees", "24")
 
 	req := httptest.NewRequest("POST", "/locations", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -89,12 +90,16 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	if createdLoc.FixedRate == nil || *createdLoc.FixedRate != 300.00 {
 		t.Errorf("expected fixed_rate to be 300.00, got %v", createdLoc.FixedRate)
 	}
+	if createdLoc.MaxTrainees == nil || *createdLoc.MaxTrainees != 24 {
+		t.Errorf("expected max_trainees to be 24, got %v", createdLoc.MaxTrainees)
+	}
 
 	// 2. Update Location
 	editForm := url.Values{}
 	editForm.Set("name", "Ortigas Grand Dojang")
 	editForm.Set("pin", "https://maps.google.com/?q=Ortigas+Grand")
 	editForm.Set("fixed_rate", "375.50")
+	editForm.Set("max_trainees", "32")
 
 	reqEdit := httptest.NewRequest("POST", "/locations/"+createdLoc.ID.String()+"/edit", strings.NewReader(editForm.Encode()))
 	reqEdit.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -113,6 +118,9 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	}
 	if updated.FixedRate == nil || *updated.FixedRate != 375.50 {
 		t.Errorf("expected updated fixed_rate to be 375.50, got %v", updated.FixedRate)
+	}
+	if updated.MaxTrainees == nil || *updated.MaxTrainees != 32 {
+		t.Errorf("expected updated max_trainees to be 32, got %v", updated.MaxTrainees)
 	}
 
 	// 3. Delete Location
@@ -207,7 +215,7 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 		t.Errorf("coach should NOT be permitted to create/modify locations")
 	}
 
-	// Student Access (Browser request redirects to Student portal /portal/student)
+	// Student Access (Browser request redirects to Student default landing page /)
 	studentUser, _ := store.GetUserByEmail("alex.vance@seriestkd.com")
 	studentToken := uuid.New().String()
 	_ = store.CreateSessionToken(studentToken, studentUser.ID, time.Now().Add(time.Hour))
@@ -215,8 +223,8 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 	reqStudent.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
 	recStudent := httptest.NewRecorder()
 	app.AuthMiddleware(app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recStudent, reqStudent)
-	if recStudent.Code != http.StatusSeeOther || !strings.Contains(recStudent.Header().Get("Location"), "/portal/student") {
-		t.Errorf("expected 303 redirect to /portal/student for Student role on /locations, got code %d to %s", recStudent.Code, recStudent.Header().Get("Location"))
+	if recStudent.Code != http.StatusSeeOther || recStudent.Header().Get("Location") != "/" {
+		t.Errorf("expected 303 redirect to / for Student role on /locations, got code %d to %s", recStudent.Code, recStudent.Header().Get("Location"))
 	}
 
 	// Student Access via HTMX/API (Returns 403 Forbidden)

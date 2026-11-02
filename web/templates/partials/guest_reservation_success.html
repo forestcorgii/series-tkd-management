@@ -10,7 +10,7 @@
             Slot Reservation Confirmed!
         </h3>
         <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Thank you, <strong class="text-slate-900 dark:text-white">{{.Attendance.AttendeeName}}</strong>. We've reserved your training slot.
+            Thank you, <strong class="text-slate-900 dark:text-white">{{.Attendance.DisplayName}}</strong>. We've reserved your training slot.
         </p>
     </div>
 
@@ -28,10 +28,12 @@
             <span class="text-slate-500 font-medium">Branch Location:</span>
             <span class="font-semibold text-slate-800 dark:text-slate-200">📍 {{if .Session.LocationName}}{{.Session.LocationName}}{{else}}Main Dojang{{end}}</span>
         </div>
+        {{if .Attendance.ContactNumber}}
         <div class="flex items-center justify-between">
             <span class="text-slate-500 font-medium">Registered Contact:</span>
             <span class="font-mono font-semibold text-slate-800 dark:text-slate-200">📞 {{.Attendance.ContactNumber}}</span>
         </div>
+        {{end}}
     </div>
 
     <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-200 text-left">

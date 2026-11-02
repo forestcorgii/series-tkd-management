@@ -16,11 +16,11 @@ import (
 )
 
 type StudentListItem struct {
-	Student          *models.Student
-	Readiness        services.PromotionReadiness
-	ActivePackage    *models.StudentPackage
-	LatestEvaluation *models.StudentEvaluation
-	SVGRadarPolygon  string
+	Student           *models.Student
+	Readiness         services.PromotionReadiness
+	ActivePackage     *models.StudentPackage
+	LatestEvaluation  *models.StudentEvaluation
+	SVGRadarPolygon   string
 	ProfilePictureURL string
 }
 
@@ -129,7 +129,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 	if user != nil {
 		if user.Role == models.RoleStudent {
 			if user.StudentID == nil || *user.StudentID != id {
-				http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
+				http.Redirect(w, r, user.RoleDashboardURL(), http.StatusSeeOther)
 				return
 			}
 		}
@@ -462,5 +462,3 @@ func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 
 	http.Redirect(w, r, "/students?success="+url.QueryEscape(msg), http.StatusSeeOther)
 }
-
-

@@ -8,7 +8,7 @@
 | **`OPERATION_MANAGER`** (`IsOperationManager()`) | `STAFF` (`manager` / `*`) | `/dashboard` | `dashboard.html` | Full access (`*`): `/dashboard`, `/students` (incl. belt edits & cascade delete), `/sessions` (incl. closed class delete), `/coaches` (cascade delete/approve), `/packages` (incl. revoke), `/locations` (CRUD), `/admins`, `/roles`, `/logs`, `/portal/admin`, `/settings`. |
 | **`ADMIN`** (`IsAdmin()`) | `STAFF` (`admin`) | `/sessions` | `admin_dashboard.html` | `/dashboard`, `/sessions` (attendance & scheduling), `/packages` (view & assign), `/students` (register & edit personal/emergency info **ONLY**—no belt/promotion/eval edits, no delete), `/locations` (view-only), `/settings`. Barred from `/coaches`, `/admins`, `/roles`, `/logs`, `/portal/admin`. |
 | **`COACH`** (`IsCoach()`) | `STAFF` (`coach`) | `/sessions` | `coach_dashboard.html` | `/dashboard` (scoped to `IsCoachSchedule()`), `/sessions` (auto-prefiltered to own `coach_id` on initial load), `/students` (view & submit evaluations `POST /students/{id}/evaluations`), `/portal/coach`, `/locations` (view-only), `/settings` (view). Barred from `/packages`, `/coaches`, `/admins`, `/roles`, `/logs`. |
-| **`STUDENT`** (`IsStudent()`) | `STUDENT` | `/portal/student` | Redirects to `/portal/student` | `/portal/student`, `/students/{own_student_id}`, `POST /api/student/check-in` (identity-locked to `user.StudentID`), `/profile`. Redirected to `/portal/student` on any unauthorized route. |
+| **`STUDENT`** (`IsStudent()`) | `STUDENT` | Renders `landing.html` (default calendar view) | Redirects to `/portal/student` | `/` (default calendar view), `/portal/student` (practitioner portal), `/students/{own_student_id}`, `POST /api/student/check-in` (identity-locked to `user.StudentID`), `/profile`. Redirected to `/` on unauthorized route. |
 
 > **Note on `?preview=1`**: Authenticated staff visiting `GET /?preview=1` bypass workspace redirection to preview the public marketing landing page.
 
@@ -366,9 +366,13 @@
      - `GET /` routes to `app.HandleLandingPage` without authentication guards.
      - `GET /landing/schedule` provides an HTMX-targeted partial endpoint (`HandleLandingSchedule`) returning `landing_schedule_grid.html`.
      - `GET /dashboard` retains strict role guards for management dashboards (`RequireRole(Coach, Admin, OperationManager)`).
-  2. **Role Workspace Redirection**:
-     - `HandleLandingPage` inspects the user context: if `user != nil` and `r.URL.Query().Get("preview") != "1"`, redirects students to `/portal/student`, coaches and admins to `/sessions`, and managers to `/dashboard`.
-  3. **HTMX Interactive Schedule & Locations Matrix**:
-     - Dynamic branch and training discipline filters (`All`, `Sparring`, `Poomsae`, `Conditioning`, `Promotion Prep`) fetch updated cards from `/landing/schedule` and swap `#landing-schedule-container`.
+  2. **Role Workspace Redirection & Student Default Schedule View**:
+     - `models.User.RoleDashboardURL()` returns `"/"` for student practitioners (`RoleStudent`), making the landing page calendar view their default home screen.
+     - `HandleLandingPage` allows students to remain on `GET /` without redirection. Staff users (coaches, admins, managers) are redirected to their operational workspace unless `?preview=1` is provided.
+  3. **Student Slot Self-Reservation Flow (No Redundant Form Inputs)**:
+     - When a student is signed in, `markStudentReservations()` detects their existing session enrollments and displays `✓ Reserved` on matching calendar cards.
+     - For open sessions, clicking `Reserve Slot` opens `#guest-reserve-modal` loaded with `guest_reservation_form.html`.
+     - For authenticated students (`user.IsStudent()`), redundant text input fields for `guest_name` and `contact_number` are completely omitted. Instead, the student's name, belt rank, and an instant `Confirm Slot Reservation` button are rendered.
+     - Submitting `POST /landing/reserve` maps the student directly to `CheckInStudent` without requiring form text inputs, enforcing branch location `MaxTrainees` capacity limits.
   4. **Brand Navigation Standard**:
-     - `layout.html` logo link resolves to `{{if $user}}{{$user.RoleDashboardURL}}{{else}}/{{end}}`, and public header navigation exposes `#programs`, `#schedule`, and `#portals` links for guests.
+     - `layout.html` logo link resolves to `{{if $user}}{{$user.RoleDashboardURL}}{{else}}/{{end}}`, and student navigation exposes direct links to `Schedule` (`/`) and `Practitioner Portal` (`/portal/student`).

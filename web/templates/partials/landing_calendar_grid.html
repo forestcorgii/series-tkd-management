@@ -1,4 +1,5 @@
 {{define "landing_calendar_grid.html"}}
+{{$user := currentUser .}}
 <div class="space-y-4" id="landing-calendar-wrapper" data-anchor-date="{{.Calendar.StartDateStr}}" data-selected-location="{{.SelectedLocationID}}">
     <!-- Branch Location Filter Bar -->
     <div class="glass-panel p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
@@ -30,7 +31,11 @@
         </div>
 
         <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 self-end md:self-auto">
+            {{if and $user $user.IsStudent}}
+            <span class="font-semibold text-slate-600 dark:text-slate-400">🥋 Live Dojang Schedule</span>
+            {{else}}
             <span>🥋 Guest trial slots available</span>
+            {{end}}
         </div>
     </div>
 
@@ -204,6 +209,12 @@
                                         <span>{{.Session.LocationName}}</span>
                                     </p>
                                     {{end}}
+                                    {{if .MaxTrainees}}
+                                    <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5 flex items-center gap-0.5 font-medium">
+                                        <span>🥋</span>
+                                        <span>{{.AttendanceCount}} / {{.MaxTrainees}} max</span>
+                                    </p>
+                                    {{end}}
                                 </div>
 
                                 <div class="pt-1 mt-1 border-t border-slate-100 dark:border-neutral-800">
@@ -211,11 +222,20 @@
                                     <span class="text-[9px] font-bold text-rose-500 uppercase tracking-wider">Cancelled</span>
                                     {{else if .Session.IsDone}}
                                     <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed</span>
+                                    {{else if and $user $user.IsStudent .IsUserReserved}}
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                                        <span>✓</span> Reserved
+                                    </span>
+                                    {{else if .IsFull}}
+                                    <span class="inline-flex items-center gap-1 text-[9px] font-extrabold text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-800">
+                                        Class Full ({{.AttendanceCount}}/{{.MaxTrainees}})
+                                    </span>
                                     {{else}}
                                     <button type="button"
                                             onclick="event.stopPropagation(); openGuestReserveModal('{{.Session.ID}}')"
                                             class="w-full py-1 px-1.5 rounded-lg bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-bold text-[10px] uppercase tracking-wider shadow-xs transition-colors flex items-center justify-center gap-1 cursor-pointer">
                                         <span>Reserve Slot</span>
+                                        {{if .MaxTrainees}}<span class="text-[8px] opacity-80 font-mono">({{.AttendanceCount}}/{{.MaxTrainees}})</span>{{end}}
                                         <span>&rarr;</span>
                                     </button>
                                     {{end}}

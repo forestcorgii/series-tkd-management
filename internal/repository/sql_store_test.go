@@ -1427,12 +1427,14 @@ func TestSQLStore_Locations(t *testing.T) {
 
 	// 1. Create Location
 	initialRate := 275.50
+	maxCap := 20
 	loc := &models.Location{
-		ID:        uuid.New(),
-		Name:      "BGC Branch",
-		Pin:       "https://maps.google.com/?q=BGC+Branch",
-		FixedRate: &initialRate,
-		CreatedAt: time.Now(),
+		ID:          uuid.New(),
+		Name:        "BGC Branch",
+		Pin:         "https://maps.google.com/?q=BGC+Branch",
+		FixedRate:   &initialRate,
+		MaxTrainees: &maxCap,
+		CreatedAt:   time.Now(),
 	}
 	if err := store.CreateLocation(loc); err != nil {
 		t.Fatalf("CreateLocation failed: %v", err)
@@ -1449,6 +1451,9 @@ func TestSQLStore_Locations(t *testing.T) {
 	if fetched.FixedRate == nil || *fetched.FixedRate != 275.50 {
 		t.Errorf("expected fetched location fixed_rate 275.50, got %v", fetched.FixedRate)
 	}
+	if fetched.MaxTrainees == nil || *fetched.MaxTrainees != 20 {
+		t.Errorf("expected fetched location max_trainees 20, got %v", fetched.MaxTrainees)
+	}
 
 	// 3. GetAllLocations
 	locs, err := store.GetAllLocations()
@@ -1462,6 +1467,9 @@ func TestSQLStore_Locations(t *testing.T) {
 			if l.FixedRate == nil || *l.FixedRate != 275.50 {
 				t.Errorf("expected GetAllLocations item fixed_rate 275.50, got %v", l.FixedRate)
 			}
+			if l.MaxTrainees == nil || *l.MaxTrainees != 20 {
+				t.Errorf("expected GetAllLocations item max_trainees 20, got %v", l.MaxTrainees)
+			}
 			break
 		}
 	}
@@ -1471,9 +1479,11 @@ func TestSQLStore_Locations(t *testing.T) {
 
 	// 4. Update Location
 	updatedRate := 320.00
+	updatedCap := 35
 	loc.Name = "BGC High Street Dojang"
 	loc.Pin = "https://maps.google.com/?q=BGC+High+Street"
 	loc.FixedRate = &updatedRate
+	loc.MaxTrainees = &updatedCap
 	if err := store.UpdateLocation(loc); err != nil {
 		t.Fatalf("UpdateLocation failed: %v", err)
 	}
@@ -1483,6 +1493,9 @@ func TestSQLStore_Locations(t *testing.T) {
 	}
 	if updated.FixedRate == nil || *updated.FixedRate != 320.00 {
 		t.Errorf("expected updated location fixed_rate 320.00, got %v", updated.FixedRate)
+	}
+	if updated.MaxTrainees == nil || *updated.MaxTrainees != 35 {
+		t.Errorf("expected updated location max_trainees 35, got %v", updated.MaxTrainees)
 	}
 
 	// 5. Link Session to Location
@@ -2152,4 +2165,3 @@ func TestStore_CustomizableRolesAndPermissions(t *testing.T) {
 		})
 	}
 }
-

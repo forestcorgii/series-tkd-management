@@ -162,6 +162,7 @@ func (s *SQLStore) runMigrations() error {
 			name TEXT NOT NULL,
 			pin TEXT NOT NULL,
 			fixed_rate REAL,
+			max_trainees INTEGER,
 			is_default INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL
 		);
@@ -417,6 +418,7 @@ func (s *SQLStore) runMigrations() error {
 			name VARCHAR(150) NOT NULL,
 			pin TEXT NOT NULL,
 			fixed_rate NUMERIC(10, 2),
+			max_trainees INT,
 			is_default BOOLEAN NOT NULL DEFAULT FALSE,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
@@ -646,6 +648,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN fixed_rate REAL`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN max_trainees INTEGER`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN is_default INTEGER DEFAULT 0`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id TEXT PRIMARY KEY,
@@ -902,6 +905,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS fixed_rate NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS max_trainees INT`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id UUID PRIMARY KEY,
@@ -1266,7 +1270,7 @@ func formatDateForDB(t time.Time) string {
 
 // Locations
 func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY is_default DESC, name ASC`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY is_default DESC, name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -1277,14 +1281,19 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 	for rows.Next() {
 		var idStr, createdStr string
 		var nullRate sql.NullFloat64
+		var nullMaxTrainees sql.NullInt64
 		var isDefault bool
 		loc := &models.Location{}
-		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr); err != nil {
+		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr); err != nil {
 			return nil, err
 		}
 		loc.ID = uuid.Must(uuid.Parse(idStr))
 		if nullRate.Valid {
 			loc.FixedRate = &nullRate.Float64
+		}
+		if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+			val := int(nullMaxTrainees.Int64)
+			loc.MaxTrainees = &val
 		}
 		loc.IsDefault = isDefault
 		loc.CreatedAt, _ = parseTimeFlex(createdStr)
@@ -1294,12 +1303,13 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 }
 
 func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations WHERE id = $1`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations WHERE id = $1`
 	var idStr, createdStr string
 	var nullRate sql.NullFloat64
+	var nullMaxTrainees sql.NullInt64
 	var isDefault bool
 	loc := &models.Location{}
-	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr)
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -1310,22 +1320,31 @@ func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
 	if nullRate.Valid {
 		loc.FixedRate = &nullRate.Float64
 	}
+	if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+		val := int(nullMaxTrainees.Int64)
+		loc.MaxTrainees = &val
+	}
 	loc.IsDefault = isDefault
 	loc.CreatedAt, _ = parseTimeFlex(createdStr)
 	return loc, nil
 }
 
 func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations WHERE is_default = TRUE or is_default = 1 ORDER BY created_at ASC LIMIT 1`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations WHERE is_default = TRUE or is_default = 1 ORDER BY created_at ASC LIMIT 1`
 	var idStr, createdStr string
 	var nullRate sql.NullFloat64
+	var nullMaxTrainees sql.NullInt64
 	var isDefault bool
 	loc := &models.Location{}
-	err := s.db.QueryRow(query).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr)
+	err := s.db.QueryRow(query).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr)
 	if err == nil {
 		loc.ID = uuid.Must(uuid.Parse(idStr))
 		if nullRate.Valid {
 			loc.FixedRate = &nullRate.Float64
+		}
+		if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+			val := int(nullMaxTrainees.Int64)
+			loc.MaxTrainees = &val
 		}
 		loc.IsDefault = isDefault
 		loc.CreatedAt, _ = parseTimeFlex(createdStr)
@@ -1336,8 +1355,8 @@ func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
 	}
 
 	// Fallback to earliest created location
-	queryFallback := `SELECT id, name, pin, fixed_rate, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY created_at ASC LIMIT 1`
-	err = s.db.QueryRow(queryFallback).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &isDefault, &createdStr)
+	queryFallback := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY created_at ASC LIMIT 1`
+	err = s.db.QueryRow(queryFallback).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1347,6 +1366,10 @@ func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
 	loc.ID = uuid.Must(uuid.Parse(idStr))
 	if nullRate.Valid {
 		loc.FixedRate = &nullRate.Float64
+	}
+	if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+		val := int(nullMaxTrainees.Int64)
+		loc.MaxTrainees = &val
 	}
 	loc.IsDefault = isDefault
 	loc.CreatedAt, _ = parseTimeFlex(createdStr)
@@ -1387,8 +1410,8 @@ func (s *SQLStore) CreateLocation(loc *models.Location) error {
 	if loc.IsDefault {
 		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE")
 	}
-	query := `INSERT INTO locations (id, name, pin, fixed_rate, is_default, created_at) VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, loc.IsDefault, formatTimeForDB(loc.CreatedAt))
+	query := `INSERT INTO locations (id, name, pin, fixed_rate, max_trainees, is_default, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, formatTimeForDB(loc.CreatedAt))
 	return err
 }
 
@@ -1396,8 +1419,8 @@ func (s *SQLStore) UpdateLocation(loc *models.Location) error {
 	if loc.IsDefault {
 		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE WHERE id != $1", loc.ID.String())
 	}
-	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3, is_default = $4 WHERE id = $5`
-	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.IsDefault, loc.ID.String())
+	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3, max_trainees = $4, is_default = $5 WHERE id = $6`
+	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, loc.ID.String())
 	if err != nil {
 		return err
 	}

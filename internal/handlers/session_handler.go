@@ -46,6 +46,9 @@ type CalendarSession struct {
 	TypeIcon        string
 	DisplayTitle    string
 	StaffSummary    string
+	MaxTrainees     int
+	IsFull          bool
+	IsUserReserved  bool
 }
 
 func (cs *CalendarSession) IsEvent() bool {
@@ -361,6 +364,14 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 
 	attCounts, _ := a.store.GetSessionAttendanceCounts()
 
+	locations, _ := a.store.GetAllLocations()
+	locCapMap := make(map[uuid.UUID]int, len(locations))
+	for _, loc := range locations {
+		if loc != nil && loc.HasMaxTrainees() {
+			locCapMap[loc.ID] = loc.MaxTraineesVal()
+		}
+	}
+
 	// Map sessions into days and hours
 	for _, s := range sessions {
 		startH, startM := parseTimeHM(s.StartTime)
@@ -448,6 +459,12 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 			catColor = "#059669"
 		}
 
+		maxCap := 0
+		if s.LocationID != nil {
+			maxCap = locCapMap[*s.LocationID]
+		}
+		isFull := maxCap > 0 && attCount >= maxCap
+
 		calSess := &CalendarSession{
 			Session:         s,
 			AttendanceCount: attCount,
@@ -468,6 +485,8 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 			TypeIcon:        typeIcon,
 			DisplayTitle:    s.DisplayTitle(),
 			StaffSummary:    s.StaffSummary(),
+			MaxTrainees:     maxCap,
+			IsFull:          isFull,
 		}
 
 		sessDateStr := s.SessionDate.Format("2006-01-02")

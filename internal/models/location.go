@@ -9,12 +9,13 @@ import (
 
 // Location represents a training facility, branch dojang, or event venue.
 type Location struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Pin       string    `json:"pin"` // Google Maps link / share URL
-	FixedRate *float64  `json:"fixed_rate,omitempty"` // Default session rate pre-filled for classes at this location
-	IsDefault bool      `json:"is_default"`           // Pre-selected default location for public schedules and check-ins
-	CreatedAt time.Time `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Pin         string    `json:"pin"`                    // Google Maps link / share URL
+	FixedRate   *float64  `json:"fixed_rate,omitempty"`   // Default session rate pre-filled for classes at this location
+	MaxTrainees *int      `json:"max_trainees,omitempty"` // Max trainees permitted per session at this location
+	IsDefault   bool      `json:"is_default"`             // Pre-selected default location for public schedules and check-ins
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // HasValidPin returns true if the Pin field contains a non-empty web URL.
@@ -47,3 +48,15 @@ func (l *Location) HasFixedRate() bool {
 	return l != nil && l.FixedRate != nil && *l.FixedRate > 0
 }
 
+// MaxTraineesVal returns the max trainees value if present, or 0 if not.
+func (l *Location) MaxTraineesVal() int {
+	if l != nil && l.MaxTrainees != nil {
+		return *l.MaxTrainees
+	}
+	return 0
+}
+
+// HasMaxTrainees returns true if a max trainees per session limit is configured.
+func (l *Location) HasMaxTrainees() bool {
+	return l != nil && l.MaxTrainees != nil && *l.MaxTrainees > 0
+}

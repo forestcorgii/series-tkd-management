@@ -16,8 +16,8 @@
 {{define "content"}}
 <div class="space-y-6 sm:space-y-8 py-2 sm:py-4">
 
-    <!-- Authenticated Preview Notice (Only shown if visiting with ?preview=1 while logged in) -->
-    {{if .CurrentUser}}
+    <!-- Authenticated Preview Notice (Only shown if staff is visiting with ?preview=1 while logged in) -->
+    {{if and .CurrentUser (not .CurrentUser.IsStudent)}}
     <div class="glass-panel p-3 sm:p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
         <div class="flex items-center gap-2">
             <span class="text-base">🥋</span>
@@ -39,7 +39,11 @@
             Class Schedule &amp; Slot Reservations
         </h1>
         <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+            {{if and .CurrentUser .CurrentUser.IsStudent}}
+            Browse upcoming training sessions across all branch dojangs and reserve your training slots.
+            {{else}}
             View upcoming training sessions by branch and reserve your guest trial slot directly with our coaches.
+            {{end}}
         </p>
     </div>
 
@@ -48,7 +52,7 @@
         {{template "landing_calendar_grid.html" .}}
     </section>
 
-    <!-- Guest Reservation Modal -->
+    <!-- Slot Reservation Modal (Guests & Students) -->
     <div id="guest-reserve-modal"
          class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
          onclick="closeGuestReserveModal(false)">

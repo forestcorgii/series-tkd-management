@@ -294,9 +294,15 @@
 
             <!-- Today's Floor Schedule & Self Check-In -->
             <div id="today-classes-card" class="glass-panel rounded-xl p-3 sm:p-4 border border-[#E5E3D8] dark:border-neutral-800 shadow-sm">
-                <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4] mb-2.5">
-                    Today's Scheduled Classes
-                </h2>
+                <div class="flex items-center justify-between mb-2.5">
+                    <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
+                        Today's Scheduled Classes
+                    </h2>
+                    <a href="/" class="text-[11px] font-bold text-[#990303] dark:text-red-400 hover:underline flex items-center gap-1">
+                        <span>Full Schedule</span>
+                        <span>&rarr;</span>
+                    </a>
+                </div>
                 <div class="space-y-2">
                     {{range .UpcomingSessions}}
                         {{template "student_session_item.html" (dict "Session" . "StudentID" $.Student.ID "IsCheckedIn" (index $.CheckedInSessions .ID.String) "HasSafetyHold" $.HasActiveSafetyHold "FeedbackMessage" "" "IsSuccess" false)}}
