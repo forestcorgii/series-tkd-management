@@ -116,6 +116,12 @@ func TestLandingHandler_HandleLandingPage_AuthenticatedRedirects(t *testing.T) {
 	if !strings.Contains(recStudent.Body.String(), "Reserve Slot") {
 		t.Errorf("logged in student should see Reserve Slot button for open classes")
 	}
+	if strings.Contains(recStudent.Body.String(), "Portal Sign In") {
+		t.Errorf("logged in student should not see Portal Sign In link in footer")
+	}
+	if strings.Contains(recStudent.Body.String(), `href="/register"`) {
+		t.Errorf("logged in student should not see Register link in footer")
+	}
 
 	// 2. Coach User -> Redirect to /sessions
 	coachUser, err := store.GetUserByEmail("jiwoo.park@seriestkd.com")

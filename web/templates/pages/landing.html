@@ -30,15 +30,11 @@
     {{end}}
 
     <!-- Minimal Public Header -->
-    <div class="text-center max-w-2xl mx-auto space-y-2 pt-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 dark:bg-neutral-900/80 border border-slate-200 dark:border-neutral-800 shadow-xs text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-            <span class="inline-block w-2 h-2 rounded-full bg-[#990303] dark:bg-[#DC2626] animate-pulse"></span>
-            <span>Kukkiwon WT Affiliated &bull; Live Dojang Schedule</span>
-        </div>
-        <h1 class="font-display font-black text-2xl sm:text-4xl uppercase tracking-tight text-slate-950 dark:text-white">
+    <div class="text-center max-w-2xl mx-auto space-y-1 pt-1 sm:pt-2">
+        <h4 class="font-display font-bold text-base sm:text-lg uppercase tracking-tight text-slate-950 dark:text-white">
             Class Schedule &amp; Slot Reservations
-        </h1>
-        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+        </h4>
+        <p class="text-xs text-slate-600 dark:text-slate-400 font-medium">
             {{if and .CurrentUser .CurrentUser.IsStudent}}
             Browse upcoming training sessions across all branch dojangs and reserve your training slots.
             {{else}}
@@ -76,10 +72,12 @@
                 Series Taekwondo Management System
             </span>
         </div>
+        {{if not .CurrentUser}}
         <div class="flex items-center space-x-4 font-semibold text-[11px]">
             <a href="/register" class="hover:text-black dark:hover:text-white transition">Register</a>
             <a href="/login" class="hover:text-black dark:hover:text-white transition">Portal Sign In</a>
         </div>
+        {{end}}
         <div class="text-[10px] text-slate-400">
             &copy; Series Taekwondo. All rights reserved.
         </div>
