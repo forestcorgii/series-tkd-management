@@ -29,19 +29,6 @@
     </div>
     {{end}}
 
-    <!-- Minimal Public Header -->
-    <div class="text-center max-w-2xl mx-auto space-y-1 pt-1 sm:pt-2">
-        <h4 class="font-display font-bold text-base sm:text-lg uppercase tracking-tight text-slate-950 dark:text-white">
-            Class Schedule &amp; Slot Reservations
-        </h4>
-        <p class="text-xs text-slate-600 dark:text-slate-400 font-medium">
-            {{if and .CurrentUser .CurrentUser.IsStudent}}
-            Browse upcoming training sessions across all branch dojangs and reserve your training slots.
-            {{else}}
-            View upcoming training sessions by branch and reserve your guest trial slot directly with our coaches.
-            {{end}}
-        </p>
-    </div>
 
     <!-- Calendar View Container (HTMX Driven) -->
     <section id="landing-calendar-container" class="space-y-4">

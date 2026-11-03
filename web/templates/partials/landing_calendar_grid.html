@@ -2,7 +2,7 @@
 {{$user := currentUser .}}
 <div class="space-y-4" id="landing-calendar-wrapper" data-anchor-date="{{.Calendar.StartDateStr}}" data-selected-location="{{.SelectedLocationID}}">
     <!-- Branch Location Filter Bar -->
-    <div class="glass-panel p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+    <!-- <div class="glass-panel p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
         <div class="flex items-center gap-2 overflow-x-auto py-0.5 scrollbar-none" style="-ms-overflow-style: none; scrollbar-width: none;">
             <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex-shrink-0 flex items-center gap-1">
                 <span>📍</span> <span>Branch:</span>
@@ -30,7 +30,7 @@
             {{end}}
         </div>
 
-    </div>
+    </div> -->
 
     <!-- Week Navigation Bar -->
     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-slate-50/90 dark:bg-neutral-900/70 rounded-2xl border border-slate-200/80 dark:border-neutral-800 shadow-xs">
@@ -103,17 +103,10 @@
 
             <!-- Current Week / Range Label -->
             <div class="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-tight">
-                <span class="md:hidden">{{.Calendar.MobileTitle}}</span>
                 <span class="hidden md:inline">{{.Calendar.Title}}</span>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 self-end sm:self-auto">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-[#990303] dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-900 whitespace-nowrap">
-                <span class="md:hidden">{{.Calendar.MobileTotalSessions}} Classes</span>
-                <span class="hidden md:inline">{{.Calendar.TotalSessions}} Classes</span>
-            </span>
-        </div>
     </div>
 
     <!-- 7-Day Interactive Mobile Week Strip (< md) -->
