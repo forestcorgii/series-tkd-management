@@ -1593,6 +1593,17 @@ let currentMobileViewMode = 'day';
 let currentMobileDate = null;
 
 function setMobileCalendarViewMode(mode) {
+    if (window.innerWidth >= 768) {
+        const headerGrid = document.getElementById('calendar-header-grid');
+        const bodyGrid = document.getElementById('calendar-body-grid');
+        if (headerGrid) {
+            headerGrid.classList.remove('calendar-grid-mobile-day', 'calendar-grid-mobile-3day');
+        }
+        if (bodyGrid) {
+            bodyGrid.classList.remove('calendar-grid-mobile-day', 'calendar-grid-mobile-3day');
+        }
+        return;
+    }
     currentMobileViewMode = mode;
     const btnDay = document.getElementById('mobile-view-btn-day');
     const btn3Day = document.getElementById('mobile-view-btn-3day');

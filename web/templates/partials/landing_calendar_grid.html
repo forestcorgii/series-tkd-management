@@ -142,7 +142,7 @@
         <div id="landing-calendar-scroll" class="overflow-x-auto scroll-smooth">
             <div id="landing-calendar-inner" class="min-w-full md:min-w-[920px]">
                 <!-- Day Column Headers -->
-                <div id="landing-calendar-header-grid" class="landing-calendar-header-grid calendar-grid-mobile-day md:calendar-grid-desktop grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-neutral-800 bg-slate-50/90 dark:bg-neutral-900/90 sticky top-0 z-20 backdrop-blur">
+                <div id="landing-calendar-header-grid" class="landing-calendar-header-grid grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-neutral-800 bg-slate-50/90 dark:bg-neutral-900/90 sticky top-0 z-20 backdrop-blur">
                     <div class="p-1 sm:p-2 text-center border-r border-slate-200/80 dark:border-neutral-800 flex flex-col items-center justify-center">
                         <span class="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">GMT+8</span>
                     </div>
@@ -175,7 +175,7 @@
                 </div>
 
                 <!-- Main Time Grid Canvas -->
-                <div id="landing-calendar-body-grid" class="landing-calendar-body-grid calendar-grid-mobile-day md:calendar-grid-desktop grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
+                <div id="landing-calendar-body-grid" class="landing-calendar-body-grid grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
                     <!-- Left Gutter: Hour Markers -->
                     <div class="border-r border-slate-200/80 dark:border-neutral-800 bg-slate-50/40 dark:bg-neutral-900/40 select-none relative z-10">
                         {{range $h := .Calendar.Hours}}

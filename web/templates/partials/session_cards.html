@@ -150,7 +150,7 @@
         <div id="calendar-scroll-container" class="overflow-x-auto scroll-smooth">
             <div id="calendar-inner-container" class="calendar-grid-wrapper min-w-full md:min-w-[920px]">
                 <!-- Day Column Headers (Sticky Top) -->
-                <div id="calendar-header-grid" class="calendar-header-grid calendar-grid-mobile-day md:calendar-grid-desktop grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 sticky top-0 z-20 backdrop-blur">
+                <div id="calendar-header-grid" class="calendar-header-grid grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 sticky top-0 z-20 backdrop-blur">
                     <!-- Top-Left Corner: Timezone / Icon -->
                     <div class="p-1 sm:p-2 text-center border-r border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center">
                         <span class="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">GMT+8</span>
@@ -192,7 +192,7 @@
 
                 <!-- Scrollable Body with Time Gutter + Timeline Columns -->
                 <div class="relative max-h-[720px] overflow-y-auto">
-                    <div id="calendar-body-grid" class="calendar-body-grid calendar-grid-mobile-day md:calendar-grid-desktop grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
+                    <div id="calendar-body-grid" class="calendar-body-grid grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
                         
                         <!-- Left Time Gutter -->
                         <div class="border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 relative select-none">
