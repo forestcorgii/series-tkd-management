@@ -269,3 +269,18 @@ Components are centralized in [`web/static/css/input.css`](file:///c:/Users/USER
      - Formats split overlapping cards (narrow width < 80px) with stacked 2-line times (`11:30 AM` / `1:30 PM`) so digits never get cut or wrapped across letter boundaries.
      - Stripped internal coaching/curriculum notes (`"Taegeuk 1 through 8..."`) and all attendant counts/icons (`👥`).
      - Fixed header and footer HTML template formatting to eliminate raw string leaks.
+
+
+### Context: Mobile Calendar Day View & Resilient Multi-Day Grid
+
+* **Problem:**
+  1. Cramming 3 full day columns into a mobile viewport (`< 768px`) with `min-w-0` reduced each column to ~90-100px. Inner cards had only 80px width (or ~45px when overlapping), causing category badges, status chips, times, coach names, and action buttons (`⚡ Live`, `Reserve Slot`) to wrap into 3+ lines or clip severely.
+  2. The mobile grid arbitrarily hid days 3 to 6 (Thursday–Sunday) with no interactive weekday overview to jump between days of the active week.
+  3. Relying purely on Tailwind arbitrary classes like `grid-cols-[48px_repeat(3,1fr)]` without explicit CSS grid fallbacks risked layout collapse if CSS builds were deferred.
+
+* **Enforced Solution:**
+  1. **7-Day Interactive Mobile Week Strip ([session_cards.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/session_cards.html), [landing_calendar_grid.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/landing_calendar_grid.html))**: Added a horizontal 7-day pill strip (`#mobile-week-strip` / `#landing-mobile-week-strip`) directly above the calendar on mobile. Displays all 7 days with day abbreviation, date number circle, and session count dots. Tapping any day pill immediately selects that day with instant client-side column switching.
+  2. **Mobile Day View Default (`.calendar-grid-mobile-day`)**: By default on mobile (`< md`), the calendar displays in spacious **Day View** (`44px 1fr`), giving the active day ~320px width. Cards render with generous breathing room, legible typography, unclipped times, and spacious action buttons (`⚡ Live` and `Reserve Slot`).
+  3. **3-Day View Toggle with Minimum Width Guard (`.calendar-grid-mobile-3day`)**: Provided a mobile view switcher (`Day` / `3-Day`). In 3-day mode, enforces `minmax(130px, 1fr)` per day column (total container `min-w-[434px]`) with smooth touch scrolling and auto-scroll to the selected day.
+  4. **CSS Grid Resilience ([input.css](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/input.css))**: Centralized `.calendar-grid-desktop` (`64px repeat(7, minmax(0, 1fr))`), `.calendar-grid-mobile-day` (`44px 1fr`), and `.calendar-grid-mobile-3day` (`44px repeat(3, minmax(130px, 1fr))`) in `@layer components` to ensure consistent rendering across all viewports.
+  5. **Universal Hidden Scrollbars (`.scrollbar-none` / `.no-scrollbar`)**: Enforce `-ms-overflow-style: none; scrollbar-width: none;` and `::-webkit-scrollbar { display: none; }` on horizontal chip/pill selectors (such as the branch location filter bar and 7-day strip) to eliminate unsightly OS scrollbars while preserving touch, trackpad, and mousewheel horizontal scrolling.

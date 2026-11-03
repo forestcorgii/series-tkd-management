@@ -3,7 +3,7 @@
 <div class="space-y-4" id="landing-calendar-wrapper" data-anchor-date="{{.Calendar.StartDateStr}}" data-selected-location="{{.SelectedLocationID}}">
     <!-- Branch Location Filter Bar -->
     <div class="glass-panel p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+        <div class="flex items-center gap-2 overflow-x-auto py-0.5 scrollbar-none" style="-ms-overflow-style: none; scrollbar-width: none;">
             <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex-shrink-0 flex items-center gap-1">
                 <span>📍</span> <span>Branch:</span>
             </span>
@@ -35,10 +35,10 @@
     <!-- Week Navigation Bar -->
     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-slate-50/90 dark:bg-neutral-900/70 rounded-2xl border border-slate-200/80 dark:border-neutral-800 shadow-xs">
         <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-            <!-- Mobile 3-Day Navigation Controls -->
+            <!-- Mobile Navigation Controls -->
             <div class="inline-flex md:hidden rounded-lg border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-0.5 shadow-xs">
                 <button type="button"
-                        hx-get="/landing/schedule?date={{.Calendar.Prev3DaysStr}}&location={{.SelectedLocationID}}"
+                        hx-get="/landing/schedule?date={{.Calendar.PrevWeekStr}}&location={{.SelectedLocationID}}"
                         hx-target="#landing-calendar-container"
                         hx-swap="innerHTML"
                         class="btn btn-ghost btn-xs px-2.5 py-1 text-xs text-slate-700 dark:text-slate-300">
@@ -52,11 +52,27 @@
                     Today
                 </button>
                 <button type="button"
-                        hx-get="/landing/schedule?date={{.Calendar.Next3DaysStr}}&location={{.SelectedLocationID}}"
+                        hx-get="/landing/schedule?date={{.Calendar.NextWeekStr}}&location={{.SelectedLocationID}}"
                         hx-target="#landing-calendar-container"
                         hx-swap="innerHTML"
                         class="btn btn-ghost btn-xs px-2.5 py-1 text-xs text-slate-700 dark:text-slate-300">
                     Next &rarr;
+                </button>
+            </div>
+
+            <!-- Mobile View Mode Toggle -->
+            <div class="inline-flex md:hidden rounded-lg border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-0.5 shadow-xs" id="landing-mobile-view-toggle">
+                <button type="button"
+                        onclick="setLandingCalendarViewMode('day')"
+                        id="landing-mobile-view-btn-day"
+                        class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all bg-[#990303] text-white dark:bg-[#DC2626]">
+                    Day
+                </button>
+                <button type="button"
+                        onclick="setLandingCalendarViewMode('3day')"
+                        id="landing-mobile-view-btn-3day"
+                        class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    3-Day
                 </button>
             </div>
 
@@ -100,18 +116,48 @@
         </div>
     </div>
 
-    <!-- 7-DAY (DESKTOP) / 3-DAY (MOBILE) TIME GRID -->
+    <!-- 7-Day Interactive Mobile Week Strip (< md) -->
+    <div class="md:hidden flex items-center justify-between gap-1 p-1 sm:p-1.5 bg-slate-50 dark:bg-neutral-900/60 rounded-2xl border border-slate-200/80 dark:border-neutral-800 overflow-x-auto scrollbar-none" id="landing-mobile-week-strip" style="-ms-overflow-style: none; scrollbar-width: none;">
+        {{range $i, $day := .Calendar.Days}}
+        <button type="button"
+                onclick="selectLandingCalendarDay('{{$day.DateString}}')"
+                id="landing-mobile-day-pill-{{$day.DateString}}"
+                data-date="{{$day.DateString}}"
+                data-index="{{$i}}"
+                data-is-today="{{if $day.IsToday}}true{{else}}false{{end}}"
+                class="landing-mobile-day-pill flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all text-center select-none cursor-pointer border {{if $day.IsToday}}border-[#990303]/40 dark:border-[#DC2626]/40 bg-rose-50/50 dark:bg-rose-950/20{{else}}border-transparent hover:bg-slate-100 dark:hover:bg-neutral-800{{end}}">
+            <span class="text-[9px] font-bold uppercase tracking-wider landing-mobile-day-pill-name {{if $day.IsToday}}text-[#990303] dark:text-[#DC2626]{{else}}text-slate-500 dark:text-slate-400{{end}}">
+                {{$day.DayShort}}
+            </span>
+            <span class="w-6 h-6 my-0.5 rounded-full flex items-center justify-center font-display font-bold text-xs landing-mobile-day-pill-num {{if $day.IsToday}}bg-[#990303] dark:bg-[#DC2626] text-white shadow-xs{{else}}text-slate-800 dark:text-slate-200{{end}}">
+                {{$day.DayNumber}}
+            </span>
+            <div class="flex items-center gap-0.5 h-3">
+                {{if gt (len $day.Sessions) 0}}
+                <span class="w-1.5 h-1.5 rounded-full bg-[#990303] dark:bg-[#DC2626] inline-block"></span>
+                <span class="text-[8px] font-medium text-slate-500 dark:text-slate-400">{{len $day.Sessions}}</span>
+                {{else}}
+                <span class="text-[8px] text-slate-300 dark:text-neutral-700">&bull;</span>
+                {{end}}
+            </div>
+        </button>
+        {{end}}
+    </div>
+
+    <!-- 7-DAY (DESKTOP) / 1-DAY & 3-DAY (MOBILE) TIME GRID -->
     <div class="rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm overflow-hidden">
         <div id="landing-calendar-scroll" class="overflow-x-auto scroll-smooth">
-            <div class="min-w-0 md:min-w-[920px]">
+            <div id="landing-calendar-inner" class="min-w-full md:min-w-[920px]">
                 <!-- Day Column Headers -->
-                <div class="grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-neutral-800 bg-slate-50/90 dark:bg-neutral-900/90 sticky top-0 z-20 backdrop-blur">
+                <div id="landing-calendar-header-grid" class="landing-calendar-header-grid calendar-grid-mobile-day md:calendar-grid-desktop grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] border-b border-slate-200/80 dark:border-neutral-800 bg-slate-50/90 dark:bg-neutral-900/90 sticky top-0 z-20 backdrop-blur">
                     <div class="p-1 sm:p-2 text-center border-r border-slate-200/80 dark:border-neutral-800 flex flex-col items-center justify-center">
                         <span class="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">GMT+8</span>
                     </div>
 
                     {{range $i, $day := .Calendar.Days}}
-                    <div class="p-1.5 sm:p-2 text-center border-r border-slate-200/80 dark:border-neutral-800 last:border-r-0 transition-colors {{if .IsToday}}bg-rose-50/40 dark:bg-rose-950/20{{end}} {{if ge $i 3}}hidden md:block{{end}}">
+                    <div class="landing-day-header p-1.5 sm:p-2 text-center border-r border-slate-200/80 dark:border-neutral-800 last:border-r-0 transition-colors {{if .IsToday}}bg-rose-50/40 dark:bg-rose-950/20{{end}} {{if and (not .IsToday) (ne $i 0)}}hidden md:block{{end}}"
+                         data-day-index="{{$i}}"
+                         data-day-date="{{.DateString}}">
                         <div class="flex items-center justify-center gap-1.5">
                             <span class="text-[10px] font-bold uppercase tracking-wider {{if .IsToday}}text-[#990303] dark:text-[#DC2626]{{else}}text-slate-500 dark:text-slate-400{{end}}">
                                 {{.DayShort}}
@@ -136,7 +182,7 @@
                 </div>
 
                 <!-- Main Time Grid Canvas -->
-                <div class="grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
+                <div id="landing-calendar-body-grid" class="landing-calendar-body-grid calendar-grid-mobile-day md:calendar-grid-desktop grid grid-cols-[48px_repeat(3,1fr)] md:grid-cols-[64px_repeat(7,1fr)] relative" style="height: {{.Calendar.GridHeight}}px;">
                     <!-- Left Gutter: Hour Markers -->
                     <div class="border-r border-slate-200/80 dark:border-neutral-800 bg-slate-50/40 dark:bg-neutral-900/40 select-none relative z-10">
                         {{range $h := .Calendar.Hours}}
@@ -159,7 +205,9 @@
                     <!-- Day Columns with Plotted Session Cards -->
                     {{$calendar := .Calendar}}
                     {{range $i, $day := $calendar.Days}}
-                    <div class="border-r border-slate-200/80 dark:border-neutral-800 last:border-r-0 relative {{if $day.IsToday}}bg-rose-50/10 dark:bg-rose-950/5{{end}} {{if ge $i 3}}hidden md:block{{end}}">
+                    <div class="landing-day-column border-r border-slate-200/80 dark:border-neutral-800 last:border-r-0 relative {{if $day.IsToday}}bg-rose-50/10 dark:bg-rose-950/5{{end}} {{if and (not $day.IsToday) (ne $i 0)}}hidden md:block{{end}}"
+                         data-day-index="{{$i}}"
+                         data-day-date="{{$day.DateString}}">
                         <!-- Hour row lines -->
                         <div class="absolute inset-0 z-0 flex flex-col pointer-events-none">
                             {{range $h := $calendar.Hours}}
@@ -172,11 +220,11 @@
                         <!-- Session Cards Plotted in Absolute Coordinates -->
                         <div class="absolute inset-0 z-10 pointer-events-none">
                             {{range $day.Sessions}}
-                            <div class="calendar-session-card absolute rounded-xl border shadow-xs transition-all hover:shadow-lg hover:z-30 overflow-hidden flex flex-col justify-between p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed{{else}}bg-white/95 dark:bg-neutral-900/95 border-slate-200 dark:border-neutral-800 border-l-4 cursor-pointer{{end}}"
+                            <div class="calendar-session-card absolute rounded-xl border shadow-xs transition-all hover:shadow-lg hover:z-30 overflow-hidden flex flex-col justify-between p-1.5 sm:p-2 select-none group/card pointer-events-auto {{if .Session.IsCancelled}}bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 border-dashed{{else}}bg-white/95 dark:bg-neutral-900/95 border-slate-200 dark:border-neutral-800 border-l-4 cursor-pointer{{end}}"
                                  style="top: {{.TopOffset}}px; height: {{.CardHeight}}px; left: calc({{.LeftPercent}}% + 2px); width: calc({{.WidthPercent}}% - 4px); {{if and (not .Session.IsCancelled) .CategoryColor}}border-left-color: {{.CategoryColor}};{{end}}"
                                  {{if and (not .Session.IsCancelled) (not .Session.IsDone)}}onclick="openGuestReserveModal('{{.Session.ID}}')"{{end}}>
                                 <div>
-                                    <div class="flex items-center justify-between gap-1 mb-0.5">
+                                    <div class="flex items-center justify-between gap-1 mb-0.5 flex-wrap">
                                         <span class="inline-block px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider {{if .Session.IsCancelled}}bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200{{end}}"
                                               {{if and (not .Session.IsCancelled) .CategoryColor}}style="color: {{.CategoryColor}}; background-color: {{.CategoryColor}}18; border: 1px solid {{.CategoryColor}}40;"{{end}}>
                                             {{.TypeIcon}} {{.EntryTypeBadge}}
@@ -226,9 +274,9 @@
                                     {{else}}
                                     <button type="button"
                                             onclick="event.stopPropagation(); openGuestReserveModal('{{.Session.ID}}')"
-                                            class="w-full py-1 px-1.5 rounded-lg bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-bold text-[10px] uppercase tracking-wider shadow-xs transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                                            class="w-full py-1.5 px-2 rounded-lg bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
                                         <span>Reserve Slot</span>
-                                        {{if .MaxTrainees}}<span class="text-[8px] opacity-80 font-mono">({{.AttendanceCount}}/{{.MaxTrainees}})</span>{{end}}
+                                        {{if .MaxTrainees}}<span class="text-[9px] opacity-80 font-mono">({{.AttendanceCount}}/{{.MaxTrainees}})</span>{{end}}
                                         <span>&rarr;</span>
                                     </button>
                                     {{end}}

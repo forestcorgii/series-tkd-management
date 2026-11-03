@@ -184,6 +184,19 @@ html:not(.dark) .radar-grid { stroke: rgba(0, 0, 0, 0.12); }
 .modal-body::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
 .modal-body::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
 
+/* Universal Hide Scrollbar Utilities */
+.scrollbar-none,
+.no-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
 /* Auto-uppercase for general text and textarea inputs */
 input[type="text"]:not(.searchable-input):not(.no-uppercase):not([data-no-uppercase="true"]):not([autocapitalize="none"]):not([autocapitalize="off"]):not([name="username"]):not([name="identifier"]):not([autocomplete="username"]),
 input:not([type]):not(.searchable-input):not(.no-uppercase):not([data-no-uppercase="true"]):not([autocapitalize="none"]):not([autocapitalize="off"]):not([name="username"]):not([name="identifier"]):not([autocomplete="username"]),
@@ -355,3 +368,18 @@ html.dark .tooltip-icon:hover {
     user-select: none;
     -webkit-font-smoothing: antialiased;
 }
+
+/* Calendar Grid & Mobile Strip Utilities */
+.calendar-grid-desktop {
+    display: grid !important;
+    grid-template-columns: 64px repeat(7, minmax(0, 1fr)) !important;
+}
+.calendar-grid-mobile-day {
+    display: grid !important;
+    grid-template-columns: 44px 1fr !important;
+}
+.calendar-grid-mobile-3day {
+    display: grid !important;
+    grid-template-columns: 44px repeat(3, minmax(130px, 1fr)) !important;
+}
+
