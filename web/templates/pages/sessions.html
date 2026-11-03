@@ -1643,7 +1643,10 @@ function setMobileCalendarViewMode(mode) {
     if (currentMobileDate) {
         selectMobileCalendarDay(currentMobileDate);
     } else {
-        initMobileCalendarView();
+        let targetPill = document.querySelector('.mobile-day-pill[data-is-today="true"]') || document.querySelector('.mobile-day-pill');
+        if (targetPill) {
+            selectMobileCalendarDay(targetPill.getAttribute('data-date'));
+        }
     }
 }
 
@@ -1723,15 +1726,17 @@ function selectMobileCalendarDay(dateStr) {
 function initMobileCalendarView() {
     if (window.innerWidth >= 768) return;
 
-    // Default to today if present in the active week; otherwise first day
-    let targetPill = document.querySelector('.mobile-day-pill[data-is-today="true"]');
+    let targetPill = null;
+    if (currentMobileDate) {
+        targetPill = document.querySelector(`.mobile-day-pill[data-date="${currentMobileDate}"]`);
+    }
     if (!targetPill) {
-        targetPill = document.querySelector('.mobile-day-pill');
+        targetPill = document.querySelector('.mobile-day-pill[data-is-today="true"]') || document.querySelector('.mobile-day-pill');
     }
     if (targetPill) {
-        const dateStr = targetPill.getAttribute('data-date');
-        selectMobileCalendarDay(dateStr);
+        currentMobileDate = targetPill.getAttribute('data-date');
     }
+    setMobileCalendarViewMode(currentMobileViewMode);
 }
 
 function scrollToCurrentDayOnMobile() {

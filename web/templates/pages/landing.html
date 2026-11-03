@@ -174,7 +174,13 @@
         if (currentLandingMobileDate) {
             selectLandingCalendarDay(currentLandingMobileDate);
         } else {
-            initLandingMobileCalendarView();
+            let targetPill = document.querySelector('.landing-mobile-day-pill[data-is-today="true"]') || document.querySelector('.landing-mobile-day-pill');
+            if (targetPill) {
+                selectLandingCalendarDay(targetPill.getAttribute('data-date'));
+            }
+        }
+        if (mode === '3day') {
+            scrollToCurrentLandingDayOnMobile();
         }
     }
 
@@ -248,17 +254,41 @@
         }
     }
 
+    function scrollToCurrentLandingDayOnMobile() {
+        if (window.innerWidth >= 768) return;
+        if (currentLandingMobileViewMode !== '3day') return;
+
+        const container = document.getElementById('landing-calendar-scroll');
+        if (!container) return;
+        if (container.scrollWidth <= container.clientWidth) return;
+
+        const activeCol = container.querySelector('.landing-day-header:not(.hidden)');
+        if (!activeCol) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const colRect = activeCol.getBoundingClientRect();
+        const scrollLeftTarget = container.scrollLeft + (colRect.left - containerRect.left) - 44;
+
+        container.scrollTo({
+            left: Math.max(0, scrollLeftTarget),
+            behavior: 'smooth'
+        });
+    }
+
     function initLandingMobileCalendarView() {
         if (window.innerWidth >= 768) return;
 
-        let targetPill = document.querySelector('.landing-mobile-day-pill[data-is-today="true"]');
+        let targetPill = null;
+        if (currentLandingMobileDate) {
+            targetPill = document.querySelector(`.landing-mobile-day-pill[data-date="${currentLandingMobileDate}"]`);
+        }
         if (!targetPill) {
-            targetPill = document.querySelector('.landing-mobile-day-pill');
+            targetPill = document.querySelector('.landing-mobile-day-pill[data-is-today="true"]') || document.querySelector('.landing-mobile-day-pill');
         }
         if (targetPill) {
-            const dateStr = targetPill.getAttribute('data-date');
-            selectLandingCalendarDay(dateStr);
+            currentLandingMobileDate = targetPill.getAttribute('data-date');
         }
+        setLandingCalendarViewMode(currentLandingMobileViewMode);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
