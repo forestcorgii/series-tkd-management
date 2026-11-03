@@ -472,15 +472,19 @@
                 <span class="text-[10px] font-bold tracking-tight mt-1">More</span>
             </button>
         {{else}}
-            <a href="/portal/student" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[#990303] dark:text-red-400 transition min-w-[64px]">
+            <a href="/" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">📅</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Calendar</span>
+            </a>
+            <a href="/portal/student" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
                 <span class="text-base leading-none">🥋</span>
                 <span class="text-[10px] font-bold tracking-tight mt-1">Portal</span>
             </a>
-            <a href="/profile" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white transition min-w-[64px]">
+            <a href="/profile" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
                 <span class="text-base leading-none">👤</span>
                 <span class="text-[10px] font-bold tracking-tight mt-1">Profile</span>
             </a>
-            <button type="button" onclick="toggleMobileDrawer(true)" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white transition min-w-[64px]">
+            <button type="button" onclick="toggleMobileDrawer(true)" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
                 <span class="text-base leading-none">☰</span>
                 <span class="text-[10px] font-bold tracking-tight mt-1">Menu</span>
             </button>
@@ -524,6 +528,29 @@
         window.addEventListener('DOMContentLoaded', syncThemeUI);
         document.addEventListener('htmx:load', syncThemeUI);
         document.addEventListener('htmx:afterSwap', syncThemeUI);
+
+        function syncMobileBottomBarUI() {
+            const bottomNav = document.getElementById('mobile-bottom-bar');
+            if (!bottomNav) return;
+            const currentPath = window.location.pathname;
+            const links = bottomNav.querySelectorAll('a[href]');
+            links.forEach(link => {
+                const href = link.getAttribute('href');
+                const isExactRoot = href === '/' && (currentPath === '/' || currentPath === '');
+                const isSubPath = href !== '/' && currentPath.startsWith(href);
+                if (isExactRoot || isSubPath) {
+                    link.classList.remove('text-slate-600', 'dark:text-slate-400');
+                    link.classList.add('text-[#990303]', 'dark:text-red-400', 'font-bold');
+                } else {
+                    link.classList.remove('text-[#990303]', 'dark:text-red-400', 'font-bold');
+                    link.classList.add('text-slate-600', 'dark:text-slate-400');
+                }
+            });
+        }
+        window.addEventListener('DOMContentLoaded', syncMobileBottomBarUI);
+        document.addEventListener('htmx:load', syncMobileBottomBarUI);
+        document.addEventListener('htmx:afterSwap', syncMobileBottomBarUI);
+        document.addEventListener('htmx:historyRestore', syncMobileBottomBarUI);
 
         // --- Mobile Navigation Drawer Engine ---
         function toggleMobileDrawer(open) {

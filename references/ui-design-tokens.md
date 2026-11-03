@@ -284,3 +284,13 @@ Components are centralized in [`web/static/css/input.css`](file:///c:/Users/USER
   3. **3-Day View Toggle with Minimum Width Guard (`.calendar-grid-mobile-3day`)**: Provided a mobile view switcher (`Day` / `3-Day`). In 3-day mode, enforces `minmax(130px, 1fr)` per day column (total container `min-w-[434px]`) with smooth touch scrolling and auto-scroll to the selected day.
   4. **CSS Grid Resilience ([input.css](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/css/input.css))**: Centralized `.calendar-grid-desktop` (`64px repeat(7, minmax(0, 1fr))`), `.calendar-grid-mobile-day` (`44px 1fr`), and `.calendar-grid-mobile-3day` (`44px repeat(3, minmax(130px, 1fr))`) in `@layer components` to ensure consistent rendering across all viewports.
   5. **Universal Hidden Scrollbars (`.scrollbar-none` / `.no-scrollbar`)**: Enforce `-ms-overflow-style: none; scrollbar-width: none;` and `::-webkit-scrollbar { display: none; }` on horizontal chip/pill selectors (such as the branch location filter bar and 7-day strip) to eliminate unsightly OS scrollbars while preserving touch, trackpad, and mousewheel horizontal scrolling.
+
+### Context: Mobile Bottom Quick-Access Bar & Active Route Highlighting
+
+* **Problem:**
+  1. Student users on mobile viewports lacked a direct bottom navigation button to access the class schedule (`/`), forcing them to open the mobile drawer or use the top logo navigation.
+  2. The student bottom bar had hardcoded active styling on the "Portal" button, causing it to appear highlighted even when viewing the Calendar (`/`) or Profile (`/profile`).
+
+* **Enforced Solution:**
+  1. **Calendar Quick-Access ([layout.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/layout.html))**: Added `📅 Calendar` (linking to `/`) directly in `#mobile-bottom-bar` alongside `🥋 Portal`, `👤 Profile`, and `☰ Menu`, giving student users 1-tap switching between classes and portal.
+  2. **Client-Side Route Sync Engine (`syncMobileBottomBarUI`)**: Added an event-driven sync engine bound to `DOMContentLoaded`, `htmx:load`, `htmx:afterSwap`, and `htmx:historyRestore`. Dynamically matches `window.location.pathname` to apply active brand styling (`text-[#990303] dark:text-red-400 font-bold`) and reset inactive items to `text-slate-600 dark:text-slate-400`.
