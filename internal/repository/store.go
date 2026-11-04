@@ -1596,6 +1596,17 @@ func (m *MemoryStore) UpdateUser(u *models.User) error {
 		return ErrNotFound
 	}
 
+	normEmail := strings.ToLower(strings.TrimSpace(u.Email))
+	if normEmail != "" {
+		for email, uid := range m.usersByEmail {
+			if uid == u.ID && email != normEmail {
+				delete(m.usersByEmail, email)
+			}
+		}
+		m.usersByEmail[normEmail] = u.ID
+		existing.Email = normEmail
+	}
+
 	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
 	for uname, uid := range m.usersByUsername {
 		if uid == u.ID && uname != normUsername {

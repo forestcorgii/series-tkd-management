@@ -430,6 +430,8 @@ func TestSQLStore_UpdateCoachAndUser(t *testing.T) {
 		t.Fatalf("GetUserByEmail failed: %v", err)
 	}
 	_ = user.SetPassword("newsecret123")
+	user.Email = "new_manager@seriestkd.com"
+	user.Username = "supermanager"
 	if err := store.UpdateUser(user); err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -439,6 +441,12 @@ func TestSQLStore_UpdateCoachAndUser(t *testing.T) {
 	}
 	if !refetchedUser.CheckPassword("newsecret123") {
 		t.Errorf("expected password to match updated hash")
+	}
+	if refetchedUser.Email != "new_manager@seriestkd.com" {
+		t.Errorf("expected updated email 'new_manager@seriestkd.com', got '%s'", refetchedUser.Email)
+	}
+	if refetchedUser.Username != "supermanager" {
+		t.Errorf("expected updated username 'supermanager', got '%s'", refetchedUser.Username)
 	}
 }
 

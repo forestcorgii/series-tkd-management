@@ -3860,14 +3860,18 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 
 func (s *SQLStore) UpdateUser(u *models.User) error {
 	now := time.Now()
+	normEmail := strings.ToLower(strings.TrimSpace(u.Email))
+	if normEmail != "" {
+		u.Email = normEmail
+	}
 	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
 	u.Username = normUsername
 	var usernameCol sql.NullString
 	if normUsername != "" {
 		usernameCol = sql.NullString{String: normUsername, Valid: true}
 	}
-	query := `UPDATE users SET username = $1, password_hash = $2, is_active = $3, display_name = $4, profile_picture_url = $5, updated_at = $6 WHERE id = $7`
-	res, err := s.db.Exec(query, usernameCol, u.PasswordHash, u.IsActive, u.DisplayName, u.ProfilePictureURL, formatTimeForDB(now), u.ID.String())
+	query := `UPDATE users SET email = $1, username = $2, password_hash = $3, is_active = $4, display_name = $5, profile_picture_url = $6, updated_at = $7 WHERE id = $8`
+	res, err := s.db.Exec(query, u.Email, usernameCol, u.PasswordHash, u.IsActive, u.DisplayName, u.ProfilePictureURL, formatTimeForDB(now), u.ID.String())
 	if err != nil {
 		return err
 	}

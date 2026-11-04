@@ -17,6 +17,9 @@
             </button>
             {{end}}
             {{if and $user $user.IsOperationManager}}
+            <button onclick="document.getElementById('reset-student-password-modal').classList.remove('hidden')" class="btn btn-secondary btn-xs flex items-center gap-1 shadow-xs py-1 px-2.5" title="Reset Portal Password">
+                🔑 Password
+            </button>
             <form action="/students/{{.Student.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete student {{.Student.FullName}}? All associated records (attendance, evaluations, packages, and login credentials) will be permanently deleted. This action cannot be undone.');">
                 <button type="submit" class="btn btn-secondary btn-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40 flex items-center gap-1 shadow-xs py-1 px-2" title="Permanently Delete Student">
                     🗑️ Delete
@@ -42,6 +45,27 @@
         </div>
     </div>
 
+    <!-- Notification Banners -->
+    {{if .SuccessNotice}}
+    <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>✅</span>
+            <span>{{.SuccessNotice}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
+    {{if .ErrorNotice}}
+    <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{{.ErrorNotice}}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:opacity-75 text-sm">&times;</button>
+    </div>
+    {{end}}
+
     <!-- Student Top Profile Summary (High density banner) -->
     <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -58,18 +82,58 @@
                 <div>
                     <h1 class="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white leading-tight">{{.Student.FullName}}</h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Age: {{.Student.Age}} &bull; Phone: {{.Student.Phone}} &bull; Rank Tenure: {{.Student.DaysInCurrentRank}} days</p>
+                    {{if .StudentUser}}
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span class="inline-flex items-center gap-1 font-mono text-emerald-600 dark:text-emerald-400">✉️ {{.StudentUser.Email}}</span>
+                        {{if .StudentUser.Username}}<span class="font-mono text-slate-600 dark:text-slate-300">@{{.StudentUser.Username}}</span>{{end}}
+                    </p>
+                    {{end}}
                 </div>
             </div>
 
-            <!-- Emergency Safety Card -->
-            <div class="p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/90 rounded-lg border border-slate-200 dark:border-slate-800 space-y-0.5 shadow-xs text-xs">
-                <span class="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 tracking-wider">Emergency Contact</span>
-                <div class="text-slate-800 dark:text-slate-200 font-semibold">
-                    {{.Student.EmergencyName}} ({{.Student.EmergencyRelation}}) &bull; <span class="font-mono text-emerald-600 dark:text-emerald-400">{{.Student.EmergencyPhone}}</span>
+            <!-- Emergency & Account Cards Group -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <!-- Emergency Safety Card -->
+                <div class="p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/90 rounded-lg border border-slate-200 dark:border-slate-800 space-y-0.5 shadow-xs text-xs">
+                    <span class="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 tracking-wider">Emergency Contact</span>
+                    <div class="text-slate-800 dark:text-slate-200 font-semibold">
+                        {{.Student.EmergencyName}} ({{.Student.EmergencyRelation}}) &bull; <span class="font-mono text-emerald-600 dark:text-emerald-400">{{.Student.EmergencyPhone}}</span>
+                    </div>
+                    {{if .Student.MedicalNotes}}
+                    <div class="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 mt-0.5">
+                        🩺 {{.Student.MedicalNotes}}
+                    </div>
+                    {{end}}
                 </div>
-                {{if .Student.MedicalNotes}}
-                <div class="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 mt-0.5">
-                    🩺 {{.Student.MedicalNotes}}
+
+                <!-- Portal Account Card (Manager / Admin view) -->
+                {{if and $user (or $user.IsOperationManager $user.IsAdmin)}}
+                <div class="p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/90 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1 shadow-xs text-xs min-w-[200px]">
+                    <div class="flex items-center justify-between gap-1">
+                        <span class="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">Portal Account</span>
+                        {{if .StudentUser}}
+                        <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Active</span>
+                        {{else}}
+                        <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">No Account</span>
+                        {{end}}
+                    </div>
+                    <div class="text-[11px] text-slate-700 dark:text-slate-300">
+                        {{if .StudentUser}}
+                            <div class="font-medium truncate max-w-[220px]" title="{{.StudentUser.Email}}">✉️ {{.StudentUser.Email}}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                {{if .StudentUser.Username}}Handle: <span class="font-mono text-slate-700 dark:text-slate-300">@{{.StudentUser.Username}}</span>{{else}}<span class="italic">No handle</span>{{end}}
+                            </div>
+                        {{else}}
+                            <div class="text-slate-500 italic">No credentials provisioned</div>
+                        {{end}}
+                    </div>
+                    {{if $user.IsOperationManager}}
+                    <div class="flex items-center gap-1.5 pt-0.5">
+                        <button type="button" onclick="document.getElementById('reset-student-password-modal').classList.remove('hidden')" class="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-0.5">
+                            🔑 Reset Password
+                        </button>
+                    </div>
+                    {{end}}
                 </div>
                 {{end}}
             </div>
@@ -339,7 +403,7 @@
             </div>
             <button type="button" onclick="document.getElementById('edit-student-modal').classList.add('hidden')" class="modal-close">&times;</button>
         </div>
-        <form action="/students/{{.Student.ID}}" method="POST" class="space-y-4">
+        <form action="/students/{{.Student.ID}}" method="POST" hx-boost="false" class="space-y-4">
             <div>
                 <label class="form-label">Full Name</label>
                 <input type="text" name="full_name" value="{{.Student.FullName}}" required class="form-input">
@@ -428,6 +492,34 @@
                 </div>
             </div>
 
+            <!-- Portal Login Credentials (Operation Manager Only) -->
+            {{if $user.IsOperationManager}}
+            <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-400">Portal Login Credentials</span>
+                    <span class="text-[10px] text-slate-400 dark:text-slate-500 italic">Manager Only</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label text-[10px]">Portal Login Email</label>
+                        <input type="email" name="email" value="{{if .StudentUser}}{{.StudentUser.Email}}{{end}}"
+                               placeholder="student@seriestkd.com"
+                               autocapitalize="none" spellcheck="false"
+                               class="form-input no-uppercase" data-no-uppercase="true">
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Used for student portal login</p>
+                    </div>
+                    <div>
+                        <label class="form-label text-[10px]">Username Handle <span class="text-slate-400 font-normal">(Optional)</span></label>
+                        <input type="text" name="username" value="{{if and .StudentUser .StudentUser.Username}}{{.StudentUser.Username}}{{end}}"
+                               placeholder="e.g. alex.vance"
+                               autocapitalize="none" spellcheck="false"
+                               class="form-input no-uppercase" data-no-uppercase="true">
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Alphanumeric handle login</p>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
             <div class="modal-footer flex items-center justify-between">
                 {{if and $user $user.IsOperationManager}}
                 <button type="button" onclick="if (confirm('Permanently delete student {{.Student.FullName}}? All associated records will be permanently removed. This action cannot be undone.')) { document.getElementById('delete-student-form-modal').submit(); }" class="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40">
@@ -445,6 +537,72 @@
         {{if and $user $user.IsOperationManager}}
         <form id="delete-student-form-modal" action="/students/{{.Student.ID}}/delete" method="POST" class="hidden"></form>
         {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Modal: Reset Student Password -->
+{{if and $user $user.IsOperationManager}}
+<div id="reset-student-password-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <div>
+                <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wider">
+                    Reset Student Password
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Set new credentials for practitioner portal access</p>
+            </div>
+            <button type="button" onclick="document.getElementById('reset-student-password-modal').classList.add('hidden')" class="modal-close">&times;</button>
+        </div>
+        <form action="/students/{{.Student.ID}}/reset-password" method="POST" hx-boost="false" class="space-y-4">
+            <div class="p-3 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Target Student</span>
+                <div class="font-display font-bold text-sm text-slate-900 dark:text-white">{{.Student.FullName}}</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">
+                    {{if .StudentUser}}
+                        <span>Email: <strong class="text-slate-800 dark:text-slate-200 font-mono">{{.StudentUser.Email}}</strong></span>
+                        {{if .StudentUser.Username}} &bull; <span>Handle: <strong class="text-slate-800 dark:text-slate-200 font-mono">@{{.StudentUser.Username}}</strong></span>{{end}}
+                    {{else}}
+                        <span class="text-amber-600 dark:text-amber-400 font-semibold">⚠️ No portal login account yet. Setting a password will provision their account.</span>
+                    {{end}}
+                </div>
+            </div>
+
+            {{if not .StudentUser}}
+            <div>
+                <label class="form-label">Portal Login Email *</label>
+                <input type="email" name="email" required placeholder="student@seriestkd.com"
+                       autocapitalize="none" spellcheck="false"
+                       class="form-input no-uppercase" data-no-uppercase="true">
+                <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Required to provision a login account for this student.</p>
+            </div>
+            <div>
+                <label class="form-label">Username Handle <span class="text-slate-400 text-xs font-normal">(Optional)</span></label>
+                <input type="text" name="username" placeholder="e.g. alex.vance"
+                       autocapitalize="none" spellcheck="false"
+                       class="form-input no-uppercase" data-no-uppercase="true">
+            </div>
+            {{end}}
+
+            <div>
+                <label class="form-label">New Password *</label>
+                <input type="password" name="new_password" required minlength="6" placeholder="Minimum 6 characters" class="form-input">
+            </div>
+
+            <div>
+                <label class="form-label">Confirm New Password *</label>
+                <input type="password" name="confirm_password" required minlength="6" placeholder="Repeat new password" class="form-input">
+            </div>
+
+            <div class="modal-footer flex items-center justify-end gap-2">
+                <button type="button" onclick="document.getElementById('reset-student-password-modal').classList.add('hidden')" class="btn btn-secondary btn-sm">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    Update Password
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 {{end}}

@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"series-tkd-management/internal/handlers"
 	"series-tkd-management/internal/models"
 )
 
@@ -443,6 +445,494 @@ func TestStudentHandler_HandleStudents_BoostedNavigation(t *testing.T) {
 	partialBody := recPartial.Body.String()
 	if strings.Contains(partialBody, "<!DOCTYPE html>") || strings.Contains(partialBody, "<header") {
 		t.Errorf("expected partial response without layout shell for search request")
+	}
+}
+
+func TestStudentHandler_ManagerUpdateStudentCredentials(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	// Create student
+	st := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Johnny Lawrence",
+		DOB:               time.Now().AddDate(-16, 0, 0),
+		Gender:            "Male",
+		Phone:             "09112224455",
+		CurrentBelt:       models.BeltLowYellow,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Laura Lawrence",
+		EmergencyPhone:    "09112224466",
+		EmergencyRelation: "Mother",
+		IsActive:          true,
+	}
+	if err := store.CreateStudent(st); err != nil {
+		t.Fatalf("failed to create student: %v", err)
+	}
+
+	// Create linked user
+	u := &models.User{
+		ID:        uuid.New(),
+		Email:     "johnny.old@seriestkd.com",
+		Username:  "johnny.old",
+		Role:      models.RoleStudent,
+		StudentID: &st.ID,
+		IsActive:  true,
+	}
+	_ = u.SetPassword("student123")
+	if err := store.CreateUser(u); err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// Another user to test uniqueness collisions
+	otherUser := &models.User{
+		ID:       uuid.New(),
+		Email:    "taken@seriestkd.com",
+		Username: "takenhandle",
+		Role:     models.RoleStudent,
+		IsActive: true,
+	}
+	_ = store.CreateUser(otherUser)
+
+	mgr := &models.User{
+		ID:       uuid.New(),
+		Email:    "manager@seriestkd.com",
+		Role:     models.RoleOperationManager,
+		IsActive: true,
+	}
+
+	// 1. Manager successfully updates email and username
+	form := url.Values{}
+	form.Set("full_name", "Johnny Lawrence")
+	form.Set("dob", "2008-01-01")
+	form.Set("gender", "Male")
+	form.Set("phone", "09112224455")
+	form.Set("emergency_name", "Laura Lawrence")
+	form.Set("emergency_phone", "09112224466")
+	form.Set("emergency_relation", "Mother")
+	form.Set("email", "johnny.updated@seriestkd.com")
+	form.Set("username", "johnny.updated")
+
+	req := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", st.ID.String())
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, mgr)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleUpdateStudent(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d", rec.Code)
+	}
+
+	updatedUser, err := store.GetUserByStudentID(st.ID)
+	if err != nil {
+		t.Fatalf("expected to find student user, got: %v", err)
+	}
+	if updatedUser.Email != "johnny.updated@seriestkd.com" {
+		t.Errorf("expected email 'johnny.updated@seriestkd.com', got '%s'", updatedUser.Email)
+	}
+	if updatedUser.Username != "johnny.updated" {
+		t.Errorf("expected username 'johnny.updated', got '%s'", updatedUser.Username)
+	}
+
+	// 2. Reject duplicate email
+	formDupEmail := url.Values{}
+	formDupEmail.Set("full_name", "Johnny Lawrence")
+	formDupEmail.Set("email", "taken@seriestkd.com")
+	reqDup := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String(), strings.NewReader(formDupEmail.Encode()))
+	reqDup.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqDup.SetPathValue("id", st.ID.String())
+	reqDup = reqDup.WithContext(ctx)
+	recDup := httptest.NewRecorder()
+
+	app.HandleUpdateStudent(recDup, reqDup)
+	if !strings.Contains(recDup.Header().Get("Location"), "error=") {
+		t.Errorf("expected error redirect on duplicate email, got %s", recDup.Header().Get("Location"))
+	}
+
+	// 3. Reject duplicate username
+	formDupUname := url.Values{}
+	formDupUname.Set("full_name", "Johnny Lawrence")
+	formDupUname.Set("username", "takenhandle")
+	reqDupU := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String(), strings.NewReader(formDupUname.Encode()))
+	reqDupU.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqDupU.SetPathValue("id", st.ID.String())
+	reqDupU = reqDupU.WithContext(ctx)
+	recDupU := httptest.NewRecorder()
+
+	app.HandleUpdateStudent(recDupU, reqDupU)
+	if !strings.Contains(recDupU.Header().Get("Location"), "error=") {
+		t.Errorf("expected error redirect on duplicate username, got %s", recDupU.Header().Get("Location"))
+	}
+}
+
+func TestStudentHandler_AdminCannotUpdateStudentCredentials(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	st := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Miguel Diaz",
+		DOB:               time.Now().AddDate(-15, 0, 0),
+		Gender:            "Male",
+		Phone:             "09112227788",
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Carmen Diaz",
+		EmergencyPhone:    "09112227799",
+		EmergencyRelation: "Mother",
+		IsActive:          true,
+	}
+	_ = store.CreateStudent(st)
+
+	u := &models.User{
+		ID:        uuid.New(),
+		Email:     "miguel.original@seriestkd.com",
+		Username:  "miguel.orig",
+		Role:      models.RoleStudent,
+		StudentID: &st.ID,
+		IsActive:  true,
+	}
+	_ = store.CreateUser(u)
+
+	// Admin staff attempting to modify email or username
+	admin := &models.User{
+		ID:       uuid.New(),
+		Email:    "admin@seriestkd.com",
+		Role:     models.RoleAdmin,
+		IsActive: true,
+	}
+
+	form := url.Values{}
+	form.Set("full_name", "Miguel Diaz")
+	form.Set("email", "hacked@seriestkd.com")
+	form.Set("username", "hacked.handle")
+
+	req := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", st.ID.String())
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, admin)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleUpdateStudent(rec, req)
+
+	// User credentials should remain untouched
+	currUser, _ := store.GetUserByStudentID(st.ID)
+	if currUser.Email != "miguel.original@seriestkd.com" {
+		t.Errorf("admin must not be allowed to change email: expected 'miguel.original@seriestkd.com', got '%s'", currUser.Email)
+	}
+	if currUser.Username != "miguel.orig" {
+		t.Errorf("admin must not be allowed to change username: expected 'miguel.orig', got '%s'", currUser.Username)
+	}
+}
+
+func TestStudentHandler_ResetStudentPassword_Success(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	st := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Robby Keene",
+		DOB:               time.Now().AddDate(-17, 0, 0),
+		Gender:            "Male",
+		Phone:             "09112228899",
+		CurrentBelt:       models.BeltHighBlue,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Shannon Keene",
+		EmergencyPhone:    "09112228800",
+		EmergencyRelation: "Mother",
+		IsActive:          true,
+	}
+	_ = store.CreateStudent(st)
+
+	u := &models.User{
+		ID:        uuid.New(),
+		Email:     "robby@seriestkd.com",
+		Username:  "robby.keene",
+		Role:      models.RoleStudent,
+		StudentID: &st.ID,
+		IsActive:  true,
+	}
+	_ = u.SetPassword("oldpassword123")
+	_ = store.CreateUser(u)
+
+	mgr := &models.User{
+		ID:       uuid.New(),
+		Email:    "manager@seriestkd.com",
+		Role:     models.RoleOperationManager,
+		IsActive: true,
+	}
+
+	form := url.Values{}
+	form.Set("new_password", "newsecret2026")
+	form.Set("confirm_password", "newsecret2026")
+
+	req := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String()+"/reset-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", st.ID.String())
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, mgr)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleResetStudentPassword(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d", rec.Code)
+	}
+
+	// Verify new password
+	refetched, err := store.GetUserByStudentID(st.ID)
+	if err != nil {
+		t.Fatalf("failed to retrieve student user: %v", err)
+	}
+	if !refetched.CheckPassword("newsecret2026") {
+		t.Errorf("new password failed authentication check")
+	}
+	if refetched.CheckPassword("oldpassword123") {
+		t.Errorf("old password should no longer be valid")
+	}
+}
+
+func TestStudentHandler_ResetStudentPassword_JSON(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	st := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Eli Moskowitz",
+		DOB:               time.Now().AddDate(-16, 0, 0),
+		Gender:            "Male",
+		Phone:             "09112229900",
+		CurrentBelt:       models.BeltLowRed,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Mrs. Moskowitz",
+		EmergencyPhone:    "09112229911",
+		EmergencyRelation: "Mother",
+		IsActive:          true,
+	}
+	_ = store.CreateStudent(st)
+
+	u := &models.User{
+		ID:        uuid.New(),
+		Email:     "hawk@seriestkd.com",
+		Username:  "hawk",
+		Role:      models.RoleStudent,
+		StudentID: &st.ID,
+		IsActive:  true,
+	}
+	_ = u.SetPassword("hawkinitial123")
+	_ = store.CreateUser(u)
+
+	mgr := &models.User{
+		ID:       uuid.New(),
+		Email:    "manager@seriestkd.com",
+		Role:     models.RoleOperationManager,
+		IsActive: true,
+	}
+
+	payload := `{"new_password":"flipthescript!","confirm_password":"flipthescript!"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/students/"+st.ID.String()+"/reset-password", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.SetPathValue("id", st.ID.String())
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, mgr)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleResetStudentPassword(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+	if resp["status"] != "success" {
+		t.Errorf("expected status 'success', got %v", resp["status"])
+	}
+
+	refetched, _ := store.GetUserByStudentID(st.ID)
+	if !refetched.CheckPassword("flipthescript!") {
+		t.Errorf("new password failed verification")
+	}
+}
+
+func TestStudentHandler_ResetStudentPassword_NonManager_Forbidden(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	st := &models.Student{
+		ID:       uuid.New(),
+		FullName: "Demetri Alexopoulos",
+		IsActive: true,
+	}
+	_ = store.CreateStudent(st)
+
+	admin := &models.User{
+		ID:       uuid.New(),
+		Email:    "admin@seriestkd.com",
+		Role:     models.RoleAdmin,
+		IsActive: true,
+	}
+
+	form := url.Values{}
+	form.Set("new_password", "newsecret123")
+	form.Set("confirm_password", "newsecret123")
+
+	req := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String()+"/reset-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", st.ID.String())
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, admin)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleResetStudentPassword(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for non-manager, got %d", rec.Code)
+	}
+}
+
+func TestStudentHandler_ResetStudentPassword_ProvisionNewAccount(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	st := &models.Student{
+		ID:       uuid.New(),
+		FullName: "Samantha LaRusso",
+		IsActive: true,
+	}
+	_ = store.CreateStudent(st)
+
+	// Ensure no user account exists yet
+	if u, _ := store.GetUserByStudentID(st.ID); u != nil {
+		t.Fatalf("expected no initial user account")
+	}
+
+	mgr := &models.User{
+		ID:       uuid.New(),
+		Email:    "manager@seriestkd.com",
+		Role:     models.RoleOperationManager,
+		IsActive: true,
+	}
+
+	// Manager resets password and provides email to provision account
+	form := url.Values{}
+	form.Set("email", "sam.larusso@seriestkd.com")
+	form.Set("username", "sam.larusso")
+	form.Set("new_password", "miyagido2026")
+	form.Set("confirm_password", "miyagido2026")
+
+	req := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String()+"/reset-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", st.ID.String())
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, mgr)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleResetStudentPassword(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d", rec.Code)
+	}
+
+	createdUser, err := store.GetUserByStudentID(st.ID)
+	if err != nil || createdUser == nil {
+		t.Fatalf("expected student account to be provisioned, got error: %v", err)
+	}
+	if createdUser.Email != "sam.larusso@seriestkd.com" {
+		t.Errorf("expected email 'sam.larusso@seriestkd.com', got '%s'", createdUser.Email)
+	}
+	if createdUser.Username != "sam.larusso" {
+		t.Errorf("expected username 'sam.larusso', got '%s'", createdUser.Username)
+	}
+	if !createdUser.CheckPassword("miyagido2026") {
+		t.Errorf("provisioned account failed password authentication")
+	}
+}
+
+func TestStudentHandler_ResetStudentPassword_FormError_RedirectsToPage(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	st := &models.Student{
+		ID:       uuid.New(),
+		FullName: "Tory Nichols",
+		IsActive: true,
+	}
+	_ = store.CreateStudent(st)
+
+	mgr := &models.User{
+		ID:       uuid.New(),
+		Email:    "manager@seriestkd.com",
+		Role:     models.RoleOperationManager,
+		IsActive: true,
+	}
+
+	// 1. Password mismatch should redirect with ?error=, never throw 400 Bad Request
+	form := url.Values{}
+	form.Set("email", "tory@seriestkd.com")
+	form.Set("new_password", "password123")
+	form.Set("confirm_password", "different123")
+
+	req := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String()+"/reset-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", st.ID.String())
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, mgr)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleResetStudentPassword(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on form validation failure, got status %d", rec.Code)
+	}
+	loc := rec.Header().Get("Location")
+	if !strings.Contains(loc, "error=") {
+		t.Errorf("expected location to include error notice, got %s", loc)
+	}
+
+	// 2. GET on reset-password redirects to /students/{id} cleanly
+	reqGet := httptest.NewRequest(http.MethodGet, "/students/"+st.ID.String()+"/reset-password", nil)
+	reqGet.SetPathValue("id", st.ID.String())
+	reqGet = reqGet.WithContext(ctx)
+	recGet := httptest.NewRecorder()
+
+	app.HandleResetStudentPassword(recGet, reqGet)
+	if recGet.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on GET reset-password, got status %d", recGet.Code)
+	}
+	if recGet.Header().Get("Location") != "/students/"+st.ID.String() {
+		t.Errorf("expected redirect to /students/%s, got %s", st.ID.String(), recGet.Header().Get("Location"))
+	}
+}
+
+func TestStudentHandler_StudentDetail_TrailingSlashAndSubpaths(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	st := &models.Student{
+		ID:          uuid.New(),
+		FullName:    "Bert",
+		CurrentBelt: models.BeltWhite,
+		IsActive:    true,
+	}
+	_ = store.CreateStudent(st)
+
+	mgr := &models.User{
+		ID:       uuid.New(),
+		Email:    "manager@seriestkd.com",
+		Role:     models.RoleOperationManager,
+		IsActive: true,
+	}
+
+	// Request with trailing slash must not return 400 Bad Request
+	req := httptest.NewRequest(http.MethodGet, "/students/"+st.ID.String()+"/", nil)
+	ctx := context.WithValue(req.Context(), handlers.UserContextKey, mgr)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	app.HandleStudentDetail(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for detail with trailing slash, got %d", rec.Code)
 	}
 }
 

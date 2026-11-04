@@ -376,3 +376,30 @@
      - Submitting `POST /landing/reserve` maps the student directly to `CheckInStudent` without requiring form text inputs, enforcing branch location `MaxTrainees` capacity limits.
   4. **Brand Navigation Standard**:
      - `layout.html` logo link resolves to `{{if $user}}{{$user.RoleDashboardURL}}{{else}}/{{end}}`, and student navigation exposes direct links to `Schedule` (`/`) and `Practitioner Portal` (`/portal/student`).
+
+
+---
+
+### Context: Manager Governance of Student Credentials & Password Reset (`/students/{id}` & `/students/{id}/reset-password`)
+
+* **Problem**:
+  1. Practitioners frequently misplace credentials, require email updates, or request handle/username changes. While managers could provision credentials upon initial registration on `/students`, they had no self-service mechanism to update a student's login email or username handle after registration without direct database surgery.
+  2. Front-desk administrators only manage personal, contact, and emergency info; credentials must be strictly restricted to Operation Managers to prevent unauthorized account hijacking or privilege escalations.
+  3. `MemoryStore.UpdateUser` and `SQLStore.UpdateUser` did not persist email changes, dropping email modifications during updates.
+* **Enforced Solution**:
+  1. **Store Email Parity**:
+     - `MemoryStore.UpdateUser` and `SQLStore.UpdateUser` updated to properly sync normalized lowercase email (`existing.Email = normEmail`, updating `m.usersByEmail` in memory, and updating `email = $1` in SQLite/PostgreSQL).
+  2. **Manager Student Credential Updates (`POST /students/{id}` & `POST /students/{id}/edit`)**:
+     - `HandleUpdateStudent` allows Operation Managers (`user.IsOperationManager()`) to update the linked practitioner's `email` and `username`.
+     - Validates format, enforces case-insensitive email/username uniqueness across accounts, and logs audit events (`STUDENT_CREDENTIALS_UPDATE`).
+     - Admins attempting to submit credential fields are strictly ignored without mutation.
+     - Automatically provisions a new `STUDENT` user account if the student was previously created without one.
+  3. **Direct Password Reset Endpoint (`POST /students/{id}/reset-password` & `POST /api/students/{id}/reset-password`)**:
+     - Protected strictly by `RequireRole(models.RoleOperationManager)`.
+     - Dual-format endpoint accepting both JSON payloads (`new_password`, `confirm_password`) and form submissions.
+     - Validates minimum 6-character length and confirmation match.
+     - Updates `models.User.PasswordHash`, invokes `store.UpdateUser()`, and logs `STUDENT_RESET_PASSWORD` in the audit ledger.
+  4. **Student Detail UI (`student_detail.html`)**:
+     - High-density banner displays practitioner portal email, username handle, and active account status.
+     - "🔑 Password" action button in top bar and inside Portal Account card triggers `#reset-student-password-modal`.
+     - `#edit-student-modal` embeds "Portal Login Credentials" inputs exclusively for Operation Managers.
