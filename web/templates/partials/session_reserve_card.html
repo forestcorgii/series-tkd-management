@@ -1,0 +1,276 @@
+{{define "session_reserve_card.html"}}
+<div id="session-reserve-card" class="space-y-5">
+    <!-- Session Summary Header -->
+    <div class="border-b border-slate-200 dark:border-neutral-800 pb-4">
+        <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider {{if .IsCancelled}}bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30{{else if .IsConcluded}}bg-slate-500/15 text-slate-700 dark:text-slate-400 border border-slate-500/30{{else if .IsAlreadyReserved}}bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30{{else}}bg-rose-500/10 text-[#990303] dark:text-[#DC2626] border border-rose-500/20{{end}}">
+                🥋 {{if .IsCancelled}}Cancelled{{else if .IsConcluded}}Completed{{else if .IsAlreadyReserved}}Reserved Slot{{else if .Session.TrainingType}}{{.Session.TrainingType}}{{else}}Training Session{{end}}
+            </span>
+
+            {{if .HasCapacityLimit}}
+            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full {{if .IsFull}}bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300{{else if lt .RemainingSlots 5}}bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300{{else}}bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300{{end}}">
+                👥 {{.CurrentTrainees}} / {{.MaxCapacity}} slots {{if .IsFull}}(Full){{else}}({{.RemainingSlots}} left){{end}}
+            </span>
+            {{end}}
+        </div>
+
+        <h2 class="font-display font-black text-xl sm:text-2xl text-slate-900 dark:text-white leading-tight {{if .IsCancelled}}line-through opacity-60{{end}}">
+            {{.FormattedTitle}}
+        </h2>
+
+        <div class="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <div class="flex items-center gap-1.5">
+                <span class="text-base">📅</span>
+                <span class="font-medium text-slate-800 dark:text-slate-200">{{.FormattedDate}}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="text-base">⏱️</span>
+                <span class="font-mono font-semibold text-slate-800 dark:text-slate-200">{{.FormattedTime}}</span>
+            </div>
+            {{if .Session.CoachName}}
+            <div class="flex items-center gap-1.5">
+                <span class="text-base">👤</span>
+                <span>Coach: <strong class="text-slate-800 dark:text-slate-200">{{.Session.CoachName}}</strong></span>
+            </div>
+            {{end}}
+            {{if .Session.LocationName}}
+            <div class="flex items-center gap-1.5">
+                <span class="text-base">📍</span>
+                <span>
+                    {{if .Session.LocationPin}}
+                    <a href="{{.Session.LocationPin}}" target="_blank" rel="noopener noreferrer" class="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold" title="View Location in Google Maps">
+                        {{.Session.LocationName}} ↗
+                    </a>
+                    {{else}}
+                    <strong class="text-slate-800 dark:text-slate-200">{{.Session.LocationName}}</strong>
+                    {{end}}
+                </span>
+            </div>
+            {{end}}
+        </div>
+
+        {{if .Session.Notes}}
+        <div class="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-neutral-900/50 border border-slate-200/80 dark:border-neutral-800 text-xs text-slate-600 dark:text-slate-400 italic">
+            "{{.Session.Notes}}"
+        </div>
+        {{end}}
+    </div>
+
+    <!-- Staff Preview Banner -->
+    {{if .IsStaff}}
+    <div class="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-800 dark:text-indigo-300 text-xs flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <span>🛡️</span>
+            <span>You are viewing this reservation link as <strong>{{.StaffRoleName}}</strong>.</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="/sessions/{{.Session.ID}}/live" class="font-bold underline hover:text-indigo-900 dark:hover:text-white">Live Attendance &rarr;</a>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Error Banner -->
+    {{if .ErrorMessage}}
+    <div class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs sm:text-sm font-semibold flex items-center gap-2.5 animate-fade-in">
+        <span class="text-base">⚠️</span>
+        <span>{{.ErrorMessage}}</span>
+    </div>
+    {{end}}
+
+    <!-- Success Banner -->
+    {{if .IsSuccess}}
+    <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm space-y-2 animate-fade-in">
+        <div class="flex items-center gap-2 font-bold text-sm sm:text-base">
+            <span class="text-lg">✓</span>
+            <span>Slot Reserved Successfully!</span>
+        </div>
+        <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+            {{.SuccessMessage}}
+        </p>
+        <div class="pt-2 flex flex-wrap items-center gap-2">
+            <button type="button"
+                    onclick="copySessionReservationLink('{{.Session.ID}}', this)"
+                    class="btn btn-secondary btn-xs py-1.5 px-3 flex items-center gap-1 text-xs">
+                <span>🔗</span> <span>Copy Link to Invite a Friend</span>
+            </button>
+            <a href="/" class="btn btn-primary btn-xs py-1.5 px-3 text-xs">
+                View Full Class Schedule
+            </a>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Status Guards -->
+    {{if .IsCancelled}}
+    <div class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs sm:text-sm flex items-center gap-2.5">
+        <span class="text-lg">🚫</span>
+        <div>
+            <strong class="block">This session has been cancelled.</strong>
+            <span class="text-slate-600 dark:text-slate-400 text-xs">Reservations are currently unavailable. Please check the schedule for alternate sessions.</span>
+        </div>
+    </div>
+    <div class="pt-2">
+        <a href="/" class="btn btn-secondary btn-sm w-full text-center">
+            ← Explore Other Classes
+        </a>
+    </div>
+
+    {{else if .IsConcluded}}
+    <div class="p-4 rounded-2xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 text-xs sm:text-sm flex items-center gap-2.5">
+        <span class="text-lg">🔒</span>
+        <div>
+            <strong class="block">This training session has already concluded.</strong>
+            <span class="text-slate-500 dark:text-slate-400 text-xs">Check out upcoming sessions on the calendar.</span>
+        </div>
+    </div>
+    <div class="pt-2">
+        <a href="/" class="btn btn-secondary btn-sm w-full text-center">
+            ← Browse Upcoming Classes
+        </a>
+    </div>
+
+    {{else if and .IsFull (not .IsAlreadyReserved)}}
+    <div class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 text-xs sm:text-sm flex items-center gap-2.5">
+        <span class="text-lg">⏳</span>
+        <div>
+            <strong class="block">Session is at Full Capacity</strong>
+            <span class="text-slate-600 dark:text-slate-400 text-xs">All {{.MaxCapacity}} trainee slots for this session have been filled.</span>
+        </div>
+    </div>
+    <div class="pt-2">
+        <a href="/" class="btn btn-secondary btn-sm w-full text-center">
+            ← Find Another Open Session
+        </a>
+    </div>
+
+    {{else if .IsAlreadyReserved}}
+    <div class="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs sm:text-sm space-y-2">
+        <div class="flex items-center gap-2 font-bold">
+            <span class="text-base text-emerald-600 dark:text-emerald-400">✓</span>
+            <span>You have already reserved a slot for this session!</span>
+        </div>
+        <p class="text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
+            Your name is confirmed on the attendance roster. Please arrive at {{if .Session.LocationName}}{{.Session.LocationName}}{{else}}the dojang{{end}} 10–15 minutes before {{.FormattedTime}}.
+        </p>
+        <div class="pt-2 flex flex-wrap items-center gap-2">
+            <button type="button"
+                    onclick="copySessionReservationLink('{{.Session.ID}}', this)"
+                    class="btn btn-secondary btn-xs py-1.5 px-3 flex items-center gap-1 text-xs">
+                <span>🔗</span> <span>Copy Share Link</span>
+            </button>
+            <a href="/" class="btn btn-primary btn-xs py-1.5 px-3 text-xs">
+                Explore More Classes
+            </a>
+        </div>
+    </div>
+
+    {{else if .IsStudent}}
+    <!-- Authenticated Student Self-Reservation Form -->
+    <div class="p-4 rounded-2xl border border-slate-200 dark:border-neutral-800 bg-slate-50/70 dark:bg-neutral-900/60 space-y-2.5">
+        <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-500 font-medium">Practitioner:</span>
+            <span class="font-bold text-slate-900 dark:text-white">{{.StudentName}}</span>
+        </div>
+        {{if .StudentBelt}}
+        <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-500 font-medium">Current Belt Rank:</span>
+            <span class="font-semibold text-slate-800 dark:text-slate-200">🥋 {{.StudentBelt}}</span>
+        </div>
+        {{end}}
+        <div class="pt-2 border-t border-slate-200 dark:border-neutral-800 text-[11px] text-slate-500 dark:text-slate-400">
+            🥋 Your slot will be reserved directly under your student account.
+        </div>
+    </div>
+
+    <form hx-post="/reserve/{{.Session.ID}}"
+          hx-target="#session-reserve-card"
+          hx-swap="outerHTML"
+          method="POST"
+          action="/reserve/{{.Session.ID}}"
+          class="space-y-4">
+        <input type="hidden" name="session_id" value="{{.Session.ID}}">
+
+        <button type="submit"
+                class="btn btn-primary w-full py-3 text-sm font-bold flex items-center justify-center gap-2 shadow-md">
+            <span>Confirm Slot Reservation</span>
+            <span class="htmx-indicator ml-1 spinner-border spinner-border-sm"></span>
+        </button>
+    </form>
+
+    {{else}}
+    <!-- Guest Self-Reservation Form -->
+    <form hx-post="/reserve/{{.Session.ID}}"
+          hx-target="#session-reserve-card"
+          hx-swap="outerHTML"
+          method="POST"
+          action="/reserve/{{.Session.ID}}"
+          class="space-y-4">
+        <input type="hidden" name="session_id" value="{{.Session.ID}}">
+
+        <div>
+            <label for="reserve_guest_name" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Full Name <span class="text-rose-500">*</span>
+            </label>
+            <input type="text"
+                   id="reserve_guest_name"
+                   name="guest_name"
+                   value="{{.GuestName}}"
+                   required
+                   placeholder="e.g. Juan dela Cruz"
+                   class="w-full px-3.5 py-2.5 rounded-xl text-sm border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#990303] focus:border-transparent transition">
+        </div>
+
+        <div>
+            <label for="reserve_contact_number" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Contact Number <span class="text-rose-500">*</span>
+            </label>
+            <input type="tel"
+                   id="reserve_contact_number"
+                   name="contact_number"
+                   value="{{.ContactNumber}}"
+                   required
+                   placeholder="e.g. 0917-123-4567"
+                   class="no-uppercase w-full px-3.5 py-2.5 rounded-xl text-sm border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#990303] focus:border-transparent transition font-mono"
+                   data-no-uppercase="true"
+                   autocapitalize="none">
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                Used to verify your slot reservation when checking in on the floor.
+            </span>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-neutral-900/60 border border-slate-200/80 dark:border-neutral-800 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+            ℹ️ <strong>Guest Observation / Trial Slot:</strong> Free admission for new attendees and prospective students. Please arrive 10–15 minutes early.
+        </div>
+
+        <button type="submit"
+                class="btn btn-primary w-full py-3 text-sm font-bold flex items-center justify-center gap-2 shadow-md">
+            <span>Confirm Slot Reservation</span>
+            <span class="htmx-indicator ml-1 spinner-border spinner-border-sm"></span>
+        </button>
+
+        <!-- Student Login Shortcut -->
+        <div class="pt-3 text-center border-t border-slate-200 dark:border-neutral-800">
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Already a registered Series student?
+                <a href="/login?redirect=/reserve/{{.Session.ID}}" class="font-bold text-[#990303] dark:text-[#DC2626] hover:underline ml-1">
+                    Sign in to reserve with your account &rarr;
+                </a>
+            </p>
+        </div>
+    </form>
+    {{end}}
+
+    <!-- Card Action Bar -->
+    <div class="pt-4 border-t border-slate-200 dark:border-neutral-800 flex items-center justify-between gap-2 flex-wrap">
+        <a href="/" class="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1">
+            <span>←</span> Full Schedule
+        </a>
+        <button type="button"
+                onclick="copySessionReservationLink('{{.Session.ID}}', this)"
+                class="btn btn-secondary btn-xs py-1.5 px-3 flex items-center gap-1 text-xs">
+            <span>🔗</span> <span>Copy Share Link</span>
+        </button>
+    </div>
+</div>
+{{end}}
+

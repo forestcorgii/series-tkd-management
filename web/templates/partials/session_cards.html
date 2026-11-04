@@ -536,6 +536,12 @@
                         <td class="py-1.5 px-3 text-right whitespace-nowrap" onclick="event.stopPropagation()">
                             <div class="inline-flex items-center gap-1">
                                 <button type="button"
+                                        onclick="copySessionReservationLink('{{.ID}}', this)"
+                                        class="btn btn-ghost btn-xs text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white py-0.5 px-1.5 text-xs font-medium"
+                                        title="Copy Public Reservation Link">
+                                    <span>🔗</span>
+                                </button>
+                                <button type="button"
                                         onclick="openClassInfoFromCard(this.closest('tr'))"
                                         class="btn btn-ghost btn-xs text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white py-0.5 px-1.5 text-xs font-medium"
                                         title="View Details">

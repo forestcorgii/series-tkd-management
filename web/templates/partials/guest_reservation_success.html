@@ -40,10 +40,15 @@
         🥋 <strong>Next Steps:</strong> Please arrive 10–15 minutes before the session starts in comfortable athletic wear. Present your contact number at the front desk or to the instructor on the mat.
     </div>
 
-    <div class="pt-2">
+    <div class="pt-2 flex flex-col sm:flex-row items-center gap-2">
+        <button type="button"
+                onclick="copySessionReservationLink('{{.Session.ID}}', this)"
+                class="btn btn-secondary btn-md w-full sm:w-auto flex-1 flex items-center justify-center gap-1.5 font-bold">
+            <span>🔗</span> Copy Link to Share
+        </button>
         <button type="button"
                 onclick="closeGuestReserveModal(true)"
-                class="btn btn-primary btn-md w-full shadow-md font-bold">
+                class="btn btn-primary btn-md w-full sm:w-auto flex-1 shadow-md font-bold">
             Done &bull; Return to Schedule
         </button>
     </div>

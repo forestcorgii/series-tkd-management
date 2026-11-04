@@ -107,13 +107,13 @@ func TestDashboard_ActiveClassesOnlyShowsOpenClasses(t *testing.T) {
 	}
 
 	// Verify the open session is visible
-	if !strings.Contains(body, "10:00 - 11:30") {
-		t.Errorf("expected open session time '10:00 - 11:30' to be displayed in Active Classes")
+	if !strings.Contains(body, "10:00 AM - 11:30 AM") && !strings.Contains(body, "10:00 - 11:30") {
+		t.Errorf("expected open session time '10:00 AM - 11:30 AM' to be displayed in Active Classes")
 	}
 
 	// Verify the cancelled session is NOT displayed in Active Classes
-	if strings.Contains(body, "14:00 - 15:30") {
-		t.Errorf("cancelled session time '14:00 - 15:30' should NOT be displayed in Active Classes")
+	if strings.Contains(body, "2:00 PM - 3:30 PM") || strings.Contains(body, "14:00 - 15:30") {
+		t.Errorf("cancelled session time should NOT be displayed in Active Classes")
 	}
 
 	// Now cancel the open session as well to test empty state

@@ -176,6 +176,8 @@ func main() {
 	mux.HandleFunc("GET /landing/schedule", app.HandleLandingSchedule)
 	mux.HandleFunc("GET /landing/reserve-form", app.HandleGuestReserveForm)
 	mux.HandleFunc("POST /landing/reserve", app.HandleGuestReservation)
+	mux.HandleFunc("GET /reserve/{id}", app.HandleSessionReservePage)
+	mux.HandleFunc("POST /reserve/{id}", app.HandleSessionReserveSubmit)
 
 	// Dashboard (Customized Dashboards for Operation Manager, Coach & Admin)
 	mux.HandleFunc("GET /dashboard", app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleDashboard))

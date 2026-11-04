@@ -669,6 +669,9 @@
 
         <div class="modal-footer flex items-center justify-between gap-2 flex-wrap">
             <div class="flex items-center gap-1.5 flex-wrap">
+                <button type="button" id="info-modal-copy-link-btn" onclick="copySessionReservationLink(this.dataset.sessionId, this)" class="btn btn-secondary btn-xs py-1.5 px-2.5 flex items-center gap-1 text-xs" title="Copy Public Reservation Link for Guests & Students">
+                    <span>🔗</span> <span>Copy Link</span>
+                </button>
                 <button type="button" id="info-modal-edit-btn" class="btn btn-secondary btn-xs py-1.5 px-2.5 flex items-center gap-1 text-xs">
                     <span>✏️</span> Edit
                 </button>
@@ -1443,6 +1446,12 @@ function openClassInfoFromCard(cardEl) {
         }
     }
     
+    // Copy Link Button
+    const copyLinkBtn = document.getElementById('info-modal-copy-link-btn');
+    if (copyLinkBtn) {
+        copyLinkBtn.dataset.sessionId = d.id || '';
+    }
+
     // Edit Button
     const editBtn = document.getElementById('info-modal-edit-btn');
     if (editBtn) {

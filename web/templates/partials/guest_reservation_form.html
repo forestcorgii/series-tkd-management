@@ -32,12 +32,20 @@
                 {{end}}
             </div>
         </div>
-        <button type="button"
-                onclick="closeGuestReserveModal(false)"
-                class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg text-lg leading-none"
-                aria-label="Close modal">
-            &times;
-        </button>
+        <div class="flex items-center gap-1">
+            <button type="button"
+                    onclick="copySessionReservationLink('{{.SessionID}}', this)"
+                    class="btn btn-secondary btn-xs py-1 px-2 flex items-center gap-1 text-xs"
+                    title="Copy Shareable Link">
+                <span>🔗</span> <span class="hidden sm:inline">Copy Link</span>
+            </button>
+            <button type="button"
+                    onclick="closeGuestReserveModal(false)"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg text-lg leading-none"
+                    aria-label="Close modal">
+                &times;
+            </button>
+        </div>
     </div>
 
     <!-- Error Banner (if any) -->

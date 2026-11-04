@@ -46,6 +46,12 @@
         </div>
 
         <div class="flex items-center gap-1.5 self-start md:self-auto flex-wrap">
+            <button type="button"
+                    onclick="copySessionReservationLink('{{.Session.ID}}', this)"
+                    class="btn btn-secondary btn-xs py-1 px-2.5 flex items-center gap-1"
+                    title="Copy Public Reservation Link">
+                <span>🔗</span> Copy Link
+            </button>
             {{if not .Session.IsCancelled}}
             <button type="button"
                     onclick="openEditSessionModal()"

@@ -45,3 +45,13 @@
   * Typing in the combobox search box calls `e.stopPropagation()` on `input` events.
   * Selecting an option updates the underlying `<select>` value and dispatches synthetic `change` and `input` events (`{ bubbles: true }`) so HTMX forms trigger only upon selection.
 
+### Context: Single Session Shareable Reservation Link & In-Place Clipboard Feedback
+
+* **Problem**: When coaches, staff, or students share direct links to individual training sessions, different browsers, insecure local development origins, and iframe contexts handle `navigator.clipboard` inconsistently, while navigation across modals vs. full pages can disrupt the user's booking flow.
+* **Enforced Solution**:
+  * Standardize public reservation URL at `GET /reserve/{id}` and `POST /reserve/{id}`.
+  * Implement `copySessionReservationLink(sessionId, btn)` in `layout.html` with secure `navigator.clipboard.writeText(url)` and fallback to hidden offscreen textarea `document.execCommand('copy')`.
+  * Swap button label to `✓ Copied!` with emerald highlight for 2000ms before restoring previous markup.
+  * For non-logged-in students visiting `/reserve/{id}`, supply `/login?redirect=/reserve/{id}` so the auth pipeline automatically routes them back upon successful credential validation.
+
+
