@@ -439,3 +439,78 @@ func TestLandingHandler_HandleGuestReservation(t *testing.T) {
 		t.Errorf("expected duplicate reservation message for student, got: %s", recStudentDup.Body.String())
 	}
 }
+
+func TestLandingHandler_AttendeesInCalendarAndModal(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	locs, _ := store.GetAllLocations()
+	if len(locs) == 0 {
+		t.Fatal("expected locations in test store")
+	}
+	loc := locs[0]
+
+	now := time.Now().In(time.FixedZone("Asia/Manila", 8*3600))
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		Title:        "Advanced Sparring Drill",
+		TrainingType: models.TrainingSparring,
+		LocationID:   &loc.ID,
+		LocationName: loc.Name,
+		SessionDate:  now,
+		StartTime:    "14:00",
+		EndTime:      "16:00",
+	}
+	if err := store.CreateSession(sess); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Add a guest attendee and a student attendee
+	_, err := store.ReserveSessionSlot(sess.ID, "Jane Doe", "0917-111-2222")
+	if err != nil {
+		t.Fatalf("failed to reserve slot for Jane: %v", err)
+	}
+
+	students, _ := store.GetAllStudents()
+	if len(students) > 0 {
+		_, err = store.CheckInStudent(sess.ID, students[0].ID, nil, nil)
+		if err != nil {
+			t.Fatalf("failed to check in student: %v", err)
+		}
+	}
+
+	// 1. Verify attendees appear on landing schedule partial (calendar view)
+	req := httptest.NewRequest("GET", "/landing/schedule?location=all&date="+now.Format("2006-01-02"), nil)
+	rec := httptest.NewRecorder()
+	app.HandleLandingSchedule(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for landing schedule, got %d", rec.Code)
+	}
+	calBody := rec.Body.String()
+
+	// Should contain attendee count (2 Attendees)
+	if !strings.Contains(calBody, "2 Attendees") && !strings.Contains(calBody, "2 Attendee") {
+		t.Errorf("expected calendar grid to display '2 Attendees', got: %s", calBody)
+	}
+	// Should contain privacy formatted name Jane D.
+	if !strings.Contains(calBody, "Jane D.") {
+		t.Errorf("expected calendar grid to display 'Jane D.', got: %s", calBody)
+	}
+
+	// 2. Verify modal renders confirmed attendees roster
+	reqModal := httptest.NewRequest("GET", "/landing/reserve-form?session_id="+sess.ID.String(), nil)
+	recModal := httptest.NewRecorder()
+	app.HandleGuestReserveForm(recModal, reqModal)
+
+	if recModal.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for reserve form modal, got %d", recModal.Code)
+	}
+	modalBody := recModal.Body.String()
+
+	if !strings.Contains(modalBody, "Confirmed Attendees") {
+		t.Errorf("expected modal to contain 'Confirmed Attendees' heading, got: %s", modalBody)
+	}
+	if !strings.Contains(modalBody, "Jane D.") {
+		t.Errorf("expected modal to contain attendee 'Jane D.', got: %s", modalBody)
+	}
+}

@@ -364,3 +364,52 @@ func TestFormatTime12_And_Range(t *testing.T) {
 		t.Errorf("TimeDisplay() = %q, want 4:00 PM - 6:00 PM", sess.TimeDisplay())
 	}
 }
+
+func TestFormatPublicName_And_Initials(t *testing.T) {
+	nameCases := []struct {
+		input    string
+		expected string
+	}{
+		{"Alex Vance", "Alex V."},
+		{"Maria Santos", "Maria S."},
+		{"John", "John"},
+		{"Coach Juan Dela Cruz", "Coach C."},
+		{"", "Attendee"},
+		{"   ", "Attendee"},
+	}
+
+	for _, c := range nameCases {
+		got := FormatPublicName(c.input)
+		if got != c.expected {
+			t.Errorf("FormatPublicName(%q) = %q, want %q", c.input, got, c.expected)
+		}
+	}
+
+	initialCases := []struct {
+		input    string
+		expected string
+	}{
+		{"Alex Vance", "AV"},
+		{"Maria Santos", "MS"},
+		{"John", "J"},
+		{"Coach Juan Dela Cruz", "CC"},
+		{"", "A"},
+	}
+
+	for _, c := range initialCases {
+		got := FormatInitials(c.input)
+		if got != c.expected {
+			t.Errorf("FormatInitials(%q) = %q, want %q", c.input, got, c.expected)
+		}
+	}
+
+	att := &Attendance{
+		StudentName: "Alex Vance",
+	}
+	if att.PublicDisplayName() != "Alex V." {
+		t.Errorf("expected PublicDisplayName 'Alex V.', got %q", att.PublicDisplayName())
+	}
+	if att.PublicInitials() != "AV" {
+		t.Errorf("expected PublicInitials 'AV', got %q", att.PublicInitials())
+	}
+}

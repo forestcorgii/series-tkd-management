@@ -56,7 +56,68 @@
     </div>
     {{end}}
 
+    <!-- Status Notice for Cancelled or Concluded Sessions -->
+    {{if .IsCancelled}}
+    <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-semibold flex items-center gap-2">
+        <span>🚫</span>
+        <span>This training session has been cancelled.</span>
+    </div>
+    {{else if .IsDone}}
+    <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/30 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-2">
+        <span>🔒</span>
+        <span>This training session has concluded.</span>
+    </div>
+    {{end}}
+
+    <!-- Confirmed Attendees Roster -->
+    <div class="p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-50/60 dark:bg-neutral-900/50 space-y-2.5">
+        <div class="flex items-center justify-between">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span>👥</span>
+                <span>Confirmed Attendees ({{.AttendanceCount}}{{if .MaxTrainees}} / {{.MaxTrainees}} max{{end}})</span>
+            </h4>
+            {{if and .MaxTrainees (ge .AttendanceCount .MaxTrainees)}}
+            <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                Class Full
+            </span>
+            {{else if gt .AttendanceCount 0}}
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                {{.AttendanceCount}} registered
+            </span>
+            {{end}}
+        </div>
+
+        {{if gt (len .Attendees) 0}}
+        <div class="max-h-36 overflow-y-auto pr-1 space-y-1.5 scrollbar-thin">
+            {{range .Attendees}}
+            <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-neutral-950 border border-slate-200/60 dark:border-neutral-800/80 text-xs">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] flex-shrink-0 {{if .IsStaff}}bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300{{else if .IsGuest}}bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300{{else}}bg-rose-100 text-[#990303] dark:bg-rose-950 dark:text-rose-300{{end}}">
+                        {{.PublicInitials}}
+                    </span>
+                    <div class="min-w-0">
+                        <span class="font-bold text-slate-800 dark:text-slate-200 truncate block">
+                            {{.PublicDisplayName}}
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider {{if .IsStaff}}bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800{{else if .IsGuest}}bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800{{else}}bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border border-slate-200 dark:border-neutral-700{{end}}">
+                        {{.DisplayRole}}
+                    </span>
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="py-3 text-center text-xs text-slate-500 dark:text-slate-400 italic bg-white dark:bg-neutral-950 rounded-xl border border-dashed border-slate-200 dark:border-neutral-800">
+            No attendees confirmed yet. Reserve your slot below to be the first!
+        </div>
+        {{end}}
+    </div>
+
     {{if .IsStudent}}
+        <!-- Authenticated Student View: No redundant name/contact input fields -->
         <!-- Authenticated Student View: No redundant name/contact input fields -->
         <div class="p-4 rounded-2xl border border-slate-200 dark:border-neutral-800 bg-slate-50/70 dark:bg-neutral-900/60 space-y-2">
             <div class="flex items-center justify-between text-xs">

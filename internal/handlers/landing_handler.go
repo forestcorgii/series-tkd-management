@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"series-tkd-management/internal/models"
@@ -48,6 +49,11 @@ type GuestReserveFormData struct {
 	StudentName       string
 	StudentBelt       string
 	IsAlreadyReserved bool
+	Attendees         []*models.Attendance
+	AttendanceCount   int
+	MaxTrainees       int
+	IsDone            bool
+	IsCancelled       bool
 }
 
 // GuestReservationSuccessData is the data context for guest_reservation_success.html.
@@ -251,15 +257,26 @@ func (a *AppHandler) HandleGuestReserveForm(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	// Check location capacity
-	if sess.LocationID != nil && !data.IsAlreadyReserved {
+	attendances, _ := a.store.GetSessionAttendances(sess.ID)
+	sort.SliceStable(attendances, func(i, j int) bool {
+		return attendances[i].CheckedInAt.Before(attendances[j].CheckedInAt)
+	})
+
+	maxCap := 0
+	if sess.LocationID != nil {
 		if loc, err := a.store.GetLocationByID(*sess.LocationID); err == nil && loc != nil && loc.HasMaxTrainees() {
-			attendances, _ := a.store.GetSessionAttendances(sess.ID)
-			if len(attendances) >= loc.MaxTraineesVal() {
-				data.ErrorMessage = fmt.Sprintf("This training session has reached full capacity (%d trainees maximum).", loc.MaxTraineesVal())
+			maxCap = loc.MaxTraineesVal()
+			if !data.IsAlreadyReserved && len(attendances) >= maxCap {
+				data.ErrorMessage = fmt.Sprintf("This training session has reached full capacity (%d trainees maximum).", maxCap)
 			}
 		}
 	}
+
+	data.Attendees = attendances
+	data.AttendanceCount = len(attendances)
+	data.MaxTrainees = maxCap
+	data.IsDone = sess.IsDone()
+	data.IsCancelled = sess.IsCancelled
 
 	a.RenderPartial(w, "guest_reservation_form.html", data)
 }

@@ -23,6 +23,7 @@ type SessionListItem struct {
 type CalendarSession struct {
 	Session         *models.TrainingSession
 	AttendanceCount int
+	Attendees       []*models.Attendance
 	StartHour       int
 	StartMinute     int
 	EndHour         int
@@ -378,6 +379,18 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 	}
 
 	attCounts, _ := a.store.GetSessionAttendanceCounts()
+	allAtts, _ := a.store.GetAllAttendances()
+	attsBySession := make(map[uuid.UUID][]*models.Attendance, len(allAtts))
+	for _, att := range allAtts {
+		if att != nil {
+			attsBySession[att.SessionID] = append(attsBySession[att.SessionID], att)
+		}
+	}
+	for _, attList := range attsBySession {
+		sort.SliceStable(attList, func(i, j int) bool {
+			return attList[i].CheckedInAt.Before(attList[j].CheckedInAt)
+		})
+	}
 
 	locations, _ := a.store.GetAllLocations()
 	locCapMap := make(map[uuid.UUID]int, len(locations))
@@ -399,7 +412,11 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 			maxHour = endH
 		}
 
+		sessAttendees := attsBySession[s.ID]
 		attCount := attCounts[s.ID]
+		if attCount == 0 && len(sessAttendees) > 0 {
+			attCount = len(sessAttendees)
+		}
 
 		catBadge := "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
 		switch s.TrainingType {
@@ -480,6 +497,7 @@ func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, cat
 		calSess := &CalendarSession{
 			Session:         s,
 			AttendanceCount: attCount,
+			Attendees:       sessAttendees,
 			StartHour:       startH,
 			StartMinute:     startM,
 			EndHour:         endH,

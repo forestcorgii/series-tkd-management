@@ -401,3 +401,56 @@ func (a *Attendance) IsStaff() bool {
 	return a.AttendeeType == "coach" || a.AttendeeType == "admin"
 }
 
+// FormatPublicName formats a full name into "First Name + Last Initial" (e.g. "Alex V.", "Maria S.").
+func FormatPublicName(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "Attendee"
+	}
+	parts := strings.Fields(trimmed)
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	firstName := parts[0]
+	lastName := parts[len(parts)-1]
+	runes := []rune(lastName)
+	if len(runes) > 0 {
+		return fmt.Sprintf("%s %c.", firstName, runes[0])
+	}
+	return firstName
+}
+
+// FormatInitials extracts uppercase initials from a name (e.g. "Alex Vance" -> "AV", "John" -> "J").
+func FormatInitials(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "A"
+	}
+	parts := strings.Fields(trimmed)
+	if len(parts) == 1 {
+		runes := []rune(parts[0])
+		if len(runes) > 0 {
+			return strings.ToUpper(string(runes[0]))
+		}
+		return "A"
+	}
+	r1 := []rune(parts[0])
+	r2 := []rune(parts[len(parts)-1])
+	if len(r1) > 0 && len(r2) > 0 {
+		return strings.ToUpper(fmt.Sprintf("%c%c", r1[0], r2[0]))
+	}
+	return "A"
+}
+
+// PublicDisplayName returns the privacy-preserving attendee display name (e.g. "Alex V.").
+func (a *Attendance) PublicDisplayName() string {
+	raw := a.DisplayName()
+	return FormatPublicName(raw)
+}
+
+// PublicInitials returns the uppercase initials of the attendee (e.g. "AV").
+func (a *Attendance) PublicInitials() string {
+	raw := a.DisplayName()
+	return FormatInitials(raw)
+}
+
