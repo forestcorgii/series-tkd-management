@@ -123,7 +123,7 @@
     <!-- Two Column Floor Tablet Layout: Left Search & Check-in | Right Live Roster -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <!-- Left: Quick Search / QR Code Reader & Admit Action -->
-        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
+        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs order-2 lg:order-1 {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
                 <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Floor Attendance Search</h2>
                 {{if .Session.IsCancelled}}
@@ -166,15 +166,15 @@
                            name="attendee_name"
                            placeholder="Full Name (e.g. Master Jin, Guest Alex)"
                            required
-                           class="form-input text-xs py-1.5 px-2 flex-1 rounded-md">
-                    <select name="attendee_role" class="form-select text-xs py-1.5 px-2 sm:w-24 rounded-md">
+                           class="form-input text-xs py-1.5 px-2 flex-1 min-w-0 rounded-md">
+                    <select name="attendee_role" class="form-select text-xs py-1.5 px-2 w-24 sm:w-28 shrink-0 rounded-md">
                         <option value="Guest">Guest</option>
                         <option value="Coach">Coach</option>
                         <option value="Admin">Admin</option>
                         <option value="Visitor">Visitor</option>
                     </select>
                     <input type="hidden" name="attendee_type" value="guest">
-                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2.5 text-xs whitespace-nowrap font-bold">
+                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2.5 text-xs whitespace-nowrap font-bold shrink-0">
                         <span>+</span> Admit
                     </button>
                 </form>
@@ -193,7 +193,7 @@
         </div>
 
         <!-- Right: Verified Floor Roster -->
-        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs">
+        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs order-1 lg:order-2">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
                 <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Verified Floor Roster</h2>
                 {{if .Session.IsCancelled}}
