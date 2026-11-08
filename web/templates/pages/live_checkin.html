@@ -160,19 +160,30 @@
                 <form hx-post="/sessions/{{.Session.ID}}/checkin-attendee"
                       hx-target="#attendance-roster"
                       hx-swap="afterbegin"
-                      class="flex gap-1.5"
+                      class="flex gap-1.5 flex-wrap sm:flex-nowrap"
                       onsubmit="setTimeout(() => this.reset(), 100);">
                     <input type="text"
                            name="attendee_name"
                            placeholder="Full Name (e.g. Master Jin, Guest Alex)"
                            required
-                           class="form-input text-xs py-1.5 px-2 flex-1 min-w-0 rounded-md">
+                           class="form-input text-xs py-1.5 px-2 flex-1 min-w-[140px] rounded-md">
                     <select name="attendee_role" class="form-select text-xs py-1.5 px-2 w-24 sm:w-28 shrink-0 rounded-md">
                         <option value="Guest">Guest</option>
                         <option value="Coach">Coach</option>
                         <option value="Admin">Admin</option>
                         <option value="Visitor">Visitor</option>
                     </select>
+                    <div class="relative w-20 sm:w-24 shrink-0">
+                        <span class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₱</span>
+                        <input type="number"
+                               step="0.01"
+                               min="0"
+                               name="session_rate"
+                               placeholder="Rate"
+                               {{if .Session.SessionRate}}value="{{formatCurrency .Session.SessionRate}}"{{end}}
+                               class="form-input text-xs py-1.5 pl-5 pr-1.5 w-full rounded-md"
+                               title="Admit Rate (₱)">
+                    </div>
                     <input type="hidden" name="attendee_type" value="guest">
                     <button type="submit" class="btn btn-secondary btn-xs py-1 px-2.5 text-xs whitespace-nowrap font-bold shrink-0">
                         <span>+</span> Admit
@@ -249,11 +260,25 @@
                 <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{if .Session.CoachName}}{{.Session.CoachName}}{{else}}None / Unassigned{{end}}</p>
             </div>
 
-            <div>
+            <div class="space-y-1.5">
                 <label class="form-label">Cancellation Reason</label>
+                <select id="live-cancel-reason-select"
+                        name="reason_preset"
+                        onchange="onLiveCancelReasonSelect(this, 'live-cancel-reason-input')"
+                        class="form-select text-sm">
+                    <option value="">Select cancellation reason...</option>
+                    <option value="Inclement Weather / Typhoon Signal">Inclement Weather / Typhoon Signal</option>
+                    <option value="Coach Illness / Emergency">Coach Illness / Emergency</option>
+                    <option value="Facility / Mat Maintenance">Facility / Mat Maintenance</option>
+                    <option value="Holiday / Dojang Closed">Holiday / Dojang Closed</option>
+                    <option value="Schedule Conflict">Schedule Conflict</option>
+                    <option value="Low Attendance">Low Attendance</option>
+                    <option value="Other">Other (Custom Reason)</option>
+                </select>
                 <input type="text"
+                       id="live-cancel-reason-input"
                        name="reason"
-                       placeholder="e.g. Typhoon signal, Coach emergency, Facility repair..."
+                       placeholder="Or specify custom cancellation reason..."
                        required
                        class="form-input text-sm">
             </div>
@@ -463,6 +488,17 @@ function openDeleteSessionModal() {
 
 function closeDeleteModal() {
     document.getElementById('delete-session-modal').classList.add('hidden');
+}
+
+function onLiveCancelReasonSelect(sel, inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    if (sel.value === 'Other') {
+        input.value = '';
+        input.focus();
+    } else if (sel.value) {
+        input.value = sel.value;
+    }
 }
 </script>
 {{end}}

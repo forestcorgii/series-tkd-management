@@ -1584,7 +1584,10 @@ func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request)
 
 	_ = r.ParseForm()
 	reason := strings.TrimSpace(r.FormValue("reason"))
-	if reason == "" {
+	if reason == "" || reason == "Other" {
+		reason = strings.TrimSpace(r.FormValue("reason_preset"))
+	}
+	if reason == "" || reason == "Other" {
 		reason = "Cancelled by staff"
 	}
 
@@ -1870,7 +1873,20 @@ func (a *AppHandler) HandleCheckInAttendee(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	att, err := a.store.CheckInAttendee(sessionID, attendeeType, studentIDPtr, attendeeName, attendeeRole, nil, nil)
+	var sessionRate *float64
+	if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			sessionRate = &val
+		}
+	} else if session != nil && session.SessionRate != nil {
+		sessionRate = session.SessionRate
+	} else if session != nil && session.LocationID != nil {
+		if loc, err := a.store.GetLocationByID(*session.LocationID); err == nil && loc != nil && loc.FixedRate != nil {
+			sessionRate = loc.FixedRate
+		}
+	}
+
+	att, err := a.store.CheckInAttendee(sessionID, attendeeType, studentIDPtr, attendeeName, attendeeRole, nil, sessionRate)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusConflict)

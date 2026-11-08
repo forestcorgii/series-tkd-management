@@ -54,6 +54,8 @@ type GuestReserveFormData struct {
 	MaxTrainees       int
 	IsDone            bool
 	IsCancelled       bool
+	SessionRate       *float64
+	IsOpenSession     bool
 }
 
 // GuestReservationSuccessData is the data context for guest_reservation_success.html.
@@ -230,6 +232,8 @@ func (a *AppHandler) HandleGuestReserveForm(w http.ResponseWriter, r *http.Reque
 		FormattedTime: timeStr,
 		CoachName:     sess.CoachName,
 		LocationName:  sess.LocationName,
+		SessionRate:   sess.SessionRate,
+		IsOpenSession: sess.IsOpenSession(),
 	}
 
 	user := GetUserFromContext(r.Context())
@@ -438,6 +442,8 @@ func (a *AppHandler) renderStudentReserveError(w http.ResponseWriter, sess *mode
 		data.FormattedTime = timeStr
 		data.CoachName = sess.CoachName
 		data.LocationName = sess.LocationName
+		data.SessionRate = sess.SessionRate
+		data.IsOpenSession = sess.IsOpenSession()
 	}
 	a.RenderPartial(w, "guest_reservation_form.html", data)
 }
@@ -461,6 +467,8 @@ func (a *AppHandler) renderGuestReserveError(w http.ResponseWriter, sess *models
 		data.FormattedTime = timeStr
 		data.CoachName = sess.CoachName
 		data.LocationName = sess.LocationName
+		data.SessionRate = sess.SessionRate
+		data.IsOpenSession = sess.IsOpenSession()
 	}
 	a.RenderPartial(w, "guest_reservation_form.html", data)
 }

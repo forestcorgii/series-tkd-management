@@ -3204,6 +3204,7 @@ func (s *SQLStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNum
 	att := &models.Attendance{
 		ID:            uuid.New(),
 		SessionID:     sessionID,
+		SessionRate:   sess.SessionRate,
 		CheckedInAt:   time.Now(),
 		AttendeeType:  "guest",
 		AttendeeName:  trimmedName,
@@ -3219,10 +3220,15 @@ func (s *SQLStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNum
 		locIDVal = sess.LocationID.String()
 	}
 
+	var sessionRateVal interface{}
+	if sess.SessionRate != nil {
+		sessionRateVal = *sess.SessionRate
+	}
+
 	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role, contact_number)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 	_, err = s.db.Exec(query,
-		att.ID.String(), att.SessionID.String(), nil, nil, locIDVal, nil, formatTimeForDB(att.CheckedInAt),
+		att.ID.String(), att.SessionID.String(), nil, nil, locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt),
 		att.AttendeeType, att.AttendeeName, att.AttendeeRole, att.ContactNumber,
 	)
 	if err != nil {

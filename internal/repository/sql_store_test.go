@@ -1668,6 +1668,7 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 			}
 			_ = store.CreateCoach(coach)
 
+			sessRate := 200.00
 			sess := &models.TrainingSession{
 				ID:           uuid.New(),
 				SessionDate:  time.Now(),
@@ -1675,6 +1676,7 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 				EndTime:      "17:30",
 				CoachID:      &coach.ID,
 				TrainingType: models.TrainingPoomsae,
+				SessionRate:  &sessRate,
 			}
 			_ = store.CreateSession(sess)
 
@@ -1706,6 +1708,15 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 			}
 			if stAtts[0].SessionRate == nil || *stAtts[0].SessionRate != 200.00 {
 				t.Errorf("expected GetStudentAttendances to retain SessionRate 200.00, got %v", stAtts[0].SessionRate)
+			}
+
+			// Verify ReserveSessionSlot inherits SessionRate from session
+			resGuest, err := store.ReserveSessionSlot(sess.ID, "VIP Guest Master Lee", "09181234567")
+			if err != nil {
+				t.Fatalf("ReserveSessionSlot failed: %v", err)
+			}
+			if resGuest.SessionRate == nil || *resGuest.SessionRate != 200.00 {
+				t.Errorf("expected ReserveSessionSlot to inherit SessionRate 200.00, got %v", resGuest.SessionRate)
 			}
 		})
 	}

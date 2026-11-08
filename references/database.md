@@ -125,4 +125,13 @@
   * **Guest & Staff Check-In Route**: Introduced `POST /sessions/{id}/checkin-attendee` admitting external guests or duty staff, rendered immediately into the HTMX attendance roster with distinct role badges.
   * **Segmented Interactive Modals**: Scheduling and edit modals in [sessions.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/sessions.html) utilize a segmented switcher (`🥋 Class`, `🔓 Free / Open`, `🛡️ On-Duty`, `🏆 Event`) dynamically toggling custom title inputs, multi-select staff checklists, categories, and rates.
 
+### Context: Guest Attendance & Admittance Rate Standards
+
+* **Problem**: Guest attendees admitted via `POST /sessions/{id}/checkin-attendee` defaulted to free (`sessionRate = nil` rendered as `🔓 Free`) regardless of whether the session was a paid class, had a fixed rate, or had location pricing configured.
+* **Enforced Solution**:
+  * In `HandleCheckInAttendee` ([session_handler.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go)), parse `session_rate` from the admit form and fall back to `session.SessionRate` or `location.FixedRate`.
+  * In `live_checkin.html` ([live_checkin.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/live_checkin.html)), add an admit rate input pre-populated with `Session.SessionRate`.
+  * In `checkin_row.html` ([checkin_row.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/partials/checkin_row.html)), decouple `.Attendance.IsGuest` from `.Attendance.IsStaff`. Guests render `Rate: ₱...` or `Guest Drop-in`, and are only rendered as `🔓 Free` if the session is an open session (`IsOpenSession`).
+  * In `ReserveSessionSlot` ([sql_store.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/sql_store.go) and [store.go](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/repository/store.go)), assign `att.SessionRate = sess.SessionRate`.
+
 

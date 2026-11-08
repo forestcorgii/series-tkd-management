@@ -542,11 +542,25 @@
                 <p id="cancel-modal-meta" class="text-xs text-slate-600 dark:text-slate-400"></p>
             </div>
 
-            <div>
+            <div class="space-y-1.5">
                 <label class="form-label">Cancellation Reason</label>
+                <select id="cancel-reason-select"
+                        name="reason_preset"
+                        onchange="onCancelReasonSelect(this, 'cancel-reason-input')"
+                        class="form-select text-sm">
+                    <option value="">Select cancellation reason...</option>
+                    <option value="Inclement Weather / Typhoon Signal">Inclement Weather / Typhoon Signal</option>
+                    <option value="Coach Illness / Emergency">Coach Illness / Emergency</option>
+                    <option value="Facility / Mat Maintenance">Facility / Mat Maintenance</option>
+                    <option value="Holiday / Dojang Closed">Holiday / Dojang Closed</option>
+                    <option value="Schedule Conflict">Schedule Conflict</option>
+                    <option value="Low Attendance">Low Attendance</option>
+                    <option value="Other">Other (Custom Reason)</option>
+                </select>
                 <input type="text"
+                       id="cancel-reason-input"
                        name="reason"
-                       placeholder="e.g. Coach illness, Typhoon signal, Mat maintenance..."
+                       placeholder="Or specify custom cancellation reason..."
                        required
                        class="form-input text-sm">
             </div>
@@ -1249,9 +1263,24 @@ function openCancelModal(id, category, date, time, coach) {
         form.action = '/sessions/' + id + '/cancel';
         form.setAttribute('action', '/sessions/' + id + '/cancel');
     }
+    var sel = document.getElementById('cancel-reason-select');
+    if (sel) sel.value = '';
+    var inp = document.getElementById('cancel-reason-input');
+    if (inp) inp.value = '';
     document.getElementById('cancel-modal-title').textContent = category + ' (' + formatDisplayTime12(time) + ')';
     document.getElementById('cancel-modal-meta').textContent = 'Date: ' + date + ' • Staff: ' + coach;
     document.getElementById('cancel-session-modal').classList.remove('hidden');
+}
+
+function onCancelReasonSelect(sel, inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    if (sel.value === 'Other') {
+        input.value = '';
+        input.focus();
+    } else if (sel.value) {
+        input.value = sel.value;
+    }
 }
 
 function closeCancelModal() {

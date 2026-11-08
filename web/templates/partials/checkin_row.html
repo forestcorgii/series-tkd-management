@@ -53,9 +53,13 @@
             </span>
         {{else if .Attendance.PackageTitle}}
             <span class="text-emerald-600 dark:text-emerald-300 font-semibold text-xs">{{.Attendance.PackageTitle}}</span>
-        {{else if or .Attendance.IsGuest .Attendance.IsStaff}}
-            <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800 text-[11px]">
-                🔓 Free
+        {{else if .Attendance.IsStaff}}
+            <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-200 dark:border-amber-800 text-[11px]">
+                🛡️ Staff
+            </span>
+        {{else if .Attendance.IsGuest}}
+            <span class="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 font-semibold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-700 text-[11px]">
+                👤 Guest Drop-in
             </span>
         {{else}}
             <span class="text-amber-700 dark:text-amber-400 italic text-[11px]">Override Entry</span>

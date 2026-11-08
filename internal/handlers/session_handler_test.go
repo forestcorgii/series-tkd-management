@@ -244,6 +244,43 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 		}
 	})
 
+	t.Run("HandleCancelSession cancels with reason_preset dropdown option", func(t *testing.T) {
+		sessPreset := &models.TrainingSession{
+			ID:           uuid.New(),
+			SessionDate:  time.Now(),
+			StartTime:    "18:00",
+			EndTime:      "19:00",
+			TrainingType: models.TrainingSparring,
+			EntryType:    models.EntryTypeClass,
+		}
+		_ = store.CreateSession(sessPreset)
+
+		form := url.Values{}
+		form.Set("reason_preset", "Coach Illness / Emergency")
+		form.Set("refund_credits", "true")
+
+		req := httptest.NewRequest(http.MethodPost, "/sessions/"+sessPreset.ID.String()+"/cancel", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		app.HandleCancelSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d", rec.Code)
+		}
+
+		updated, err := store.GetSessionByID(sessPreset.ID)
+		if err != nil {
+			t.Fatalf("GetSessionByID failed: %v", err)
+		}
+		if !updated.IsCancelled {
+			t.Errorf("expected session to be marked as cancelled")
+		}
+		if updated.CancellationReason != "Coach Illness / Emergency" {
+			t.Errorf("expected reason 'Coach Illness / Emergency', got '%s'", updated.CancellationReason)
+		}
+	})
+
 	t.Run("HandleCheckIn rejects check-in for cancelled session", func(t *testing.T) {
 		student := &models.Student{
 			ID:          uuid.New(),
@@ -2054,6 +2091,100 @@ func TestDynamicCalendar_EventsDutyAndOpenSessions(t *testing.T) {
 	})
 }
 
+func TestHandleCheckInAttendee_GuestRateNotDefaultedToFree(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	fixedRate := 350.0
+	classSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "10:00",
+		EndTime:      "11:00",
+		TrainingType: models.TrainingSparring,
+		EntryType:    models.EntryTypeClass,
+		SessionRate:  &fixedRate,
+	}
+	_ = store.CreateSession(classSess)
+
+	// 1. Admit a Guest without specifying rate -> inherits class fixed rate 350.00, does not default to Free
+	formAutoRate := url.Values{
+		"attendee_type": {"guest"},
+		"attendee_name": {"Guest Alex"},
+		"attendee_role": {"Guest"},
+	}
+	reqAuto := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin-attendee", classSess.ID), strings.NewReader(formAutoRate.Encode()))
+	reqAuto.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recAuto := httptest.NewRecorder()
+	app.HandleCheckInAttendee(recAuto, reqAuto)
+
+	if recAuto.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", recAuto.Code, recAuto.Body.String())
+	}
+	bodyAuto := recAuto.Body.String()
+	if !strings.Contains(bodyAuto, "350.00") {
+		t.Errorf("expected attendance row to contain inherited class rate 350.00, got:\n%s", bodyAuto)
+	}
+	if strings.Contains(bodyAuto, "🔓 Free") {
+		t.Errorf("guest in fixed-rate session should not display Free")
+	}
+
+	// 2. Admit a Guest with custom rate 450.00
+	formCustomRate := url.Values{
+		"attendee_type": {"guest"},
+		"attendee_name": {"Guest Taylor"},
+		"attendee_role": {"Visitor"},
+		"session_rate":  {"450.00"},
+	}
+	reqCustom := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin-attendee", classSess.ID), strings.NewReader(formCustomRate.Encode()))
+	reqCustom.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recCustom := httptest.NewRecorder()
+	app.HandleCheckInAttendee(recCustom, reqCustom)
+
+	if recCustom.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", recCustom.Code, recCustom.Body.String())
+	}
+	bodyCustom := recCustom.Body.String()
+	if !strings.Contains(bodyCustom, "450.00") {
+		t.Errorf("expected attendance row to contain custom rate 450.00, got:\n%s", bodyCustom)
+	}
+
+	// 3. Normal class without fixed rate or custom rate: should render Guest Drop-in, NOT Free
+	standardSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "14:00",
+		EndTime:      "15:00",
+		TrainingType: models.TrainingPoomsae,
+		EntryType:    models.EntryTypeClass,
+	}
+	_ = store.CreateSession(standardSess)
+
+	formNoRate := url.Values{
+		"attendee_type": {"guest"},
+		"attendee_name": {"Guest Jordan"},
+		"attendee_role": {"Guest"},
+	}
+	reqNoRate := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin-attendee", standardSess.ID), strings.NewReader(formNoRate.Encode()))
+	reqNoRate.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recNoRate := httptest.NewRecorder()
+	app.HandleCheckInAttendee(recNoRate, reqNoRate)
+
+	if recNoRate.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", recNoRate.Code, recNoRate.Body.String())
+	}
+	bodyNoRate := recNoRate.Body.String()
+	if strings.Contains(bodyNoRate, "🔓 Free") {
+		t.Errorf("guest in standard class with no rate set should NOT default to Free, got:\n%s", bodyNoRate)
+	}
+	if !strings.Contains(bodyNoRate, "Guest Drop-in") {
+		t.Errorf("expected Guest Drop-in label, got:\n%s", bodyNoRate)
+	}
+}
+
 func TestSessionHandler_RescheduleSession(t *testing.T) {
 	store := repository.NewMemoryStore()
 	app, err := handlers.NewAppHandler(store)
@@ -2378,6 +2509,13 @@ func TestHandleLiveSession_DutyAndEventRedirect(t *testing.T) {
 
 		if rec.Code != http.StatusOK {
 			t.Errorf("expected 200 OK for class session live attendance, got %d", rec.Code)
+		}
+		liveBody := rec.Body.String()
+		if !strings.Contains(liveBody, "live-cancel-reason-select") {
+			t.Errorf("expected live attendance page to contain cancellation reason dropdown select")
+		}
+		if !strings.Contains(liveBody, "Inclement Weather / Typhoon Signal") {
+			t.Errorf("expected live attendance page to contain preset reason option")
 		}
 	})
 }

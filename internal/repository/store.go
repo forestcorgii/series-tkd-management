@@ -1039,6 +1039,7 @@ func (m *MemoryStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contact
 	att := &models.Attendance{
 		ID:            uuid.New(),
 		SessionID:     sessionID,
+		SessionRate:   sess.SessionRate,
 		CheckedInAt:   time.Now(),
 		AttendeeType:  "guest",
 		AttendeeName:  trimmedName,

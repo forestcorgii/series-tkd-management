@@ -239,7 +239,13 @@
         </div>
 
         <div class="p-3 rounded-xl bg-slate-50 dark:bg-neutral-900/60 border border-slate-200/80 dark:border-neutral-800 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-            ℹ️ <strong>Guest Observation / Trial Slot:</strong> Free admission for new attendees and prospective students. Please arrive 10–15 minutes early.
+            {{if and .Session .Session.SessionRate}}
+            ℹ️ <strong>Guest Slot:</strong> Class session rate is ₱{{formatCurrency .Session.SessionRate}}. Settle upon arrival at front desk.
+            {{else if and .Session .Session.IsOpenSession}}
+            ℹ️ <strong>Free / Open Session:</strong> Free admission for new attendees and prospective students. Please arrive 10–15 minutes early.
+            {{else}}
+            ℹ️ <strong>Guest Reservation:</strong> Please arrive 10–15 minutes before the scheduled time.
+            {{end}}
         </div>
 
         <button type="submit"

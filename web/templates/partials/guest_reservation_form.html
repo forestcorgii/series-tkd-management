@@ -209,7 +209,13 @@
             </div>
 
             <div class="p-3 rounded-xl bg-slate-50 dark:bg-neutral-900/60 border border-slate-200/80 dark:border-neutral-800 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                ℹ️ <strong>Guest Observation / Trial Slot:</strong> No payment or package credits required. Please arrive 10–15 minutes before the scheduled time.
+                {{if .SessionRate}}
+                ℹ️ <strong>Guest Slot:</strong> Class session rate is ₱{{formatCurrency .SessionRate}}. Settle upon arrival at front desk.
+                {{else if .IsOpenSession}}
+                ℹ️ <strong>Free / Open Session:</strong> No payment or package credits required. Please arrive 10–15 minutes before the scheduled time.
+                {{else}}
+                ℹ️ <strong>Guest Reservation:</strong> Please arrive 10–15 minutes before the scheduled time.
+                {{end}}
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-neutral-800">
