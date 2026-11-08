@@ -5,8 +5,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Upgrade any insecure HTTP subresources to HTTPS automatically -->
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>{{block "title" .}}Series Taekwondo Management System{{end}}</title>
     <!-- PWA Manifest, Icons & Meta -->
     <link rel="manifest" href="/manifest.webmanifest">
@@ -64,7 +62,7 @@
                         class="font-display font-black text-sm sm:text-base tracking-wide text-[#000000] dark:text-[#FFFDF4] uppercase flex items-center gap-2">
                         SERIES TAEKWONDO
                         {{if $user}}
-                        <span class="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full font-bold tracking-wider
+                        <span class="hidden lg:inline-flex text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full font-bold tracking-wider
                             {{if $user.IsOperationManager}}bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30
                             {{else if $user.IsAdmin}}bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30
                             {{else if $user.IsCoach}}bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30
@@ -74,7 +72,7 @@
                         </span>
                         {{else}}
                         <span
-                            class="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-[#990303]/10 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400 font-bold tracking-wider">
+                            class="hidden lg:inline-flex text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-[#990303]/10 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400 font-bold tracking-wider">
                             Operations
                         </span>
                         {{end}}
@@ -136,21 +134,21 @@
                 <!-- Theme Toggle Button -->
                 <button id="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle light and dark mode"
                     title="Toggle light and dark mode"
-                    class="p-1.5 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition flex items-center gap-1 text-xs font-semibold">
+                    class="{{if $user}}hidden lg:flex{{else}}flex{{end}} p-1.5 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition items-center gap-1 text-xs font-semibold">
                     <!-- Sun Icon (shown in dark mode) -->
-                    <svg id="theme-icon-sun" class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24"
+                    <svg id="theme-icon-sun" class="theme-icon-sun w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="4"></circle>
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41" />
                     </svg>
                     <!-- Moon Icon (shown in light mode) -->
-                    <svg id="theme-icon-moon" class="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 hidden" fill="none"
+                    <svg id="theme-icon-moon" class="theme-icon-moon w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 hidden" fill="none"
                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
-                    <span id="theme-mode-text" class="hidden sm:inline text-[11px]">Light</span>
+                    <span id="theme-mode-text" class="theme-mode-text hidden sm:inline text-[11px]">Light</span>
                 </button>
 
                 <!-- Authenticated User Profile Indicator with Submenu -->
@@ -337,12 +335,33 @@
                         </span>
                     </div>
                 </div>
-                <button type="button" onclick="toggleMobileDrawer(false)" aria-label="Close menu"
-                    class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                <div class="flex items-center space-x-1.5 flex-shrink-0">
+                    <!-- Light / Dark Mode Toggle Button in Side Panel Header -->
+                    <button type="button" onclick="toggleTheme()" aria-label="Toggle light and dark mode"
+                        title="Toggle light and dark mode"
+                        class="p-2 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition flex items-center justify-center cursor-pointer">
+                        <!-- Sun Icon (shown in dark mode) -->
+                        <svg class="theme-icon-sun w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="4"></circle>
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41" />
+                        </svg>
+                        <!-- Moon Icon (shown in light mode) -->
+                        <svg class="theme-icon-moon w-4 h-4 text-neutral-800 dark:text-neutral-200 hidden" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    </button>
+                    <!-- Close Drawer Button -->
+                    <button type="button" onclick="toggleMobileDrawer(false)" aria-label="Close menu"
+                        class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <!-- Drawer Nav Links -->
@@ -424,6 +443,16 @@
                             <span class="text-base">⚙️</span> <span>Settings</span>
                         </a>
                         {{end}}
+                        <!-- Theme Toggle in Mobile Drawer List -->
+                        <button type="button" onclick="toggleTheme()"
+                            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition text-left cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <span class="theme-icon-sun text-base">☀️</span>
+                                <span class="theme-icon-moon text-base hidden">🌙</span>
+                                <span>Theme Mode</span>
+                            </div>
+                            <span class="theme-mode-text text-xs font-bold px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">Light</span>
+                        </button>
                         <!-- PWA Install in Mobile Drawer -->
                         <button type="button" onclick="triggerPWAInstall()"
                             class="pwa-install-trigger hidden w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition text-left cursor-pointer">
@@ -510,6 +539,17 @@
 
         function syncThemeUI() {
             const isDark = document.documentElement.classList.contains('dark');
+            document.querySelectorAll('.theme-icon-sun').forEach(el => {
+                if (isDark) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+            document.querySelectorAll('.theme-icon-moon').forEach(el => {
+                if (isDark) el.classList.add('hidden');
+                else el.classList.remove('hidden');
+            });
+            document.querySelectorAll('.theme-mode-text').forEach(el => {
+                el.textContent = isDark ? 'Light' : 'Dark';
+            });
             const sun = document.getElementById('theme-icon-sun');
             const moon = document.getElementById('theme-icon-moon');
             const text = document.getElementById('theme-mode-text');

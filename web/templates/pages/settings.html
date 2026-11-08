@@ -444,9 +444,18 @@
 
                 <!-- 1. Email (SMTP) Configuration -->
                 <div class="space-y-3">
-                    <h4 class="font-bold text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                        <span>📧</span> SMTP Mail Server Settings
-                    </h4>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h4 class="font-bold text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                            <span>📧</span> SMTP Mail Server Settings
+                        </h4>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="triggerAdminTestEmail(this)" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-blue-300 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 transition flex items-center gap-1">
+                                <span>✉️</span> Test Email
+                            </button>
+                        </div>
+                    </div>
+                    <div id="admin-email-test-result" class="hidden text-xs font-semibold py-1.5 px-3 rounded-lg"></div>
+
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="form-label">SMTP Host</label>
@@ -471,8 +480,32 @@
                                    class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="form-label">SMTP Password / App Key</label>
-                            <input type="password" name="smtp_password" placeholder="Leave blank to keep existing password" class="form-input text-xs" autocomplete="new-password" />
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="form-label mb-0">SMTP Password / App Key</label>
+                                {{if and .NotificationSettings .NotificationSettings.SMTPPassword}}
+                                <span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                                    ✓ Saved in Database
+                                </span>
+                                {{else}}
+                                <span class="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                    ⚠️ Not set
+                                </span>
+                                {{end}}
+                            </div>
+                            <div class="relative">
+                                <input type="password" name="smtp_password" id="smtp-password-input"
+                                       value="{{if and .NotificationSettings .NotificationSettings.SMTPPassword}}{{.NotificationSettings.SMTPPassword}}{{end}}"
+                                       placeholder="Enter 16-character Google App Password or SMTP key"
+                                       class="form-input text-xs pr-10 no-uppercase font-mono" data-no-uppercase="true" autocomplete="new-password" />
+                                <button type="button" onclick="togglePasswordVisibility('smtp-password-input', this)"
+                                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition cursor-pointer p-1"
+                                        title="Show / Hide Password">
+                                    👁️
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                                <strong>Gmail Notice:</strong> Google rejects standard account passwords. Enable 2-Step Verification and generate a 16-character <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline font-semibold">Google App Password</a>.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -877,6 +910,86 @@
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalText;
+        }
+    }
+
+    async function triggerAdminTestEmail(btn) {
+        const resultEl = document.getElementById('admin-email-test-result');
+        const defaultRecipient = '{{if .CurrentUser}}{{.CurrentUser.Email}}{{end}}' || '{{if .NotificationSettings}}{{.NotificationSettings.SMTPFrom}}{{end}}';
+        
+        const recipient = prompt('Enter recipient email address for test message:', defaultRecipient);
+        if (recipient === null) {
+            return;
+        }
+        const targetEmail = recipient.trim();
+        if (!targetEmail) {
+            if (resultEl) {
+                resultEl.textContent = '✗ Recipient email address is required';
+                resultEl.className = 'text-xs font-bold text-rose-800 bg-rose-100 dark:bg-rose-950 dark:text-rose-300 py-1.5 px-3 rounded-lg block';
+            }
+            return;
+        }
+
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>⏳</span> Sending...';
+        if (resultEl) {
+            resultEl.classList.add('hidden');
+            resultEl.textContent = '';
+        }
+
+        const hostInput = document.querySelector('input[name="smtp_host"]');
+        const portInput = document.querySelector('input[name="smtp_port"]');
+        const fromInput = document.querySelector('input[name="smtp_from"]');
+        const userInput = document.querySelector('input[name="smtp_user"]');
+        const passInput = document.querySelector('input[name="smtp_password"]');
+
+        const payload = {
+            recipient_email: targetEmail,
+            smtp_host: hostInput ? hostInput.value.trim() : '',
+            smtp_port: portInput ? parseInt(portInput.value, 10) || 0 : 0,
+            smtp_from: fromInput ? fromInput.value.trim() : '',
+            smtp_user: userInput ? userInput.value.trim() : '',
+            smtp_password: passInput ? passInput.value : ''
+        };
+
+        try {
+            const res = await fetch('/api/email/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to send test email');
+            }
+            if (resultEl) {
+                resultEl.textContent = '✓ ' + (data.message || 'Test email sent successfully!');
+                resultEl.className = 'text-xs font-bold text-emerald-800 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 py-1.5 px-3 rounded-lg block';
+            }
+        } catch (err) {
+            if (resultEl) {
+                resultEl.textContent = '✗ ' + err.message;
+                resultEl.className = 'text-xs font-bold text-rose-800 bg-rose-100 dark:bg-rose-950 dark:text-rose-300 py-1.5 px-3 rounded-lg block';
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            btn.textContent = '👁️';
         }
     }
 </script>

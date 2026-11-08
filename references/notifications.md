@@ -47,3 +47,4 @@
   4. **Client Engine & Diagnostics**:
      - [`web/static/js/push-client.js`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/js/push-client.js) (`window.STMSPush`) handles VAPID subscription conversions and background syncing.
      - Interactive "Test Push" diagnostic triggers available in `/profile` and `/settings` (`POST /api/push/test`) returning delivery feedback.
+     - Interactive "Test Email" diagnostic trigger in `/settings?tab=notifications` (`POST /api/email/test` and `POST /settings/notifications/test-email`) testing live SMTP connectivity, TLS/STARTTLS negotiation, auth credentials, and fallback to logged-in administrator email.

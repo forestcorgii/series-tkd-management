@@ -235,7 +235,10 @@ func (a *AppHandler) HandleUpdateNotificationSettings(w http.ResponseWriter, r *
 		}
 	}
 	settings.SMTPUser = strings.TrimSpace(r.FormValue("smtp_user"))
-	if pw := r.FormValue("smtp_password"); pw != "" {
+	if pw := strings.TrimSpace(r.FormValue("smtp_password")); pw != "" {
+		if strings.Contains(strings.ToLower(settings.SMTPHost), "gmail.com") {
+			pw = strings.ReplaceAll(pw, " ", "")
+		}
 		settings.SMTPPassword = pw
 	}
 	settings.SMTPFrom = strings.TrimSpace(r.FormValue("smtp_from"))

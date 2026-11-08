@@ -1,11 +1,14 @@
 package services
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/smtp"
 	"strings"
 	"sync"
 	"time"
@@ -795,4 +798,241 @@ func (s *NotificationService) SendTestPushNotification(userID uuid.UUID, title, 
 	}
 
 	return sentCount, nil
+}
+
+// TestEmailParams holds the parameters for dispatching a test email
+type TestEmailParams struct {
+	Host      string
+	Port      int
+	User      string
+	Password  string
+	From      string
+	Recipient string
+}
+
+// SendTestEmail sends an immediate diagnostic test email verifying SMTP configuration
+func (s *NotificationService) SendTestEmail(params TestEmailParams) error {
+	settings, err := s.GetSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultNotificationSettings()
+	}
+
+	host := strings.TrimSpace(params.Host)
+	if host == "" {
+		host = strings.TrimSpace(settings.SMTPHost)
+	}
+	if host == "" {
+		return errors.New("SMTP host is not configured; please provide a valid SMTP server hostname")
+	}
+
+	port := params.Port
+	if port <= 0 {
+		port = settings.SMTPPort
+	}
+	if port <= 0 {
+		port = 587
+	}
+
+	from := strings.TrimSpace(params.From)
+	if from == "" {
+		from = strings.TrimSpace(settings.SMTPFrom)
+	}
+	if from == "" {
+		from = "notifications@seriestkd.com"
+	}
+
+	user := strings.TrimSpace(params.User)
+	if user == "" {
+		user = strings.TrimSpace(settings.SMTPUser)
+	}
+
+	password := strings.TrimSpace(params.Password)
+	if password == "" {
+		password = strings.TrimSpace(settings.SMTPPassword)
+	}
+	if strings.Contains(strings.ToLower(host), "gmail.com") {
+		password = strings.ReplaceAll(password, " ", "")
+	}
+
+	recipient := strings.TrimSpace(params.Recipient)
+	if recipient == "" {
+		return errors.New("recipient email address is required")
+	}
+	if !strings.Contains(recipient, "@") {
+		return errors.New("recipient must be a valid email address containing '@'")
+	}
+
+	// Support simulated or mock delivery for tests or local sandbox modes
+	if strings.ToLower(host) == "simulated" || strings.ToLower(host) == "mock" || strings.HasSuffix(strings.ToLower(host), ".test") {
+		log.Printf("✉️ [SIMULATED EMAIL TEST] To: %s | Host: %s:%d | From: %s | User: %s", recipient, host, port, from, user)
+		return nil
+	}
+
+	subject := "🥋 Series Taekwondo: Test Email Notification"
+	timestamp := time.Now().Format("2006-01-02 15:04:05 MST")
+
+	bodyText := fmt.Sprintf(`🥋 SERIES TAEKWONDO MANAGEMENT SYSTEM
+====================================
+
+Hello,
+
+This is a test notification confirming that your SMTP email settings are correctly configured and operational!
+
+Server Host: %s:%d
+From Address: %s
+Dispatched To: %s
+Timestamp: %s
+
+Train with passion, lead with purpose.
+Series Taekwondo Team
+`, host, port, from, recipient, timestamp)
+
+	bodyHTML := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Series Taekwondo - Test Email</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
+  <div style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+    <div style="background-color: #990303; padding: 24px; text-align: center; color: #ffffff;">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">SERIES TAEKWONDO</h1>
+      <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">SMTP Notification Delivery Test</p>
+    </div>
+    <div style="padding: 24px;">
+      <h2 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 0;">Test Email Successful!</h2>
+      <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+        This test notification confirms that outward SMTP email delivery from your Series Taekwondo Management System is operational.
+      </p>
+      <div style="background-color: #f1f5f9; border-radius: 8px; padding: 16px; margin: 20px 0; font-size: 13px; line-height: 1.6;">
+        <div><strong>SMTP Host:</strong> %s:%d</div>
+        <div><strong>From Address:</strong> %s</div>
+        <div><strong>Recipient:</strong> %s</div>
+        <div><strong>Dispatched At:</strong> %s</div>
+      </div>
+      <p style="font-size: 12px; color: #64748b; margin-bottom: 0;">
+        Train with passion, lead with purpose.<br>
+        &copy; Series Taekwondo
+      </p>
+    </div>
+  </div>
+</body>
+</html>`, host, port, from, recipient, timestamp)
+
+	return sendSMTPMail(host, port, user, password, from, recipient, subject, bodyHTML, bodyText)
+}
+
+func sendSMTPMail(host string, port int, user, password, from, to, subject, bodyHTML, bodyText string) error {
+	addr := fmt.Sprintf("%s:%d", host, port)
+
+	boundary := fmt.Sprintf("stms_boundary_%d", time.Now().UnixNano())
+
+	header := make(map[string]string)
+	header["From"] = from
+	header["To"] = to
+	header["Subject"] = subject
+	header["MIME-Version"] = "1.0"
+	header["Content-Type"] = fmt.Sprintf("multipart/alternative; boundary=\"%s\"", boundary)
+	header["Date"] = time.Now().Format(time.RFC1123Z)
+
+	var msg strings.Builder
+	for k, v := range header {
+		msg.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+	}
+	msg.WriteString("\r\n")
+
+	// Plain text part
+	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	msg.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n")
+	msg.WriteString("Content-Transfer-Encoding: 7bit\r\n\r\n")
+	msg.WriteString(bodyText)
+	msg.WriteString("\r\n\r\n")
+
+	// HTML part
+	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	msg.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
+	msg.WriteString("Content-Transfer-Encoding: 7bit\r\n\r\n")
+	msg.WriteString(bodyHTML)
+	msg.WriteString("\r\n\r\n")
+
+	msg.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+
+	rawMsg := []byte(msg.String())
+
+	var client *smtp.Client
+	if port == 465 {
+		tlsConfig := &tls.Config{
+			ServerName: host,
+		}
+		dialer := &net.Dialer{Timeout: 10 * time.Second}
+		conn, err := tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to connect to SMTP server via TLS (%s): %w", addr, err)
+		}
+		c, err := smtp.NewClient(conn, host)
+		if err != nil {
+			_ = conn.Close()
+			return fmt.Errorf("failed to create SMTP client: %w", err)
+		}
+		client = c
+	} else {
+		conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to connect to SMTP server (%s): %w", addr, err)
+		}
+		c, err := smtp.NewClient(conn, host)
+		if err != nil {
+			_ = conn.Close()
+			return fmt.Errorf("failed to create SMTP client: %w", err)
+		}
+		client = c
+
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			tlsConfig := &tls.Config{
+				ServerName: host,
+			}
+			if err := client.StartTLS(tlsConfig); err != nil {
+				_ = client.Close()
+				return fmt.Errorf("failed to initiate STARTTLS: %w", err)
+			}
+		}
+	}
+	defer client.Close()
+
+	if user != "" && password != "" {
+		auth := smtp.PlainAuth("", user, password, host)
+		if err := client.Auth(auth); err != nil {
+			errStr := err.Error()
+			if strings.Contains(errStr, "535") || strings.Contains(errStr, "BadCredentials") || strings.Contains(strings.ToLower(errStr), "username and password not accepted") {
+				if strings.Contains(strings.ToLower(host), "gmail.com") {
+					return fmt.Errorf("Gmail SMTP authentication failed (535 BadCredentials): Google rejected the credentials. Google accounts require 2-Step Verification and a 16-character Google App Password (not your normal Gmail password). Generate an App Password at https://myaccount.google.com/apppasswords")
+				}
+			}
+			return fmt.Errorf("SMTP authentication failed: %w", err)
+		}
+	}
+
+	if err := client.Mail(from); err != nil {
+		return fmt.Errorf("SMTP MAIL FROM failed: %w", err)
+	}
+
+	if err := client.Rcpt(to); err != nil {
+		return fmt.Errorf("SMTP RCPT TO failed: %w", err)
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("SMTP DATA failed: %w", err)
+	}
+
+	if _, err := w.Write(rawMsg); err != nil {
+		return fmt.Errorf("failed to write email body: %w", err)
+	}
+
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("failed to complete email data transfer: %w", err)
+	}
+
+	_ = client.Quit()
+	return nil
 }

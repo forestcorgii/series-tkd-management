@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -399,6 +400,63 @@ func TestNotificationService_PushSubscriptions(t *testing.T) {
 	subsAfterDelete, _ := store.GetPushSubscriptionsByUserID(userID)
 	if len(subsAfterDelete) != 0 {
 		t.Fatalf("expected 0 subscriptions after delete, got %d", len(subsAfterDelete))
+	}
+}
+
+func TestNotificationService_SendTestEmail(t *testing.T) {
+	svc, _ := setupTestNotificationService()
+
+	// 1. Error when host is completely missing
+	err := svc.SendTestEmail(services.TestEmailParams{
+		Host:      "",
+		Recipient: "admin@seriestkd.com",
+	})
+	if err == nil || !strings.Contains(err.Error(), "SMTP host is not configured") {
+		t.Fatalf("expected error about missing SMTP host, got %v", err)
+	}
+
+	// 2. Error when recipient is missing
+	err = svc.SendTestEmail(services.TestEmailParams{
+		Host:      "smtp.mail.test",
+		Recipient: "",
+	})
+	if err == nil || !strings.Contains(err.Error(), "recipient email address is required") {
+		t.Fatalf("expected error about missing recipient, got %v", err)
+	}
+
+	// 3. Error when recipient format is invalid
+	err = svc.SendTestEmail(services.TestEmailParams{
+		Host:      "smtp.mail.test",
+		Recipient: "not-an-email",
+	})
+	if err == nil || !strings.Contains(err.Error(), "valid email address") {
+		t.Fatalf("expected error about invalid recipient format, got %v", err)
+	}
+
+	// 4. Success using simulated/mock host
+	err = svc.SendTestEmail(services.TestEmailParams{
+		Host:      "simulated",
+		Port:      587,
+		User:      "admin",
+		From:      "noreply@seriestkd.com",
+		Recipient: "admin@seriestkd.com",
+	})
+	if err != nil {
+		t.Fatalf("expected simulated email test to succeed, got %v", err)
+	}
+
+	// 5. Success using saved settings with mock host
+	settings, _ := svc.GetSettings()
+	settings.SMTPHost = "mock"
+	settings.SMTPPort = 465
+	settings.SMTPFrom = "system@seriestkd.com"
+	_ = svc.UpdateSettings(settings)
+
+	err = svc.SendTestEmail(services.TestEmailParams{
+		Recipient: "coach@seriestkd.com",
+	})
+	if err != nil {
+		t.Fatalf("expected test email to use saved settings with mock host, got %v", err)
 	}
 }
 

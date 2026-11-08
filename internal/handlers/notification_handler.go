@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"series-tkd-management/internal/models"
+	"series-tkd-management/internal/services"
 )
 
 // API endpoint returning JSON notifications list & unread count
@@ -352,6 +355,90 @@ func (a *AppHandler) HandlePushTest(w http.ResponseWriter, r *http.Request) {
 		"status":     "ok",
 		"sent_count": sentCount,
 		"message":    fmt.Sprintf("Dispatched test push to %d connected device(s)", sentCount),
+	})
+}
+
+// HandleEmailTest tests SMTP email delivery settings with an immediate test message
+func (a *AppHandler) HandleEmailTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Host      string `json:"smtp_host"`
+		Port      int    `json:"smtp_port"`
+		User      string `json:"smtp_user"`
+		Password  string `json:"smtp_password"`
+		From      string `json:"smtp_from"`
+		Recipient string `json:"recipient_email"`
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON payload: " + err.Error()})
+			return
+		}
+	} else {
+		_ = r.ParseForm()
+		req.Host = r.FormValue("smtp_host")
+		if portStr := r.FormValue("smtp_port"); portStr != "" {
+			req.Port, _ = strconv.Atoi(portStr)
+		}
+		req.User = r.FormValue("smtp_user")
+		req.Password = r.FormValue("smtp_password")
+		req.From = r.FormValue("smtp_from")
+		req.Recipient = r.FormValue("recipient_email")
+	}
+
+	if strings.TrimSpace(req.Recipient) == "" {
+		req.Recipient = user.Email
+	}
+
+	params := services.TestEmailParams{
+		Host:      req.Host,
+		Port:      req.Port,
+		User:      req.User,
+		Password:  req.Password,
+		From:      req.From,
+		Recipient: req.Recipient,
+	}
+
+	err := a.notifSvc.SendTestEmail(params)
+	if err != nil {
+		if strings.Contains(r.Header.Get("Accept"), "text/html") && !strings.Contains(contentType, "application/json") {
+			http.Redirect(w, r, "/settings?tab=notifications&error="+url.QueryEscape("Test email failed: "+err.Error()), http.StatusSeeOther)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	a.LogAction(r, "NOTIFICATIONS_TEST_EMAIL", models.AuditCategorySettings, "Settings", "", "Test Email", fmt.Sprintf("Sent test email to %s", req.Recipient))
+
+	if strings.Contains(r.Header.Get("Accept"), "text/html") && !strings.Contains(contentType, "application/json") {
+		http.Redirect(w, r, "/settings?tab=notifications&success="+url.QueryEscape(fmt.Sprintf("Test email dispatched successfully to %s", req.Recipient)), http.StatusSeeOther)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"message":   fmt.Sprintf("Test email sent successfully to %s", req.Recipient),
+		"recipient": req.Recipient,
 	})
 }
 

@@ -337,3 +337,74 @@ func TestPushNotification_Handlers(t *testing.T) {
 	}
 }
 
+func TestEmailNotification_Handlers(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	token := uuid.New().String()
+	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
+
+	// 1. Unauthorized request
+	reqUnauth := httptest.NewRequest("POST", "/api/email/test", nil)
+	recUnauth := httptest.NewRecorder()
+	app.HandleEmailTest(recUnauth, reqUnauth)
+	if recUnauth.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for unauthenticated request, got %d", recUnauth.Code)
+	}
+
+	// 2. Error when SMTP host not configured
+	emptyPayload := `{"smtp_host":"","recipient_email":"admin@seriestkd.com"}`
+	reqEmpty := httptest.NewRequest("POST", "/api/email/test", strings.NewReader(emptyPayload))
+	reqEmpty.Header.Set("Content-Type", "application/json")
+	reqEmpty.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recEmpty := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleEmailTest)).ServeHTTP(recEmpty, reqEmpty)
+
+	if recEmpty.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for empty SMTP host, got %d: %s", recEmpty.Code, recEmpty.Body.String())
+	}
+	var errResp map[string]string
+	_ = json.Unmarshal(recEmpty.Body.Bytes(), &errResp)
+	if !strings.Contains(errResp["error"], "SMTP host is not configured") {
+		t.Errorf("expected SMTP host error, got %s", errResp["error"])
+	}
+
+	// 3. Success with simulated SMTP host via JSON
+	simPayload := `{"smtp_host":"simulated","smtp_port":587,"smtp_from":"test@seriestkd.com","recipient_email":"manager@seriestkd.com"}`
+	reqSim := httptest.NewRequest("POST", "/api/email/test", strings.NewReader(simPayload))
+	reqSim.Header.Set("Content-Type", "application/json")
+	reqSim.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recSim := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleEmailTest)).ServeHTTP(recSim, reqSim)
+
+	if recSim.Code != http.StatusOK {
+		t.Fatalf("expected 200 for simulated email test, got %d: %s", recSim.Code, recSim.Body.String())
+	}
+	var okResp map[string]interface{}
+	_ = json.Unmarshal(recSim.Body.Bytes(), &okResp)
+	if okResp["status"] != "ok" {
+		t.Errorf("expected status ok, got %v", okResp["status"])
+	}
+
+	// 4. Success via Form POST with HTML redirect
+	form := url.Values{}
+	form.Set("smtp_host", "simulated")
+	form.Set("smtp_port", "587")
+	form.Set("recipient_email", "admin@seriestkd.com")
+
+	reqForm := httptest.NewRequest("POST", "/settings/notifications/test-email", strings.NewReader(form.Encode()))
+	reqForm.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqForm.Header.Set("Accept", "text/html,application/xhtml+xml")
+	reqForm.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	recForm := httptest.NewRecorder()
+	app.AuthMiddleware(http.HandlerFunc(app.HandleEmailTest)).ServeHTTP(recForm, reqForm)
+
+	if recForm.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect for HTML form post, got %d", recForm.Code)
+	}
+	location := recForm.Header().Get("Location")
+	if !strings.Contains(location, "success=") || !strings.Contains(location, "tab=notifications") {
+		t.Errorf("expected redirect to notification settings tab with success, got %s", location)
+	}
+}
+
