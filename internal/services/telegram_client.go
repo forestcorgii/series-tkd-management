@@ -9,6 +9,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -53,6 +55,56 @@ var telegramHTTPClient = &http.Client{
 	Timeout: 8 * time.Second,
 }
 
+// isTelegramValidButtonURL checks if a URL complies with Telegram Bot API InlineKeyboardButton rules:
+// - Must use http, https, or tg scheme
+// - Must not be localhost, 127.0.0.1, or local hostnames without a public domain dot
+func isTelegramValidButtonURL(rawURL string) bool {
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed == "" {
+		return false
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme == "tg" {
+		return true
+	}
+	if scheme != "http" && scheme != "https" {
+		return false
+	}
+	hostname := strings.ToLower(u.Hostname())
+	if hostname == "" || hostname == "localhost" || hostname == "127.0.0.1" || hostname == "0.0.0.0" {
+		return false
+	}
+	// Telegram requires a valid domain with a dot (e.g. seriestkd.com, railway.app)
+	if !strings.Contains(hostname, ".") {
+		return false
+	}
+	return true
+}
+
+// sanitizeTelegramButtons purges buttons with invalid or localhost URLs so Telegram API does not reject the entire message
+func sanitizeTelegramButtons(buttons [][]TelegramInlineButton) [][]TelegramInlineButton {
+	if len(buttons) == 0 {
+		return nil
+	}
+	var validRows [][]TelegramInlineButton
+	for _, row := range buttons {
+		var validRow []TelegramInlineButton
+		for _, btn := range row {
+			if isTelegramValidButtonURL(btn.URL) {
+				validRow = append(validRow, btn)
+			}
+		}
+		if len(validRow) > 0 {
+			validRows = append(validRows, validRow)
+		}
+	}
+	return validRows
+}
+
 // SendTelegramMessage sends an HTML-formatted message with optional buttons to the target chat
 func SendTelegramMessage(botToken, chatID, htmlText string, buttons [][]TelegramInlineButton) error {
 	token := strings.TrimSpace(botToken)
@@ -76,9 +128,12 @@ func SendTelegramMessage(botToken, chatID, htmlText string, buttons [][]Telegram
 		ParseMode:             "HTML",
 		DisableWebPagePreview: false,
 	}
-	if len(buttons) > 0 {
+
+	// Filter out invalid or localhost URLs to comply with Telegram Bot API validation
+	sanitizedButtons := sanitizeTelegramButtons(buttons)
+	if len(sanitizedButtons) > 0 {
 		payload.ReplyMarkup = &TelegramReplyMarkup{
-			InlineKeyboard: buttons,
+			InlineKeyboard: sanitizedButtons,
 		}
 	}
 
@@ -165,10 +220,16 @@ func TestTelegramConnection(botToken, chatID string) (string, error) {
 			"<i>Tested at %s</i>",
 			botUser.Username, time.Now().Format("Jan 02, 2006 15:04 MST"))
 
-		buttons := [][]TelegramInlineButton{
-			{
-				{Text: "🥋 Open STMS Portal", URL: "http://localhost:8080/dashboard"},
-			},
+		// Only attach Portal button if an external public base URL is configured
+		var buttons [][]TelegramInlineButton
+		baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("APP_BASE_URL")), "/")
+		if baseURL == "" {
+			baseURL = strings.TrimRight(strings.TrimSpace(os.Getenv("HOST")), "/")
+		}
+		if isTelegramValidButtonURL(baseURL) {
+			buttons = append(buttons, []TelegramInlineButton{
+				{Text: "🥋 Open STMS Portal", URL: baseURL + "/dashboard"},
+			})
 		}
 
 		if err := SendTelegramMessage(token, target, testMsg, buttons); err != nil {
