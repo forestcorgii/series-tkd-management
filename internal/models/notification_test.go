@@ -10,14 +10,11 @@ import (
 
 func TestDefaultNotificationSettings(t *testing.T) {
 	settings := models.DefaultNotificationSettings()
-	if !settings.PushEnabled {
-		t.Errorf("expected PushEnabled default true")
-	}
-	if !settings.SMSEnabled {
-		t.Errorf("expected SMSEnabled default true")
-	}
 	if !settings.EmailEnabled {
 		t.Errorf("expected EmailEnabled default true")
+	}
+	if settings.TelegramEnabled {
+		t.Errorf("expected TelegramEnabled default false")
 	}
 	if !settings.NotifyAdminStudentAdmitted {
 		t.Errorf("expected NotifyAdminStudentAdmitted default true")
@@ -25,37 +22,40 @@ func TestDefaultNotificationSettings(t *testing.T) {
 	if !settings.NotifyStudentPromotionEligible {
 		t.Errorf("expected NotifyStudentPromotionEligible default true")
 	}
+	if !settings.NotifyTelegramNewClass {
+		t.Errorf("expected NotifyTelegramNewClass default true")
+	}
+	if !settings.NotifyTelegramNewStudent {
+		t.Errorf("expected NotifyTelegramNewStudent default true")
+	}
+	if !settings.NotifyTelegramSlotReserved {
+		t.Errorf("expected NotifyTelegramSlotReserved default true")
+	}
 }
 
 func TestNotificationSettings_DisableChannels(t *testing.T) {
 	settings := models.DefaultNotificationSettings()
 
 	// Verify channels enabled initially
-	if !settings.IsChannelEnabled(models.ChannelSMS) {
-		t.Errorf("expected SMS enabled")
-	}
 	if !settings.IsChannelEnabled(models.ChannelEmail) {
 		t.Errorf("expected Email enabled")
 	}
-	if !settings.IsChannelEnabled(models.ChannelPush) {
-		t.Errorf("expected Push enabled")
-	}
-
-	// Disable SMS and Email
-	settings.SMSEnabled = false
-	settings.EmailEnabled = false
-
-	if settings.IsChannelEnabled(models.ChannelSMS) {
-		t.Errorf("expected SMS to be disabled when SMSEnabled is false")
-	}
-	if settings.IsChannelEnabled(models.ChannelEmail) {
-		t.Errorf("expected Email to be disabled when EmailEnabled is false")
-	}
-	if !settings.IsChannelEnabled(models.ChannelPush) {
-		t.Errorf("expected Push to remain enabled")
+	if settings.IsChannelEnabled(models.ChannelTelegram) {
+		t.Errorf("expected Telegram disabled by default")
 	}
 	if !settings.IsChannelEnabled(models.ChannelInApp) {
 		t.Errorf("expected In-App to remain enabled as system operational inbox")
+	}
+
+	// Enable Telegram and disable Email
+	settings.TelegramEnabled = true
+	settings.EmailEnabled = false
+
+	if settings.IsChannelEnabled(models.ChannelEmail) {
+		t.Errorf("expected Email to be disabled when EmailEnabled is false")
+	}
+	if !settings.IsChannelEnabled(models.ChannelTelegram) {
+		t.Errorf("expected Telegram to be enabled")
 	}
 }
 
@@ -64,6 +64,9 @@ func TestNotificationSettings_IsEventEnabled(t *testing.T) {
 
 	if !settings.IsEventEnabled(models.EventStudentAdmitted) {
 		t.Errorf("expected EventStudentAdmitted to be enabled")
+	}
+	if !settings.IsEventEnabled(models.EventStudentRegistered) {
+		t.Errorf("expected EventStudentRegistered to be enabled")
 	}
 
 	settings.NotifyAdminStudentAdmitted = false
@@ -84,17 +87,14 @@ func TestUserNotificationPreferences(t *testing.T) {
 	if !prefs.ShouldReceive(models.ChannelEmail) {
 		t.Errorf("expected user email preference default true")
 	}
-	if !prefs.ShouldReceive(models.ChannelSMS) {
-		t.Errorf("expected user sms preference default true")
+	if !prefs.ShouldReceive(models.ChannelInApp) {
+		t.Errorf("expected user in-app preference default true")
 	}
 
-	// User opts out of SMS
-	prefs.SMSEnabled = false
-	if prefs.ShouldReceive(models.ChannelSMS) {
-		t.Errorf("expected user sms preference to be false when disabled")
-	}
-	if !prefs.ShouldReceive(models.ChannelEmail) {
-		t.Errorf("expected user email preference to still be true")
+	// User opts out of Email
+	prefs.EmailEnabled = false
+	if prefs.ShouldReceive(models.ChannelEmail) {
+		t.Errorf("expected user email preference to be false when disabled")
 	}
 }
 
@@ -121,36 +121,26 @@ func TestNotification_MarkAsRead(t *testing.T) {
 	}
 }
 
-func TestNotificationSettings_HasVAPIDKeys(t *testing.T) {
+func TestNotificationSettings_HasTelegramConfig(t *testing.T) {
 	settings := models.DefaultNotificationSettings()
-	if settings.HasVAPIDKeys() {
-		t.Errorf("expected HasVAPIDKeys to be false initially")
+	if settings.HasTelegramConfig() {
+		t.Errorf("expected HasTelegramConfig to be false initially")
 	}
 
-	settings.WebPushPublicKey = "test-pub"
-	if settings.HasVAPIDKeys() {
-		t.Errorf("expected HasVAPIDKeys to be false when private key is empty")
+	settings.TelegramBotToken = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+	if settings.HasTelegramConfig() {
+		t.Errorf("expected HasTelegramConfig to be false when both chat IDs are empty")
 	}
 
-	settings.WebPushPrivateKey = "test-priv"
-	if !settings.HasVAPIDKeys() {
-		t.Errorf("expected HasVAPIDKeys to be true when both keys are present")
-	}
-}
-
-func TestPushSubscription_Model(t *testing.T) {
-	userID := uuid.New()
-	sub := &models.PushSubscription{
-		ID:       uuid.New(),
-		UserID:   &userID,
-		Role:     models.RoleCoach,
-		Endpoint: "https://fcm.googleapis.com/fcm/send/test-endpoint",
-		P256dh:   "mock-p256dh",
-		Auth:     "mock-auth",
+	settings.TelegramPublicChatID = "@seriestkd_news"
+	if !settings.HasTelegramConfig() {
+		t.Errorf("expected HasTelegramConfig to be true when token and public chat ID are present")
 	}
 
-	if sub.Endpoint == "" || sub.P256dh == "" || sub.Auth == "" {
-		t.Fatalf("expected valid push subscription fields")
+	settings.TelegramPublicChatID = ""
+	settings.TelegramStaffChatID = "-1001234567890"
+	if !settings.HasTelegramConfig() {
+		t.Errorf("expected HasTelegramConfig to be true when token and staff chat ID are present")
 	}
 }
 

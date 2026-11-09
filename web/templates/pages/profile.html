@@ -419,55 +419,18 @@
                     <div class="has-tooltip inline-flex items-center">
                         <button type="button" class="tooltip-icon" aria-label="Notification preferences info">ⓘ</button>
                         <div class="tooltip-content w-72">
-                            Configure which channels you receive dojang updates on. You can disable email and SMS alerts at any time. In-app alerts remain active in your top bar inbox.
+                            Configure which channels you receive dojang updates on. You can disable email alerts at any time. In-app alerts remain active in your top bar inbox.
                         </div>
                     </div>
                 </div>
-                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Multi-Channel Alerts</span>
+                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Communication Alerts</span>
             </div>
 
             <p class="text-xs text-slate-600 dark:text-slate-400">
                 Choose how Series Taekwondo reaches you for class check-ins, belt promotion readiness, coach evaluations, injuries, and membership updates.
             </p>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-0.5">
-                <!-- Push Notification Toggle -->
-                <div class="relative flex flex-col p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition">
-                    <div class="flex items-center justify-between mb-1.5">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-base">🔔</span>
-                            <span class="font-bold text-xs text-slate-900 dark:text-white">Push Alerts</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="pref_push" name="pref_push" class="h-3.5 w-3.5 rounded accent-[#990303]" {{if or (not .Preferences) .Preferences.PushEnabled}}checked{{end}} onchange="togglePushAlerts(this)">
-                        </label>
-                    </div>
-                    <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                        Immediate device &amp; browser alerts for live dojang events.
-                    </p>
-                    <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-neutral-800 flex items-center justify-between">
-                        <span id="push-perm-status" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-slate-400">Detecting...</span>
-                        <button type="button" id="btn-test-push" onclick="triggerTestPush(this)" class="text-[10px] font-bold text-[#990303] dark:text-red-400 hover:underline flex items-center gap-1 transition">
-                            <span>🚀</span> Test Push
-                        </button>
-                    </div>
-                    <div id="push-test-result" class="hidden text-[10px] mt-1.5 font-medium"></div>
-                </div>
-
-                <!-- SMS Notification Toggle -->
-                <label class="relative flex flex-col p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
-                    <div class="flex items-center justify-between mb-1.5">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-base">📱</span>
-                            <span class="font-bold text-xs text-slate-900 dark:text-white">SMS Alerts</span>
-                        </div>
-                        <input type="checkbox" name="pref_sms" class="h-3.5 w-3.5 rounded accent-[#990303]" {{if and .Preferences .Preferences.SMSEnabled}}checked{{end}}>
-                    </div>
-                    <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                        Direct SMS notices. <strong class="text-rose-600 dark:text-rose-400 font-semibold block mt-0.5">Can disable anytime.</strong>
-                    </p>
-                </label>
-
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-0.5">
                 <!-- Email Notification Toggle -->
                 <label class="relative flex flex-col p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 hover:bg-slate-50 dark:hover:bg-neutral-800/60 transition cursor-pointer">
                     <div class="flex items-center justify-between mb-1.5">
@@ -478,9 +441,23 @@
                         <input type="checkbox" name="pref_email" class="h-3.5 w-3.5 rounded accent-[#990303]" {{if and .Preferences .Preferences.EmailEnabled}}checked{{end}}>
                     </div>
                     <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                        Detailed email reports. <strong class="text-rose-600 dark:text-rose-400 font-semibold block mt-0.5">Can disable anytime.</strong>
+                        Detailed email reports and promotion readiness notices. <strong class="text-rose-600 dark:text-rose-400 font-semibold block mt-0.5">Can disable anytime.</strong>
                     </p>
                 </label>
+
+                <!-- In-App Notification Info -->
+                <div class="relative flex flex-col p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-base">📬</span>
+                            <span class="font-bold text-xs text-slate-900 dark:text-white">In-App Inbox</span>
+                        </div>
+                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">Always Active</span>
+                    </div>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                        System notifications and announcements are always visible in your top navigation notification inbox.
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -555,93 +532,6 @@ function toggleAvatarRemoval(checkbox) {
         }
     }
 }
-
-async function updatePushStatusUI() {
-    const statusEl = document.getElementById('push-perm-status');
-    const checkbox = document.getElementById('pref_push');
-    if (!statusEl || !window.STMSPush) return;
-
-    if (!STMSPush.isSupported()) {
-        statusEl.textContent = 'Unsupported';
-        statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500';
-        if (checkbox) checkbox.disabled = true;
-        return;
-    }
-
-    const perm = Notification.permission;
-    if (perm === 'granted') {
-        const sub = await STMSPush.getSubscription();
-        if (sub) {
-            statusEl.textContent = 'Active (Connected)';
-            statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
-        } else {
-            statusEl.textContent = 'Permitted (Syncing...)';
-            statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
-            try { await STMSPush.subscribe(); statusEl.textContent = 'Active (Connected)'; } catch (e) {}
-        }
-    } else if (perm === 'denied') {
-        statusEl.textContent = 'Blocked by Browser';
-        statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
-        if (checkbox) checkbox.checked = false;
-    } else {
-        statusEl.textContent = 'Ready to Enable';
-        statusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
-    }
-}
-
-async function togglePushAlerts(input) {
-    if (!window.STMSPush) return;
-    if (input.checked) {
-        try {
-            const res = await STMSPush.subscribe();
-            if (!res.success) {
-                input.checked = false;
-                alert('Push notifications permission was not granted. Please check browser permissions.');
-            }
-        } catch (err) {
-            input.checked = false;
-            alert('Could not enable push: ' + err.message);
-        }
-    } else {
-        await STMSPush.unsubscribe();
-    }
-    updatePushStatusUI();
-}
-
-async function triggerTestPush(btn) {
-    const resultEl = document.getElementById('push-test-result');
-    btn.disabled = true;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<span>⏳</span> Sending...';
-    if (resultEl) {
-        resultEl.classList.add('hidden');
-        resultEl.textContent = '';
-    }
-
-    try {
-        if (Notification.permission !== 'granted') {
-            const subRes = await STMSPush.subscribe();
-            if (!subRes.success) throw new Error('Notification permission required');
-        }
-        const res = await STMSPush.sendTestPush();
-        if (resultEl) {
-            resultEl.textContent = '✓ ' + (res.message || 'Push delivered!');
-            resultEl.className = 'text-[10px] mt-1.5 font-bold text-emerald-600 dark:text-emerald-400 block';
-        }
-    } catch (err) {
-        if (resultEl) {
-            resultEl.textContent = '✗ ' + err.message;
-            resultEl.className = 'text-[10px] mt-1.5 font-bold text-rose-600 dark:text-rose-400 block';
-        }
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-        updatePushStatusUI();
-    }
-}
-
-document.addEventListener('DOMContentLoaded', updatePushStatusUI);
-window.addEventListener('load', updatePushStatusUI);
 </script>
 {{end}}
 

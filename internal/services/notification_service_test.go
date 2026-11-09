@@ -21,11 +21,10 @@ func setupTestNotificationService() (*services.NotificationService, repository.R
 func TestNotificationService_DisabledChannels(t *testing.T) {
 	svc, store := setupTestNotificationService()
 
-	// 1. Disable SMS and Email in Settings
+	// 1. Disable Email and Telegram in Settings
 	settings, _ := svc.GetSettings()
-	settings.SMSEnabled = false
 	settings.EmailEnabled = false
-	settings.PushEnabled = true
+	settings.TelegramEnabled = false
 	_ = svc.UpdateSettings(settings)
 
 	// Create a student with phone and email
@@ -41,13 +40,10 @@ func TestNotificationService_DisabledChannels(t *testing.T) {
 	// Trigger promotion eligible notification
 	svc.NotifyPromotionEligible(student)
 
-	// Verify that NO SMS and NO Email notifications were created
+	// Verify that NO Email notifications were dispatched
 	notifs, _, _ := svc.GetNotifications(models.NotificationFilter{})
 
 	for _, n := range notifs {
-		if n.Channel == models.ChannelSMS {
-			t.Errorf("expected SMS to be disabled, but found SMS notification: %+v", n)
-		}
 		if n.Channel == models.ChannelEmail {
 			t.Errorf("expected Email to be disabled, but found Email notification: %+v", n)
 		}
@@ -59,9 +55,7 @@ func TestNotificationService_PersonalPreferences(t *testing.T) {
 
 	// Global settings have everything enabled
 	settings, _ := svc.GetSettings()
-	settings.SMSEnabled = true
 	settings.EmailEnabled = true
-	settings.PushEnabled = true
 	_ = svc.UpdateSettings(settings)
 
 	studentID := uuid.New()
@@ -85,12 +79,10 @@ func TestNotificationService_PersonalPreferences(t *testing.T) {
 	}
 	_ = store.CreateUser(user)
 
-	// User disables SMS personally
+	// User disables Email personally
 	prefs := &models.UserNotificationPreferences{
 		UserID:       userID,
-		EmailEnabled: true,
-		SMSEnabled:   false,
-		PushEnabled:  true,
+		EmailEnabled: false,
 		UpdatedAt:    time.Now(),
 	}
 	_ = svc.UpdateUserPreferences(prefs)
@@ -111,8 +103,8 @@ func TestNotificationService_PersonalPreferences(t *testing.T) {
 	notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &userID})
 
 	for _, n := range notifs {
-		if n.Channel == models.ChannelSMS {
-			t.Errorf("expected user to not receive SMS when opted out personally, got: %+v", n)
+		if n.Channel == models.ChannelEmail {
+			t.Errorf("expected user to not receive Email when opted out personally, got: %+v", n)
 		}
 	}
 }
@@ -309,97 +301,126 @@ func TestNotificationService_NoDuplicateNotifications(t *testing.T) {
 	}
 }
 
-func TestNotificationService_EnsureVAPIDKeys(t *testing.T) {
+func TestNotificationService_NotifyStudentRegistered(t *testing.T) {
 	svc, store := setupTestNotificationService()
 
-	// Initial settings have blank VAPID keys
-	settings, err := store.GetNotificationSettings()
-	if err != nil {
-		t.Fatalf("failed to get settings: %v", err)
+	adminUser := &models.User{
+		ID:          uuid.New(),
+		Email:       "manager@seriestkd.com",
+		Role:        models.RoleOperationManager,
+		DisplayName: "Chief Instructor",
+		IsActive:    true,
 	}
-	settings.WebPushPublicKey = ""
-	settings.WebPushPrivateKey = ""
-	_ = store.UpdateNotificationSettings(settings)
+	_ = store.CreateUser(adminUser)
 
-	// EnsureVAPIDKeys should auto-generate valid keys
-	ensured, err := svc.EnsureVAPIDKeys()
-	if err != nil {
-		t.Fatalf("EnsureVAPIDKeys failed: %v", err)
+	student := &models.Student{
+		ID:             uuid.New(),
+		FullName:       "Jin Kazama",
+		CurrentBelt:    models.BeltWhite,
+		DOB:            time.Now().AddDate(-12, 0, 0),
+		EmergencyName:  "Jun Kazama",
+		EmergencyPhone: "+639171234567",
 	}
-	if !ensured.HasVAPIDKeys() {
-		t.Fatalf("expected ensured settings to have valid VAPID keys")
+	_ = store.CreateStudent(student)
+
+	svc.NotifyStudentRegistered(student, "Front Desk Admin", "10-Class Starter Pass")
+
+	notifs, count, err := svc.GetNotifications(models.NotificationFilter{
+		EventType: func() *models.NotificationEventType { e := models.EventStudentRegistered; return &e }(),
+	})
+	if err != nil {
+		t.Fatalf("failed to query notifications: %v", err)
+	}
+	if count == 0 || len(notifs) == 0 {
+		t.Fatalf("expected EventStudentRegistered notification to be created")
 	}
 
-	// Calling again should preserve existing keys without regenerating
-	pubKey := ensured.WebPushPublicKey
-	ensuredAgain, err := svc.EnsureVAPIDKeys()
-	if err != nil {
-		t.Fatalf("EnsureVAPIDKeys second call failed: %v", err)
+	found := notifs[0]
+	if !strings.Contains(found.Title, "Jin Kazama") {
+		t.Errorf("expected student name in title, got: %s", found.Title)
 	}
-	if ensuredAgain.WebPushPublicKey != pubKey {
-		t.Fatalf("expected VAPID public key to remain stable, changed from %s to %s", pubKey, ensuredAgain.WebPushPublicKey)
-	}
-
-	// GenerateAndSaveVAPIDKeys forces fresh keys
-	fresh, err := svc.GenerateAndSaveVAPIDKeys()
-	if err != nil {
-		t.Fatalf("GenerateAndSaveVAPIDKeys failed: %v", err)
-	}
-	if fresh.WebPushPublicKey == pubKey {
-		t.Fatalf("expected fresh VAPID keys to differ from old keys")
+	if !strings.Contains(found.Message, "10-Class Starter Pass") {
+		t.Errorf("expected package in message, got: %s", found.Message)
 	}
 }
 
-func TestNotificationService_PushSubscriptions(t *testing.T) {
-	_, store := setupTestNotificationService()
-	userID := uuid.New()
+func TestNotificationService_TelegramIntegration(t *testing.T) {
+	svc, store := setupTestNotificationService()
 
-	sub := &models.PushSubscription{
-		ID:        uuid.New(),
-		UserID:    &userID,
-		Role:      models.RoleCoach,
-		Endpoint:  "https://updates.push.services.mozilla.com/wpush/v2/test-1",
-		P256dh:    "mock-key",
-		Auth:      "mock-auth",
-		UserAgent: "Mozilla/5.0",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+	// 1. Test simulated telegram connection
+	botUser, err := svc.SendTestTelegram("simulated", "@seriestkd_test")
+	if err != nil {
+		t.Fatalf("expected simulated telegram connection to succeed: %v", err)
+	}
+	if botUser != "SimulatedTKDBot" {
+		t.Errorf("expected SimulatedTKDBot, got %s", botUser)
 	}
 
-	// 1. Create subscription
-	if err := store.CreateOrUpdatePushSubscription(sub); err != nil {
-		t.Fatalf("failed to create push subscription: %v", err)
+	// 2. Configure Telegram Settings with Location curation
+	settings, _ := svc.GetSettings()
+	settings.TelegramEnabled = true
+	settings.TelegramBotToken = "simulated"
+	settings.TelegramPublicChatID = "@seriestkd_global_channel"
+	settings.TelegramStaffChatID = "-100_global_staff"
+	_ = svc.UpdateSettings(settings)
+
+	// Create location with curated Telegram channels
+	locID := uuid.New()
+	loc := &models.Location{
+		ID:                  locID,
+		Name:                "Makati Central Branch",
+		Pin:                 "https://maps.google.com/?q=Makati",
+		TelegramChannelID:   "@seriestkd_makati_curated",
+		TelegramStaffChatID: "-100_makati_staff_curated",
+	}
+	_ = store.CreateLocation(loc)
+
+	// Create session at that location
+	coachID := uuid.New()
+	coachUser := &models.User{
+		ID:          uuid.New(),
+		Email:       "coach@seriestkd.com",
+		Role:        models.RoleCoach,
+		DisplayName: "Coach Nina",
+		IsActive:    true,
+	}
+	_ = store.CreateUser(coachUser)
+
+	sess := &models.TrainingSession{
+		ID:          uuid.New(),
+		SessionDate: time.Now().AddDate(0, 0, 1),
+		StartTime:   "18:00",
+		EndTime:     "19:00",
+		CoachID:     &coachID,
+		CoachName:   "Coach Nina",
+		LocationID:  &locID,
+		EntryType:   models.EntryTypeClass,
+	}
+	_ = store.CreateSession(sess)
+
+	// Trigger New Class Opened
+	svc.NotifyNewClassOpened(sess, "Admin Desk")
+
+	// Trigger Slot Reserved
+	svc.NotifySessionSlotReserved(sess, "Guest Traveler", true, "+639991112222")
+
+	// Verify in-app notifications reflect Telegram channel dispatched
+	notifs, _, _ := svc.GetNotifications(models.NotificationFilter{})
+	if len(notifs) == 0 {
+		t.Fatalf("expected notifications created")
 	}
 
-	// 2. Query by user ID
-	subs, err := store.GetPushSubscriptionsByUserID(userID)
-	if err != nil || len(subs) != 1 {
-		t.Fatalf("expected 1 subscription for user, got %d (err: %v)", len(subs), err)
+	hasTelegramChannel := false
+	for _, n := range notifs {
+		for _, ch := range n.DispatchedChannels() {
+			if ch == models.ChannelTelegram {
+				hasTelegramChannel = true
+				break
+			}
+		}
 	}
-
-	// 3. Upsert on same endpoint updates without duplication
-	sub.UserAgent = "Updated Agent"
-	if err := store.CreateOrUpdatePushSubscription(sub); err != nil {
-		t.Fatalf("failed to update push subscription: %v", err)
-	}
-	subs, _ = store.GetPushSubscriptionsByUserID(userID)
-	if len(subs) != 1 || subs[0].UserAgent != "Updated Agent" {
-		t.Fatalf("expected 1 updated subscription, got %d", len(subs))
-	}
-
-	// 4. Query by role
-	roleSubs, err := store.GetPushSubscriptionsByRole(models.RoleCoach)
-	if err != nil || len(roleSubs) != 1 {
-		t.Fatalf("expected 1 subscription for coach role, got %d", len(roleSubs))
-	}
-
-	// 5. Delete by endpoint
-	if err := store.DeletePushSubscription(sub.Endpoint); err != nil {
-		t.Fatalf("failed to delete subscription: %v", err)
-	}
-	subsAfterDelete, _ := store.GetPushSubscriptionsByUserID(userID)
-	if len(subsAfterDelete) != 0 {
-		t.Fatalf("expected 0 subscriptions after delete, got %d", len(subsAfterDelete))
+	if !hasTelegramChannel {
+		t.Errorf("expected ChannelTelegram to be included in dispatched channels")
 	}
 }
 

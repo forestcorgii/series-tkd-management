@@ -206,10 +206,21 @@ func (a *AppHandler) HandleUpdateNotificationSettings(w http.ResponseWriter, r *
 		return val == "on" || val == "true" || val == "1"
 	}
 
-	// Master Channel Switches (SMS and Email can be disabled!)
-	settings.PushEnabled = isChecked("push_enabled")
-	settings.SMSEnabled = isChecked("sms_enabled")
+	// Master Channel Switches
 	settings.EmailEnabled = isChecked("email_enabled")
+	settings.TelegramEnabled = isChecked("telegram_enabled")
+
+	// Telegram Bot Configurations & Toggles
+	if token := strings.TrimSpace(r.FormValue("telegram_bot_token")); token != "" {
+		settings.TelegramBotToken = token
+	}
+	settings.TelegramPublicChatID = strings.TrimSpace(r.FormValue("telegram_public_chat_id"))
+	settings.TelegramStaffChatID = strings.TrimSpace(r.FormValue("telegram_staff_chat_id"))
+	settings.NotifyTelegramNewClass = isChecked("notify_telegram_new_class")
+	settings.NotifyTelegramNewStudent = isChecked("notify_telegram_new_student")
+	settings.NotifyTelegramSlotReserved = isChecked("notify_telegram_slot_reserved")
+	settings.NotifyTelegramStaffRegistered = isChecked("notify_telegram_staff_registered")
+	settings.NotifyTelegramClassCancel = isChecked("notify_telegram_class_cancel")
 
 	// Staff / Coach & Admin event triggers
 	settings.NotifyAdminStudentAdmitted = isChecked("notify_admin_student_admitted")
@@ -227,7 +238,7 @@ func (a *AppHandler) HandleUpdateNotificationSettings(w http.ResponseWriter, r *
 	settings.NotifyStudentClassCancelled = isChecked("notify_student_class_cancelled")
 	settings.NotifyStudentPassExpiring = isChecked("notify_student_pass_expiring")
 
-	// Provider & Gateway Configurations
+	// SMTP Email Provider Configurations
 	settings.SMTPHost = strings.TrimSpace(r.FormValue("smtp_host"))
 	if portStr := strings.TrimSpace(r.FormValue("smtp_port")); portStr != "" {
 		if p, err := strconv.Atoi(portStr); err == nil && p > 0 {
@@ -243,45 +254,13 @@ func (a *AppHandler) HandleUpdateNotificationSettings(w http.ResponseWriter, r *
 	}
 	settings.SMTPFrom = strings.TrimSpace(r.FormValue("smtp_from"))
 
-	settings.SMSProvider = strings.TrimSpace(r.FormValue("sms_provider"))
-	if settings.SMSProvider == "" {
-		settings.SMSProvider = "simulated"
-	}
-	if key := r.FormValue("sms_api_key"); key != "" {
-		settings.SMSApiKey = strings.TrimSpace(key)
-	}
-	settings.SMSFromNumber = strings.TrimSpace(r.FormValue("sms_from_number"))
-
-	settings.WebPushPublicKey = strings.TrimSpace(r.FormValue("web_push_public_key"))
-	if priv := r.FormValue("web_push_private_key"); priv != "" {
-		settings.WebPushPrivateKey = strings.TrimSpace(priv)
-	}
-	settings.WebPushSubject = strings.TrimSpace(r.FormValue("web_push_subject"))
-
 	if err := a.notifSvc.UpdateSettings(settings); err != nil {
 		http.Redirect(w, r, "/settings?tab=notifications&error="+url.QueryEscape("Failed to save notification settings: "+err.Error()), http.StatusSeeOther)
 		return
 	}
 
-	a.LogAction(r, "NOTIFICATIONS_SETTINGS_UPDATE", models.AuditCategorySettings, "Settings", settings.ID.String(), "Notification Settings", "Updated push, SMS, and email notification channel settings")
+	a.LogAction(r, "NOTIFICATIONS_SETTINGS_UPDATE", models.AuditCategorySettings, "Settings", settings.ID.String(), "Notification Settings", "Updated Telegram and email notification channel settings")
 
 	http.Redirect(w, r, "/settings?tab=notifications&success="+url.QueryEscape("Notification settings updated successfully"), http.StatusSeeOther)
-}
-
-func (a *AppHandler) HandleGenerateVAPIDKeys(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	settings, err := a.notifSvc.GenerateAndSaveVAPIDKeys()
-	if err != nil {
-		http.Redirect(w, r, "/settings?tab=notifications&error="+url.QueryEscape("Failed to generate VAPID keys: "+err.Error()), http.StatusSeeOther)
-		return
-	}
-
-	a.LogAction(r, "VAPID_KEYS_GENERATE", models.AuditCategorySettings, "Settings", settings.ID.String(), "VAPID Keys", "Generated fresh Web Push VAPID cryptographic keypair")
-
-	http.Redirect(w, r, "/settings?tab=notifications&success="+url.QueryEscape("Fresh Web Push VAPID keypair generated and saved successfully"), http.StatusSeeOther)
 }
 

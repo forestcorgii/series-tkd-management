@@ -247,8 +247,24 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 		_, _ = a.authSvc.RegisterUser(email, password, models.RoleStudent, &s.ID, nil, username)
 	}
 
+	var pkgTitle string
 	if templateIDStr := strings.TrimSpace(r.FormValue("template_id")); templateIDStr != "" {
-		_, _ = a.AssignPackageFromForm(r, s.ID)
+		if sp, err := a.AssignPackageFromForm(r, s.ID); err == nil && sp != nil {
+			pkgTitle = sp.TemplateTitle
+		}
+	}
+
+	actorName := "Admin Desk"
+	if u := GetUserFromContext(r.Context()); u != nil {
+		if u.DisplayName != "" {
+			actorName = u.DisplayName
+		} else {
+			actorName = u.Email
+		}
+	}
+
+	if a.notifSvc != nil {
+		a.notifSvc.NotifyStudentRegistered(s, actorName, pkgTitle)
 	}
 
 	http.Redirect(w, r, "/students", http.StatusSeeOther)

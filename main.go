@@ -151,13 +151,9 @@ func main() {
 	mux.HandleFunc("POST /api/notifications/{id}/read", app.RequireAuth(app.HandleMarkNotificationRead))
 	mux.HandleFunc("POST /api/notifications/mark-all-read", app.RequireAuth(app.HandleMarkAllNotificationsRead))
 
-	// Web Push Notifications & Diagnostics
-	mux.HandleFunc("GET /api/push/vapid-public-key", app.HandleGetVAPIDPublicKey)
-	mux.HandleFunc("POST /api/push/subscribe", app.RequireAuth(app.HandlePushSubscribe))
-	mux.HandleFunc("POST /api/push/unsubscribe", app.RequireAuth(app.HandlePushUnsubscribe))
-	mux.HandleFunc("POST /api/push/test", app.RequireAuth(app.HandlePushTest))
+	// Outward Notification Channel Diagnostics
+	mux.HandleFunc("POST /settings/notifications/test-telegram", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleTestTelegram))
 	mux.HandleFunc("POST /api/email/test", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleEmailTest))
-	mux.HandleFunc("POST /settings/notifications/generate-vapid", app.RequireRole(models.RoleOperationManager)(app.HandleGenerateVAPIDKeys))
 	mux.HandleFunc("POST /settings/notifications/test-email", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleEmailTest))
 
 	// Section 4 Role Guarded APIs

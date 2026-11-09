@@ -8,14 +8,12 @@ import (
 	"html"
 	"log"
 	"net"
-	"net/http"
 	"net/smtp"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/SherClockHolmes/webpush-go"
 	"github.com/google/uuid"
 
 	"series-tkd-management/internal/models"
@@ -56,50 +54,9 @@ func (s *NotificationService) UpdateSettings(settings *models.NotificationSettin
 	return s.store.UpdateNotificationSettings(settings)
 }
 
-// EnsureVAPIDKeys guarantees a valid VAPID public/private keypair exists, auto-generating if blank
-func (s *NotificationService) EnsureVAPIDKeys() (*models.NotificationSettings, error) {
-	settings, err := s.store.GetNotificationSettings()
-	if err != nil || settings == nil {
-		settings = models.DefaultNotificationSettings()
-	}
-	if !settings.HasVAPIDKeys() {
-		priv, pub, err := webpush.GenerateVAPIDKeys()
-		if err != nil {
-			return settings, fmt.Errorf("failed to generate VAPID keys: %w", err)
-		}
-		settings.WebPushPrivateKey = priv
-		settings.WebPushPublicKey = pub
-		if strings.TrimSpace(settings.WebPushSubject) == "" {
-			settings.WebPushSubject = "mailto:admin@seriestkd.com"
-		}
-		if err := s.store.UpdateNotificationSettings(settings); err != nil {
-			return settings, fmt.Errorf("failed to save generated VAPID keys: %w", err)
-		}
-		log.Printf("🔑 Auto-generated new VAPID keypair for Web Push")
-	}
-	return settings, nil
-}
-
-// GenerateAndSaveVAPIDKeys forces creation and saving of a fresh VAPID keypair
-func (s *NotificationService) GenerateAndSaveVAPIDKeys() (*models.NotificationSettings, error) {
-	settings, err := s.store.GetNotificationSettings()
-	if err != nil || settings == nil {
-		settings = models.DefaultNotificationSettings()
-	}
-	priv, pub, err := webpush.GenerateVAPIDKeys()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate VAPID keys: %w", err)
-	}
-	settings.WebPushPrivateKey = priv
-	settings.WebPushPublicKey = pub
-	if strings.TrimSpace(settings.WebPushSubject) == "" {
-		settings.WebPushSubject = "mailto:admin@seriestkd.com"
-	}
-	if err := s.store.UpdateNotificationSettings(settings); err != nil {
-		return nil, fmt.Errorf("failed to save VAPID keys: %w", err)
-	}
-	log.Printf("🔑 Generated and saved new VAPID keypair for Web Push")
-	return settings, nil
+// SendTestTelegram tests the connection to Telegram API and verifies the bot username
+func (s *NotificationService) SendTestTelegram(botToken, chatID string) (string, error) {
+	return TestTelegramConnection(botToken, chatID)
 }
 
 // User preferences management
@@ -224,21 +181,14 @@ func (s *NotificationService) dispatch(event models.NotificationEventType, recip
 		var dispatchedChannels []models.NotificationChannel
 		dispatchedChannels = append(dispatchedChannels, models.ChannelInApp)
 
-		if settings.IsChannelEnabled(models.ChannelPush) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelPush)) {
-			dispatchedChannels = append(dispatchedChannels, models.ChannelPush)
-			log.Printf("🔔 [PUSH NOTIFICATION] To: %s (%s) | %s: %s", r.Name, r.Role, title, message)
-			s.sendWebPush(r, title, message, event, metadata, settings)
-		}
-
-		if settings.IsChannelEnabled(models.ChannelSMS) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelSMS)) && strings.TrimSpace(r.Phone) != "" {
-			dispatchedChannels = append(dispatchedChannels, models.ChannelSMS)
-			log.Printf("📱 [SMS NOTIFICATION] To: %s (%s) | Phone: %s | %s", r.Name, r.Type, r.Phone, message)
-		}
-
 		if settings.IsChannelEnabled(models.ChannelEmail) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelEmail)) && strings.TrimSpace(r.Email) != "" {
 			dispatchedChannels = append(dispatchedChannels, models.ChannelEmail)
 			log.Printf("✉️ [EMAIL NOTIFICATION] To: %s <%s> | %s: %s", r.Name, r.Email, title, message)
 			go s.sendEmailNotification(r, title, message, event, metadata, settings)
+		}
+
+		if settings.IsChannelEnabled(models.ChannelTelegram) && settings.HasTelegramConfig() {
+			dispatchedChannels = append(dispatchedChannels, models.ChannelTelegram)
 		}
 
 		// Attach channels list into metadata JSON so UI can display multi-channel badges without separate DB rows
@@ -271,6 +221,11 @@ func (s *NotificationService) dispatch(event models.NotificationEventType, recip
 			CreatedAt:        now,
 		}
 		_ = s.store.CreateNotification(notif)
+	}
+
+	// Dispatch outward broadcast to Telegram Bot (curated by branch location or global)
+	if settings.IsChannelEnabled(models.ChannelTelegram) && settings.HasTelegramConfig() {
+		go s.sendTelegramNotification(event, title, message, metadata, settings)
 	}
 }
 
@@ -380,6 +335,31 @@ func (s *NotificationService) NotifyStaffRegistered(user *models.User) {
 	recipients := s.getManagerRecipients()
 	metadata := fmt.Sprintf(`{"user_id":"%s","role":"%s"}`, user.ID, user.Role)
 	s.dispatch(models.EventStaffRegistered, recipients, title, message, metadata)
+}
+
+// NotifyStudentRegistered notifies staff when a new student is enrolled
+func (s *NotificationService) NotifyStudentRegistered(student *models.Student, creatorName string, pkgTitle string) {
+	if student == nil {
+		return
+	}
+
+	title := fmt.Sprintf("👋 New Student Enrolled: %s", student.FullName)
+	pkgDetail := "No package assigned"
+	if strings.TrimSpace(pkgTitle) != "" {
+		pkgDetail = pkgTitle
+	}
+
+	message := fmt.Sprintf("%s (%s Belt, Age %d) was enrolled by %s with %s.",
+		student.FullName, string(student.CurrentBelt), student.Age(), creatorName, pkgDetail)
+
+	recipients := s.getManagerRecipients()
+	recipients = append(recipients, s.getCoachAndAdminRecipients(nil)...)
+
+	metadata := fmt.Sprintf(`{"student_id":"%s","name":"%s","belt":"%s","age":%d,"package":"%s","emergency_name":"%s","emergency_phone":"%s","emergency_relation":"%s"}`,
+		student.ID, student.FullName, string(student.CurrentBelt), student.Age(), pkgDetail,
+		student.EmergencyName, student.EmergencyPhone, student.EmergencyRelation)
+
+	s.dispatch(models.EventStudentRegistered, recipients, title, message, metadata)
 }
 
 // 4. Notify students / guardian: when eligible for promotions
@@ -822,7 +802,7 @@ func determineDeepLinkURL(event models.NotificationEventType, metadata string) s
 		return "/sessions"
 	case models.EventStaffRegistered:
 		return "/admins"
-	case models.EventPromotionEligible, models.EventStudentInjured, models.EventNewEvaluation:
+	case models.EventPromotionEligible, models.EventStudentInjured, models.EventNewEvaluation, models.EventStudentRegistered:
 		return "/students"
 	case models.EventMembershipAwarded, models.EventMembershipRevoked, models.EventPassExpiring:
 		return "/packages"
@@ -831,163 +811,316 @@ func determineDeepLinkURL(event models.NotificationEventType, metadata string) s
 	}
 }
 
-func (s *NotificationService) sendWebPush(recipient RecipientInfo, title, message string, event models.NotificationEventType, metadata string, settings *models.NotificationSettings) {
-	if settings == nil || !settings.HasVAPIDKeys() {
-		return
-	}
-
-	var subs []*models.PushSubscription
-	if recipient.UserID != nil && *recipient.UserID != uuid.Nil {
-		userSubs, err := s.store.GetPushSubscriptionsByUserID(*recipient.UserID)
-		if err == nil {
-			subs = append(subs, userSubs...)
+func (s *NotificationService) sendTelegramNotification(event models.NotificationEventType, title, message, metadata string, settings *models.NotificationSettings) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("⚠️ Recovered from panic in sendTelegramNotification: %v", r)
 		}
-	} else if recipient.Role != "" {
-		roleSubs, err := s.store.GetPushSubscriptionsByRole(recipient.Role)
-		if err == nil {
-			subs = append(subs, roleSubs...)
-		}
-	}
+	}()
 
-	if len(subs) == 0 {
+	if settings == nil || !settings.TelegramEnabled || strings.TrimSpace(settings.TelegramBotToken) == "" {
 		return
 	}
 
-	deepLink := determineDeepLinkURL(event, metadata)
-	payload := models.WebPushPayload{
-		Title:     title,
-		Body:      message,
-		Icon:      "/static/icons/icon-192.png",
-		Badge:     "/static/icons/icon.svg",
-		Tag:       fmt.Sprintf("stms-%s", string(event)),
-		URL:       deepLink,
-		Timestamp: time.Now().Unix(),
-		Data: map[string]interface{}{
-			"url":   deepLink,
-			"event": string(event),
-		},
+	botToken := strings.TrimSpace(settings.TelegramBotToken)
+	var meta map[string]interface{}
+	_ = json.Unmarshal([]byte(metadata), &meta)
+
+	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("APP_BASE_URL")), "/")
+	if baseURL == "" {
+		baseURL = strings.TrimRight(strings.TrimSpace(os.Getenv("HOST")), "/")
 	}
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return
+	if baseURL == "" {
+		baseURL = "http://localhost:8080"
 	}
 
-	subject := strings.TrimSpace(settings.WebPushSubject)
-	if subject == "" {
-		subject = "mailto:admin@seriestkd.com"
-	}
-
-	// Dispatch asynchronously in background to avoid blocking request handler
-	go func(targetSubs []*models.PushSubscription, payloadData []byte, vapidPub, vapidPriv, subContact string) {
-		for _, sub := range targetSubs {
-			sSub := webpush.Subscription{
-				Endpoint: sub.Endpoint,
-				Keys: webpush.Keys{
-					P256dh: sub.P256dh,
-					Auth:   sub.Auth,
-				},
-			}
-			opts := &webpush.Options{
-				Subscriber:      subContact,
-				VAPIDPublicKey:  vapidPub,
-				VAPIDPrivateKey: vapidPriv,
-				TTL:             60,
-				Urgency:         webpush.UrgencyHigh,
-			}
-			resp, err := webpush.SendNotification(payloadData, &sSub, opts)
-			if err != nil {
-				log.Printf("⚠️ WebPush delivery error to %s: %v", sub.Endpoint, err)
-			}
-			if resp != nil {
-				if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
-					_ = s.store.DeletePushSubscription(sub.Endpoint)
-					log.Printf("🧹 Pruned expired WebPush subscription: %s", sub.Endpoint)
+	// Helper to resolve session and location for location-curated destinations
+	var targetSession *models.TrainingSession
+	var targetLocation *models.Location
+	if sessIDStr, ok := meta["session_id"].(string); ok && sessIDStr != "" {
+		if sessID, err := uuid.Parse(sessIDStr); err == nil {
+			if sess, err := s.store.GetSessionByID(sessID); err == nil && sess != nil {
+				targetSession = sess
+				if sess.LocationID != nil && *sess.LocationID != uuid.Nil {
+					if loc, err := s.store.GetLocationByID(*sess.LocationID); err == nil && loc != nil {
+						targetLocation = loc
+					}
 				}
-				_ = resp.Body.Close()
 			}
 		}
-	}(subs, payloadBytes, settings.WebPushPublicKey, settings.WebPushPrivateKey, subject)
-}
-
-// SendTestPushNotification sends an immediate test web push to all active subscriptions of the specified user
-func (s *NotificationService) SendTestPushNotification(userID uuid.UUID, title, message string) (int, error) {
-	settings, err := s.EnsureVAPIDKeys()
-	if err != nil {
-		return 0, err
-	}
-	if !settings.PushEnabled {
-		return 0, errors.New("web push notifications are globally disabled in settings")
 	}
 
-	subs, err := s.store.GetPushSubscriptionsByUserID(userID)
-	if err != nil {
-		return 0, err
-	}
-	if len(subs) == 0 {
-		return 0, errors.New("no active push subscriptions found for this browser/device; please enable push in profile first")
-	}
-
-	if title == "" {
-		title = "🥋 Series Taekwondo: Test Push"
-	}
-	if message == "" {
-		message = "Web Push notifications are working perfectly on this device!"
-	}
-
-	payload := models.WebPushPayload{
-		Title:     title,
-		Body:      message,
-		Icon:      "/static/icons/icon-192.png",
-		Badge:     "/static/icons/icon.svg",
-		Tag:       "stms-test-push",
-		URL:       "/profile",
-		Timestamp: time.Now().Unix(),
-		Data: map[string]interface{}{
-			"url":   "/profile",
-			"event": "TEST_PUSH",
-		},
-	}
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return 0, err
-	}
-
-	subject := strings.TrimSpace(settings.WebPushSubject)
-	if subject == "" {
-		subject = "mailto:admin@seriestkd.com"
-	}
-
-	sentCount := 0
-	for _, sub := range subs {
-		sSub := webpush.Subscription{
-			Endpoint: sub.Endpoint,
-			Keys: webpush.Keys{
-				P256dh: sub.P256dh,
-				Auth:   sub.Auth,
-			},
+	switch event {
+	case models.EventNewClassOpened:
+		if !settings.NotifyTelegramNewClass {
+			return
 		}
-		opts := &webpush.Options{
-			Subscriber:      subject,
-			VAPIDPublicKey:  settings.WebPushPublicKey,
-			VAPIDPrivateKey: settings.WebPushPrivateKey,
-			TTL:             60,
-			Urgency:         webpush.UrgencyHigh,
-		}
-		resp, err := webpush.SendNotification(payloadBytes, &sSub, opts)
-		if err != nil {
-			log.Printf("⚠️ Test WebPush error: %v", err)
-		}
-		if resp != nil {
-			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-				sentCount++
-			} else if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
-				_ = s.store.DeletePushSubscription(sub.Endpoint)
+		// Location-curated destination or global fallback
+		targetChat := strings.TrimSpace(settings.TelegramPublicChatID)
+		locName := "Main Dojang"
+		if targetLocation != nil {
+			if strings.TrimSpace(targetLocation.TelegramChannelID) != "" {
+				targetChat = strings.TrimSpace(targetLocation.TelegramChannelID)
 			}
-			_ = resp.Body.Close()
+			if targetLocation.Name != "" {
+				locName = targetLocation.Name
+			}
+		}
+		if targetChat == "" {
+			return
+		}
+
+		sessionDate := ""
+		timeRange := ""
+		coach := "Instructor"
+		progTitle := "Training Session"
+		if meta != nil {
+			if d, ok := meta["session_date"].(string); ok {
+				sessionDate = d
+			}
+			if tr, ok := meta["time_range"].(string); ok {
+				timeRange = tr
+			}
+			if c, ok := meta["coach"].(string); ok {
+				coach = c
+			}
+			if t, ok := meta["training_type"].(string); ok {
+				progTitle = t
+			}
+		}
+		if targetSession != nil {
+			progTitle = targetSession.DisplayTitle()
+			sessionDate = targetSession.SessionDate.Format("Monday, Jan 02, 2006")
+			timeRange = targetSession.TimeRange()
+		}
+
+		htmlText := fmt.Sprintf("🥋 <b>NEW CLASS SCHEDULED</b> 📅\n\n"+
+			"A new class is now open for reservations:\n\n"+
+			"<b>Program:</b> %s\n"+
+			"<b>Branch:</b> 📍 %s\n"+
+			"<b>Date:</b> %s\n"+
+			"<b>Time:</b> %s\n"+
+			"<b>Instructor:</b> %s\n\n"+
+			"👉 <i>Reserve early on STMS before slots fill up!</i>",
+			progTitle, locName, sessionDate, timeRange, coach)
+
+		var buttons [][]TelegramInlineButton
+		if targetSession != nil {
+			buttons = append(buttons, []TelegramInlineButton{
+				{Text: "🥋 Reserve a Spot", URL: fmt.Sprintf("%s/reserve/%s", baseURL, targetSession.ID.String())},
+				{Text: "📅 View Timetable", URL: fmt.Sprintf("%s/sessions?date=%s", baseURL, targetSession.SessionDate.Format("2006-01-02"))},
+			})
+		}
+
+		if err := SendTelegramMessage(botToken, targetChat, htmlText, buttons); err != nil {
+			log.Printf("⚠️ Telegram delivery error to %s: %v", targetChat, err)
+		}
+
+	case models.EventClassCancelled:
+		if !settings.NotifyTelegramClassCancel {
+			return
+		}
+		targetChat := strings.TrimSpace(settings.TelegramPublicChatID)
+		locName := ""
+		if targetLocation != nil {
+			if strings.TrimSpace(targetLocation.TelegramChannelID) != "" {
+				targetChat = strings.TrimSpace(targetLocation.TelegramChannelID)
+			}
+			locName = " (" + targetLocation.Name + ")"
+		}
+		if targetChat == "" {
+			return
+		}
+
+		progTitle := "Class"
+		reason := "Facility maintenance / scheduling update"
+		if targetSession != nil {
+			progTitle = targetSession.DisplayTitle()
+		}
+		if r, ok := meta["reason"].(string); ok && r != "" {
+			reason = r
+		}
+
+		htmlText := fmt.Sprintf("⚠️ <b>CLASS CANCELLATION NOTICE</b> ⚠️\n\n"+
+			"Please note that the following class has been cancelled%s:\n\n"+
+			"<b>Class:</b> %s\n"+
+			"<b>Reason:</b> %s\n\n"+
+			"<i>Any pass deductions have been credited back. Please check the timetable for alternative training slots.</i>",
+			locName, progTitle, reason)
+
+		buttons := [][]TelegramInlineButton{
+			{{Text: "📅 Check Alternative Classes", URL: baseURL + "/sessions"}},
+		}
+		if err := SendTelegramMessage(botToken, targetChat, htmlText, buttons); err != nil {
+			log.Printf("⚠️ Telegram delivery error to %s: %v", targetChat, err)
+		}
+
+	case models.EventSlotReserved:
+		if !settings.NotifyTelegramSlotReserved {
+			return
+		}
+		// Route to Branch Staff Chat or fallback to Global Staff Chat
+		targetChat := strings.TrimSpace(settings.TelegramStaffChatID)
+		locName := ""
+		if targetLocation != nil {
+			if strings.TrimSpace(targetLocation.TelegramStaffChatID) != "" {
+				targetChat = strings.TrimSpace(targetLocation.TelegramStaffChatID)
+			}
+			locName = " | 📍 " + targetLocation.Name
+		}
+		if targetChat == "" {
+			targetChat = strings.TrimSpace(settings.TelegramPublicChatID)
+		}
+		if targetChat == "" {
+			return
+		}
+
+		attendeeName := "Student"
+		attendeeType := "Member"
+		contactInfo := "Not provided"
+		progTitle := "Training Session"
+		timeStr := ""
+		if meta != nil {
+			if n, ok := meta["attendee_name"].(string); ok && n != "" {
+				attendeeName = n
+			}
+			if t, ok := meta["attendee_type"].(string); ok && t != "" {
+				attendeeType = t
+			}
+			if c, ok := meta["contact_info"].(string); ok && c != "" {
+				contactInfo = c
+			}
+			if tr, ok := meta["time_range"].(string); ok {
+				timeStr = tr
+			}
+		}
+		if targetSession != nil {
+			progTitle = targetSession.DisplayTitle()
+			if timeStr == "" {
+				timeStr = fmt.Sprintf("%s (%s)", targetSession.SessionDate.Format("Monday, Jan 02"), targetSession.TimeRange())
+			}
+		}
+
+		htmlText := fmt.Sprintf("🥋 <b>NEW CLASS RESERVATION</b> 🎟️\n\n"+
+			"A new slot was just reserved online:\n\n"+
+			"<b>Attendee:</b> %s (%s)\n"+
+			"<b>Contact:</b> %s\n"+
+			"<b>Class:</b> %s%s\n"+
+			"<b>Schedule:</b> %s",
+			attendeeName, attendeeType, contactInfo, progTitle, locName, timeStr)
+
+		var buttons [][]TelegramInlineButton
+		if targetSession != nil {
+			buttons = append(buttons, []TelegramInlineButton{
+				{Text: "🥋 Open Live Session", URL: fmt.Sprintf("%s/sessions/%s/live", baseURL, targetSession.ID.String())},
+			})
+		}
+		if err := SendTelegramMessage(botToken, targetChat, htmlText, buttons); err != nil {
+			log.Printf("⚠️ Telegram delivery error to %s: %v", targetChat, err)
+		}
+
+	case models.EventStudentRegistered:
+		if !settings.NotifyTelegramNewStudent {
+			return
+		}
+		targetChat := strings.TrimSpace(settings.TelegramStaffChatID)
+		if targetChat == "" {
+			targetChat = strings.TrimSpace(settings.TelegramPublicChatID)
+		}
+		if targetChat == "" {
+			return
+		}
+
+		name := "New Student"
+		belt := "White Belt"
+		age := 0
+		pkg := "None"
+		emerg := ""
+		studentID := ""
+		if meta != nil {
+			if n, ok := meta["name"].(string); ok {
+				name = n
+			}
+			if b, ok := meta["belt"].(string); ok {
+				belt = b
+			}
+			if a, ok := meta["age"].(float64); ok {
+				age = int(a)
+			}
+			if p, ok := meta["package"].(string); ok {
+				pkg = p
+			}
+			if ep, ok := meta["emergency_phone"].(string); ok && ep != "" {
+				emerg = ep
+				if en, ok := meta["emergency_name"].(string); ok && en != "" {
+					emerg = fmt.Sprintf("%s (%s)", en, ep)
+				}
+			}
+			if id, ok := meta["student_id"].(string); ok {
+				studentID = id
+			}
+		}
+
+		ageStr := ""
+		if age > 0 {
+			ageStr = fmt.Sprintf(" (Age %d)", age)
+		}
+		emergStr := ""
+		if emerg != "" {
+			emergStr = fmt.Sprintf("\n<b>Emergency Contact:</b> %s", emerg)
+		}
+
+		htmlText := fmt.Sprintf("👋 <b>NEW STUDENT ENROLLED</b> 🥋\n\n"+
+			"A new student has joined Series Taekwondo:\n\n"+
+			"<b>Name:</b> %s%s\n"+
+			"<b>Belt:</b> %s\n"+
+			"<b>Pass / Package:</b> %s%s",
+			name, ageStr, belt, pkg, emergStr)
+
+		var buttons [][]TelegramInlineButton
+		if studentID != "" {
+			buttons = append(buttons, []TelegramInlineButton{
+				{Text: "📋 View Student Dossier", URL: fmt.Sprintf("%s/students/%s", baseURL, studentID)},
+			})
+		}
+		if err := SendTelegramMessage(botToken, targetChat, htmlText, buttons); err != nil {
+			log.Printf("⚠️ Telegram delivery error to %s: %v", targetChat, err)
+		}
+
+	case models.EventStaffRegistered:
+		if !settings.NotifyTelegramStaffRegistered {
+			return
+		}
+		targetChat := strings.TrimSpace(settings.TelegramStaffChatID)
+		if targetChat == "" {
+			targetChat = strings.TrimSpace(settings.TelegramPublicChatID)
+		}
+		if targetChat == "" {
+			return
+		}
+
+		htmlText := fmt.Sprintf("👤 <b>NEW STAFF REGISTRATION</b> 🥋\n\n"+
+			"%s\n\n"+
+			"👉 <i>Please review credentials and access rights in the Staff Directory.</i>",
+			message)
+
+		buttons := [][]TelegramInlineButton{
+			{{Text: "👥 Open Staff Directory", URL: baseURL + "/admins"}},
+		}
+		if err := SendTelegramMessage(botToken, targetChat, htmlText, buttons); err != nil {
+			log.Printf("⚠️ Telegram delivery error to %s: %v", targetChat, err)
+		}
+
+	case models.EventPromotionEligible:
+		targetChat := strings.TrimSpace(settings.TelegramPublicChatID)
+		if targetChat == "" {
+			return
+		}
+		htmlText := fmt.Sprintf("🎉 <b>BELT ADVANCEMENT MILESTONE!</b> 🥋🏅\n\n%s", message)
+		if err := SendTelegramMessage(botToken, targetChat, htmlText, nil); err != nil {
+			log.Printf("⚠️ Telegram delivery error to %s: %v", targetChat, err)
 		}
 	}
-
-	return sentCount, nil
 }
 
 func (s *NotificationService) sendEmailNotification(recipient RecipientInfo, title, message string, event models.NotificationEventType, metadata string, settings *models.NotificationSettings) {

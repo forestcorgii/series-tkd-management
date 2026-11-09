@@ -3,12 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -123,12 +123,10 @@ func (a *AppHandler) HandleNotificationDropdown(w http.ResponseWriter, r *http.R
 			var channelBadges []string
 			for _, ch := range n.DispatchedChannels() {
 				switch ch {
-				case models.ChannelSMS:
-					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[9px]">SMS</span>`)
+				case models.ChannelTelegram:
+					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 font-bold text-[9px]">TELEGRAM</span>`)
 				case models.ChannelEmail:
 					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold text-[9px]">EMAIL</span>`)
-				case models.ChannelPush:
-					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold text-[9px]">PUSH</span>`)
 				default:
 					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 font-bold text-[9px]">IN-APP</span>`)
 				}
@@ -160,7 +158,7 @@ func (a *AppHandler) HandleNotificationDropdown(w http.ResponseWriter, r *http.R
 
 	// Footer
 	sb.WriteString(`<div class="p-2 border-t border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4]/40 dark:bg-neutral-900/40 text-center">`)
-	sb.WriteString(`  <span class="text-[10px] text-slate-400">Push, SMS &amp; Email alerts configured</span>`)
+	sb.WriteString(`  <span class="text-[10px] text-slate-400">Telegram &amp; Email alerts configured</span>`)
 	sb.WriteString(`</div>`)
 	sb.WriteString(`</div>`)
 
@@ -211,151 +209,50 @@ func (a *AppHandler) HandleMarkAllNotificationsRead(w http.ResponseWriter, r *ht
 	a.HandleNotificationDropdown(w, r)
 }
 
-type PushSubscriptionRequest struct {
-	Endpoint string `json:"endpoint"`
-	Keys     struct {
-		P256dh string `json:"p256dh"`
-		Auth   string `json:"auth"`
-	} `json:"keys"`
-}
-
-// HandleGetVAPIDPublicKey returns the active VAPID public key
-func (a *AppHandler) HandleGetVAPIDPublicKey(w http.ResponseWriter, r *http.Request) {
-	settings, err := a.notifSvc.EnsureVAPIDKeys()
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"public_key": settings.WebPushPublicKey,
-	})
-}
-
-// HandlePushSubscribe stores a Web Push subscription for the authenticated user
-func (a *AppHandler) HandlePushSubscribe(w http.ResponseWriter, r *http.Request) {
+// HandleTestTelegram tests Telegram Bot connectivity and sends an immediate test ping
+func (a *AppHandler) HandleTestTelegram(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	user := GetUserFromContext(r.Context())
-	if user == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+	if user != nil && !user.IsOperationManager() {
+		http.Error(w, "Forbidden: Only Operation Managers can test telegram settings", http.StatusForbidden)
 		return
 	}
 
-	var req PushSubscriptionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid subscription payload"})
-		return
+	botToken := strings.TrimSpace(r.FormValue("telegram_bot_token"))
+	targetChat := strings.TrimSpace(r.FormValue("telegram_public_chat_id"))
+	if targetChat == "" {
+		targetChat = strings.TrimSpace(r.FormValue("telegram_staff_chat_id"))
 	}
 
-	if strings.TrimSpace(req.Endpoint) == "" || strings.TrimSpace(req.Keys.P256dh) == "" || strings.TrimSpace(req.Keys.Auth) == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "endpoint, p256dh, and auth keys are required"})
-		return
-	}
-
-	sub := &models.PushSubscription{
-		ID:        uuid.New(),
-		UserID:    &user.ID,
-		Role:      user.Role,
-		Endpoint:  strings.TrimSpace(req.Endpoint),
-		P256dh:    strings.TrimSpace(req.Keys.P256dh),
-		Auth:      strings.TrimSpace(req.Keys.Auth),
-		UserAgent: r.UserAgent(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	if err := a.store.CreateOrUpdatePushSubscription(sub); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	// Update user preferences to ensure PushEnabled is true
-	if prefs, err := a.store.GetUserNotificationPreferences(user.ID); err == nil && prefs != nil {
-		prefs.PushEnabled = true
-		_ = a.store.UpdateUserNotificationPreferences(prefs)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"message": "Push notifications subscribed successfully",
-	})
-}
-
-// HandlePushUnsubscribe removes a Web Push subscription
-func (a *AppHandler) HandlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	endpoint := strings.TrimSpace(r.FormValue("endpoint"))
-	if endpoint == "" {
-		var body struct {
-			Endpoint string `json:"endpoint"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
-			endpoint = strings.TrimSpace(body.Endpoint)
+	if botToken == "" {
+		settings, _ := a.notifSvc.GetSettings()
+		if settings != nil {
+			botToken = settings.TelegramBotToken
+			if targetChat == "" {
+				targetChat = settings.TelegramPublicChatID
+				if targetChat == "" {
+					targetChat = settings.TelegramStaffChatID
+				}
+			}
 		}
 	}
 
-	if endpoint != "" {
-		_ = a.store.DeletePushSubscription(endpoint)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"message": "Unsubscribed successfully",
-	})
-}
-
-// HandlePushTest dispatches an immediate test push to the user's active device(s)
-func (a *AppHandler) HandlePushTest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	user := GetUserFromContext(r.Context())
-	if user == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
-		return
-	}
-
-	title := "🥋 Series Taekwondo: Test Alert"
-	message := fmt.Sprintf("Live push notification test for %s (%s). Connected and operational!", user.DisplayName, user.Role)
-
-	sentCount, err := a.notifSvc.SendTestPushNotification(user.ID, title, message)
+	botUsername, err := a.notifSvc.SendTestTelegram(botToken, targetChat)
+	w.Header().Set("Content-Type", "text/html")
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		w.Write([]byte(fmt.Sprintf(`<div class="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2"><span>✗</span> <span>Connection failed: %s</span></div>`, html.EscapeString(err.Error()))))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":     "ok",
-		"sent_count": sentCount,
-		"message":    fmt.Sprintf("Dispatched test push to %d connected device(s)", sentCount),
-	})
+	targetNotice := ""
+	if targetChat != "" {
+		targetNotice = fmt.Sprintf(" and test message delivered to %s", html.EscapeString(targetChat))
+	}
+	w.Write([]byte(fmt.Sprintf(`<div class="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2"><span>✓</span> <span>Connected to bot <b>@%s</b>%s!</span></div>`, html.EscapeString(botUsername), targetNotice)))
 }
 
 // HandleEmailTest tests SMTP email delivery settings with an immediate test message

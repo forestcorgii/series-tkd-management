@@ -256,8 +256,6 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 			return val == "on" || val == "true" || val == "1"
 		}
 		data.Preferences.EmailEnabled = isPrefChecked("pref_email")
-		data.Preferences.SMSEnabled = isPrefChecked("pref_sms")
-		data.Preferences.PushEnabled = isPrefChecked("pref_push")
 		_ = a.notifSvc.UpdateUserPreferences(data.Preferences)
 	}
 

@@ -164,6 +164,8 @@ func (s *SQLStore) runMigrations() error {
 			fixed_rate REAL,
 			max_trainees INTEGER,
 			is_default INTEGER NOT NULL DEFAULT 0,
+			telegram_channel_id TEXT DEFAULT '',
+			telegram_staff_chat_id TEXT DEFAULT '',
 			created_at TEXT NOT NULL
 		);
 
@@ -420,6 +422,8 @@ func (s *SQLStore) runMigrations() error {
 			fixed_rate NUMERIC(10, 2),
 			max_trainees INT,
 			is_default BOOLEAN NOT NULL DEFAULT FALSE,
+			telegram_channel_id TEXT DEFAULT '',
+			telegram_staff_chat_id TEXT DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -650,6 +654,8 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN fixed_rate REAL`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN max_trainees INTEGER`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN is_default INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN telegram_channel_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN telegram_staff_chat_id TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE,
@@ -715,6 +721,16 @@ func (s *SQLStore) runMigrations() error {
 			web_push_subject TEXT DEFAULT '',
 			updated_at TEXT NOT NULL
 		)`)
+
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_enabled INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_bot_token TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_public_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_staff_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_new_class INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_new_student INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_slot_reserved INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_staff_registered INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_class_cancel INTEGER DEFAULT 1`)
 
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
 			user_id TEXT PRIMARY KEY,
@@ -907,6 +923,8 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS fixed_rate NUMERIC(10, 2)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS max_trainees INT`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS telegram_channel_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS telegram_staff_chat_id TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id UUID PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
@@ -975,6 +993,16 @@ func (s *SQLStore) runMigrations() error {
 			web_push_subject TEXT DEFAULT '',
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
+
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_enabled BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_bot_token TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_public_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_staff_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_new_class BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_new_student BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_slot_reserved BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_staff_registered BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_class_cancel BOOLEAN DEFAULT TRUE`)
 
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
 			user_id UUID PRIMARY KEY,
@@ -1270,7 +1298,7 @@ func formatDateForDB(t time.Time) string {
 
 // Locations
 func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY is_default DESC, name ASC`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations ORDER BY is_default DESC, name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -1284,7 +1312,7 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 		var nullMaxTrainees sql.NullInt64
 		var isDefault bool
 		loc := &models.Location{}
-		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr); err != nil {
+		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr); err != nil {
 			return nil, err
 		}
 		loc.ID = uuid.Must(uuid.Parse(idStr))
@@ -1303,13 +1331,13 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 }
 
 func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations WHERE id = $1`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations WHERE id = $1`
 	var idStr, createdStr string
 	var nullRate sql.NullFloat64
 	var nullMaxTrainees sql.NullInt64
 	var isDefault bool
 	loc := &models.Location{}
-	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr)
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -1330,13 +1358,13 @@ func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
 }
 
 func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations WHERE is_default = TRUE or is_default = 1 ORDER BY created_at ASC LIMIT 1`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations WHERE is_default = TRUE or is_default = 1 ORDER BY created_at ASC LIMIT 1`
 	var idStr, createdStr string
 	var nullRate sql.NullFloat64
 	var nullMaxTrainees sql.NullInt64
 	var isDefault bool
 	loc := &models.Location{}
-	err := s.db.QueryRow(query).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr)
+	err := s.db.QueryRow(query).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr)
 	if err == nil {
 		loc.ID = uuid.Must(uuid.Parse(idStr))
 		if nullRate.Valid {
@@ -1355,8 +1383,8 @@ func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
 	}
 
 	// Fallback to earliest created location
-	queryFallback := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), created_at FROM locations ORDER BY created_at ASC LIMIT 1`
-	err = s.db.QueryRow(queryFallback).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &createdStr)
+	queryFallback := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations ORDER BY created_at ASC LIMIT 1`
+	err = s.db.QueryRow(queryFallback).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1410,8 +1438,8 @@ func (s *SQLStore) CreateLocation(loc *models.Location) error {
 	if loc.IsDefault {
 		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE")
 	}
-	query := `INSERT INTO locations (id, name, pin, fixed_rate, max_trainees, is_default, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, formatTimeForDB(loc.CreatedAt))
+	query := `INSERT INTO locations (id, name, pin, fixed_rate, max_trainees, is_default, telegram_channel_id, telegram_staff_chat_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, loc.TelegramChannelID, loc.TelegramStaffChatID, formatTimeForDB(loc.CreatedAt))
 	return err
 }
 
@@ -1419,8 +1447,8 @@ func (s *SQLStore) UpdateLocation(loc *models.Location) error {
 	if loc.IsDefault {
 		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE WHERE id != $1", loc.ID.String())
 	}
-	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3, max_trainees = $4, is_default = $5 WHERE id = $6`
-	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, loc.ID.String())
+	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3, max_trainees = $4, is_default = $5, telegram_channel_id = $6, telegram_staff_chat_id = $7 WHERE id = $8`
+	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, loc.TelegramChannelID, loc.TelegramStaffChatID, loc.ID.String())
 	if err != nil {
 		return err
 	}
@@ -4682,15 +4710,22 @@ func (s *SQLStore) GetAuditTelemetry() (*models.AuditTelemetry, error) {
 }
 
 func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, error) {
-	query := `SELECT id, push_enabled, sms_enabled, email_enabled,
+	query := `SELECT id, email_enabled,
+		COALESCE(telegram_enabled, FALSE),
+		COALESCE(telegram_bot_token, ''),
+		COALESCE(telegram_public_chat_id, ''),
+		COALESCE(telegram_staff_chat_id, ''),
+		COALESCE(notify_telegram_new_class, TRUE),
+		COALESCE(notify_telegram_new_student, TRUE),
+		COALESCE(notify_telegram_slot_reserved, TRUE),
+		COALESCE(notify_telegram_staff_registered, TRUE),
+		COALESCE(notify_telegram_class_cancel, TRUE),
 		notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
 		notify_admin_student_injured, notify_admin_class_cancelled,
 		notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 		notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 		notify_student_pass_expiring,
 		COALESCE(smtp_host, ''), COALESCE(smtp_port, 587), COALESCE(smtp_user, ''), COALESCE(smtp_password, ''), COALESCE(smtp_from, ''),
-		COALESCE(sms_provider, 'simulated'), COALESCE(sms_api_key, ''), COALESCE(sms_from_number, ''),
-		COALESCE(web_push_public_key, ''), COALESCE(web_push_private_key, ''), COALESCE(web_push_subject, ''),
 		updated_at
 		FROM notification_settings LIMIT 1`
 
@@ -4701,9 +4736,16 @@ func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, erro
 
 	err := row.Scan(
 		&idStr,
-		&settings.PushEnabled,
-		&settings.SMSEnabled,
 		&settings.EmailEnabled,
+		&settings.TelegramEnabled,
+		&settings.TelegramBotToken,
+		&settings.TelegramPublicChatID,
+		&settings.TelegramStaffChatID,
+		&settings.NotifyTelegramNewClass,
+		&settings.NotifyTelegramNewStudent,
+		&settings.NotifyTelegramSlotReserved,
+		&settings.NotifyTelegramStaffRegistered,
+		&settings.NotifyTelegramClassCancel,
 		&settings.NotifyAdminStudentAdmitted,
 		&settings.NotifyAdminNewClassOpened,
 		&settings.NotifyAdminStaffRegistered,
@@ -4721,12 +4763,6 @@ func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, erro
 		&settings.SMTPUser,
 		&settings.SMTPPassword,
 		&settings.SMTPFrom,
-		&settings.SMSProvider,
-		&settings.SMSApiKey,
-		&settings.SMSFromNumber,
-		&settings.WebPushPublicKey,
-		&settings.WebPushPrivateKey,
-		&settings.WebPushSubject,
 		&updatedVal,
 	)
 	if err == sql.ErrNoRows {
@@ -4759,28 +4795,30 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 	}
 
 	query := `UPDATE notification_settings SET
-		push_enabled = $1, sms_enabled = $2, email_enabled = $3,
-		notify_admin_student_admitted = $4, notify_admin_new_class_opened = $5, notify_admin_staff_registered = $6,
-		notify_admin_student_injured = $7, notify_admin_class_cancelled = $8,
-		notify_student_promotion_eligible = $9, notify_student_injured = $10, notify_student_evaluation_logged = $11,
-		notify_student_membership_changed = $12, notify_student_safety_resolved = $13, notify_student_class_cancelled = $14,
-		notify_student_pass_expiring = $15,
-		smtp_host = $16, smtp_port = $17, smtp_user = $18, smtp_password = $19, smtp_from = $20,
-		sms_provider = $21, sms_api_key = $22, sms_from_number = $23,
-		web_push_public_key = $24, web_push_private_key = $25, web_push_subject = $26,
-		updated_at = $27
-		WHERE id = $28`
+		email_enabled = $1,
+		telegram_enabled = $2, telegram_bot_token = $3, telegram_public_chat_id = $4, telegram_staff_chat_id = $5,
+		notify_telegram_new_class = $6, notify_telegram_new_student = $7, notify_telegram_slot_reserved = $8,
+		notify_telegram_staff_registered = $9, notify_telegram_class_cancel = $10,
+		notify_admin_student_admitted = $11, notify_admin_new_class_opened = $12, notify_admin_staff_registered = $13,
+		notify_admin_student_injured = $14, notify_admin_class_cancelled = $15,
+		notify_student_promotion_eligible = $16, notify_student_injured = $17, notify_student_evaluation_logged = $18,
+		notify_student_membership_changed = $19, notify_student_safety_resolved = $20, notify_student_class_cancelled = $21,
+		notify_student_pass_expiring = $22,
+		smtp_host = $23, smtp_port = $24, smtp_user = $25, smtp_password = $26, smtp_from = $27,
+		updated_at = $28
+		WHERE id = $29`
 
 	res, err := s.db.Exec(query,
-		settings.PushEnabled, settings.SMSEnabled, settings.EmailEnabled,
+		settings.EmailEnabled,
+		settings.TelegramEnabled, settings.TelegramBotToken, settings.TelegramPublicChatID, settings.TelegramStaffChatID,
+		settings.NotifyTelegramNewClass, settings.NotifyTelegramNewStudent, settings.NotifyTelegramSlotReserved,
+		settings.NotifyTelegramStaffRegistered, settings.NotifyTelegramClassCancel,
 		settings.NotifyAdminStudentAdmitted, settings.NotifyAdminNewClassOpened, settings.NotifyAdminStaffRegistered,
 		settings.NotifyAdminStudentInjured, settings.NotifyAdminClassCancelled,
 		settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
 		settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
 		settings.NotifyStudentPassExpiring,
 		settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
-		settings.SMSProvider, settings.SMSApiKey, settings.SMSFromNumber,
-		settings.WebPushPublicKey, settings.WebPushPrivateKey, settings.WebPushSubject,
 		updatedVal, settings.ID.String(),
 	)
 	if err != nil {
@@ -4790,31 +4828,42 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
 		insertQuery := `INSERT INTO notification_settings (
-			id, push_enabled, sms_enabled, email_enabled,
+			id, email_enabled,
+			telegram_enabled, telegram_bot_token, telegram_public_chat_id, telegram_staff_chat_id,
+			notify_telegram_new_class, notify_telegram_new_student, notify_telegram_slot_reserved,
+			notify_telegram_staff_registered, notify_telegram_class_cancel,
 			notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
 			notify_admin_student_injured, notify_admin_class_cancelled,
 			notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 			notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 			notify_student_pass_expiring,
 			smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
-			sms_provider, sms_api_key, sms_from_number,
-			web_push_public_key, web_push_private_key, web_push_subject,
 			updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-			$17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+			$1, $2,
+			$3, $4, $5, $6,
+			$7, $8, $9,
+			$10, $11,
+			$12, $13, $14,
+			$15, $16,
+			$17, $18, $19,
+			$20, $21, $22,
+			$23,
+			$24, $25, $26, $27, $28,
+			$29
 		)`
 		_, err = s.db.Exec(insertQuery,
 			settings.ID.String(),
-			settings.PushEnabled, settings.SMSEnabled, settings.EmailEnabled,
+			settings.EmailEnabled,
+			settings.TelegramEnabled, settings.TelegramBotToken, settings.TelegramPublicChatID, settings.TelegramStaffChatID,
+			settings.NotifyTelegramNewClass, settings.NotifyTelegramNewStudent, settings.NotifyTelegramSlotReserved,
+			settings.NotifyTelegramStaffRegistered, settings.NotifyTelegramClassCancel,
 			settings.NotifyAdminStudentAdmitted, settings.NotifyAdminNewClassOpened, settings.NotifyAdminStaffRegistered,
 			settings.NotifyAdminStudentInjured, settings.NotifyAdminClassCancelled,
 			settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
 			settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
 			settings.NotifyStudentPassExpiring,
 			settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
-			settings.SMSProvider, settings.SMSApiKey, settings.SMSFromNumber,
-			settings.WebPushPublicKey, settings.WebPushPrivateKey, settings.WebPushSubject,
 			updatedVal,
 		)
 		if err != nil {
@@ -4825,7 +4874,7 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 }
 
 func (s *SQLStore) GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error) {
-	query := `SELECT user_id, email_enabled, sms_enabled, push_enabled, updated_at
+	query := `SELECT user_id, email_enabled, updated_at
 		FROM user_notification_preferences WHERE user_id = $1`
 
 	row := s.db.QueryRow(query, userID.String())
@@ -4833,7 +4882,7 @@ func (s *SQLStore) GetUserNotificationPreferences(userID uuid.UUID) (*models.Use
 	var updatedVal interface{}
 	prefs := &models.UserNotificationPreferences{}
 
-	err := row.Scan(&idStr, &prefs.EmailEnabled, &prefs.SMSEnabled, &prefs.PushEnabled, &updatedVal)
+	err := row.Scan(&idStr, &prefs.EmailEnabled, &updatedVal)
 	if err == sql.ErrNoRows {
 		return models.DefaultUserPreferences(userID), nil
 	} else if err != nil {
@@ -4858,15 +4907,13 @@ func (s *SQLStore) UpdateUserNotificationPreferences(prefs *models.UserNotificat
 		updatedVal = prefs.UpdatedAt
 	}
 
-	query := `INSERT INTO user_notification_preferences (user_id, email_enabled, sms_enabled, push_enabled, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
+	query := `INSERT INTO user_notification_preferences (user_id, email_enabled, updated_at)
+		VALUES ($1, $2, $3)
 		ON CONFLICT(user_id) DO UPDATE SET
 		email_enabled = EXCLUDED.email_enabled,
-		sms_enabled = EXCLUDED.sms_enabled,
-		push_enabled = EXCLUDED.push_enabled,
 		updated_at = EXCLUDED.updated_at`
 
-	_, err := s.db.Exec(query, prefs.UserID.String(), prefs.EmailEnabled, prefs.SMSEnabled, prefs.PushEnabled, updatedVal)
+	_, err := s.db.Exec(query, prefs.UserID.String(), prefs.EmailEnabled, updatedVal)
 	if err != nil {
 		return fmt.Errorf("failed to upsert user notification preferences: %w", err)
 	}
@@ -5132,145 +5179,4 @@ func (s *SQLStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.User
 		return fmt.Errorf("failed to mark all notifications read: %w", err)
 	}
 	return nil
-}
-
-func (s *SQLStore) CreateOrUpdatePushSubscription(sub *models.PushSubscription) error {
-	if sub == nil {
-		return errors.New("subscription cannot be nil")
-	}
-	if strings.TrimSpace(sub.Endpoint) == "" {
-		return errors.New("subscription endpoint is required")
-	}
-
-	if sub.ID == uuid.Nil {
-		sub.ID = uuid.New()
-	}
-	now := time.Now()
-	if sub.CreatedAt.IsZero() {
-		sub.CreatedAt = now
-	}
-	sub.UpdatedAt = now
-
-	var userIDVal sql.NullString
-	if sub.UserID != nil && *sub.UserID != uuid.Nil {
-		userIDVal = sql.NullString{String: sub.UserID.String(), Valid: true}
-	}
-
-	var createdAtVal, updatedAtVal interface{}
-	if s.driver == "sqlite" {
-		createdAtVal = formatTimeForDB(sub.CreatedAt)
-		updatedAtVal = formatTimeForDB(sub.UpdatedAt)
-	} else {
-		createdAtVal = sub.CreatedAt
-		updatedAtVal = sub.UpdatedAt
-	}
-
-	query := `INSERT INTO push_subscriptions (
-		id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	ON CONFLICT(endpoint) DO UPDATE SET
-		user_id = excluded.user_id,
-		role = excluded.role,
-		p256dh = excluded.p256dh,
-		auth = excluded.auth,
-		user_agent = excluded.user_agent,
-		updated_at = excluded.updated_at`
-
-	_, err := s.db.Exec(query,
-		sub.ID.String(),
-		userIDVal,
-		string(sub.Role),
-		sub.Endpoint,
-		sub.P256dh,
-		sub.Auth,
-		sub.UserAgent,
-		createdAtVal,
-		updatedAtVal,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to upsert push subscription: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLStore) DeletePushSubscription(endpoint string) error {
-	_, err := s.db.Exec("DELETE FROM push_subscriptions WHERE endpoint = $1", strings.TrimSpace(endpoint))
-	if err != nil {
-		return fmt.Errorf("failed to delete push subscription: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLStore) DeletePushSubscriptionsByUserID(userID uuid.UUID) error {
-	_, err := s.db.Exec("DELETE FROM push_subscriptions WHERE user_id = $1", userID.String())
-	if err != nil {
-		return fmt.Errorf("failed to delete push subscriptions by user: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLStore) scanPushSubscriptions(rows *sql.Rows) ([]*models.PushSubscription, error) {
-	defer rows.Close()
-	var subs []*models.PushSubscription
-
-	for rows.Next() {
-		var sub models.PushSubscription
-		var idStr string
-		var nullUserID sql.NullString
-		var roleStr string
-		var createdVal, updatedVal interface{}
-
-		if err := rows.Scan(
-			&idStr,
-			&nullUserID,
-			&roleStr,
-			&sub.Endpoint,
-			&sub.P256dh,
-			&sub.Auth,
-			&sub.UserAgent,
-			&createdVal,
-			&updatedVal,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan push subscription: %w", err)
-		}
-
-		sub.ID = uuid.Must(uuid.Parse(idStr))
-		if nullUserID.Valid && nullUserID.String != "" {
-			uid, _ := uuid.Parse(nullUserID.String)
-			sub.UserID = &uid
-		}
-		sub.Role = models.UserRole(roleStr)
-		sub.CreatedAt, _ = parseTimeFlex(createdVal)
-		sub.UpdatedAt, _ = parseTimeFlex(updatedVal)
-
-		subs = append(subs, &sub)
-	}
-	return subs, nil
-}
-
-func (s *SQLStore) GetPushSubscriptionsByUserID(userID uuid.UUID) ([]*models.PushSubscription, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-		FROM push_subscriptions WHERE user_id = $1`, userID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to query push subscriptions by user: %w", err)
-	}
-	return s.scanPushSubscriptions(rows)
-}
-
-func (s *SQLStore) GetPushSubscriptionsByRole(role models.UserRole) ([]*models.PushSubscription, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-		FROM push_subscriptions WHERE role = $1`, string(role))
-	if err != nil {
-		return nil, fmt.Errorf("failed to query push subscriptions by role: %w", err)
-	}
-	return s.scanPushSubscriptions(rows)
-}
-
-func (s *SQLStore) GetAllPushSubscriptions() ([]*models.PushSubscription, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-		FROM push_subscriptions`)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query all push subscriptions: %w", err)
-	}
-	return s.scanPushSubscriptions(rows)
 }

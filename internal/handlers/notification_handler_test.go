@@ -114,22 +114,27 @@ func TestNotificationHandler_BadgeAndDropdown(t *testing.T) {
 	}
 }
 
-func TestNotificationHandler_UpdateSettings_DisablingEmailAndSMS(t *testing.T) {
+func TestNotificationHandler_UpdateSettings_DisablingEmailAndEnablingTelegram(t *testing.T) {
 	app, store := setupTestApp(t)
 
 	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
 	token := uuid.New().String()
 	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
 
-	// Post settings update with email and SMS UNCHECKED (omitted from form data)
+	// Post settings update with email UNCHECKED and telegram CHECKED
 	form := url.Values{}
-	form.Set("push_enabled", "on")
-	// Note: sms_enabled and email_enabled are intentionally NOT set!
+	form.Set("telegram_enabled", "on")
+	form.Set("telegram_bot_token", "test-token-123")
+	form.Set("telegram_public_chat_id", "@seriestkd_test")
+	form.Set("telegram_staff_chat_id", "-1001234567890")
+	form.Set("notify_telegram_new_class", "on")
+	form.Set("notify_telegram_new_student", "on")
+	form.Set("notify_telegram_slot_reserved", "on")
+	// Note: email_enabled is intentionally NOT set!
 	form.Set("notify_admin_student_admitted", "on")
 	form.Set("notify_student_promotion_eligible", "on")
 	form.Set("smtp_host", "mail.seriestkd.com")
 	form.Set("smtp_port", "465")
-	form.Set("sms_provider", "twilio")
 
 	req := httptest.NewRequest("POST", "/settings/notifications", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -147,20 +152,23 @@ func TestNotificationHandler_UpdateSettings_DisablingEmailAndSMS(t *testing.T) {
 		t.Fatalf("failed to retrieve saved settings: %v", err)
 	}
 
-	if !saved.PushEnabled {
-		t.Errorf("expected PushEnabled to be true")
+	if !saved.TelegramEnabled {
+		t.Errorf("expected TelegramEnabled to be true")
 	}
-	if saved.SMSEnabled {
-		t.Errorf("expected SMSEnabled to be disabled (false)")
+	if saved.TelegramBotToken != "test-token-123" {
+		t.Errorf("expected telegram_bot_token test-token-123, got %s", saved.TelegramBotToken)
+	}
+	if saved.TelegramPublicChatID != "@seriestkd_test" {
+		t.Errorf("expected telegram_public_chat_id @seriestkd_test, got %s", saved.TelegramPublicChatID)
+	}
+	if saved.TelegramStaffChatID != "-1001234567890" {
+		t.Errorf("expected telegram_staff_chat_id -1001234567890, got %s", saved.TelegramStaffChatID)
 	}
 	if saved.EmailEnabled {
 		t.Errorf("expected EmailEnabled to be disabled (false)")
 	}
 	if saved.SMTPHost != "mail.seriestkd.com" || saved.SMTPPort != 465 {
 		t.Errorf("expected SMTP host/port mail.seriestkd.com:465, got %s:%d", saved.SMTPHost, saved.SMTPPort)
-	}
-	if saved.SMSProvider != "twilio" {
-		t.Errorf("expected SMS provider twilio, got %s", saved.SMSProvider)
 	}
 }
 
@@ -260,80 +268,31 @@ func TestNotificationHandler_NoDuplicateNotificationsDropdown(t *testing.T) {
 	}
 }
 
-func TestPushNotification_Handlers(t *testing.T) {
+func TestTelegramNotification_Handlers(t *testing.T) {
 	app, store := setupTestApp(t)
 
 	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
 	token := uuid.New().String()
 	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
 
-	// 1. GET /api/push/vapid-public-key
-	reqKey := httptest.NewRequest("GET", "/api/push/vapid-public-key", nil)
-	recKey := httptest.NewRecorder()
-	app.HandleGetVAPIDPublicKey(recKey, reqKey)
+	// POST /settings/notifications/test-telegram
+	form := url.Values{}
+	form.Set("telegram_bot_token", "simulated")
+	form.Set("telegram_public_chat_id", "@seriestkd_test")
 
-	if recKey.Code != http.StatusOK {
-		t.Fatalf("expected 200 for VAPID key endpoint, got %d", recKey.Code)
-	}
-	var keyResp struct {
-		PublicKey string `json:"public_key"`
-	}
-	if err := json.Unmarshal(recKey.Body.Bytes(), &keyResp); err != nil || keyResp.PublicKey == "" {
-		t.Fatalf("expected valid public key in response, got: %s", recKey.Body.String())
-	}
-
-	// 2. POST /api/push/subscribe
-	subPayload := `{"endpoint":"https://fcm.googleapis.com/fcm/send/test-token","keys":{"p256dh":"BMockP256dhKey123","auth":"MockAuthKey123"}}`
-	reqSub := httptest.NewRequest("POST", "/api/push/subscribe", strings.NewReader(subPayload))
-	reqSub.Header.Set("Content-Type", "application/json")
-	reqSub.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
-	recSub := httptest.NewRecorder()
-	app.AuthMiddleware(http.HandlerFunc(app.HandlePushSubscribe)).ServeHTTP(recSub, reqSub)
-
-	if recSub.Code != http.StatusOK {
-		t.Fatalf("expected 200 for subscribe, got %d: %s", recSub.Code, recSub.Body.String())
-	}
-
-	// Verify subscription saved in store
-	subs, err := store.GetPushSubscriptionsByUserID(managerUser.ID)
-	if err != nil || len(subs) != 1 {
-		t.Fatalf("expected 1 subscription stored for manager, got %d", len(subs))
-	}
-
-	// 3. POST /api/push/test (with mock endpoint, webpush will attempt dispatch)
-	reqTest := httptest.NewRequest("POST", "/api/push/test", nil)
+	reqTest := httptest.NewRequest("POST", "/settings/notifications/test-telegram", strings.NewReader(form.Encode()))
+	reqTest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	reqTest.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
 	recTest := httptest.NewRecorder()
-	app.AuthMiddleware(http.HandlerFunc(app.HandlePushTest)).ServeHTTP(recTest, reqTest)
+
+	app.AuthMiddleware(http.HandlerFunc(app.HandleTestTelegram)).ServeHTTP(recTest, reqTest)
 
 	if recTest.Code != http.StatusOK {
-		t.Fatalf("expected 200 for push test, got %d: %s", recTest.Code, recTest.Body.String())
+		t.Fatalf("expected 200 for telegram test, got %d: %s", recTest.Code, recTest.Body.String())
 	}
 
-	// 4. POST /api/push/unsubscribe
-	unsubPayload := `{"endpoint":"https://fcm.googleapis.com/fcm/send/test-token"}`
-	reqUnsub := httptest.NewRequest("POST", "/api/push/unsubscribe", strings.NewReader(unsubPayload))
-	reqUnsub.Header.Set("Content-Type", "application/json")
-	reqUnsub.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
-	recUnsub := httptest.NewRecorder()
-	app.AuthMiddleware(http.HandlerFunc(app.HandlePushUnsubscribe)).ServeHTTP(recUnsub, reqUnsub)
-
-	if recUnsub.Code != http.StatusOK {
-		t.Fatalf("expected 200 for unsubscribe, got %d", recUnsub.Code)
-	}
-	subsAfter, _ := store.GetPushSubscriptionsByUserID(managerUser.ID)
-	if len(subsAfter) != 0 {
-		t.Fatalf("expected 0 subscriptions after unsubscribe, got %d", len(subsAfter))
-	}
-
-	// 5. POST /settings/notifications/generate-vapid
-	reqGen := httptest.NewRequest("POST", "/settings/notifications/generate-vapid", nil)
-	reqGen.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
-	recGen := httptest.NewRecorder()
-	app.AuthMiddleware(http.HandlerFunc(app.HandleGenerateVAPIDKeys)).ServeHTTP(recGen, reqGen)
-
-	if recGen.Code != http.StatusSeeOther {
-		t.Fatalf("expected redirect (303) after generating VAPID keys, got %d", recGen.Code)
+	if !strings.Contains(recTest.Body.String(), "Connected to bot") {
+		t.Errorf("expected success badge in response, got: %s", recTest.Body.String())
 	}
 }
 

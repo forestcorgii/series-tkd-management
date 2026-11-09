@@ -11,16 +11,16 @@ import (
 type NotificationChannel string
 
 const (
-	ChannelInApp NotificationChannel = "IN_APP"
-	ChannelPush  NotificationChannel = "PUSH"
-	ChannelSMS   NotificationChannel = "SMS"
-	ChannelEmail NotificationChannel = "EMAIL"
+	ChannelInApp    NotificationChannel = "IN_APP"
+	ChannelEmail    NotificationChannel = "EMAIL"
+	ChannelTelegram NotificationChannel = "TELEGRAM"
 )
 
 type NotificationEventType string
 
 const (
 	EventStudentAdmitted   NotificationEventType = "STUDENT_ADMITTED"
+	EventStudentRegistered NotificationEventType = "STUDENT_REGISTERED"
 	EventNewClassOpened    NotificationEventType = "NEW_CLASS_OPENED"
 	EventStaffRegistered   NotificationEventType = "STAFF_REGISTERED"
 	EventPromotionEligible NotificationEventType = "PROMOTION_ELIGIBLE"
@@ -46,9 +46,18 @@ const (
 // NotificationSettings controls global channels and per-event notification toggles
 type NotificationSettings struct {
 	ID           uuid.UUID `json:"id"`
-	PushEnabled  bool      `json:"push_enabled"`
-	SMSEnabled   bool      `json:"sms_enabled"`
 	EmailEnabled bool      `json:"email_enabled"`
+
+	// Telegram Bot integration
+	TelegramEnabled               bool   `json:"telegram_enabled"`
+	TelegramBotToken              string `json:"telegram_bot_token"`
+	TelegramPublicChatID          string `json:"telegram_public_chat_id"`
+	TelegramStaffChatID           string `json:"telegram_staff_chat_id"`
+	NotifyTelegramNewClass        bool   `json:"notify_telegram_new_class"`
+	NotifyTelegramNewStudent      bool   `json:"notify_telegram_new_student"`
+	NotifyTelegramSlotReserved    bool   `json:"notify_telegram_slot_reserved"`
+	NotifyTelegramStaffRegistered bool   `json:"notify_telegram_staff_registered"`
+	NotifyTelegramClassCancel     bool   `json:"notify_telegram_class_cancel"`
 
 	// Staff / Coach & Admin event triggers
 	NotifyAdminStudentAdmitted bool `json:"notify_admin_student_admitted"`
@@ -67,26 +76,26 @@ type NotificationSettings struct {
 	NotifyStudentPassExpiring      bool `json:"notify_student_pass_expiring"`
 
 	// Provider configurations
-	SMTPHost          string    `json:"smtp_host"`
-	SMTPPort          int       `json:"smtp_port"`
-	SMTPUser          string    `json:"smtp_user"`
-	SMTPPassword      string    `json:"smtp_password"`
-	SMTPFrom          string    `json:"smtp_from"`
-	SMSProvider       string    `json:"sms_provider"`
-	SMSApiKey         string    `json:"sms_api_key"`
-	SMSFromNumber     string    `json:"sms_from_number"`
-	WebPushPublicKey  string    `json:"web_push_public_key"`
-	WebPushPrivateKey string    `json:"web_push_private_key"`
-	WebPushSubject    string    `json:"web_push_subject"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	SMTPHost     string    `json:"smtp_host"`
+	SMTPPort     int       `json:"smtp_port"`
+	SMTPUser     string    `json:"smtp_user"`
+	SMTPPassword string    `json:"smtp_password"`
+	SMTPFrom     string    `json:"smtp_from"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func DefaultNotificationSettings() *NotificationSettings {
 	return &NotificationSettings{
 		ID:           uuid.New(),
-		PushEnabled:  true,
-		SMSEnabled:   true,
 		EmailEnabled: true,
+
+		// Telegram Bot defaults
+		TelegramEnabled:               false,
+		NotifyTelegramNewClass:        true,
+		NotifyTelegramNewStudent:      true,
+		NotifyTelegramSlotReserved:    true,
+		NotifyTelegramStaffRegistered: true,
+		NotifyTelegramClassCancel:     true,
 
 		// Staff / Coach & Admin event toggles (default enabled)
 		NotifyAdminStudentAdmitted: true,
@@ -105,9 +114,8 @@ func DefaultNotificationSettings() *NotificationSettings {
 		NotifyStudentPassExpiring:      true,
 
 		// Default provider placeholders
-		SMTPPort:    587,
-		SMSProvider: "simulated",
-		UpdatedAt:   time.Now(),
+		SMTPPort:  587,
+		UpdatedAt: time.Now(),
 	}
 }
 
@@ -118,15 +126,21 @@ func (s *NotificationSettings) IsChannelEnabled(channel NotificationChannel) boo
 	switch channel {
 	case ChannelInApp:
 		return true // In-app is always enabled as operational inbox
-	case ChannelPush:
-		return s.PushEnabled
-	case ChannelSMS:
-		return s.SMSEnabled
 	case ChannelEmail:
 		return s.EmailEnabled
+	case ChannelTelegram:
+		return s.TelegramEnabled
 	default:
 		return false
 	}
+}
+
+func (s *NotificationSettings) HasTelegramConfig() bool {
+	if s == nil {
+		return false
+	}
+	return strings.TrimSpace(s.TelegramBotToken) != "" &&
+		(strings.TrimSpace(s.TelegramPublicChatID) != "" || strings.TrimSpace(s.TelegramStaffChatID) != "")
 }
 
 func (s *NotificationSettings) IsEventEnabled(eventType NotificationEventType) bool {
@@ -134,7 +148,7 @@ func (s *NotificationSettings) IsEventEnabled(eventType NotificationEventType) b
 		return false
 	}
 	switch eventType {
-	case EventStudentAdmitted, EventSlotReserved:
+	case EventStudentAdmitted, EventSlotReserved, EventStudentRegistered:
 		return s.NotifyAdminStudentAdmitted
 	case EventNewClassOpened:
 		return s.NotifyAdminNewClassOpened
@@ -163,8 +177,6 @@ func (s *NotificationSettings) IsEventEnabled(eventType NotificationEventType) b
 type UserNotificationPreferences struct {
 	UserID       uuid.UUID `json:"user_id"`
 	EmailEnabled bool      `json:"email_enabled"`
-	SMSEnabled   bool      `json:"sms_enabled"`
-	PushEnabled  bool      `json:"push_enabled"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
@@ -172,8 +184,6 @@ func DefaultUserPreferences(userID uuid.UUID) *UserNotificationPreferences {
 	return &UserNotificationPreferences{
 		UserID:       userID,
 		EmailEnabled: true,
-		SMSEnabled:   true,
-		PushEnabled:  true,
 		UpdatedAt:    time.Now(),
 	}
 }
@@ -183,14 +193,10 @@ func (p *UserNotificationPreferences) ShouldReceive(channel NotificationChannel)
 		return true
 	}
 	switch channel {
-	case ChannelInApp:
+	case ChannelInApp, ChannelTelegram:
 		return true
 	case ChannelEmail:
 		return p.EmailEnabled
-	case ChannelSMS:
-		return p.SMSEnabled
-	case ChannelPush:
-		return p.PushEnabled
 	default:
 		return true
 	}
@@ -271,7 +277,7 @@ func (n *Notification) Icon() string {
 
 func (n *Notification) BadgeClass() string {
 	switch n.EventType {
-	case EventPromotionEligible, EventSafetyResolved:
+	case EventPromotionEligible, EventSafetyResolved, EventStudentRegistered:
 		return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
 	case EventStudentInjured, EventMembershipRevoked, EventClassCancelled:
 		return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-800"
@@ -290,36 +296,4 @@ type NotificationFilter struct {
 	UnreadOnly bool
 	Limit      int
 	Offset     int
-}
-
-func (s *NotificationSettings) HasVAPIDKeys() bool {
-	if s == nil {
-		return false
-	}
-	return strings.TrimSpace(s.WebPushPublicKey) != "" && strings.TrimSpace(s.WebPushPrivateKey) != ""
-}
-
-// PushSubscription stores a Web Push subscription tied to a client device and user
-type PushSubscription struct {
-	ID        uuid.UUID  `json:"id"`
-	UserID    *uuid.UUID `json:"user_id,omitempty"`
-	Role      UserRole   `json:"role,omitempty"`
-	Endpoint  string     `json:"endpoint"`
-	P256dh    string     `json:"p256dh"`
-	Auth      string     `json:"auth"`
-	UserAgent string     `json:"user_agent,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-}
-
-// WebPushPayload represents the JSON payload sent inside the encrypted push message
-type WebPushPayload struct {
-	Title     string                 `json:"title"`
-	Body      string                 `json:"body"`
-	Icon      string                 `json:"icon,omitempty"`
-	Badge     string                 `json:"badge,omitempty"`
-	Tag       string                 `json:"tag,omitempty"`
-	URL       string                 `json:"url,omitempty"`
-	Timestamp int64                  `json:"timestamp,omitempty"`
-	Data      map[string]interface{} `json:"data,omitempty"`
 }
