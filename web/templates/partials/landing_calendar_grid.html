@@ -243,63 +243,56 @@
                                         <span>{{.Session.LocationName}}</span>
                                     </p>
                                     {{end}}
-
-                                    <!-- Attendees Indicator & Chips -->
-                                    <div class="mt-1 flex items-center justify-between gap-1 text-[10px]">
-                                        <span class="text-slate-600 dark:text-slate-400 font-semibold truncate flex items-center gap-1">
-                                            <span>👥</span>
-                                            <span>{{.AttendanceCount}}{{if .MaxTrainees}} / {{.MaxTrainees}}{{end}} Attendee{{if ne .AttendanceCount 1}}s{{end}}</span>
-                                        </span>
-                                        {{if and .MaxTrainees .IsFull}}
-                                        <span class="text-[9px] font-extrabold uppercase px-1 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                                            Full
-                                        </span>
-                                        {{end}}
-                                    </div>
-
-                                    {{if gt (len .Attendees) 0}}
-                                    <div class="mt-1 flex items-center gap-1 flex-wrap overflow-hidden max-h-5">
-                                        {{range $attIndex, $att := .Attendees}}
-                                        {{if lt $attIndex 2}}
-                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-neutral-700/60 truncate max-w-[90px]"
-                                              title="{{$att.PublicDisplayName}} ({{$att.DisplayRole}})">
-                                            <span class="w-1.5 h-1.5 rounded-full {{if $att.IsStaff}}bg-purple-500{{else if $att.IsGuest}}bg-amber-500{{else}}bg-[#990303] dark:bg-[#DC2626]{{end}} flex-shrink-0"></span>
-                                            <span class="truncate">{{$att.PublicDisplayName}}</span>
-                                        </span>
-                                        {{end}}
-                                        {{end}}
-                                        {{if gt (len .Attendees) 2}}
-                                        <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400 px-1 py-0.2 rounded bg-slate-100 dark:bg-neutral-800 border border-slate-200/50 dark:border-neutral-700/50"
-                                              title="{{sub (len .Attendees) 2}} more attendee{{if ne (sub (len .Attendees) 2) 1}}s{{end}}">
-                                            +{{sub (len .Attendees) 2}}
-                                        </span>
-                                        {{end}}
-                                    </div>
-                                    {{end}}
                                 </div>
 
-                                <div class="pt-1 mt-1 border-t border-slate-100 dark:border-neutral-800">
-                                    {{if .Session.IsCancelled}}
-                                    <span class="text-[9px] font-bold text-rose-500 uppercase tracking-wider">Cancelled</span>
-                                    {{else if and $user $user.IsStudent .IsUserReserved}}
-                                    <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-                                        <span>✓</span> Reserved
-                                    </span>
-                                    {{else if .Session.IsDone}}
-                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed</span>
-                                    {{else if .IsFull}}
-                                    <span class="inline-flex items-center gap-1 text-[9px] font-extrabold text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-800">
-                                        Class Full ({{.AttendanceCount}}/{{.MaxTrainees}})
-                                    </span>
-                                    {{else}}
-                                    <button type="button"
-                                            onclick="event.stopPropagation(); openGuestReserveModal('{{.Session.ID}}')"
-                                            class="w-full py-1.5 px-2 rounded-lg bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-                                        <span>Reserve Slot</span>
-                                        {{if .MaxTrainees}}<span class="text-[9px] opacity-80 font-mono">({{.AttendanceCount}}/{{.MaxTrainees}})</span>{{end}}
-                                        <span>&rarr;</span>
-                                    </button>
-                                    {{end}}
+                                <div class="pt-1 mt-auto border-t border-slate-100 dark:border-neutral-800 flex items-center justify-between gap-1.5">
+                                    <!-- Attendees Indicator -->
+                                    <div class="flex items-center gap-1 min-w-0" title="{{.AttendanceCount}}{{if .MaxTrainees}} / {{.MaxTrainees}}{{end}} Attendee{{if ne .AttendanceCount 1}}s{{end}}{{if gt (len .Attendees) 0}} ({{range $attIndex, $att := .Attendees}}{{if gt $attIndex 0}}, {{end}}{{$att.PublicDisplayName}}{{end}}){{end}}">
+                                        <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1 truncate">
+                                            <span>👥</span>
+                                            <span>{{.AttendanceCount}}{{if .MaxTrainees}}/{{.MaxTrainees}}{{end}}</span>
+                                        </span>
+                                        {{if gt (len .Attendees) 0}}
+                                        <div class="hidden lg:flex items-center -space-x-1 overflow-hidden flex-shrink-0">
+                                            {{range $attIndex, $att := .Attendees}}
+                                            {{if lt $attIndex 2}}
+                                            <span class="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-neutral-900 flex items-center justify-center text-[7px] font-bold {{if $att.IsStaff}}bg-purple-200 text-purple-800 dark:bg-purple-950 dark:text-purple-300{{else if $att.IsGuest}}bg-amber-200 text-amber-800 dark:bg-amber-950 dark:text-amber-300{{else}}bg-rose-200 text-[#990303] dark:bg-rose-950 dark:text-rose-300{{end}}" title="{{$att.PublicDisplayName}} ({{$att.DisplayRole}})">
+                                                {{$att.PublicInitials}}
+                                            </span>
+                                            {{end}}
+                                            {{end}}
+                                            {{if gt (len .Attendees) 2}}
+                                            <span class="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-neutral-900 bg-slate-200 dark:bg-neutral-800 text-slate-600 dark:text-slate-400 flex items-center justify-center text-[6px] font-bold">
+                                                +{{sub (len .Attendees) 2}}
+                                            </span>
+                                            {{end}}
+                                        </div>
+                                        {{end}}
+                                    </div>
+
+                                    <!-- Reserve Action / Status Badge -->
+                                    <div class="flex items-center flex-shrink-0">
+                                        {{if .Session.IsCancelled}}
+                                        <span class="text-[9px] font-bold text-rose-500 uppercase tracking-wider">Cancelled</span>
+                                        {{else if and $user $user.IsStudent .IsUserReserved}}
+                                        <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                                            <span>✓</span> Reserved
+                                        </span>
+                                        {{else if .Session.IsDone}}
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed</span>
+                                        {{else if .IsFull}}
+                                        <span class="inline-flex items-center gap-1 text-[9px] font-extrabold text-rose-600 dark:text-rose-400 uppercase tracking-wider bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-800">
+                                            Full
+                                        </span>
+                                        {{else}}
+                                        <button type="button"
+                                                onclick="event.stopPropagation(); openGuestReserveModal('{{.Session.ID}}')"
+                                                class="py-1 px-2 rounded-lg bg-[#990303] hover:bg-[#7D0202] dark:bg-[#DC2626] dark:hover:bg-[#B91C1C] text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider shadow-xs transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                                            <span>Reserve Slot</span>
+                                            <span>&rarr;</span>
+                                        </button>
+                                        {{end}}
+                                    </div>
                                 </div>
                             </div>
                             {{end}}
