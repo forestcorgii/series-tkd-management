@@ -1013,6 +1013,20 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 	a.LogAction(r, "SESSION_CREATE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType), fmt.Sprintf("Created %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
 
 	if a.notifSvc != nil {
+		if sess.CoachID != nil && sess.CoachName == "" {
+			if coach, err := a.store.GetCoachByID(*sess.CoachID); err == nil && coach != nil {
+				sess.CoachName = coach.FullName
+			}
+		}
+		if sess.AdminID != nil && sess.AdminName == "" {
+			if adminUser, err := a.store.GetUserByID(*sess.AdminID); err == nil && adminUser != nil {
+				if adminUser.DisplayName != "" {
+					sess.AdminName = adminUser.DisplayName
+				} else {
+					sess.AdminName = adminUser.Email
+				}
+			}
+		}
 		creatorName := "Staff"
 		if u := GetUserFromContext(r.Context()); u != nil && u.DisplayName != "" {
 			creatorName = u.DisplayName

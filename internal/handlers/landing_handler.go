@@ -348,7 +348,7 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 				att.ContactNumber = st.Phone
 			}
 			if a.notifSvc != nil && st != nil {
-				a.notifSvc.NotifyStudentAdmitted(sess, st, true, st.FullName)
+				a.notifSvc.NotifySessionSlotReserved(sess, st.FullName, false, st.Phone)
 			}
 		} else {
 			name := user.DisplayName
@@ -363,6 +363,9 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 				}
 				a.renderStudentReserveError(w, sess, user, errMsg)
 				return
+			}
+			if a.notifSvc != nil {
+				a.notifSvc.NotifySessionSlotReserved(sess, name, false, user.Email)
 			}
 		}
 	} else {
@@ -386,6 +389,9 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 			}
 			a.renderGuestReserveError(w, sess, guestName, contactNumber, errMsg)
 			return
+		}
+		if a.notifSvc != nil {
+			a.notifSvc.NotifySessionSlotReserved(sess, guestName, true, contactNumber)
 		}
 	}
 

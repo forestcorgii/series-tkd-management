@@ -134,7 +134,7 @@ func (a *AppHandler) HandleSessionReserveSubmit(w http.ResponseWriter, r *http.R
 				att.ContactNumber = st.Phone
 			}
 			if a.notifSvc != nil && st != nil {
-				a.notifSvc.NotifyStudentAdmitted(sess, st, true, st.FullName)
+				a.notifSvc.NotifySessionSlotReserved(sess, st.FullName, false, st.Phone)
 			}
 		} else {
 			name := user.DisplayName
@@ -151,6 +151,9 @@ func (a *AppHandler) HandleSessionReserveSubmit(w http.ResponseWriter, r *http.R
 				data.ErrorMessage = errMsg
 				a.renderReserveResponse(w, r, data)
 				return
+			}
+			if a.notifSvc != nil {
+				a.notifSvc.NotifySessionSlotReserved(sess, name, false, user.Email)
 			}
 		}
 	} else {
@@ -180,6 +183,9 @@ func (a *AppHandler) HandleSessionReserveSubmit(w http.ResponseWriter, r *http.R
 			data.ErrorMessage = errMsg
 			a.renderReserveResponse(w, r, data)
 			return
+		}
+		if a.notifSvc != nil {
+			a.notifSvc.NotifySessionSlotReserved(sess, guestName, true, contactNumber)
 		}
 	}
 

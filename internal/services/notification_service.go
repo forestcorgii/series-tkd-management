@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"log"
 	"net"
 	"net/http"
 	"net/smtp"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -236,6 +238,7 @@ func (s *NotificationService) dispatch(event models.NotificationEventType, recip
 		if settings.IsChannelEnabled(models.ChannelEmail) && (userPrefs == nil || userPrefs.ShouldReceive(models.ChannelEmail)) && strings.TrimSpace(r.Email) != "" {
 			dispatchedChannels = append(dispatchedChannels, models.ChannelEmail)
 			log.Printf("✉️ [EMAIL NOTIFICATION] To: %s <%s> | %s: %s", r.Name, r.Email, title, message)
+			go s.sendEmailNotification(r, title, message, event, metadata, settings)
 		}
 
 		// Attach channels list into metadata JSON so UI can display multi-channel badges without separate DB rows
@@ -284,29 +287,85 @@ func (s *NotificationService) NotifyStudentAdmitted(sess *models.TrainingSession
 	title := fmt.Sprintf("🥋 Student Admitted: %s", student.FullName)
 	var message string
 	if wasSelfAdmit {
-		message = fmt.Sprintf("%s self checked-in for %s class (%s).", student.FullName, sess.TrainingType, sess.SessionDate.Format("Jan 02"))
+		message = fmt.Sprintf("%s self checked-in for %s class (%s).", student.FullName, sess.DisplayTitle(), sess.SessionDate.Format("Jan 02"))
 	} else {
-		message = fmt.Sprintf("%s was admitted to %s class (%s) by %s.", student.FullName, sess.TrainingType, sess.SessionDate.Format("Jan 02"), actorName)
+		message = fmt.Sprintf("%s was admitted to %s class (%s) by %s.", student.FullName, sess.DisplayTitle(), sess.SessionDate.Format("Jan 02"), actorName)
 	}
 
-	recipients := s.getCoachAndAdminRecipients(sess.CoachID)
-	metadata := fmt.Sprintf(`{"student_id":"%s","session_id":"%s","was_self_admit":%t}`, student.ID, sess.ID, wasSelfAdmit)
+	var recipients []RecipientInfo
+	if wasSelfAdmit {
+		recipients = s.getClassStaffRecipients(sess)
+	} else {
+		recipients = s.getCoachAndAdminRecipients(sess.CoachID)
+	}
+	metadata := fmt.Sprintf(`{"student_id":"%s","session_id":"%s","was_self_admit":%t,"training_type":"%s","session_date":"%s"}`,
+		student.ID, sess.ID, wasSelfAdmit, sess.DisplayTitle(), sess.SessionDate.Format("2006-01-02"))
 	s.dispatch(models.EventStudentAdmitted, recipients, title, message, metadata)
 }
 
-// 2. Notify coach and admin: when new class has been opened
+// 2. Notify coach, admin, and managers: when new class has been opened
 func (s *NotificationService) NotifyNewClassOpened(sess *models.TrainingSession, creatorName string) {
 	if sess == nil {
 		return
 	}
 
-	title := fmt.Sprintf("📅 New Class Opened: %s", sess.TrainingType)
-	message := fmt.Sprintf("A new %s class was scheduled for %s (%s) by %s.",
-		sess.TrainingType, sess.SessionDate.Format("Monday, Jan 02"), sess.TimeRange(), creatorName)
+	coachStatus := "Unassigned / Open"
+	if strings.TrimSpace(sess.CoachName) != "" {
+		coachStatus = sess.CoachName
+	} else if sess.CoachID != nil && *sess.CoachID != uuid.Nil {
+		if c, err := s.store.GetCoachByID(*sess.CoachID); err == nil && c != nil {
+			coachStatus = c.FullName
+		}
+	}
 
-	recipients := s.getCoachAndAdminRecipients(sess.CoachID)
-	metadata := fmt.Sprintf(`{"session_id":"%s","training_type":"%s"}`, sess.ID, sess.TrainingType)
+	adminStatus := "Unassigned"
+	if strings.TrimSpace(sess.AdminName) != "" {
+		adminStatus = sess.AdminName
+	} else if sess.AdminID != nil && *sess.AdminID != uuid.Nil {
+		if a, err := s.store.GetUserByID(*sess.AdminID); err == nil && a != nil {
+			if a.DisplayName != "" {
+				adminStatus = a.DisplayName
+			} else {
+				adminStatus = a.Email
+			}
+		}
+	}
+
+	title := fmt.Sprintf("📅 New Class Opened: %s", sess.DisplayTitle())
+	message := fmt.Sprintf("A new %s class was scheduled for %s (%s). Coach: %s. Admin: %s. Scheduled by %s.",
+		sess.DisplayTitle(), sess.SessionDate.Format("Monday, Jan 02"), sess.TimeRange(), coachStatus, adminStatus, creatorName)
+
+	recipients := s.getClassStaffRecipients(sess)
+	metadata := fmt.Sprintf(`{"session_id":"%s","training_type":"%s","session_date":"%s","time_range":"%s","coach":"%s","admin":"%s"}`,
+		sess.ID, sess.DisplayTitle(), sess.SessionDate.Format("2006-01-02"), sess.TimeRange(), coachStatus, adminStatus)
 	s.dispatch(models.EventNewClassOpened, recipients, title, message, metadata)
+}
+
+// NotifySessionSlotReserved notifies coach, admin, and managers when a guest or student self-reserves a slot
+func (s *NotificationService) NotifySessionSlotReserved(sess *models.TrainingSession, attendeeName string, isGuest bool, contactInfo string) {
+	if sess == nil {
+		return
+	}
+
+	attendeeType := "Student"
+	icon := "🥋"
+	if isGuest {
+		attendeeType = "Guest"
+		icon = "🎟️"
+	}
+
+	title := fmt.Sprintf("%s New %s Reservation: %s", icon, attendeeType, attendeeName)
+	contactDetail := ""
+	if strings.TrimSpace(contactInfo) != "" {
+		contactDetail = fmt.Sprintf(" (Contact: %s)", contactInfo)
+	}
+	message := fmt.Sprintf("%s%s reserved a spot for %s on %s (%s).",
+		attendeeName, contactDetail, sess.DisplayTitle(), sess.SessionDate.Format("Monday, Jan 02"), sess.TimeRange())
+
+	recipients := s.getClassStaffRecipients(sess)
+	metadata := fmt.Sprintf(`{"session_id":"%s","training_type":"%s","attendee_name":"%s","attendee_type":"%s","is_guest":%t,"contact_info":"%s","session_date":"%s","time_range":"%s"}`,
+		sess.ID, sess.DisplayTitle(), attendeeName, attendeeType, isGuest, contactInfo, sess.SessionDate.Format("2006-01-02"), sess.TimeRange())
+	s.dispatch(models.EventSlotReserved, recipients, title, message, metadata)
 }
 
 // 3. Notify manager: when staff (coach/admin) registers pending approval
@@ -465,6 +524,132 @@ func (s *NotificationService) NotifyPassExpiring(student *models.Student, pkg *m
 // Recipient Resolution Helpers
 // -------------------------------------------------------------
 
+// getClassStaffRecipients resolves staff recipients for class creation and reservation events according to:
+// 1. Operation Managers always receive all notifications.
+// 2. Coach: If specified on the session, notify that coach; if unassigned, notify all active coaches.
+// 3. Admin: If specified on the session, notify that admin; if unassigned, notify all active admins.
+// 4. If neither coach nor admin is specified, all active coaches, admins, and managers are notified.
+func (s *NotificationService) getClassStaffRecipients(sess *models.TrainingSession) []RecipientInfo {
+	var list []RecipientInfo
+	if sess == nil {
+		return list
+	}
+
+	// 1. Operation Managers always receive all notifications
+	if managers, err := s.store.GetUsersByRole(models.RoleOperationManager); err == nil {
+		for _, u := range managers {
+			if !u.IsActive {
+				continue
+			}
+			list = append(list, RecipientInfo{
+				UserID: &u.ID,
+				Role:   models.RoleOperationManager,
+				Type:   "OPERATION_MANAGER",
+				Name:   u.DisplayName,
+				Email:  u.Email,
+			})
+		}
+	}
+
+	// 2. Coach resolution: specific coach if assigned, otherwise all active coaches
+	if sess.CoachID != nil && *sess.CoachID != uuid.Nil {
+		if coach, err := s.store.GetCoachByID(*sess.CoachID); err == nil && coach != nil {
+			var coachUserID *uuid.UUID
+			if users, err := s.store.GetUsersByRole(models.RoleCoach); err == nil {
+				for _, u := range users {
+					if u.CoachID != nil && *u.CoachID == coach.ID {
+						coachUserID = &u.ID
+						break
+					}
+				}
+			}
+			list = append(list, RecipientInfo{
+				UserID: coachUserID,
+				Role:   models.RoleCoach,
+				Type:   "COACH",
+				Name:   coach.FullName,
+				Email:  coach.Email,
+				Phone:  coach.Phone,
+			})
+		}
+	} else {
+		// Coach unassigned -> notify all active coaches
+		if coaches, err := s.store.GetAllCoaches(); err == nil {
+			coachUserMap := make(map[uuid.UUID]uuid.UUID)
+			if coachUsers, err := s.store.GetUsersByRole(models.RoleCoach); err == nil {
+				for _, u := range coachUsers {
+					if u.CoachID != nil && *u.CoachID != uuid.Nil {
+						coachUserMap[*u.CoachID] = u.ID
+					}
+				}
+			}
+			for _, coach := range coaches {
+				if !coach.IsActive {
+					continue
+				}
+				var uID *uuid.UUID
+				if id, ok := coachUserMap[coach.ID]; ok {
+					uID = &id
+				}
+				list = append(list, RecipientInfo{
+					UserID: uID,
+					Role:   models.RoleCoach,
+					Type:   "COACH",
+					Name:   coach.FullName,
+					Email:  coach.Email,
+					Phone:  coach.Phone,
+				})
+			}
+		}
+		// Also include any coach users from users table who may not be in coaches table
+		if coachUsers, err := s.store.GetUsersByRole(models.RoleCoach); err == nil {
+			for _, u := range coachUsers {
+				if !u.IsActive {
+					continue
+				}
+				list = append(list, RecipientInfo{
+					UserID: &u.ID,
+					Role:   models.RoleCoach,
+					Type:   "COACH",
+					Name:   u.DisplayName,
+					Email:  u.Email,
+				})
+			}
+		}
+	}
+
+	// 3. Admin resolution: specific admin if assigned, otherwise all active admins
+	if sess.AdminID != nil && *sess.AdminID != uuid.Nil {
+		if adminUser, err := s.store.GetUserByID(*sess.AdminID); err == nil && adminUser != nil {
+			list = append(list, RecipientInfo{
+				UserID: &adminUser.ID,
+				Role:   adminUser.Role,
+				Type:   "ADMIN",
+				Name:   adminUser.DisplayName,
+				Email:  adminUser.Email,
+			})
+		}
+	} else {
+		// Admin unassigned -> notify all active admins
+		if admins, err := s.store.GetUsersByRole(models.RoleAdmin); err == nil {
+			for _, u := range admins {
+				if !u.IsActive {
+					continue
+				}
+				list = append(list, RecipientInfo{
+					UserID: &u.ID,
+					Role:   models.RoleAdmin,
+					Type:   "ADMIN",
+					Name:   u.DisplayName,
+					Email:  u.Email,
+				})
+			}
+		}
+	}
+
+	return deduplicateRecipients(list)
+}
+
 func (s *NotificationService) getCoachAndAdminRecipients(leadCoachID *uuid.UUID) []RecipientInfo {
 	var list []RecipientInfo
 	seenUsers := make(map[uuid.UUID]bool)
@@ -620,6 +805,11 @@ func (s *NotificationService) getStudentAndGuardianRecipients(student *models.St
 func determineDeepLinkURL(event models.NotificationEventType, metadata string) string {
 	var meta map[string]interface{}
 	if err := json.Unmarshal([]byte(metadata), &meta); err == nil {
+		if event == models.EventNewClassOpened {
+			if dateStr, ok := meta["session_date"].(string); ok && dateStr != "" {
+				return "/sessions?date=" + dateStr
+			}
+		}
 		if sessID, ok := meta["session_id"].(string); ok && sessID != "" {
 			return "/sessions/" + sessID + "/live"
 		}
@@ -628,7 +818,7 @@ func determineDeepLinkURL(event models.NotificationEventType, metadata string) s
 		}
 	}
 	switch event {
-	case models.EventStudentAdmitted, models.EventNewClassOpened, models.EventClassCancelled:
+	case models.EventStudentAdmitted, models.EventNewClassOpened, models.EventSlotReserved, models.EventClassCancelled:
 		return "/sessions"
 	case models.EventStaffRegistered:
 		return "/admins"
@@ -798,6 +988,197 @@ func (s *NotificationService) SendTestPushNotification(userID uuid.UUID, title, 
 	}
 
 	return sentCount, nil
+}
+
+func (s *NotificationService) sendEmailNotification(recipient RecipientInfo, title, message string, event models.NotificationEventType, metadata string, settings *models.NotificationSettings) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("⚠️ Recovered from panic in sendEmailNotification: %v", r)
+		}
+	}()
+
+	if settings == nil {
+		return
+	}
+
+	host := strings.TrimSpace(settings.SMTPHost)
+	if host == "" {
+		return
+	}
+
+	to := strings.TrimSpace(recipient.Email)
+	if to == "" || !strings.Contains(to, "@") {
+		return
+	}
+
+	port := settings.SMTPPort
+	if port <= 0 {
+		port = 587
+	}
+
+	from := strings.TrimSpace(settings.SMTPFrom)
+	if from == "" {
+		from = "notifications@seriestkd.com"
+	}
+
+	user := strings.TrimSpace(settings.SMTPUser)
+	password := strings.TrimSpace(settings.SMTPPassword)
+	if strings.Contains(strings.ToLower(host), "gmail.com") {
+		password = strings.ReplaceAll(password, " ", "")
+	}
+
+	// Simulated / mock delivery for testing or development
+	if strings.ToLower(host) == "simulated" || strings.ToLower(host) == "mock" || strings.HasSuffix(strings.ToLower(host), ".test") {
+		log.Printf("✉️ [SIMULATED EMAIL DISPATCH] To: %s | Host: %s:%d | Event: %s | Title: %s", to, host, port, event, title)
+		return
+	}
+
+	// Determine deep link URL
+	deepLink := determineDeepLinkURL(event, metadata)
+	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("APP_BASE_URL")), "/")
+	if baseURL == "" {
+		baseURL = strings.TrimRight(strings.TrimSpace(os.Getenv("HOST")), "/")
+	}
+	if baseURL == "" {
+		baseURL = "http://localhost:8080"
+	}
+	fullLink := baseURL + deepLink
+
+	// Build Subject, HTML and Text body
+	subject, bodyHTML, bodyText := buildNotificationEmail(recipient, title, message, event, metadata, fullLink)
+
+	if err := sendSMTPMail(host, port, user, password, from, to, subject, bodyHTML, bodyText); err != nil {
+		log.Printf("❌ [EMAIL DELIVERY FAILED] To: %s | Error: %v", to, err)
+	} else {
+		log.Printf("✅ [EMAIL DELIVERED] To: %s | Subject: %s", to, subject)
+	}
+}
+
+func buildNotificationEmail(recipient RecipientInfo, title, message string, event models.NotificationEventType, metadata string, actionURL string) (string, string, string) {
+	subject := fmt.Sprintf("🥋 Series TKD: %s", title)
+	buttonText := "Open Dashboard"
+
+	var meta map[string]interface{}
+	_ = json.Unmarshal([]byte(metadata), &meta)
+
+	switch event {
+	case models.EventNewClassOpened:
+		trainingType, _ := meta["training_type"].(string)
+		if trainingType == "" {
+			trainingType = "Training Class"
+		}
+		sessionDate, _ := meta["session_date"].(string)
+		timeRange, _ := meta["time_range"].(string)
+		subject = fmt.Sprintf("📅 New Class: %s on %s", trainingType, sessionDate)
+		if timeRange != "" {
+			subject = fmt.Sprintf("📅 New Class: %s on %s (%s)", trainingType, sessionDate, timeRange)
+		}
+		buttonText = "View Class Timetable"
+	case models.EventSlotReserved:
+		attendeeName, _ := meta["attendee_name"].(string)
+		attendeeType, _ := meta["attendee_type"].(string)
+		if attendeeType == "" {
+			attendeeType = "Reservation"
+		}
+		subject = fmt.Sprintf("🎟️ %s Slot Reserved: %s", attendeeType, attendeeName)
+		buttonText = "View Live Roster"
+	case models.EventStudentAdmitted:
+		subject = title
+		buttonText = "View Live Roster"
+	}
+
+	recipientGreeting := recipient.Name
+	if recipientGreeting == "" {
+		recipientGreeting = "Staff Member"
+	}
+
+	// Plain text fallback
+	bodyText := fmt.Sprintf(`SERIES TAEKWONDO MANAGEMENT SYSTEM
+========================================
+
+Hello %s,
+
+%s
+
+Details:
+%s
+
+Action link: %s
+
+Train with passion, lead with purpose.
+Series Taekwondo Team
+`, recipientGreeting, title, message, actionURL)
+
+	// HTML details rows
+	var detailsRows strings.Builder
+	detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569; width: 140px;">Notification:</td><td style="padding: 6px 12px; color: #0f172a;">%s</td></tr>`, html.EscapeString(title)))
+
+	if trainingType, ok := meta["training_type"].(string); ok && trainingType != "" {
+		detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569;">Category:</td><td style="padding: 6px 12px; color: #0f172a; font-weight: 600;">%s</td></tr>`, html.EscapeString(trainingType)))
+	}
+	if sessionDate, ok := meta["session_date"].(string); ok && sessionDate != "" {
+		detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569;">Date:</td><td style="padding: 6px 12px; color: #0f172a;">%s</td></tr>`, html.EscapeString(sessionDate)))
+	}
+	if timeRange, ok := meta["time_range"].(string); ok && timeRange != "" {
+		detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569;">Time:</td><td style="padding: 6px 12px; color: #0f172a;">%s</td></tr>`, html.EscapeString(timeRange)))
+	}
+	if coach, ok := meta["coach"].(string); ok && coach != "" {
+		detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569;">Coach:</td><td style="padding: 6px 12px; color: #0f172a;">%s</td></tr>`, html.EscapeString(coach)))
+	}
+	if admin, ok := meta["admin"].(string); ok && admin != "" {
+		detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569;">Supervising Admin:</td><td style="padding: 6px 12px; color: #0f172a;">%s</td></tr>`, html.EscapeString(admin)))
+	}
+	if attendeeName, ok := meta["attendee_name"].(string); ok && attendeeName != "" {
+		attType, _ := meta["attendee_type"].(string)
+		label := "Attendee:"
+		if attType != "" {
+			label = attType + ":"
+		}
+		detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569;">%s</td><td style="padding: 6px 12px; color: #0f172a; font-weight: 600;">%s</td></tr>`, html.EscapeString(label), html.EscapeString(attendeeName)))
+	}
+	if contactInfo, ok := meta["contact_info"].(string); ok && contactInfo != "" {
+		detailsRows.WriteString(fmt.Sprintf(`<tr><td style="padding: 6px 12px; font-weight: 600; color: #475569;">Contact Info:</td><td style="padding: 6px 12px; color: #0f172a;">%s</td></tr>`, html.EscapeString(contactInfo)))
+	}
+
+	bodyHTML := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>%s</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
+  <div style="max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+    <div style="background-color: #990303; padding: 24px; text-align: center; color: #ffffff;">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">SERIES TAEKWONDO</h1>
+      <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px;">Operations &amp; Class Notification</p>
+    </div>
+    <div style="padding: 24px;">
+      <h2 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 0;">Hello %s,</h2>
+      <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+        %s
+      </p>
+      <div style="background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0; overflow: hidden;">
+        <table style="width: 100%%; border-collapse: collapse; font-size: 13px; text-align: left;">
+          <tbody>
+            %s
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="%s" style="display: inline-block; background-color: #990303; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; box-shadow: 0 2px 4px rgba(153, 3, 3, 0.2);">
+          %s &rarr;
+        </a>
+      </div>
+      <p style="font-size: 12px; color: #64748b; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+        Train with passion, lead with purpose.<br>
+        &copy; Series Taekwondo Management System
+      </p>
+    </div>
+  </div>
+</body>
+</html>`, html.EscapeString(subject), html.EscapeString(recipientGreeting), html.EscapeString(message), detailsRows.String(), html.EscapeString(actionURL), html.EscapeString(buttonText))
+
+	return subject, bodyHTML, bodyText
 }
 
 // TestEmailParams holds the parameters for dispatching a test email

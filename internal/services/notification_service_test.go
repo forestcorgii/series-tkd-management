@@ -460,3 +460,299 @@ func TestNotificationService_SendTestEmail(t *testing.T) {
 	}
 }
 
+type testStaffSetup struct {
+	Coach1     *models.Coach
+	Coach1User *models.User
+	Coach2     *models.Coach
+	Coach2User *models.User
+	Admin1     *models.User
+	Admin2     *models.User
+	Manager1   *models.User
+	Manager2   *models.User
+}
+
+func setupTestStaff(store repository.RepositoryStore) testStaffSetup {
+	c1ID := uuid.New()
+	c1 := &models.Coach{ID: c1ID, FullName: "Coach One", Email: "coach1@seriestkd.com", IsActive: true}
+	_ = store.CreateCoach(c1)
+	c1User := &models.User{ID: uuid.New(), Email: "coach1@seriestkd.com", Role: models.RoleCoach, CoachID: &c1ID, DisplayName: "Coach One", IsActive: true}
+	_ = store.CreateUser(c1User)
+
+	c2ID := uuid.New()
+	c2 := &models.Coach{ID: c2ID, FullName: "Coach Two", Email: "coach2@seriestkd.com", IsActive: true}
+	_ = store.CreateCoach(c2)
+	c2User := &models.User{ID: uuid.New(), Email: "coach2@seriestkd.com", Role: models.RoleCoach, CoachID: &c2ID, DisplayName: "Coach Two", IsActive: true}
+	_ = store.CreateUser(c2User)
+
+	a1 := &models.User{ID: uuid.New(), Email: "admin1@seriestkd.com", Role: models.RoleAdmin, DisplayName: "Admin One", IsActive: true}
+	_ = store.CreateUser(a1)
+
+	a2 := &models.User{ID: uuid.New(), Email: "admin2@seriestkd.com", Role: models.RoleAdmin, DisplayName: "Admin Two", IsActive: true}
+	_ = store.CreateUser(a2)
+
+	m1 := &models.User{ID: uuid.New(), Email: "mgr1@seriestkd.com", Role: models.RoleOperationManager, DisplayName: "Manager One", IsActive: true}
+	_ = store.CreateUser(m1)
+
+	m2 := &models.User{ID: uuid.New(), Email: "mgr2@seriestkd.com", Role: models.RoleOperationManager, DisplayName: "Manager Two", IsActive: true}
+	_ = store.CreateUser(m2)
+
+	return testStaffSetup{
+		Coach1:     c1,
+		Coach1User: c1User,
+		Coach2:     c2,
+		Coach2User: c2User,
+		Admin1:     a1,
+		Admin2:     a2,
+		Manager1:   m1,
+		Manager2:   m2,
+	}
+}
+
+func TestNotificationService_NotifyNewClassOpened_NeitherSpecified(t *testing.T) {
+	svc, store := setupTestNotificationService()
+	staff := setupTestStaff(store)
+
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		CoachID:      nil,
+		AdminID:      nil,
+		TrainingType: models.TrainingSparring,
+		SessionDate:  time.Now(),
+		StartTime:    "17:00",
+		EndTime:      "18:30",
+	}
+	_ = store.CreateSession(sess)
+
+	svc.NotifyNewClassOpened(sess, "Master Kim")
+
+	// Neither coach nor admin specified -> Broadcast to ALL coaches, ALL admins, and ALL managers
+	for _, u := range []*models.User{staff.Coach1User, staff.Coach2User, staff.Admin1, staff.Admin2, staff.Manager1, staff.Manager2} {
+		notifs, count, err := svc.GetNotifications(models.NotificationFilter{UserID: &u.ID})
+		if err != nil || count != 1 || len(notifs) != 1 {
+			t.Errorf("expected user %s (%s) to receive exactly 1 notification, got count=%d, err=%v", u.DisplayName, u.Role, count, err)
+		}
+	}
+
+	allNotifs, total, _ := svc.GetNotifications(models.NotificationFilter{})
+	// Total includes our 6 created staff + default seeded staff (3 coaches, 1 admin, 1 manager) = 11
+	if total < 6 || len(allNotifs) != total {
+		t.Fatalf("expected notifications across all staff, got %d", total)
+	}
+}
+
+func TestNotificationService_NotifyNewClassOpened_BothSpecified(t *testing.T) {
+	svc, store := setupTestNotificationService()
+	staff := setupTestStaff(store)
+
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		CoachID:      &staff.Coach1.ID,
+		AdminID:      &staff.Admin1.ID,
+		TrainingType: models.TrainingPoomsae,
+		SessionDate:  time.Now(),
+		StartTime:    "10:00",
+		EndTime:      "11:30",
+	}
+	_ = store.CreateSession(sess)
+
+	svc.NotifyNewClassOpened(sess, "Manager One")
+
+	// Both coach and admin specified:
+	// - Coach1 receives, Coach2 does NOT
+	// - Admin1 receives, Admin2 does NOT
+	// - Manager1 and Manager2 BOTH receive
+	c1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach1User.ID})
+	if len(c1Notifs) != 1 {
+		t.Errorf("expected assigned coach1 to receive 1 notification, got %d", len(c1Notifs))
+	}
+
+	c2Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach2User.ID})
+	if len(c2Notifs) != 0 {
+		t.Errorf("expected unassigned coach2 to receive 0 notifications, got %d", len(c2Notifs))
+	}
+
+	a1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Admin1.ID})
+	if len(a1Notifs) != 1 {
+		t.Errorf("expected assigned admin1 to receive 1 notification, got %d", len(a1Notifs))
+	}
+
+	a2Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Admin2.ID})
+	if len(a2Notifs) != 0 {
+		t.Errorf("expected unassigned admin2 to receive 0 notifications, got %d", len(a2Notifs))
+	}
+
+	m1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Manager1.ID})
+	if len(m1Notifs) != 1 {
+		t.Errorf("expected manager1 to receive 1 notification, got %d", len(m1Notifs))
+	}
+
+	m2Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Manager2.ID})
+	if len(m2Notifs) != 1 {
+		t.Errorf("expected manager2 to receive 1 notification, got %d", len(m2Notifs))
+	}
+}
+
+func TestNotificationService_NotifyNewClassOpened_CoachOnlySpecified(t *testing.T) {
+	svc, store := setupTestNotificationService()
+	staff := setupTestStaff(store)
+
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		CoachID:      &staff.Coach1.ID,
+		AdminID:      nil, // Admin unassigned
+		TrainingType: models.TrainingSparring,
+		SessionDate:  time.Now(),
+	}
+	_ = store.CreateSession(sess)
+
+	svc.NotifyNewClassOpened(sess, "Manager One")
+
+	// Coach specified -> Coach1 receives, Coach2 does NOT
+	// Admin unassigned -> ALL admins receive (Admin1, Admin2)
+	// Managers always receive -> Manager1, Manager2
+	c1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach1User.ID})
+	if len(c1Notifs) != 1 {
+		t.Errorf("expected assigned coach1 to receive 1 notification, got %d", len(c1Notifs))
+	}
+	c2Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach2User.ID})
+	if len(c2Notifs) != 0 {
+		t.Errorf("expected unassigned coach2 to receive 0 notifications, got %d", len(c2Notifs))
+	}
+
+	a1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Admin1.ID})
+	if len(a1Notifs) != 1 {
+		t.Errorf("expected admin1 to receive 1 notification, got %d", len(a1Notifs))
+	}
+	a2Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Admin2.ID})
+	if len(a2Notifs) != 1 {
+		t.Errorf("expected admin2 to receive 1 notification, got %d", len(a2Notifs))
+	}
+}
+
+func TestNotificationService_NotifyNewClassOpened_AdminOnlySpecified(t *testing.T) {
+	svc, store := setupTestNotificationService()
+	staff := setupTestStaff(store)
+
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		CoachID:      nil, // Coach unassigned
+		AdminID:      &staff.Admin1.ID,
+		TrainingType: models.TrainingSparring,
+		SessionDate:  time.Now(),
+	}
+	_ = store.CreateSession(sess)
+
+	svc.NotifyNewClassOpened(sess, "Manager One")
+
+	// Coach unassigned -> ALL coaches receive (Coach1, Coach2)
+	// Admin specified -> Admin1 receives, Admin2 does NOT
+	// Managers always receive -> Manager1, Manager2
+	c1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach1User.ID})
+	if len(c1Notifs) != 1 {
+		t.Errorf("expected coach1 to receive 1 notification, got %d", len(c1Notifs))
+	}
+	c2Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach2User.ID})
+	if len(c2Notifs) != 1 {
+		t.Errorf("expected coach2 to receive 1 notification, got %d", len(c2Notifs))
+	}
+
+	a1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Admin1.ID})
+	if len(a1Notifs) != 1 {
+		t.Errorf("expected assigned admin1 to receive 1 notification, got %d", len(a1Notifs))
+	}
+	a2Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Admin2.ID})
+	if len(a2Notifs) != 0 {
+		t.Errorf("expected unassigned admin2 to receive 0 notifications, got %d", len(a2Notifs))
+	}
+}
+
+func TestNotificationService_NotifySessionSlotReserved(t *testing.T) {
+	svc, store := setupTestNotificationService()
+	staff := setupTestStaff(store)
+
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		CoachID:      &staff.Coach1.ID,
+		AdminID:      &staff.Admin1.ID,
+		TrainingType: models.TrainingSparring,
+		SessionDate:  time.Now(),
+		StartTime:    "18:00",
+		EndTime:      "19:30",
+	}
+	_ = store.CreateSession(sess)
+
+	// 1. Guest reservation
+	svc.NotifySessionSlotReserved(sess, "Bruce Wayne", true, "0917-123-4567")
+
+	c1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach1User.ID})
+	if len(c1Notifs) != 1 {
+		t.Fatalf("expected coach1 to receive 1 slot reservation notification, got %d", len(c1Notifs))
+	}
+	n := c1Notifs[0]
+	if n.EventType != models.EventSlotReserved {
+		t.Errorf("expected EventSlotReserved, got %s", n.EventType)
+	}
+	if !strings.Contains(n.Title, "Guest Reservation: Bruce Wayne") {
+		t.Errorf("expected title to mention Guest Reservation, got %s", n.Title)
+	}
+	if !strings.Contains(n.Message, "0917-123-4567") {
+		t.Errorf("expected message to mention contact number, got %s", n.Message)
+	}
+	if !strings.Contains(n.Metadata, `"is_guest":true`) {
+		t.Errorf("expected metadata to have is_guest: true, got %s", n.Metadata)
+	}
+
+	// 2. Student reservation
+	svc.NotifySessionSlotReserved(sess, "Dick Grayson", false, "0918-987-6543")
+
+	a1Notifs, _, _ := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Admin1.ID})
+	if len(a1Notifs) != 2 { // 1 from guest, 1 from student
+		t.Fatalf("expected admin1 to receive 2 slot reservation notifications, got %d", len(a1Notifs))
+	}
+	nStudent := a1Notifs[0]
+	if !strings.Contains(nStudent.Title, "Student Reservation: Dick Grayson") {
+		t.Errorf("expected title to mention Student Reservation, got %s", nStudent.Title)
+	}
+}
+
+func TestNotificationService_EmailNotificationDispatch(t *testing.T) {
+	svc, store := setupTestNotificationService()
+	staff := setupTestStaff(store)
+
+	settings, _ := svc.GetSettings()
+	settings.EmailEnabled = true
+	settings.SMTPHost = "simulated"
+	settings.SMTPPort = 587
+	settings.SMTPFrom = "noreply@seriestkd.com"
+	_ = svc.UpdateSettings(settings)
+
+	sess := &models.TrainingSession{
+		ID:           uuid.New(),
+		CoachID:      &staff.Coach1.ID,
+		AdminID:      &staff.Admin1.ID,
+		TrainingType: models.TrainingSparring,
+		SessionDate:  time.Now(),
+	}
+	_ = store.CreateSession(sess)
+
+	svc.NotifyNewClassOpened(sess, "Manager One")
+
+	notifs, count, err := svc.GetNotifications(models.NotificationFilter{UserID: &staff.Coach1User.ID})
+	if err != nil || count != 1 {
+		t.Fatalf("expected 1 notification for coach1, got %d, err=%v", count, err)
+	}
+
+	channels := notifs[0].DispatchedChannels()
+	hasEmail := false
+	for _, ch := range channels {
+		if ch == models.ChannelEmail {
+			hasEmail = true
+			break
+		}
+	}
+	if !hasEmail {
+		t.Errorf("expected notification dispatched channels to include EMAIL, got %v", channels)
+	}
+}
+
+

@@ -48,3 +48,20 @@
      - [`web/static/js/push-client.js`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/js/push-client.js) (`window.STMSPush`) handles VAPID subscription conversions and background syncing.
      - Interactive "Test Push" diagnostic triggers available in `/profile` and `/settings` (`POST /api/push/test`) returning delivery feedback.
      - Interactive "Test Email" diagnostic trigger in `/settings?tab=notifications` (`POST /api/email/test` and `POST /settings/notifications/test-email`) testing live SMTP connectivity, TLS/STARTTLS negotiation, auth credentials, and fallback to logged-in administrator email.
+
+### Context: Class Creation & Self-Reservation Staff Routing & Outward Email Delivery
+- **Problem**: When a new training class was opened or when a guest/student self-reserved a slot, notification dispatch lacked staff targeting (causing unassigned slots to be missed or individual coaches to receive irrelevant schedule alerts) and outward email dispatch was purely logged without sending actual emails.
+- **Enforced Solution**:
+  1. **Unified Staff Routing Matrix (`getClassStaffRecipients`)**:
+     - **Operation Managers**: Always receive all notifications unconditionally.
+     - **Coach**: If specified on the class (`CoachID != nil`), notify only that assigned coach; if unassigned (`CoachID == nil`), notify all active coaches.
+     - **Admin**: If specified on the class (`AdminID != nil`), notify only that assigned admin; if unassigned (`AdminID == nil`), notify all active admins.
+     - **Unassigned Fallback**: When neither coach nor admin is specified, full broadcast to all active coaches, admins, and managers.
+     - **Deduplication**: Runs through `deduplicateRecipients()` so staff members with multiple roles receive exactly 1 notification.
+  2. **Lifecycle Events**:
+     - `EventNewClassOpened`: Dispatched on `POST /sessions` and `POST /api/v1/sessions` with rich timetable metadata (`session_id`, `training_type`, `session_date`, `time_range`, `coach`, `admin`). Deep-links to `/sessions?date=YYYY-MM-DD`.
+     - `EventSlotReserved`: Dispatched on `POST /reserve/{id}` and `POST /landing/reserve` for both guest registrations (with emergency contact) and student self-reservations. Deep-links to `/sessions/{id}/live`.
+  3. **Outward Asynchronous SMTP Delivery**:
+     - `NotificationService.dispatch()` invokes `go s.sendEmailNotification(...)` so HTTP request handling remains instant (<50ms).
+     - Formats multipart MIME emails with Series TKD branding (Crimson `#990303`, details table, actionable CTA button) and plain-text fallback.
+     - Supports simulated host (`simulated`, `mock`, `*.test`) for testing/development environments.

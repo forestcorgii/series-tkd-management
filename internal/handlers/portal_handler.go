@@ -1064,6 +1064,20 @@ func (a *AppHandler) HandleAPIAdminSchedule(w http.ResponseWriter, r *http.Reque
 	}
 
 	if a.notifSvc != nil {
+		if sess.CoachID != nil && sess.CoachName == "" {
+			if coach, err := a.store.GetCoachByID(*sess.CoachID); err == nil && coach != nil {
+				sess.CoachName = coach.FullName
+			}
+		}
+		if sess.AdminID != nil && sess.AdminName == "" {
+			if adminUser, err := a.store.GetUserByID(*sess.AdminID); err == nil && adminUser != nil {
+				if adminUser.DisplayName != "" {
+					sess.AdminName = adminUser.DisplayName
+				} else {
+					sess.AdminName = adminUser.Email
+				}
+			}
+		}
 		cName := "Administrator"
 		if u := GetUserFromContext(r.Context()); u != nil && u.DisplayName != "" {
 			cName = u.DisplayName

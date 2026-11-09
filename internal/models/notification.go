@@ -20,17 +20,18 @@ const (
 type NotificationEventType string
 
 const (
-	EventStudentAdmitted      NotificationEventType = "STUDENT_ADMITTED"
-	EventNewClassOpened       NotificationEventType = "NEW_CLASS_OPENED"
-	EventStaffRegistered      NotificationEventType = "STAFF_REGISTERED"
-	EventPromotionEligible    NotificationEventType = "PROMOTION_ELIGIBLE"
-	EventStudentInjured       NotificationEventType = "STUDENT_INJURED"
-	EventNewEvaluation        NotificationEventType = "NEW_EVALUATION"
-	EventMembershipAwarded    NotificationEventType = "MEMBERSHIP_AWARDED"
-	EventMembershipRevoked    NotificationEventType = "MEMBERSHIP_REVOKED"
-	EventSafetyResolved       NotificationEventType = "SAFETY_RESOLVED"
-	EventClassCancelled       NotificationEventType = "CLASS_CANCELLED"
-	EventPassExpiring         NotificationEventType = "PASS_EXPIRING"
+	EventStudentAdmitted   NotificationEventType = "STUDENT_ADMITTED"
+	EventNewClassOpened    NotificationEventType = "NEW_CLASS_OPENED"
+	EventStaffRegistered   NotificationEventType = "STAFF_REGISTERED"
+	EventPromotionEligible NotificationEventType = "PROMOTION_ELIGIBLE"
+	EventStudentInjured    NotificationEventType = "STUDENT_INJURED"
+	EventNewEvaluation     NotificationEventType = "NEW_EVALUATION"
+	EventMembershipAwarded NotificationEventType = "MEMBERSHIP_AWARDED"
+	EventMembershipRevoked NotificationEventType = "MEMBERSHIP_REVOKED"
+	EventSafetyResolved    NotificationEventType = "SAFETY_RESOLVED"
+	EventClassCancelled    NotificationEventType = "CLASS_CANCELLED"
+	EventPassExpiring      NotificationEventType = "PASS_EXPIRING"
+	EventSlotReserved      NotificationEventType = "SLOT_RESERVED"
 )
 
 type NotificationStatus string
@@ -44,10 +45,10 @@ const (
 
 // NotificationSettings controls global channels and per-event notification toggles
 type NotificationSettings struct {
-	ID        uuid.UUID `json:"id"`
-	PushEnabled  bool   `json:"push_enabled"`
-	SMSEnabled   bool   `json:"sms_enabled"`
-	EmailEnabled bool   `json:"email_enabled"`
+	ID           uuid.UUID `json:"id"`
+	PushEnabled  bool      `json:"push_enabled"`
+	SMSEnabled   bool      `json:"sms_enabled"`
+	EmailEnabled bool      `json:"email_enabled"`
 
 	// Staff / Coach & Admin event triggers
 	NotifyAdminStudentAdmitted bool `json:"notify_admin_student_admitted"`
@@ -57,13 +58,13 @@ type NotificationSettings struct {
 	NotifyAdminClassCancelled  bool `json:"notify_admin_class_cancelled"`
 
 	// Student / Guardian event triggers
-	NotifyStudentPromotionEligible   bool `json:"notify_student_promotion_eligible"`
-	NotifyStudentInjured             bool `json:"notify_student_injured"`
-	NotifyStudentEvaluationLogged    bool `json:"notify_student_evaluation_logged"`
-	NotifyStudentMembershipChanged   bool `json:"notify_student_membership_changed"`
-	NotifyStudentSafetyResolved      bool `json:"notify_student_safety_resolved"`
-	NotifyStudentClassCancelled      bool `json:"notify_student_class_cancelled"`
-	NotifyStudentPassExpiring        bool `json:"notify_student_pass_expiring"`
+	NotifyStudentPromotionEligible bool `json:"notify_student_promotion_eligible"`
+	NotifyStudentInjured           bool `json:"notify_student_injured"`
+	NotifyStudentEvaluationLogged  bool `json:"notify_student_evaluation_logged"`
+	NotifyStudentMembershipChanged bool `json:"notify_student_membership_changed"`
+	NotifyStudentSafetyResolved    bool `json:"notify_student_safety_resolved"`
+	NotifyStudentClassCancelled    bool `json:"notify_student_class_cancelled"`
+	NotifyStudentPassExpiring      bool `json:"notify_student_pass_expiring"`
 
 	// Provider configurations
 	SMTPHost          string    `json:"smtp_host"`
@@ -76,7 +77,7 @@ type NotificationSettings struct {
 	SMSFromNumber     string    `json:"sms_from_number"`
 	WebPushPublicKey  string    `json:"web_push_public_key"`
 	WebPushPrivateKey string    `json:"web_push_private_key"`
-	WebPushSubject     string    `json:"web_push_subject"`
+	WebPushSubject    string    `json:"web_push_subject"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
@@ -133,7 +134,7 @@ func (s *NotificationSettings) IsEventEnabled(eventType NotificationEventType) b
 		return false
 	}
 	switch eventType {
-	case EventStudentAdmitted:
+	case EventStudentAdmitted, EventSlotReserved:
 		return s.NotifyAdminStudentAdmitted
 	case EventNewClassOpened:
 		return s.NotifyAdminNewClassOpened
@@ -241,6 +242,8 @@ func (n *Notification) Icon() string {
 	switch n.EventType {
 	case EventStudentAdmitted:
 		return "🥋"
+	case EventSlotReserved:
+		return "🎟️"
 	case EventNewClassOpened:
 		return "📅"
 	case EventStaffRegistered:
@@ -320,4 +323,3 @@ type WebPushPayload struct {
 	Timestamp int64                  `json:"timestamp,omitempty"`
 	Data      map[string]interface{} `json:"data,omitempty"`
 }
-
