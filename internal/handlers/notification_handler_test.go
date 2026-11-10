@@ -135,6 +135,8 @@ func TestNotificationHandler_UpdateSettings_DisablingEmailAndEnablingTelegram(t 
 	form.Set("notify_student_promotion_eligible", "on")
 	form.Set("smtp_host", "mail.seriestkd.com")
 	form.Set("smtp_port", "465")
+	form.Set("smtp_from", "notifications@seriestkd.com")
+	form.Set("smtp_from_name", "Series Taekwondo Central")
 
 	req := httptest.NewRequest("POST", "/settings/notifications", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -169,6 +171,9 @@ func TestNotificationHandler_UpdateSettings_DisablingEmailAndEnablingTelegram(t 
 	}
 	if saved.SMTPHost != "mail.seriestkd.com" || saved.SMTPPort != 465 {
 		t.Errorf("expected SMTP host/port mail.seriestkd.com:465, got %s:%d", saved.SMTPHost, saved.SMTPPort)
+	}
+	if saved.SMTPFromName != "Series Taekwondo Central" {
+		t.Errorf("expected SMTPFromName 'Series Taekwondo Central', got %q", saved.SMTPFromName)
 	}
 }
 
@@ -328,8 +333,8 @@ func TestEmailNotification_Handlers(t *testing.T) {
 		t.Errorf("expected SMTP host error, got %s", errResp["error"])
 	}
 
-	// 3. Success with simulated SMTP host via JSON
-	simPayload := `{"smtp_host":"simulated","smtp_port":587,"smtp_from":"test@seriestkd.com","recipient_email":"manager@seriestkd.com"}`
+	// 3. Success with simulated SMTP host via JSON including display name
+	simPayload := `{"smtp_host":"simulated","smtp_port":587,"smtp_from":"test@seriestkd.com","smtp_from_name":"Series TKD HQ","recipient_email":"manager@seriestkd.com"}`
 	reqSim := httptest.NewRequest("POST", "/api/email/test", strings.NewReader(simPayload))
 	reqSim.Header.Set("Content-Type", "application/json")
 	reqSim.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
@@ -345,10 +350,12 @@ func TestEmailNotification_Handlers(t *testing.T) {
 		t.Errorf("expected status ok, got %v", okResp["status"])
 	}
 
-	// 4. Success via Form POST with HTML redirect
+	// 4. Success via Form POST with HTML redirect and display name
 	form := url.Values{}
 	form.Set("smtp_host", "simulated")
 	form.Set("smtp_port", "587")
+	form.Set("smtp_from", "notifications@seriestkd.com")
+	form.Set("smtp_from_name", "Series Taekwondo Main")
 	form.Set("recipient_email", "admin@seriestkd.com")
 
 	reqForm := httptest.NewRequest("POST", "/settings/notifications/test-email", strings.NewReader(form.Encode()))
@@ -366,4 +373,3 @@ func TestEmailNotification_Handlers(t *testing.T) {
 		t.Errorf("expected redirect to notification settings tab with success, got %s", location)
 	}
 }
-

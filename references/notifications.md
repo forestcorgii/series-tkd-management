@@ -42,3 +42,14 @@
      - `NotificationService.dispatch()` invokes `go s.sendEmailNotification(...)` so HTTP request handling remains instant (<50ms).
      - Formats multipart MIME emails with Series TKD branding (Crimson `#990303`, details table, actionable CTA button) and plain-text fallback.
      - Supports simulated host (`simulated`, `mock`, `*.test`) for testing/development environments.
+
+### Context: Outward Email Sender Display Name Configuration
+- **Problem**: Previously, outward emails only included the raw `SMTPFrom` email address (e.g., `notifications@seriestkd.com`) in the RFC 5322 `From:` header. Mail clients rendered the sender without an official display name unless the client deduced one, and administrators could not configure a custom sender branding.
+- **Enforced Solution**:
+  1. **Configurable Display Name (`models.NotificationSettings.SMTPFromName`)**:
+     - Added `SMTPFromName` to `models.NotificationSettings` (`smtp_from_name` in PostgreSQL & SQLite DDL and runtime migrations) defaulting to `"Series Taekwondo"`.
+     - In `settings.html`, added a Display Name input field (`name="smtp_from_name"`) in a responsive 4-column desktop layout alongside Host, Port, and From Address.
+     - Handlers support both `smtp_from_name` and `smtp_display_name` in form and JSON requests for diagnostic test email (`/api/email/test`) and settings update (`/settings/notifications`).
+  2. **RFC 5322 Header & SMTP Command Separation**:
+     - `net/mail.Address{Name: fromName, Address: from}.String()` formats the MIME `From:` header (e.g., `"Series Taekwondo" <notifications@seriestkd.com>`).
+     - SMTP command `client.Mail(from)` strictly continues to pass the raw email address without display name, preventing SMTP 501 syntax error responses.

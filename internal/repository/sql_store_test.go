@@ -2184,3 +2184,42 @@ func TestStore_CustomizableRolesAndPermissions(t *testing.T) {
 		})
 	}
 }
+
+func TestSQLStore_NotificationSettings_SMTPFromName(t *testing.T) {
+	dbFile := filepath.Join(t.TempDir(), "test_notif_settings.db")
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if closer, ok := store.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
+	}()
+
+	settings, err := store.GetNotificationSettings()
+	if err != nil {
+		t.Fatalf("GetNotificationSettings failed: %v", err)
+	}
+	if settings.SMTPFromName != "Series Taekwondo" {
+		t.Errorf("expected default SMTPFromName 'Series Taekwondo', got %q", settings.SMTPFromName)
+	}
+
+	// Update display name
+	settings.SMTPFromName = "Series Taekwondo Bonifacio Global City"
+	settings.SMTPFrom = "bgc@seriestkd.com"
+	if err := store.UpdateNotificationSettings(settings); err != nil {
+		t.Fatalf("UpdateNotificationSettings failed: %v", err)
+	}
+
+	updated, err := store.GetNotificationSettings()
+	if err != nil {
+		t.Fatalf("re-fetching notification settings failed: %v", err)
+	}
+	if updated.SMTPFromName != "Series Taekwondo Bonifacio Global City" {
+		t.Errorf("expected updated SMTPFromName 'Series Taekwondo Bonifacio Global City', got %q", updated.SMTPFromName)
+	}
+	if updated.SMTPFrom != "bgc@seriestkd.com" {
+		t.Errorf("expected updated SMTPFrom 'bgc@seriestkd.com', got %q", updated.SMTPFrom)
+	}
+}

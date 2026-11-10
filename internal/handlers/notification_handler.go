@@ -271,12 +271,14 @@ func (a *AppHandler) HandleEmailTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Host      string `json:"smtp_host"`
-		Port      int    `json:"smtp_port"`
-		User      string `json:"smtp_user"`
-		Password  string `json:"smtp_password"`
-		From      string `json:"smtp_from"`
-		Recipient string `json:"recipient_email"`
+		Host        string `json:"smtp_host"`
+		Port        int    `json:"smtp_port"`
+		User        string `json:"smtp_user"`
+		Password    string `json:"smtp_password"`
+		From        string `json:"smtp_from"`
+		FromName    string `json:"smtp_from_name"`
+		DisplayName string `json:"smtp_display_name"`
+		Recipient   string `json:"recipient_email"`
 	}
 
 	contentType := r.Header.Get("Content-Type")
@@ -287,6 +289,9 @@ func (a *AppHandler) HandleEmailTest(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON payload: " + err.Error()})
 			return
 		}
+		if req.FromName == "" && req.DisplayName != "" {
+			req.FromName = req.DisplayName
+		}
 	} else {
 		_ = r.ParseForm()
 		req.Host = r.FormValue("smtp_host")
@@ -296,6 +301,11 @@ func (a *AppHandler) HandleEmailTest(w http.ResponseWriter, r *http.Request) {
 		req.User = r.FormValue("smtp_user")
 		req.Password = r.FormValue("smtp_password")
 		req.From = r.FormValue("smtp_from")
+		fromName := strings.TrimSpace(r.FormValue("smtp_from_name"))
+		if fromName == "" {
+			fromName = strings.TrimSpace(r.FormValue("smtp_display_name"))
+		}
+		req.FromName = fromName
 		req.Recipient = r.FormValue("recipient_email")
 	}
 
@@ -309,6 +319,7 @@ func (a *AppHandler) HandleEmailTest(w http.ResponseWriter, r *http.Request) {
 		User:      req.User,
 		Password:  req.Password,
 		From:      req.From,
+		FromName:  req.FromName,
 		Recipient: req.Recipient,
 	}
 
@@ -338,4 +349,3 @@ func (a *AppHandler) HandleEmailTest(w http.ResponseWriter, r *http.Request) {
 		"recipient": req.Recipient,
 	})
 }
-

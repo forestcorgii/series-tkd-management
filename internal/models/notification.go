@@ -81,6 +81,7 @@ type NotificationSettings struct {
 	SMTPUser     string    `json:"smtp_user"`
 	SMTPPassword string    `json:"smtp_password"`
 	SMTPFrom     string    `json:"smtp_from"`
+	SMTPFromName string    `json:"smtp_from_name"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
@@ -114,8 +115,9 @@ func DefaultNotificationSettings() *NotificationSettings {
 		NotifyStudentPassExpiring:      true,
 
 		// Default provider placeholders
-		SMTPPort:  587,
-		UpdatedAt: time.Now(),
+		SMTPPort:     587,
+		SMTPFromName: "Series Taekwondo",
+		UpdatedAt:    time.Now(),
 	}
 }
 

@@ -31,6 +31,9 @@ func TestDefaultNotificationSettings(t *testing.T) {
 	if !settings.NotifyTelegramSlotReserved {
 		t.Errorf("expected NotifyTelegramSlotReserved default true")
 	}
+	if settings.SMTPFromName != "Series Taekwondo" {
+		t.Errorf("expected SMTPFromName default 'Series Taekwondo', got %q", settings.SMTPFromName)
+	}
 }
 
 func TestNotificationSettings_DisableChannels(t *testing.T) {

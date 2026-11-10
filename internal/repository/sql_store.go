@@ -309,6 +309,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -567,6 +568,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -713,6 +715,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -731,6 +734,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_slot_reserved INTEGER DEFAULT 1`)
 		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_staff_registered INTEGER DEFAULT 1`)
 		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_class_cancel INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN smtp_from_name TEXT DEFAULT ''`)
 
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
 			user_id TEXT PRIMARY KEY,
@@ -780,11 +784,11 @@ func (s *SQLStore) runMigrations() error {
 				notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 				notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 				notify_student_pass_expiring,
-				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, smtp_from_name,
 				sms_provider, sms_api_key, sms_from_number,
 				web_push_public_key, web_push_private_key, web_push_subject,
 				updated_at
-			) VALUES ($1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, '', 587, '', '', '', 'simulated', '', '', '', '', '', $2)`,
+			) VALUES ($1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, '', 587, '', '', '', 'Series Taekwondo', 'simulated', '', '', '', '', '', $2)`,
 				def.ID.String(), formatTimeForDB(time.Now()))
 		}
 
@@ -985,6 +989,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -1003,6 +1008,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_slot_reserved BOOLEAN DEFAULT TRUE`)
 		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_staff_registered BOOLEAN DEFAULT TRUE`)
 		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_class_cancel BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS smtp_from_name TEXT DEFAULT ''`)
 
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
 			user_id UUID PRIMARY KEY,
@@ -1052,11 +1058,11 @@ func (s *SQLStore) runMigrations() error {
 				notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 				notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 				notify_student_pass_expiring,
-				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, smtp_from_name,
 				sms_provider, sms_api_key, sms_from_number,
 				web_push_public_key, web_push_private_key, web_push_subject,
 				updated_at
-			) VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, '', 587, '', '', '', 'simulated', '', '', '', '', '', NOW())`,
+			) VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, '', 587, '', '', '', 'Series Taekwondo', 'simulated', '', '', '', '', '', NOW())`,
 				def.ID.String())
 		}
 
@@ -4726,6 +4732,7 @@ func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, erro
 		notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 		notify_student_pass_expiring,
 		COALESCE(smtp_host, ''), COALESCE(smtp_port, 587), COALESCE(smtp_user, ''), COALESCE(smtp_password, ''), COALESCE(smtp_from, ''),
+		COALESCE(smtp_from_name, ''),
 		updated_at
 		FROM notification_settings LIMIT 1`
 
@@ -4763,6 +4770,7 @@ func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, erro
 		&settings.SMTPUser,
 		&settings.SMTPPassword,
 		&settings.SMTPFrom,
+		&settings.SMTPFromName,
 		&updatedVal,
 	)
 	if err == sql.ErrNoRows {
@@ -4804,9 +4812,9 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 		notify_student_promotion_eligible = $16, notify_student_injured = $17, notify_student_evaluation_logged = $18,
 		notify_student_membership_changed = $19, notify_student_safety_resolved = $20, notify_student_class_cancelled = $21,
 		notify_student_pass_expiring = $22,
-		smtp_host = $23, smtp_port = $24, smtp_user = $25, smtp_password = $26, smtp_from = $27,
-		updated_at = $28
-		WHERE id = $29`
+		smtp_host = $23, smtp_port = $24, smtp_user = $25, smtp_password = $26, smtp_from = $27, smtp_from_name = $28,
+		updated_at = $29
+		WHERE id = $30`
 
 	res, err := s.db.Exec(query,
 		settings.EmailEnabled,
@@ -4818,7 +4826,7 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 		settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
 		settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
 		settings.NotifyStudentPassExpiring,
-		settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
+		settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom, settings.SMTPFromName,
 		updatedVal, settings.ID.String(),
 	)
 	if err != nil {
@@ -4837,7 +4845,7 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 			notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 			notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 			notify_student_pass_expiring,
-			smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+			smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, smtp_from_name,
 			updated_at
 		) VALUES (
 			$1, $2,
@@ -4849,8 +4857,8 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 			$17, $18, $19,
 			$20, $21, $22,
 			$23,
-			$24, $25, $26, $27, $28,
-			$29
+			$24, $25, $26, $27, $28, $29,
+			$30
 		)`
 		_, err = s.db.Exec(insertQuery,
 			settings.ID.String(),
@@ -4863,7 +4871,7 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 			settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
 			settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
 			settings.NotifyStudentPassExpiring,
-			settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
+			settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom, settings.SMTPFromName,
 			updatedVal,
 		)
 		if err != nil {

@@ -454,23 +454,25 @@ func TestNotificationService_SendTestEmail(t *testing.T) {
 		t.Fatalf("expected error about invalid recipient format, got %v", err)
 	}
 
-	// 4. Success using simulated/mock host
+	// 4. Success using simulated/mock host with custom FromName
 	err = svc.SendTestEmail(services.TestEmailParams{
 		Host:      "simulated",
 		Port:      587,
 		User:      "admin",
 		From:      "noreply@seriestkd.com",
+		FromName:  "Series Taekwondo HQ",
 		Recipient: "admin@seriestkd.com",
 	})
 	if err != nil {
 		t.Fatalf("expected simulated email test to succeed, got %v", err)
 	}
 
-	// 5. Success using saved settings with mock host
+	// 5. Success using saved settings with mock host and display name
 	settings, _ := svc.GetSettings()
 	settings.SMTPHost = "mock"
 	settings.SMTPPort = 465
 	settings.SMTPFrom = "system@seriestkd.com"
+	settings.SMTPFromName = "Series Taekwondo System"
 	_ = svc.UpdateSettings(settings)
 
 	err = svc.SendTestEmail(services.TestEmailParams{
@@ -775,5 +777,3 @@ func TestNotificationService_EmailNotificationDispatch(t *testing.T) {
 		t.Errorf("expected notification dispatched channels to include EMAIL, got %v", channels)
 	}
 }
-
-

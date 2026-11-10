@@ -253,6 +253,11 @@ func (a *AppHandler) HandleUpdateNotificationSettings(w http.ResponseWriter, r *
 		settings.SMTPPassword = pw
 	}
 	settings.SMTPFrom = strings.TrimSpace(r.FormValue("smtp_from"))
+	fromName := strings.TrimSpace(r.FormValue("smtp_from_name"))
+	if fromName == "" {
+		fromName = strings.TrimSpace(r.FormValue("smtp_display_name"))
+	}
+	settings.SMTPFromName = fromName
 
 	if err := a.notifSvc.UpdateSettings(settings); err != nil {
 		http.Redirect(w, r, "/settings?tab=notifications&error="+url.QueryEscape("Failed to save notification settings: "+err.Error()), http.StatusSeeOther)

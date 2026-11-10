@@ -436,7 +436,7 @@
                     </div>
                     <div id="admin-email-test-result" class="hidden text-xs font-semibold py-1.5 px-3 rounded-lg"></div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div>
                             <label class="form-label">SMTP Host</label>
                             <input type="text" name="smtp_host" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPHost}}{{end}}" placeholder="smtp.gmail.com"
@@ -454,12 +454,18 @@
                                    class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
                         <div>
+                            <label class="form-label">Display Name</label>
+                            <input type="text" name="smtp_from_name" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPFromName}}{{end}}" placeholder="Series Taekwondo"
+                                   autocapitalize="none" spellcheck="false"
+                                   class="form-input text-xs no-uppercase" data-no-uppercase="true" />
+                        </div>
+                        <div class="sm:col-span-1 lg:col-span-2">
                             <label class="form-label">SMTP Username</label>
                             <input type="text" name="smtp_user" value="{{if .NotificationSettings}}{{.NotificationSettings.SMTPUser}}{{end}}" placeholder="admin@seriestkd.com"
                                    autocapitalize="none" spellcheck="false"
                                    class="form-input text-xs no-uppercase" data-no-uppercase="true" />
                         </div>
-                        <div class="sm:col-span-2">
+                        <div class="sm:col-span-1 lg:col-span-2">
                             <div class="flex items-center justify-between mb-1">
                                 <label class="form-label mb-0">SMTP Password / App Key</label>
                                 {{if and .NotificationSettings .NotificationSettings.SMTPPassword}}
@@ -953,6 +959,7 @@
         const hostInput = document.querySelector('input[name="smtp_host"]');
         const portInput = document.querySelector('input[name="smtp_port"]');
         const fromInput = document.querySelector('input[name="smtp_from"]');
+        const fromNameInput = document.querySelector('input[name="smtp_from_name"]');
         const userInput = document.querySelector('input[name="smtp_user"]');
         const passInput = document.querySelector('input[name="smtp_password"]');
 
@@ -961,6 +968,7 @@
             smtp_host: hostInput ? hostInput.value.trim() : '',
             smtp_port: portInput ? parseInt(portInput.value, 10) || 0 : 0,
             smtp_from: fromInput ? fromInput.value.trim() : '',
+            smtp_from_name: fromNameInput ? fromNameInput.value.trim() : '',
             smtp_user: userInput ? userInput.value.trim() : '',
             smtp_password: passInput ? passInput.value : ''
         };

@@ -8,6 +8,7 @@ import (
 	"html"
 	"log"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"os"
 	"strings"
@@ -1153,6 +1154,7 @@ func (s *NotificationService) sendEmailNotification(recipient RecipientInfo, tit
 	if from == "" {
 		from = "notifications@seriestkd.com"
 	}
+	fromName := strings.TrimSpace(settings.SMTPFromName)
 
 	user := strings.TrimSpace(settings.SMTPUser)
 	password := strings.TrimSpace(settings.SMTPPassword)
@@ -1180,7 +1182,7 @@ func (s *NotificationService) sendEmailNotification(recipient RecipientInfo, tit
 	// Build Subject, HTML and Text body
 	subject, bodyHTML, bodyText := buildNotificationEmail(recipient, title, message, event, metadata, fullLink)
 
-	if err := sendSMTPMail(host, port, user, password, from, to, subject, bodyHTML, bodyText); err != nil {
+	if err := sendSMTPMail(host, port, user, password, from, fromName, to, subject, bodyHTML, bodyText); err != nil {
 		log.Printf("❌ [EMAIL DELIVERY FAILED] To: %s | Error: %v", to, err)
 	} else {
 		log.Printf("✅ [EMAIL DELIVERED] To: %s | Subject: %s", to, subject)
@@ -1321,6 +1323,7 @@ type TestEmailParams struct {
 	User      string
 	Password  string
 	From      string
+	FromName  string
 	Recipient string
 }
 
@@ -1355,6 +1358,11 @@ func (s *NotificationService) SendTestEmail(params TestEmailParams) error {
 		from = "notifications@seriestkd.com"
 	}
 
+	fromName := strings.TrimSpace(params.FromName)
+	if fromName == "" {
+		fromName = strings.TrimSpace(settings.SMTPFromName)
+	}
+
 	user := strings.TrimSpace(params.User)
 	if user == "" {
 		user = strings.TrimSpace(settings.SMTPUser)
@@ -1378,7 +1386,7 @@ func (s *NotificationService) SendTestEmail(params TestEmailParams) error {
 
 	// Support simulated or mock delivery for tests or local sandbox modes
 	if strings.ToLower(host) == "simulated" || strings.ToLower(host) == "mock" || strings.HasSuffix(strings.ToLower(host), ".test") {
-		log.Printf("✉️ [SIMULATED EMAIL TEST] To: %s | Host: %s:%d | From: %s | User: %s", recipient, host, port, from, user)
+		log.Printf("✉️ [SIMULATED EMAIL TEST] To: %s | Host: %s:%d | From: %s | FromName: %s | User: %s", recipient, host, port, from, fromName, user)
 		return nil
 	}
 
@@ -1433,16 +1441,20 @@ Series Taekwondo Team
 </body>
 </html>`, host, port, from, recipient, timestamp)
 
-	return sendSMTPMail(host, port, user, password, from, recipient, subject, bodyHTML, bodyText)
+	return sendSMTPMail(host, port, user, password, from, fromName, recipient, subject, bodyHTML, bodyText)
 }
 
-func sendSMTPMail(host string, port int, user, password, from, to, subject, bodyHTML, bodyText string) error {
+func sendSMTPMail(host string, port int, user, password, from, fromName, to, subject, bodyHTML, bodyText string) error {
 	addr := fmt.Sprintf("%s:%d", host, port)
 
 	boundary := fmt.Sprintf("stms_boundary_%d", time.Now().UnixNano())
 
 	header := make(map[string]string)
-	header["From"] = from
+	if strings.TrimSpace(fromName) != "" {
+		header["From"] = (&mail.Address{Name: strings.TrimSpace(fromName), Address: from}).String()
+	} else {
+		header["From"] = from
+	}
 	header["To"] = to
 	header["Subject"] = subject
 	header["MIME-Version"] = "1.0"
