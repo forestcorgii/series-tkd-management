@@ -20,18 +20,40 @@ type StudentPackageViewItem struct {
 }
 
 type PackagesPageData struct {
-	Templates         []*models.PackageTemplate
-	ActiveTemplates   []*models.PackageTemplate
-	ArchivedTemplates []*models.PackageTemplate
-	Students          []*models.Student
-	StudentPackages   []StudentPackageViewItem
-	CurrentUser       *models.User
+	Templates           []*models.PackageTemplate
+	ActiveTemplates     []*models.PackageTemplate
+	ArchivedTemplates   []*models.PackageTemplate
+	Students            []*models.Student
+	StudentPackages     []StudentPackageViewItem
+	PaymentStatusFilter string
+	CurrentUser         *models.User
+}
+
+func normalizeRosterPaymentFilter(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "all", "paid", "pending", "unpaid", "revoked":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return "paid"
+	}
+}
+
+func matchesRosterPaymentFilter(status, filter string) bool {
+	if filter == "all" {
+		return true
+	}
+	normalized := strings.ToLower(strings.TrimSpace(status))
+	if filter == "unpaid" {
+		return normalized != "paid" && normalized != "pending" && normalized != "revoked"
+	}
+	return normalized == filter
 }
 
 func (a *AppHandler) HandlePackages(w http.ResponseWriter, r *http.Request) {
 	templates, _ := a.store.GetPackageTemplates()
 	students, _ := a.store.GetAllStudents()
 	user := GetUserFromContext(r.Context())
+	paymentFilter := normalizeRosterPaymentFilter(r.URL.Query().Get("payment_status"))
 
 	var activeTpls, archivedTpls []*models.PackageTemplate
 	for _, t := range templates {
@@ -46,6 +68,9 @@ func (a *AppHandler) HandlePackages(w http.ResponseWriter, r *http.Request) {
 	var studentPackages []StudentPackageViewItem
 	for _, st := range students {
 		for _, p := range groupedPkgs[st.ID] {
+			if !matchesRosterPaymentFilter(p.PaymentStatus, paymentFilter) {
+				continue
+			}
 			studentPackages = append(studentPackages, StudentPackageViewItem{
 				Package:     p,
 				StudentName: st.FullName,
@@ -55,12 +80,18 @@ func (a *AppHandler) HandlePackages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PackagesPageData{
-		Templates:         templates,
-		ActiveTemplates:   activeTpls,
-		ArchivedTemplates: archivedTpls,
-		Students:          students,
-		StudentPackages:   studentPackages,
-		CurrentUser:       user,
+		Templates:           templates,
+		ActiveTemplates:     activeTpls,
+		ArchivedTemplates:   archivedTpls,
+		Students:            students,
+		StudentPackages:     studentPackages,
+		PaymentStatusFilter: paymentFilter,
+		CurrentUser:         user,
+	}
+
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
+		a.RenderPartial(w, "package_roster.html", data)
+		return
 	}
 
 	a.RenderPage(w, "packages.html", data)

@@ -483,3 +483,155 @@ func TestHandleRevokeStudentPackage(t *testing.T) {
 	}
 }
 
+func TestHandlePackages_PaymentStatusFilter(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	// Clear seeded student packages? Or create distinctly named students so we can assert precisely
+	tpl := &models.PackageTemplate{
+		ID:           uuid.New(),
+		Title:        "Filter Test Plan",
+		ValidityDays: 30,
+		Price:        100.0,
+		IsActive:     true,
+	}
+	_ = store.CreatePackageTemplate(tpl)
+
+	createPkgForStudent := func(name, paymentStatus string) {
+		st := &models.Student{
+			ID:          uuid.New(),
+			FullName:    name,
+			DOB:         time.Now().AddDate(-15, 0, 0),
+			CurrentBelt: models.BeltWhite,
+			IsActive:    true,
+		}
+		_ = store.CreateStudent(st)
+		tot := 10
+		sp := &models.StudentPackage{
+			ID:                uuid.New(),
+			StudentID:         st.ID,
+			TemplateID:        tpl.ID,
+			TemplateTitle:     tpl.Title,
+			PlanType:          models.PlanTypeStandard,
+			TotalSessions:     &tot,
+			RemainingSessions: &tot,
+			PurchaseDate:      time.Now(),
+			ExpiryDate:        time.Now().AddDate(0, 1, 0),
+			PaymentStatus:     paymentStatus,
+		}
+		_ = store.AssignPackage(sp)
+	}
+
+	createPkgForStudent("Paid Roster Student", "paid")
+	createPkgForStudent("Pending Roster Student", "pending")
+	createPkgForStudent("Unpaid Roster Student", "unpaid")
+	createPkgForStudent("Revoked Roster Student", "revoked")
+
+	extractRoster := func(html string) string {
+		start := strings.Index(html, `id="package-roster-section"`)
+		if start == -1 {
+			t.Fatalf("missing #package-roster-section in response")
+		}
+		end := strings.Index(html[start:], `</table>`)
+		if end == -1 {
+			t.Fatalf("missing closing </table> in #package-roster-section")
+		}
+		return html[start : start+end]
+	}
+
+	// 1. Default filter (no query param) -> paid only
+	reqDefault := httptest.NewRequest(http.MethodGet, "/packages", nil)
+	recDefault := httptest.NewRecorder()
+	app.HandlePackages(recDefault, reqDefault)
+	if recDefault.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recDefault.Code)
+	}
+	rosterDefault := extractRoster(recDefault.Body.String())
+	if !strings.Contains(rosterDefault, "Paid Roster Student") {
+		t.Errorf("default roster should include Paid Roster Student")
+	}
+	if strings.Contains(rosterDefault, "Pending Roster Student") ||
+		strings.Contains(rosterDefault, "Unpaid Roster Student") ||
+		strings.Contains(rosterDefault, "Revoked Roster Student") {
+		t.Errorf("default roster should exclude non-paid students")
+	}
+	if !strings.Contains(rosterDefault, `<option value="paid" selected>Paid Only</option>`) {
+		t.Errorf("expected paid option to be selected by default")
+	}
+
+	// 2. Filter: pending (HTMX partial request)
+	reqPending := httptest.NewRequest(http.MethodGet, "/packages?payment_status=pending", nil)
+	reqPending.Header.Set("HX-Request", "true")
+	recPending := httptest.NewRecorder()
+	app.HandlePackages(recPending, reqPending)
+	if recPending.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recPending.Code)
+	}
+	bodyPending := recPending.Body.String()
+	if strings.Contains(bodyPending, "<!DOCTYPE html>") {
+		t.Errorf("expected HTMX partial response without full layout")
+	}
+	if !strings.Contains(bodyPending, "Pending Roster Student") {
+		t.Errorf("pending filter should include Pending Roster Student")
+	}
+	if strings.Contains(bodyPending, "Paid Roster Student") ||
+		strings.Contains(bodyPending, "Unpaid Roster Student") ||
+		strings.Contains(bodyPending, "Revoked Roster Student") {
+		t.Errorf("pending filter should exclude non-pending students")
+	}
+
+	// 3. Filter: unpaid
+	reqUnpaid := httptest.NewRequest(http.MethodGet, "/packages?payment_status=unpaid", nil)
+	recUnpaid := httptest.NewRecorder()
+	app.HandlePackages(recUnpaid, reqUnpaid)
+	rosterUnpaid := extractRoster(recUnpaid.Body.String())
+	if !strings.Contains(rosterUnpaid, "Unpaid Roster Student") {
+		t.Errorf("unpaid filter should include Unpaid Roster Student")
+	}
+	if strings.Contains(rosterUnpaid, "Paid Roster Student") || strings.Contains(rosterUnpaid, "Pending Roster Student") {
+		t.Errorf("unpaid filter should exclude paid/pending students")
+	}
+
+	// 4. Filter: revoked
+	reqRevoked := httptest.NewRequest(http.MethodGet, "/packages?payment_status=revoked", nil)
+	recRevoked := httptest.NewRecorder()
+	app.HandlePackages(recRevoked, reqRevoked)
+	rosterRevoked := extractRoster(recRevoked.Body.String())
+	if !strings.Contains(rosterRevoked, "Revoked Roster Student") {
+		t.Errorf("revoked filter should include Revoked Roster Student")
+	}
+	if strings.Contains(rosterRevoked, "Paid Roster Student") {
+		t.Errorf("revoked filter should exclude paid students")
+	}
+
+	// 5. Filter: all
+	reqAll := httptest.NewRequest(http.MethodGet, "/packages?payment_status=all", nil)
+	recAll := httptest.NewRecorder()
+	app.HandlePackages(recAll, reqAll)
+	rosterAll := extractRoster(recAll.Body.String())
+	for _, name := range []string{"Paid Roster Student", "Pending Roster Student", "Unpaid Roster Student", "Revoked Roster Student"} {
+		if !strings.Contains(rosterAll, name) {
+			t.Errorf("all filter should include %s", name)
+		}
+	}
+
+	// 6. Boosted HTMX navigation returns full page
+	reqBoosted := httptest.NewRequest(http.MethodGet, "/packages", nil)
+	reqBoosted.Header.Set("HX-Request", "true")
+	reqBoosted.Header.Set("HX-Boosted", "true")
+	recBoosted := httptest.NewRecorder()
+	app.HandlePackages(recBoosted, reqBoosted)
+	if !strings.Contains(recBoosted.Body.String(), "<!DOCTYPE html>") {
+		t.Errorf("expected full page for HX-Boosted navigation")
+	}
+
+	// 7. Unknown payment_status falls back safely to paid
+	reqUnknown := httptest.NewRequest(http.MethodGet, "/packages?payment_status=bogus", nil)
+	recUnknown := httptest.NewRecorder()
+	app.HandlePackages(recUnknown, reqUnknown)
+	rosterUnknown := extractRoster(recUnknown.Body.String())
+	if !strings.Contains(rosterUnknown, "Paid Roster Student") || strings.Contains(rosterUnknown, "Unpaid Roster Student") {
+		t.Errorf("unknown payment_status should fall back to paid-only")
+	}
+}
+
+
