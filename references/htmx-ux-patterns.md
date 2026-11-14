@@ -54,4 +54,12 @@
   * Swap button label to `✓ Copied!` with emerald highlight for 2000ms before restoring previous markup.
   * For non-logged-in students visiting `/reserve/{id}`, supply `/login?redirect=/reserve/{id}` so the auth pipeline automatically routes them back upon successful credential validation.
 
+### Context: Post-Schedule Calendar View Anchor Retention & Active Floor Filter
+
+* **Anchor Retention (`#session-cards-wrapper`)**:
+  * Exposes `data-anchor-date="{{.Calendar.StartDateStr}}"`. `getCurrentCalendarRedirectURL()` captures the active anchor date and active filters (`coach_id`, `category`, `location_id`), populating `redirect_url` in `openNewSessionModal` and `openEditSessionModal` so edits/creates return to the viewed week without shifting the target day to Column 1.
+  * [`HandleCreateSession`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) and [`HandleUpdateSession`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) honor `redirect_url` (or `HX-Redirect` for HTMX requests), defaulting to `/sessions?date=YYYY-MM-DD`.
+* **Dashboard Active Classes Filter**:
+  * [`TrainingSession.IsOpen()`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) (`!s.IsCancelled && !s.IsPastEndTime()`) filters `RecentSessions` in [`HandleDashboard`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/dashboard_handler.go) so [`dashboard.html`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/dashboard.html) displays only `Open` classes.
+
 

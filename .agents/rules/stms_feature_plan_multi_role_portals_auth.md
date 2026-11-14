@@ -15,11 +15,11 @@ STMS uses a **Two-Tier Primary User Model** (`STUDENT` and `STAFF`) with customi
 | **`OPERATION_MANAGER`** (`IsOperationManager()`) | `/dashboard` | `/dashboard` (`dashboard.html`) | Full control (`*`): all routes, `/coaches`, `/admins`, `/roles`, `/logs`, `/portal/admin`, belt promotions, safety clearances, cascade deletions. |
 | **`ADMIN`** (`IsAdmin()`) | `/sessions` | `/dashboard` (`admin_dashboard.html`) | `/sessions` (attendance & scheduling), `/packages` (view & assign), `/students` (register & edit contact/emergency info ONLY—no belt rank/eval edits), `/locations` (view-only), `/settings`. |
 | **`COACH`** (`IsCoach()`) | `/sessions` | `/dashboard` (`coach_dashboard.html`) | `/sessions` (pre-filtered to own `coach_id` on initial load), `/students` (view & submit evaluations), `/portal/coach`, `/locations` (view-only), `/settings` (view). |
-| **`STUDENT`** (`IsStudent()`) | `/portal/student` | `/portal/student` (`student_portal.html`) | Own profile only (`/portal/student`, `/students/{own_id}`, `POST /api/student/check-in`). Redirected to `/portal/student` on unauthorized routes. |
+| **`STUDENT`** (`IsStudent()`) | `/` (`landing.html`) | `/portal/student` (`student_portal.html`) | Own profile only (`/portal/student`, `/students/{own_id}`, `POST /api/student/check-in`). Redirected to `/` on unauthorized routes. |
 
 ## 2. Critical Auth & Routing Invariants
 1. **Public Landing vs Authenticated Workspace (`GET /`)**:
-   - `GET /` serves `HandleLandingPage` publicly. If an authenticated user visits `/` without `?preview=1`, they redirect per the table above (`Student -> /portal/student`, `Coach/Admin -> /sessions`, `Manager -> /dashboard`).
+   - `GET /` serves `HandleLandingPage` publicly. Authenticated `STUDENT` users also render `landing.html` (default calendar view); authenticated `STAFF` visiting `/` without `?preview=1` redirect to their workspace (`Coach/Admin -> /sessions`, `Manager -> /dashboard`).
 2. **Route Registration Sync**:
    - Always register new HTTP routes in **both** [`main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/main.go) and [`cmd/server/main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/cmd/server/main.go).
 3. **Dual-Format Auth Guards (`RequireAuth` / `RequireRole` / `RequirePermission`)**:

@@ -31,7 +31,7 @@ series-tkd-management/
 │   ├── services/                   # Domain services (Auth, Promotion, Payroll, Audit, Notifications)
 │   └── storage/                    # FileStorage interface, Railway S3Storage, LocalStorage
 ├── web/
-│   ├── static/                     # Precompiled tailwind.css, htmx.min.js, push-client.js, sw.js, icons
+│   ├── static/                     # Precompiled tailwind.css, htmx.min.js, schedule-export.js, html2canvas.min.js, sw.js, icons
 │   └── templates/
 │       ├── layout.html             # Base shell (Navbar, Mobile Drawer, Bottom Bar, Modals, Tooltips)
 │       ├── pages/                  # Isolated page templates cloned onto baseTmpl

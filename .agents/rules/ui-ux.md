@@ -16,7 +16,7 @@ For detailed component classes and layout patterns, consult [`references/ui-desi
 ## 2. Typography & Input Rules
 - **Display Font (`Good Timing` / `font-display`)**: Headings, KPI callouts, buttons (`uppercase tracking-wider`).
 - **Body Font (`Montserrat` / `font-sans`)**: Operational text, tables, inputs, badges.
-- **Global Uppercase Input Engine**: General text inputs and textareas automatically transform to uppercase via `layout.html`. Always add `.no-uppercase`, `data-no-uppercase="true"`, and `autocapitalize="none"` to case-sensitive fields (usernames, identifiers, passwords, tokens, keys, SMTP/VAPID settings).
+- **Global Uppercase Input Engine**: General text inputs and textareas automatically transform to uppercase via `layout.html`. Always add `.no-uppercase`, `data-no-uppercase="true"`, and `autocapitalize="none"` to case-sensitive fields (usernames, identifiers, passwords, tokens, keys, SMTP/Telegram settings).
 - **Phone Inputs**: 11-digit Philippine mobile format (`09XXXXXXXXX`, `pattern="09[0-9]{9}"`, `maxlength="11"`, `inputmode="numeric"`).
 
 ## 3. Compact Layout & Component Standards
