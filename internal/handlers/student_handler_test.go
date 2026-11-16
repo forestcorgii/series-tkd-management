@@ -1148,5 +1148,72 @@ func TestStudentHandler_UpdateStatusTags(t *testing.T) {
 	}
 }
 
+func TestStudentHandler_StatusFilter(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	admin := &models.User{
+		ID:       uuid.New(),
+		Email:    "admin@seriestkd.com",
+		Role:     models.RoleAdmin,
+		IsActive: true,
+	}
+
+	_ = store.CreateStudent(&models.Student{
+		ID:                uuid.New(),
+		FullName:          "Alice Varsity",
+		DOB:               time.Now().AddDate(-12, 0, 0),
+		Phone:             "09170000001",
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Parent A",
+		EmergencyPhone:    "09170000002",
+		EmergencyRelation: "Mother",
+		StatusTags:        []string{"Varsity"},
+		IsActive:          true,
+	})
+	_ = store.CreateStudent(&models.Student{
+		ID:                uuid.New(),
+		FullName:          "Bob Untagged",
+		DOB:               time.Now().AddDate(-12, 0, 0),
+		Phone:             "09170000003",
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Parent B",
+		EmergencyPhone:    "09170000004",
+		EmergencyRelation: "Father",
+		IsActive:          true,
+	})
+
+	// Filter by Varsity
+	req := httptest.NewRequest(http.MethodGet, "/students?status=Varsity", nil)
+	req.Header.Set("HX-Request", "true")
+	req = req.WithContext(context.WithValue(req.Context(), handlers.UserContextKey, admin))
+	rec := httptest.NewRecorder()
+	app.HandleStudents(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Alice Varsity") || strings.Contains(body, "Bob Untagged") {
+		t.Errorf("expected only Alice Varsity for status=Varsity, got: %s", body)
+	}
+
+	// Filter by Untagged (__none__)
+	reqNone := httptest.NewRequest(http.MethodGet, "/students?status=__none__", nil)
+	reqNone.Header.Set("HX-Request", "true")
+	reqNone = reqNone.WithContext(context.WithValue(reqNone.Context(), handlers.UserContextKey, admin))
+	recNone := httptest.NewRecorder()
+	app.HandleStudents(recNone, reqNone)
+
+	if recNone.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for __none__, got %d", recNone.Code)
+	}
+	bodyNone := recNone.Body.String()
+	if !strings.Contains(bodyNone, "Bob Untagged") || strings.Contains(bodyNone, "Alice Varsity") {
+		t.Errorf("expected only Bob Untagged for status=__none__, got: %s", bodyNone)
+	}
+}
+
 
 

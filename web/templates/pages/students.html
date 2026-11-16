@@ -31,13 +31,31 @@
         <div class="flex-1 flex items-center gap-1.5">
             <div class="relative flex-1">
                 <input type="search"
+                       id="student-search-input"
                        name="query"
                        value="{{.Search}}"
                        placeholder="Search student name, phone, belt rank, status..."
                        hx-get="/students"
                        hx-trigger="keyup changed delay:250ms, search"
                        hx-target="#student-rows"
+                       hx-include="#student-status-filter"
                        class="form-input text-xs py-1.5" />
+            </div>
+            <div class="w-36 sm:w-44 flex-shrink-0">
+                <select id="student-status-filter"
+                        name="status"
+                        aria-label="Filter by student status"
+                        hx-get="/students"
+                        hx-trigger="change"
+                        hx-target="#student-rows"
+                        hx-include="#student-search-input"
+                        class="form-select text-xs py-1.5">
+                    <option value="">All Statuses</option>
+                    {{range .StatusPresets}}
+                    <option value="{{.}}" {{if eq $.StatusFilter .}}selected{{end}}>{{.}}</option>
+                    {{end}}
+                    <option value="__none__" {{if eq .StatusFilter "__none__"}}selected{{end}}>Untagged</option>
+                </select>
             </div>
             <div class="has-tooltip flex-shrink-0">
                 <button type="button" class="tooltip-icon" aria-label="Student Directory Information">ⓘ</button>

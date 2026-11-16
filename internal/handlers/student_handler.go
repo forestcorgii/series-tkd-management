@@ -30,16 +30,37 @@ type StudentsPageData struct {
 	Templates     []*models.PackageTemplate
 	StatusPresets []string
 	Search        string
+	StatusFilter  string
 	SuccessNotice string
 	ErrorNotice   string
 }
 
 func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("query")
+	statusFilter := strings.TrimSpace(r.URL.Query().Get("status"))
 	students, err := a.store.SearchStudents(query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if statusFilter != "" {
+		filtered := make([]*models.Student, 0, len(students))
+		for _, st := range students {
+			if statusFilter == "__none__" {
+				if len(st.StatusTags) == 0 {
+					filtered = append(filtered, st)
+				}
+				continue
+			}
+			for _, tag := range st.StatusTags {
+				if strings.EqualFold(tag, statusFilter) {
+					filtered = append(filtered, st)
+					break
+				}
+			}
+		}
+		students = filtered
 	}
 
 	sessions, _ := a.store.GetAllSessions()
@@ -108,6 +129,7 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 		Templates:     templates,
 		StatusPresets: presets,
 		Search:        query,
+		StatusFilter:  statusFilter,
 		SuccessNotice: r.URL.Query().Get("success"),
 		ErrorNotice:   r.URL.Query().Get("error"),
 	}
