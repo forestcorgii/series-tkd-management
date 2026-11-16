@@ -936,4 +936,217 @@ func TestStudentHandler_StudentDetail_TrailingSlashAndSubpaths(t *testing.T) {
 	}
 }
 
+func TestStudentHandler_StatusTags_CreateUpdateAndSearch(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	admin := &models.User{
+		ID:       uuid.New(),
+		Email:    "admin@seriestkd.com",
+		Role:     models.RoleAdmin,
+		IsActive: true,
+	}
+
+	// 1. Create student with multiple status tags (preset + custom)
+	form := url.Values{}
+	form.Set("full_name", "Elena Reyes")
+	form.Set("dob", "2012-05-10")
+	form.Set("gender", "Female")
+	form.Set("phone", "09171234567")
+	form.Set("current_belt", string(models.BeltLowBlue))
+	form.Set("emergency_name", "Maria Reyes")
+	form.Set("emergency_phone", "09179876543")
+	form.Set("emergency_relation", "Mother")
+	form.Set("status_tags", "Active, Varsity, varsity, Junior National")
+
+	req := httptest.NewRequest(http.MethodPost, "/students", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(context.WithValue(req.Context(), handlers.UserContextKey, admin))
+	rec := httptest.NewRecorder()
+	app.HandleCreateStudent(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on create, got %d", rec.Code)
+	}
+
+	students, err := store.SearchStudents("Junior National")
+	if err != nil {
+		t.Fatalf("SearchStudents failed: %v", err)
+	}
+	if len(students) != 1 || students[0].FullName != "Elena Reyes" {
+		t.Fatalf("expected to find Elena Reyes by status tag, got %+v", students)
+	}
+	if len(students[0].StatusTags) != 3 {
+		t.Fatalf("expected 3 deduplicated status tags, got %#v", students[0].StatusTags)
+	}
+
+	// 2. Update status tags as Admin
+	createdID := students[0].ID
+	updateForm := url.Values{}
+	updateForm.Set("full_name", "Elena Reyes")
+	updateForm.Set("dob", "2012-05-10")
+	updateForm.Set("gender", "Female")
+	updateForm.Set("phone", "09171234567")
+	updateForm.Set("emergency_name", "Maria Reyes")
+	updateForm.Set("emergency_phone", "09179876543")
+	updateForm.Set("emergency_relation", "Mother")
+	updateForm.Set("status_tags", "On Hold, Injured")
+
+	reqUpd := httptest.NewRequest(http.MethodPost, "/students/"+createdID.String(), strings.NewReader(updateForm.Encode()))
+	reqUpd.SetPathValue("id", createdID.String())
+	reqUpd.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqUpd = reqUpd.WithContext(context.WithValue(reqUpd.Context(), handlers.UserContextKey, admin))
+	recUpd := httptest.NewRecorder()
+	app.HandleUpdateStudent(recUpd, reqUpd)
+
+	if recUpd.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on update, got %d", recUpd.Code)
+	}
+
+	updated, err := store.GetStudentByID(createdID)
+	if err != nil {
+		t.Fatalf("GetStudentByID failed: %v", err)
+	}
+	if got := updated.StatusTagsCSV(); got != "On Hold,Injured" {
+		t.Fatalf("expected updated StatusTagsCSV 'On Hold,Injured', got %q", got)
+	}
+
+	// 3. Verify partial search renders matching student
+	reqList := httptest.NewRequest(http.MethodGet, "/students?query=Injured", nil)
+	reqList.Header.Set("HX-Request", "true")
+	reqList = reqList.WithContext(context.WithValue(reqList.Context(), handlers.UserContextKey, admin))
+	recList := httptest.NewRecorder()
+	app.HandleStudents(recList, reqList)
+
+	if recList.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on partial search, got %d", recList.Code)
+	}
+	body := recList.Body.String()
+	if !strings.Contains(body, "Elena Reyes") || !strings.Contains(body, "Injured") {
+		t.Errorf("expected filtered partial to contain student and status tag, got: %s", body)
+	}
+}
+
+func TestStudentHandler_StatusTags_AutoSaveAndDelete(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	admin := &models.User{
+		ID:       uuid.New(),
+		Email:    "admin@seriestkd.com",
+		Role:     models.RoleAdmin,
+		IsActive: true,
+	}
+
+	// Creating a student with custom tags automatically saves them to the reusable list
+	form := url.Values{}
+	form.Set("full_name", "Marco Tan")
+	form.Set("dob", "2011-03-14")
+	form.Set("gender", "Male")
+	form.Set("phone", "09171112233")
+	form.Set("current_belt", string(models.BeltWhite))
+	form.Set("emergency_name", "Luis Tan")
+	form.Set("emergency_phone", "09174445566")
+	form.Set("emergency_relation", "Father")
+	form.Set("status_tags", "Varsity, varsity, Scholarship")
+
+	reqCreate := httptest.NewRequest(http.MethodPost, "/students", strings.NewReader(form.Encode()))
+	reqCreate.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqCreate = reqCreate.WithContext(context.WithValue(reqCreate.Context(), handlers.UserContextKey, admin))
+	recCreate := httptest.NewRecorder()
+	app.HandleCreateStudent(recCreate, reqCreate)
+	if recCreate.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on create, got %d", recCreate.Code)
+	}
+
+	saved, err := store.GetStudentStatusPresets()
+	if err != nil {
+		t.Fatalf("GetStudentStatusPresets failed: %v", err)
+	}
+	if len(saved) != 2 || saved[0] != "Varsity" || saved[1] != "Scholarship" {
+		t.Fatalf("expected reusable tags [Varsity Scholarship], got %#v", saved)
+	}
+
+	// Delete "varsity" (case-insensitive) from the reusable list
+	reqDel := httptest.NewRequest(http.MethodPost, "/students/status-tags/delete", strings.NewReader(`{"name":"varsity"}`))
+	reqDel.Header.Set("Content-Type", "application/json")
+	recDel := httptest.NewRecorder()
+	app.HandleDeleteStudentStatusTag(recDel, reqDel)
+	if recDel.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on delete, got %d", recDel.Code)
+	}
+
+	var resp struct {
+		Tags []string `json:"tags"`
+	}
+	if err := json.NewDecoder(recDel.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode tags response: %v", err)
+	}
+	if len(resp.Tags) != 1 || resp.Tags[0] != "Scholarship" {
+		t.Fatalf("expected remaining reusable tags [Scholarship], got %#v", resp.Tags)
+	}
+}
+
+func TestStudentHandler_UpdateStatusTags(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	admin := &models.User{
+		ID:       uuid.New(),
+		Email:    "admin@seriestkd.com",
+		Role:     models.RoleAdmin,
+		IsActive: true,
+	}
+
+	st := &models.Student{
+		ID:                uuid.New(),
+		FullName:          "Kai Cruz",
+		DOB:               time.Now().AddDate(-11, 0, 0),
+		Gender:            "Male",
+		Phone:             "09175556677",
+		CurrentBelt:       models.BeltWhite,
+		LastPromotionDate: time.Now(),
+		EmergencyName:     "Ana Cruz",
+		EmergencyPhone:    "09178889900",
+		EmergencyRelation: "Mother",
+		IsActive:          true,
+	}
+	if err := store.CreateStudent(st); err != nil {
+		t.Fatalf("CreateStudent failed: %v", err)
+	}
+
+	form := url.Values{}
+	form.Set("student_id", st.ID.String())
+	form.Set("status_tags", "Varsity, Trial")
+
+	req := httptest.NewRequest(http.MethodPost, "/students/"+st.ID.String()+"/status-tags", strings.NewReader(form.Encode()))
+	req.SetPathValue("id", st.ID.String())
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(context.WithValue(req.Context(), handlers.UserContextKey, admin))
+	rec := httptest.NewRecorder()
+
+	app.HandleUpdateStudentStatusTags(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d", rec.Code)
+	}
+	if !strings.HasPrefix(rec.Header().Get("Location"), "/students?success=") {
+		t.Errorf("expected redirect to /students?success=..., got %s", rec.Header().Get("Location"))
+	}
+
+	updated, err := store.GetStudentByID(st.ID)
+	if err != nil {
+		t.Fatalf("GetStudentByID failed: %v", err)
+	}
+	if got := updated.StatusTagsCSV(); got != "Varsity,Trial" {
+		t.Fatalf("expected StatusTagsCSV 'Varsity,Trial', got %q", got)
+	}
+
+	saved, err := store.GetStudentStatusPresets()
+	if err != nil {
+		t.Fatalf("GetStudentStatusPresets failed: %v", err)
+	}
+	if len(saved) != 2 || saved[0] != "Varsity" || saved[1] != "Trial" {
+		t.Fatalf("expected reusable tags [Varsity Trial], got %#v", saved)
+	}
+}
+
+
 

@@ -54,6 +54,9 @@ type RepositoryStore interface {
 	CreateStudent(s *models.Student) error
 	UpdateStudent(s *models.Student) error
 	DeleteStudent(studentID uuid.UUID) error
+	GetStudentStatusPresets() ([]string, error)
+	AddStudentStatusPreset(name string) ([]string, error)
+	DeleteStudentStatusPreset(name string) ([]string, error)
 
 	// Coaches
 	GetAllCoaches() ([]*models.Coach, error)
@@ -172,6 +175,7 @@ type SessionTokenRecord struct {
 type MemoryStore struct {
 	mu                  sync.RWMutex
 	students            map[uuid.UUID]*models.Student
+	statusPresets       []string
 	coaches             map[uuid.UUID]*models.Coach
 	packageTemplates    map[uuid.UUID]*models.PackageTemplate
 	studentPackages     map[uuid.UUID]*models.StudentPackage
@@ -251,7 +255,19 @@ func (m *MemoryStore) SearchStudents(query string) ([]*models.Student, error) {
 	q := strings.ToLower(strings.TrimSpace(query))
 	result := []*models.Student{}
 	for _, s := range m.students {
-		if q == "" || strings.Contains(strings.ToLower(s.FullName), q) || strings.Contains(strings.ToLower(s.Phone), q) || strings.Contains(strings.ToLower(string(s.CurrentBelt)), q) {
+		matched := q == "" ||
+			strings.Contains(strings.ToLower(s.FullName), q) ||
+			strings.Contains(strings.ToLower(s.Phone), q) ||
+			strings.Contains(strings.ToLower(string(s.CurrentBelt)), q)
+		if !matched {
+			for _, tag := range s.StatusTags {
+				if strings.Contains(strings.ToLower(tag), q) {
+					matched = true
+					break
+				}
+			}
+		}
+		if matched {
 			result = append(result, s)
 		}
 	}
@@ -268,6 +284,7 @@ func (m *MemoryStore) CreateStudent(s *models.Student) error {
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()
 	}
+	s.StatusTags = models.ParseStatusTags(models.FormatStatusTags(s.StatusTags))
 	s.CreatedAt = time.Now()
 	m.students[s.ID] = s
 	return nil
@@ -280,8 +297,57 @@ func (m *MemoryStore) UpdateStudent(s *models.Student) error {
 	if _, ok := m.students[s.ID]; !ok {
 		return ErrNotFound
 	}
+	s.StatusTags = models.ParseStatusTags(models.FormatStatusTags(s.StatusTags))
 	m.students[s.ID] = s
 	return nil
+}
+
+func (m *MemoryStore) GetStudentStatusPresets() ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := make([]string, len(m.statusPresets))
+	copy(out, m.statusPresets)
+	return out, nil
+}
+
+func (m *MemoryStore) AddStudentStatusPreset(name string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	trimmed := strings.TrimSpace(name)
+	if trimmed != "" {
+		exists := false
+		for _, p := range m.statusPresets {
+			if strings.EqualFold(p, trimmed) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			m.statusPresets = append(m.statusPresets, trimmed)
+		}
+	}
+	out := make([]string, len(m.statusPresets))
+	copy(out, m.statusPresets)
+	return out, nil
+}
+
+func (m *MemoryStore) DeleteStudentStatusPreset(name string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	trimmed := strings.TrimSpace(name)
+	filtered := make([]string, 0, len(m.statusPresets))
+	for _, p := range m.statusPresets {
+		if !strings.EqualFold(p, trimmed) {
+			filtered = append(filtered, p)
+		}
+	}
+	m.statusPresets = filtered
+	out := make([]string, len(m.statusPresets))
+	copy(out, m.statusPresets)
+	return out, nil
 }
 
 func (m *MemoryStore) DeleteStudent(studentID uuid.UUID) error {

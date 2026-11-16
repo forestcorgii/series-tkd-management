@@ -118,6 +118,48 @@
         @apply badge bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800 shadow-sm;
     }
 
+    .badge-status-tag {
+        @apply inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-800 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/70;
+    }
+
+    .status-tag-box {
+        @apply flex flex-wrap items-center gap-1.5 min-h-[38px] p-1.5 rounded-lg border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-within:ring-2 focus-within:ring-[#990303]/30 focus-within:border-[#990303] transition;
+    }
+
+    .status-tag-chip {
+        @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#990303]/10 text-[#990303] border border-[#990303]/25 dark:bg-[#990303]/25 dark:text-red-300 dark:border-red-800/60;
+    }
+
+    .status-tag-chip-remove {
+        @apply text-xs leading-none font-bold opacity-70 hover:opacity-100 focus:outline-none cursor-pointer;
+    }
+
+
+
+    .status-tag-dropdown {
+        @apply absolute left-0 right-0 top-full mt-1 z-50 max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg py-1;
+    }
+
+
+    .status-tag-dropdown-item {
+        @apply w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 cursor-pointer transition;
+    }
+
+
+    .status-tag-dropdown-item.is-selected {
+        @apply bg-[#990303]/10 text-[#990303] dark:bg-[#990303]/25 dark:text-red-300 font-semibold;
+    }
+
+
+    .status-tag-dropdown-delete {
+        @apply px-1.5 py-0.5 rounded text-xs leading-none text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer transition;
+    }
+
+
+    .status-tag-toggle-btn {
+        @apply text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-1 text-xs leading-none cursor-pointer focus:outline-none;
+    }
+
     /* Modals */
     .modal-backdrop {
         @apply fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto;
@@ -474,27 +516,27 @@ html.dark .tooltip-icon:hover {
 
 /* Calendar Grid & Mobile Strip Utilities */
 
-    @media (min-width: 768px) {
+@media (min-width: 768px) {
 
-        .calendar-grid-desktop,
-        #calendar-header-grid,
-        #calendar-body-grid,
-        #landing-calendar-header-grid,
-        #landing-calendar-body-grid {
-            display: grid !important;
-            grid-template-columns: 64px repeat(7, minmax(0, 1fr)) !important;
-        }
+    .calendar-grid-desktop,
+    #calendar-header-grid,
+    #calendar-body-grid,
+    #landing-calendar-header-grid,
+    #landing-calendar-body-grid {
+        display: grid !important;
+        grid-template-columns: 64px repeat(7, minmax(0, 1fr)) !important;
+    }
+}
+
+
+@media (max-width: 767px) {
+    .calendar-grid-mobile-day {
+        display: grid !important;
+        grid-template-columns: 44px 1fr !important;
     }
 
-
-        @media (max-width: 767px) {
-            .calendar-grid-mobile-day {
-                display: grid !important;
-                grid-template-columns: 44px 1fr !important;
-            }
-
-            .calendar-grid-mobile-3day {
-                display: grid !important;
-                grid-template-columns: 44px repeat(3, minmax(130px, 1fr)) !important;
-            }
-        }
+    .calendar-grid-mobile-3day {
+        display: grid !important;
+        grid-template-columns: 44px repeat(3, minmax(130px, 1fr)) !important;
+    }
+}

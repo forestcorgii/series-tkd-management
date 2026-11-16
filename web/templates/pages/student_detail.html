@@ -82,6 +82,13 @@
                 <div>
                     <h1 class="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white leading-tight">{{.Student.FullName}}</h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Age: {{.Student.Age}} &bull; Phone: {{.Student.Phone}} &bull; Rank Tenure: {{.Student.DaysInCurrentRank}} days</p>
+                    {{if .Student.StatusTags}}
+                    <div class="flex flex-wrap items-center gap-1 mt-1">
+                        {{range .Student.StatusTags}}
+                        <span class="badge-status-tag">{{.}}</span>
+                        {{end}}
+                    </div>
+                    {{end}}
                     {{if .StudentUser}}
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                         <span class="inline-flex items-center gap-1 font-mono text-emerald-600 dark:text-emerald-400">✉️ {{.StudentUser.Email}}</span>
@@ -458,6 +465,23 @@
                     </select>
                     <p class="text-[10px] text-slate-500 italic mt-1">Read-only for Admin</p>
                     {{end}}
+                </div>
+            </div>
+
+            <!-- Student Status Multi-Tagging Input -->
+            <div data-status-tag-input class="relative space-y-1.5">
+                <label class="form-label flex items-center justify-between">
+                    <span>Student Status Tags <span class="text-slate-400 text-xs font-normal">(Optional)</span></span>
+                    <span class="text-[10px] text-slate-400 font-normal">Press Enter or comma to add</span>
+                </label>
+                <input type="hidden" name="status_tags" value="{{.Student.StatusTagsCSV}}">
+                <div class="status-tag-box">
+                    <div data-tag-chips class="flex flex-wrap items-center gap-1"></div>
+                    <input type="text" data-tag-text placeholder="Select or type status tag..." class="flex-1 min-w-[120px] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none px-1 py-0.5 no-uppercase" data-no-uppercase="true">
+                    <button type="button" data-tag-dropdown-toggle class="status-tag-toggle-btn" aria-label="Toggle existing tags dropdown" title="Show existing tags">▾</button>
+                </div>
+                <div data-saved-tags-dropdown class="status-tag-dropdown hidden">
+                    {{range .StatusPresets}}<span class="hidden" data-initial-saved-tag="{{.}}"></span>{{end}}
                 </div>
             </div>
 

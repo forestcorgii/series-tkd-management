@@ -189,6 +189,8 @@ func main() {
 	mux.HandleFunc("GET /students/{id}/reset-password", app.RequireRole(models.RoleOperationManager)(app.HandleResetStudentPassword))
 	mux.HandleFunc("GET /students/{id}/reset-password/", app.RequireRole(models.RoleOperationManager)(app.HandleResetStudentPassword))
 	mux.HandleFunc("POST /students", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleCreateStudent))
+	mux.HandleFunc("POST /students/status-tags/delete", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleDeleteStudentStatusTag))
+	mux.HandleFunc("POST /students/{id}/status-tags", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudentStatusTags))
 	mux.HandleFunc("POST /students/{id}", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
 	mux.HandleFunc("POST /students/{id}/", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))
 	mux.HandleFunc("POST /students/{id}/edit", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleUpdateStudent))

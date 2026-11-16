@@ -33,7 +33,7 @@
                 <input type="search"
                        name="query"
                        value="{{.Search}}"
-                       placeholder="Search student name, phone, belt rank..."
+                       placeholder="Search student name, phone, belt rank, status..."
                        hx-get="/students"
                        hx-trigger="keyup changed delay:250ms, search"
                        hx-target="#student-rows"
@@ -141,6 +141,21 @@
                         <option value="2nd Dan Black">2nd Dan Black</option>
                         <option value="3rd Dan Black">3rd Dan Black</option>
                     </select>
+                </div>
+            </div>
+            <div data-status-tag-input class="relative space-y-1.5">
+                <label class="form-label flex items-center justify-between">
+                    <span>Student Status Tags <span class="text-slate-400 text-xs font-normal">(Optional)</span></span>
+                    <span class="text-[10px] text-slate-400 font-normal">Press Enter or comma to add</span>
+                </label>
+                <input type="hidden" name="status_tags" value="">
+                <div class="status-tag-box">
+                    <div data-tag-chips class="flex flex-wrap items-center gap-1"></div>
+                    <input type="text" data-tag-text placeholder="Select or type status tag..." class="flex-1 min-w-[120px] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none px-1 py-0.5 no-uppercase" data-no-uppercase="true">
+                    <button type="button" data-tag-dropdown-toggle class="status-tag-toggle-btn" aria-label="Toggle existing tags dropdown" title="Show existing tags">▾</button>
+                </div>
+                <div data-saved-tags-dropdown class="status-tag-dropdown hidden">
+                    {{range .StatusPresets}}<span class="hidden" data-initial-saved-tag="{{.}}"></span>{{end}}
                 </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -336,7 +351,65 @@
     </div>
 </div>
 
+<!-- Modal: Quick-Edit Student Status Tags -->
+<div id="edit-tags-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog max-w-md">
+        <div class="modal-header">
+            <div>
+                <h3 class="font-display font-bold text-lg text-slate-900 dark:text-white">Edit Status Tags</h3>
+                <p id="edit-tags-student-name" class="text-xs text-slate-500 dark:text-slate-400"></p>
+            </div>
+            <button type="button" onclick="closeEditTagsModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="edit-tags-form" method="POST" hx-boost="false" hx-disable="true" class="space-y-4">
+            <input type="hidden" id="edit-tags-student-id" name="student_id" value="">
+            <div id="edit-tags-widget" data-status-tag-input class="relative space-y-1.5">
+                <label class="form-label flex items-center justify-between">
+                    <span>Student Status Tags</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Press Enter or comma to add</span>
+                </label>
+                <input type="hidden" name="status_tags" value="">
+                <div class="status-tag-box">
+                    <div data-tag-chips class="flex flex-wrap items-center gap-1"></div>
+                    <input type="text" data-tag-text placeholder="Select or type status tag..." class="flex-1 min-w-[120px] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none px-1 py-0.5 no-uppercase" data-no-uppercase="true">
+                    <button type="button" data-tag-dropdown-toggle class="status-tag-toggle-btn" aria-label="Toggle existing tags dropdown" title="Show existing tags">▾</button>
+                </div>
+                <div data-saved-tags-dropdown class="status-tag-dropdown hidden">
+                    {{range .StatusPresets}}<span class="hidden" data-initial-saved-tag="{{.}}"></span>{{end}}
+                </div>
+            </div>
+            <div class="modal-footer pt-2">
+                <button type="button" onclick="closeEditTagsModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save Tags</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    function openEditTagsModal(btn) {
+        const id = btn.getAttribute('data-student-id') || '';
+        const name = btn.getAttribute('data-student-name') || '';
+        const tags = btn.getAttribute('data-student-tags') || '';
+        const form = document.getElementById('edit-tags-form');
+        const idInput = document.getElementById('edit-tags-student-id');
+        const nameEl = document.getElementById('edit-tags-student-name');
+        const widget = document.getElementById('edit-tags-widget');
+        if (form) form.action = '/students/' + id + '/status-tags';
+        if (idInput) idInput.value = id;
+        if (nameEl) nameEl.textContent = name;
+        if (widget && typeof widget._setTags === 'function') {
+            widget._setTags(tags);
+        }
+        document.getElementById('edit-tags-modal').classList.remove('hidden');
+        const textInput = widget ? widget.querySelector('[data-tag-text]') : null;
+        if (textInput) textInput.focus();
+    }
+
+    function closeEditTagsModal() {
+        document.getElementById('edit-tags-modal').classList.add('hidden');
+    }
+
     function openAssignModal() {
         document.getElementById('assign-pass-modal').classList.remove('hidden');
     }

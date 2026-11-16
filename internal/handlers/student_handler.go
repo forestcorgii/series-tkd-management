@@ -28,6 +28,7 @@ type StudentsPageData struct {
 	CurrentUser   *models.User
 	Students      []StudentListItem
 	Templates     []*models.PackageTemplate
+	StatusPresets []string
 	Search        string
 	SuccessNotice string
 	ErrorNotice   string
@@ -98,12 +99,14 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templates, _ := a.store.GetPackageTemplates()
+	presets, _ := a.store.GetStudentStatusPresets()
 
 	user := GetUserFromContext(r.Context())
 	data := StudentsPageData{
 		CurrentUser:   user,
 		Students:      items,
 		Templates:     templates,
+		StatusPresets: presets,
 		Search:        query,
 		SuccessNotice: r.URL.Query().Get("success"),
 		ErrorNotice:   r.URL.Query().Get("error"),
@@ -161,6 +164,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 	pkgs, _ := a.store.GetStudentPackages(student.ID)
 	evals, _ := a.store.GetStudentEvaluations(student.ID)
 	coaches, _ := a.store.GetAllCoaches()
+	presets, _ := a.store.GetStudentStatusPresets()
 
 	polygon := ""
 	if latestEval != nil {
@@ -182,6 +186,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 		LatestEvaluation  *models.StudentEvaluation
 		Evaluations       []*models.StudentEvaluation
 		Coaches           []*models.Coach
+		StatusPresets     []string
 		SVGRadarPolygon   string
 		ProfilePictureURL string
 		SuccessNotice     string
@@ -195,6 +200,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 		LatestEvaluation:  latestEval,
 		Evaluations:       evals,
 		Coaches:           coaches,
+		StatusPresets:     presets,
 		SVGRadarPolygon:   polygon,
 		ProfilePictureURL: studentPicURL,
 		SuccessNotice:     r.URL.Query().Get("success"),
@@ -228,11 +234,15 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 		EmergencyRelation: r.FormValue("emergency_relation"),
 		MedicalNotes:      r.FormValue("medical_notes"),
 		IsActive:          true,
+		StatusTags:        models.ParseStatusTags(r.FormValue("status_tags")),
 	}
 
 	if err := a.store.CreateStudent(s); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	for _, tag := range s.StatusTags {
+		_, _ = a.store.AddStudentStatusPreset(tag)
 	}
 
 	a.LogAction(r, "STUDENT_CREATE", models.AuditCategoryStudents, "Student", s.ID.String(), s.FullName, "Registered new student: "+s.FullName)
@@ -396,6 +406,7 @@ func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 		student.EmergencyRelation = emRel
 	}
 	student.MedicalNotes = strings.TrimSpace(r.FormValue("medical_notes"))
+	student.StatusTags = models.ParseStatusTags(r.FormValue("status_tags"))
 
 	// Non-admin roles like Operation Manager could update current_belt, email, and username
 	// Admins are strictly barred from modifying belt rank, promotion dates, or portal credentials.
@@ -474,6 +485,9 @@ func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 	if err := a.store.UpdateStudent(student); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	for _, tag := range student.StatusTags {
+		_, _ = a.store.AddStudentStatusPreset(tag)
 	}
 
 	a.LogAction(r, "STUDENT_UPDATE", models.AuditCategoryStudents, "Student", student.ID.String(), student.FullName, "Updated student profile details for: "+student.FullName)
@@ -668,6 +682,74 @@ func (a *AppHandler) HandleResetStudentPassword(w http.ResponseWriter, r *http.R
 }
 
 // HandleDeleteStudent permanently removes a student profile, attendance, evaluations, packages, and linked user account
+func (a *AppHandler) HandleUpdateStudentStatusTags(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimSpace(r.FormValue("student_id"))
+	}
+	idStr = strings.Trim(idStr, "/")
+	studentID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Invalid student ID."), http.StatusSeeOther)
+		return
+	}
+
+	student, err := a.store.GetStudentByID(studentID)
+	if err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Student not found."), http.StatusSeeOther)
+		return
+	}
+
+	student.StatusTags = models.ParseStatusTags(r.FormValue("status_tags"))
+	if err := a.store.UpdateStudent(student); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, tag := range student.StatusTags {
+		_, _ = a.store.AddStudentStatusPreset(tag)
+	}
+
+	a.LogAction(r, "STUDENT_TAGS_UPDATE", models.AuditCategoryStudents, "Student", student.ID.String(), student.FullName, "Updated status tags for: "+student.FullName)
+
+	http.Redirect(w, r, "/students?success="+url.QueryEscape("Status tags updated for "+student.FullName+"."), http.StatusSeeOther)
+}
+
+func parsePresetName(r *http.Request) string {
+	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+		var payload struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err == nil {
+			return strings.TrimSpace(payload.Name)
+		}
+	}
+	return strings.TrimSpace(r.FormValue("name"))
+}
+
+func (a *AppHandler) HandleDeleteStudentStatusTag(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	name := parsePresetName(r)
+	if name == "" {
+		http.Error(w, "Tag name is required", http.StatusBadRequest)
+		return
+	}
+	tags, err := a.store.DeleteStudentStatusPreset(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"tags": tags})
+}
+
 func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

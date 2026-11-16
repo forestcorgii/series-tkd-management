@@ -47,6 +47,13 @@
                         <span>&bull;</span>
                         <span>Classes: <strong class="text-black dark:text-white">{{.Readiness.TotalSessions}} classes</strong></span>
                     </div>
+                    {{if .Student.StatusTags}}
+                    <div class="flex flex-wrap items-center gap-1 mt-1.5">
+                        {{range .Student.StatusTags}}
+                        <span class="badge-status-tag">{{.}}</span>
+                        {{end}}
+                    </div>
+                    {{end}}
                 </div>
             </div>
 

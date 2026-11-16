@@ -126,6 +126,7 @@ func (s *SQLStore) runMigrations() error {
 			emergency_relation TEXT NOT NULL,
 			medical_notes TEXT,
 			is_active INTEGER NOT NULL DEFAULT 1,
+			status_tags TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL
 		);
 
@@ -385,6 +386,7 @@ func (s *SQLStore) runMigrations() error {
 			emergency_relation VARCHAR(50) NOT NULL,
 			medical_notes TEXT,
 			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+			status_tags TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -636,6 +638,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN has_safety_flag INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN status_tags TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN plan_type TEXT DEFAULT 'standard'`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN sessions_per_week INTEGER`)
@@ -662,6 +665,10 @@ func (s *SQLStore) runMigrations() error {
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE,
 			color TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS student_status_presets (
+			name TEXT PRIMARY KEY,
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN location_id TEXT`)
@@ -907,6 +914,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS has_safety_flag BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS status_tags TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS plan_type VARCHAR(50) DEFAULT 'standard'`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS sessions_per_week INT`)
@@ -933,6 +941,10 @@ func (s *SQLStore) runMigrations() error {
 			id UUID PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
 			color VARCHAR(30) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS student_status_presets (
+			name VARCHAR(100) PRIMARY KEY,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
@@ -1645,7 +1657,7 @@ func (s *SQLStore) DeleteTrainingCategory(id uuid.UUID) error {
 func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE)
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, '')
 		FROM students ORDER BY full_name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -1655,14 +1667,14 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 
 	var students []*models.Student
 	for rows.Next() {
-		var idStr, dobStr, promoStr, createdStr string
+		var idStr, dobStr, promoStr, createdStr, statusTagsRaw string
 		st := &models.Student{}
 		var gender, phone, medNotes sql.NullString
 		err := rows.Scan(
 			&idStr, &st.FullName, &dobStr, &gender, &phone,
 			&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 			&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
-			&st.HasSafetyFlag,
+			&st.HasSafetyFlag, &statusTagsRaw,
 		)
 		if err != nil {
 			return nil, err
@@ -1680,6 +1692,7 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 		if medNotes.Valid {
 			st.MedicalNotes = medNotes.String
 		}
+		st.StatusTags = models.ParseStatusTags(statusTagsRaw)
 		students = append(students, st)
 	}
 	return students, nil
@@ -1688,16 +1701,16 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE)
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, '')
 		FROM students WHERE id = $1`
-	var idStr, dobStr, promoStr, createdStr string
+	var idStr, dobStr, promoStr, createdStr, statusTagsRaw string
 	st := &models.Student{}
 	var gender, phone, medNotes sql.NullString
 	err := s.db.QueryRow(query, id.String()).Scan(
 		&idStr, &st.FullName, &dobStr, &gender, &phone,
 		&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 		&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
-		&st.HasSafetyFlag,
+		&st.HasSafetyFlag, &statusTagsRaw,
 	)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
@@ -1718,6 +1731,7 @@ func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	if medNotes.Valid {
 		st.MedicalNotes = medNotes.String
 	}
+	st.StatusTags = models.ParseStatusTags(statusTagsRaw)
 	return st, nil
 }
 
@@ -1729,9 +1743,9 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 	likePattern := "%" + strings.ToLower(q) + "%"
 	sqlQuery := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE)
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, '')
 		FROM students
-		WHERE LOWER(full_name) LIKE $1 OR phone LIKE $1 OR LOWER(current_belt) LIKE $1
+		WHERE LOWER(full_name) LIKE $1 OR phone LIKE $1 OR LOWER(current_belt) LIKE $1 OR LOWER(COALESCE(status_tags, '')) LIKE $1
 		ORDER BY full_name ASC`
 	rows, err := s.db.Query(sqlQuery, likePattern)
 	if err != nil {
@@ -1741,14 +1755,14 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 
 	var students []*models.Student
 	for rows.Next() {
-		var idStr, dobStr, promoStr, createdStr string
+		var idStr, dobStr, promoStr, createdStr, statusTagsRaw string
 		st := &models.Student{}
 		var gender, phone, medNotes sql.NullString
 		err := rows.Scan(
 			&idStr, &st.FullName, &dobStr, &gender, &phone,
 			&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 			&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
-			&st.HasSafetyFlag,
+			&st.HasSafetyFlag, &statusTagsRaw,
 		)
 		if err != nil {
 			return nil, err
@@ -1766,6 +1780,7 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 		if medNotes.Valid {
 			st.MedicalNotes = medNotes.String
 		}
+		st.StatusTags = models.ParseStatusTags(statusTagsRaw)
 		students = append(students, st)
 	}
 	return students, nil
@@ -1778,27 +1793,29 @@ func (s *SQLStore) CreateStudent(st *models.Student) error {
 	if st.CreatedAt.IsZero() {
 		st.CreatedAt = time.Now()
 	}
+	st.StatusTags = models.ParseStatusTags(models.FormatStatusTags(st.StatusTags))
 	query := `INSERT INTO students (id, full_name, dob, gender, phone, current_belt, last_promotion_date,
-		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at, has_safety_flag)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at, has_safety_flag, status_tags)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 	_, err := s.db.Exec(query,
 		st.ID.String(), st.FullName, formatDateForDB(st.DOB), st.Gender, st.Phone,
 		string(st.CurrentBelt), formatDateForDB(st.LastPromotionDate), st.EmergencyName,
 		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, formatTimeForDB(st.CreatedAt),
-		st.HasSafetyFlag,
+		st.HasSafetyFlag, models.FormatStatusTags(st.StatusTags),
 	)
 	return err
 }
 
 func (s *SQLStore) UpdateStudent(st *models.Student) error {
+	st.StatusTags = models.ParseStatusTags(models.FormatStatusTags(st.StatusTags))
 	query := `UPDATE students SET full_name = $1, dob = $2, gender = $3, phone = $4,
 		current_belt = $5, last_promotion_date = $6, emergency_name = $7, emergency_phone = $8,
-		emergency_relation = $9, medical_notes = $10, is_active = $11, has_safety_flag = $12
-		WHERE id = $13`
+		emergency_relation = $9, medical_notes = $10, is_active = $11, has_safety_flag = $12, status_tags = $13
+		WHERE id = $14`
 	res, err := s.db.Exec(query,
 		st.FullName, formatDateForDB(st.DOB), st.Gender, st.Phone,
 		string(st.CurrentBelt), formatDateForDB(st.LastPromotionDate), st.EmergencyName,
-		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, st.HasSafetyFlag, st.ID.String(),
+		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, st.HasSafetyFlag, models.FormatStatusTags(st.StatusTags), st.ID.String(),
 	)
 	if err != nil {
 		return err
@@ -1808,6 +1825,51 @@ func (s *SQLStore) UpdateStudent(st *models.Student) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *SQLStore) GetStudentStatusPresets() ([]string, error) {
+	rows, err := s.db.Query(`SELECT name FROM student_status_presets ORDER BY created_at ASC, name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var presets []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		presets = append(presets, name)
+	}
+	return presets, nil
+}
+
+func (s *SQLStore) AddStudentStatusPreset(name string) ([]string, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed != "" {
+		var existing string
+		err := s.db.QueryRow(`SELECT name FROM student_status_presets WHERE LOWER(name) = LOWER($1)`, trimmed).Scan(&existing)
+		if err == sql.ErrNoRows {
+			_, err = s.db.Exec(`INSERT INTO student_status_presets (name, created_at) VALUES ($1, $2)`, trimmed, formatTimeForDB(time.Now()))
+			if err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	return s.GetStudentStatusPresets()
+}
+
+func (s *SQLStore) DeleteStudentStatusPreset(name string) ([]string, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed != "" {
+		if _, err := s.db.Exec(`DELETE FROM student_status_presets WHERE LOWER(name) = LOWER($1)`, trimmed); err != nil {
+			return nil, err
+		}
+	}
+	return s.GetStudentStatusPresets()
 }
 
 func (s *SQLStore) DeleteStudent(studentID uuid.UUID) error {

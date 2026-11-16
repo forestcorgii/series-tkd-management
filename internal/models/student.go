@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,7 +38,47 @@ type Student struct {
 	MedicalNotes      string    `json:"medical_notes"`
 	HasSafetyFlag     bool      `json:"has_safety_flag"`
 	IsActive          bool      `json:"is_active"`
+	StatusTags        []string  `json:"status_tags"`
 	CreatedAt         time.Time `json:"created_at"`
+}
+
+// ParseStatusTags splits a comma-separated string into a deduplicated slice of trimmed tags.
+func ParseStatusTags(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	seen := make(map[string]struct{}, len(parts))
+	tags := make([]string, 0, len(parts))
+	for _, p := range parts {
+		tag := strings.TrimSpace(p)
+		if tag == "" {
+			continue
+		}
+		key := strings.ToLower(tag)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		tags = append(tags, tag)
+	}
+	if len(tags) == 0 {
+		return nil
+	}
+	return tags
+}
+
+// FormatStatusTags normalizes and joins status tags into a comma-separated string for storage or form inputs.
+func FormatStatusTags(tags []string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	return strings.Join(ParseStatusTags(strings.Join(tags, ",")), ",")
+}
+
+// StatusTagsCSV returns the student's status tags as a comma-separated string for form inputs.
+func (s *Student) StatusTagsCSV() string {
+	return FormatStatusTags(s.StatusTags)
 }
 
 func (s *Student) Age() int {
