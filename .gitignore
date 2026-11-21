@@ -1,6 +1,7 @@
 /.vscode
-/cmd
 /server.exe
+*.exe
+__debug_bin*
 out
 out.exe
 *.db*
