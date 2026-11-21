@@ -1,7 +1,7 @@
 # Authentication & Multi-Role RBAC Architecture
 
 ## 1. Two-Tier User Model & RBAC Matrix
-STMS uses a **Two-Tier Primary User Model** (`STUDENT` vs `STAFF`) with customizable [`StaffRole`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/user.go) permissions (`roles:manage`, `students:*`, `sessions:*`, `packages:*`, `evaluations:*`, etc.) and 4-role helper compatibility (`IsOperationManager()`, `IsAdmin()`, `IsCoach()`, `IsStudent()`).
+STMS uses a **Two-Tier Primary User Model** (`STUDENT` vs `STAFF`) with customizable `StaffRole` (`internal/models/role.go`) permissions (`roles:manage`, `students:*`, `sessions:*`, `packages:*`, `evaluations:*`, etc.) and 4-role helper compatibility (`IsOperationManager()`, `IsAdmin()`, `IsCoach()`, `IsStudent()`).
 
 | Role / Helper | Primary Tier | `GET /` Behavior | `/dashboard` Template | Authorized Routes & Key Boundaries |
 | :--- | :--- | :--- | :--- | :--- |
@@ -16,8 +16,8 @@ STMS uses a **Two-Tier Primary User Model** (`STUDENT` vs `STAFF`) with customiz
 ## 2. Session Auth, Guards & Template Isolation
 - **HTTP-Only Cookie**: `stms_session` (7-day expiry, `Secure: IsHTTPS(r)`).
 - **Middleware (`RequireAuth`, `RequireRole`, `RequirePermission`)**:
-  - Returns `401 Unauthorized` / `403 Forbidden` JSON for `/api/*`, `Accept: application/json`, `Content-Type: application/json`, or `HX-Request: true`.
-  - Returns `303 See Other` redirects to `/login?redirect=...` or `user.RoleDashboardURL()` for browser navigation.
+  - Returns `401 Unauthorized` / `403 Forbidden` JSON for `/api/*`, `Accept: application/json`, `Content-Type: application/json`, or partial HTMX requests (`HX-Request: true && HX-Boosted != true`).
+  - Returns `303 See Other` redirects to `/login?redirect=...` or `user.RoleDashboardURL()` for standard and `hx-boost` browser navigation.
 - **Template `currentUser` Helper**: Always extract the user in `layout.html` and partials via `{{$user := currentUser .}}` (reflective `FuncMap` helper) rather than `.CurrentUser` directly.
 - **Role Enrichment**: `GetUserBySessionToken`, `GetUserByEmail`, `GetUserByID`, and `GetUserByIdentifier` populate `user.Roles` and `user.Permissions` in both `MemoryStore` and `SQLStore`.
 

@@ -8,7 +8,7 @@ description: When working on core Series Taekwondo Management System (STMS) arch
 ## 1. System Overview & Tech Stack
 Series Taekwondo Management System (STMS) is an internal club and dojang operations platform built for fast, reactive, low-overhead floor management across front-desk tablets, coach mobile devices, and desktop workstations.
 
-- **Language / Runtime**: Go 1.22+ (primary entry point at root [`main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/main.go), secondary entry at [`cmd/server/main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/cmd/server/main.go))
+- **Language / Runtime**: Go 1.26.0 (unified root entrypoint `main.go` delegating to `internal/server/server.go`)
 - **Routing & HTTP**: `net/http` standard library enhanced router (`http.NewServeMux()`)
 - **Frontend Interactivity**: HTMX (locally vendored at `web/static/js/htmx.min.js` with `hx-boost="true"` navigation)
 - **Styling**: Tailwind CSS CLI (`web/static/css/input.css` -> `web/static/css/tailwind.css`)
@@ -22,9 +22,9 @@ Series Taekwondo Management System (STMS) is an internal club and dojang operati
 ## 2. Project Layout
 ```text
 series-tkd-management/
-├── main.go                         # Primary server bootstrapper (required at root for Railway Railpack)
-├── cmd/server/main.go              # Secondary server entry point (keep route registrations synced with main.go)
+├── main.go                         # Unified server entrypoint (required at root for Railway Railpack)
 ├── internal/
+│   ├── server/                     # Shared HTTP router, bootstrap, & graceful shutdown
 │   ├── handlers/                   # HTTP / HTMX / JSON API handlers & middlewares
 │   ├── models/                     # Pure domain structs & business invariants (DDD layer)
 │   ├── repository/                 # RepositoryStore interface, SQLStore (Postgres/SQLite), MemoryStore

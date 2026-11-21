@@ -13,8 +13,8 @@ STMS operates on floor tablets and mobile devices with varying network stability
 
 ### Database Optimization Checklist
 1. **Attendance Check-In Hot Path**:
-   - Package deduction and attendance insertion must execute in a single atomic transaction.
-   - Filter `student_packages` using `WHERE student_id = $1 AND remaining_sessions > 0 AND expiry_date >= CURRENT_DATE ORDER BY purchase_date ASC LIMIT 1 FOR UPDATE`.
+   - Package deduction and attendance insertion must execute in a single atomic transaction inside `SQLStore.CheckInAttendee`.
+   - Use portable atomic updates (`UPDATE student_packages SET remaining_sessions = remaining_sessions - 1 WHERE id = $1 AND remaining_sessions > 0`) rather than dialect-specific `SELECT ... FOR UPDATE` (which is a syntax error in SQLite).
 2. **Search Autocomplete**:
    - Limit student quick-search results to 10 records.
    - Use trigram or prefix indexes on `students(full_name, phone)`.

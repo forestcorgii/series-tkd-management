@@ -25,7 +25,7 @@ When modifying HTTP/HTMX handlers, RBAC guards, or `SQLStore`/`MemoryStore`:
 go test ./...
 ```
 
-- **Route Parity Check**: If you added or modified a route, verify it is registered in **both** [`main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/main.go) and [`cmd/server/main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/cmd/server/main.go).
+- **Route Registration Check**: If you added or modified a route, verify it is registered in `internal/server/server.go`.
 - **Test Server Invariant**: Always use `httptest.NewServer` (dynamic port) in Go tests rather than binding to `:8080`.
 
 ## 3. Playwright End-to-End (E2E) Suite

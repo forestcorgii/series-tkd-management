@@ -20,10 +20,10 @@ STMS uses a **Two-Tier Primary User Model** (`STUDENT` and `STAFF`) with customi
 ## 2. Critical Auth & Routing Invariants
 1. **Public Landing vs Authenticated Workspace (`GET /`)**:
    - `GET /` serves `HandleLandingPage` publicly. Authenticated `STUDENT` users also render `landing.html` (default calendar view); authenticated `STAFF` visiting `/` without `?preview=1` redirect to their workspace (`Coach/Admin -> /sessions`, `Manager -> /dashboard`).
-2. **Route Registration Sync**:
-   - Always register new HTTP routes in **both** [`main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/main.go) and [`cmd/server/main.go`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/cmd/server/main.go).
+2. **Unified Route Registration**:
+   - Register all HTTP routes in `internal/server/server.go` (`NewHandler`).
 3. **Dual-Format Auth Guards (`RequireAuth` / `RequireRole` / `RequirePermission`)**:
-   - Return `401 Unauthorized` / `403 Forbidden` JSON for `/api/*`, `Accept: application/json`, or `HX-Request: true`, and `303 See Other` redirects for standard browser navigation.
+   - Return `401 Unauthorized` / `403 Forbidden` JSON for `/api/*`, `Accept: application/json`, or partial HTMX requests (`HX-Request: true && HX-Boosted != true`), and `303 See Other` redirects for standard and `hx-boost` browser navigation.
 4. **Template `.CurrentUser` Isolation**:
    - In `layout.html` and shared partials, always extract the current user via `{{$user := currentUser .}}` (reflective `template.FuncMap` helper) rather than `.CurrentUser` directly.
 5. **Deactivation & Session Revocation**:

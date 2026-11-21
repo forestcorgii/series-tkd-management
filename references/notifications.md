@@ -3,8 +3,8 @@
 ### Context: Telegram Bot & Email Notifications Architecture (SMS & Push Deprecated)
 - **Problem**: The dojang required real-time public announcements (new classes, cancellations) and private staff alerts (new students enrolled, self-reservations, pending staff registrations) without relying on expensive SMS gateways or fragile browser Web Push subscriptions. Additionally, multiple branch locations needed curated Telegram destinations while falling back to global settings.
 - **Enforced Solution**:
-  1. **Clean Purge of Web Push & SMS**:
-     - Removed `ChannelPush` and `ChannelSMS`. Purged all VAPID/push subscription database tables, migrations, models, client scripts (`push-client.js`), and `webpush-go` dependency.
+  1. **Clean Purge of Web Push & SMS Dispatch**:
+     - Removed `ChannelPush` and `ChannelSMS` dispatch logic, client scripts (`push-client.js`), and `webpush-go` dependency. (Note: legacy `push_subscriptions` table DDL remains in `sql_store.go` for backward-compatible migrations.)
      - Global master toggles in `models.NotificationSettings` are now: `TelegramEnabled` and `EmailEnabled`.
      - In-App notifications (`models.ChannelInApp`) remain unconditionally active as the immutable audit log and floor inbox.
   2. **Zero-Dependency Telegram Client (`internal/services/telegram_client.go`)**:
@@ -36,7 +36,7 @@
      - **Unassigned Fallback**: When neither coach nor admin is specified, full broadcast to all active coaches, admins, and managers.
      - **Deduplication**: Runs through `deduplicateRecipients()` so staff members with multiple roles receive exactly 1 notification.
   2. **Lifecycle Events**:
-     - `EventNewClassOpened`: Dispatched on `POST /sessions` and `POST /api/v1/sessions` with rich timetable metadata (`session_id`, `training_type`, `session_date`, `time_range`, `coach`, `admin`). Deep-links to `/sessions?date=YYYY-MM-DD`.
+     - `EventNewClassOpened`: Dispatched on `POST /sessions` and `POST /api/admin/schedule` with rich timetable metadata (`session_id`, `training_type`, `session_date`, `time_range`, `coach`, `admin`). Deep-links to `/sessions?date=YYYY-MM-DD`.
      - `EventSlotReserved`: Dispatched on `POST /reserve/{id}` and `POST /landing/reserve` for both guest registrations (with emergency contact) and student self-reservations. Deep-links to `/sessions/{id}/live`.
   3. **Outward Asynchronous SMTP Delivery**:
      - `NotificationService.dispatch()` invokes `go s.sendEmailNotification(...)` so HTTP request handling remains instant (<50ms).

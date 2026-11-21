@@ -9,13 +9,13 @@
 
 * **Enforced Solution**:
   1. **Railway Bucket S3 Storage & Local Disk Fallback (`internal/storage`)**:
-     - `storage.FileStorage` abstraction provides `Upload` and `Delete` contracts.
+     - `storage.FileStorage` abstraction provides `Upload`, `Get`, and `Delete` contracts.
      - Pure Go standard library AWS Signature Version 4 (`storage.S3Storage`) integrates with Railway Object Storage / S3-compatible buckets using `BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, and optional `BUCKET_PUBLIC_URL` without heavy third-party dependencies.
-     - When bucket environment variables are not configured (local dev, tests), `storage.LocalStorage` automatically activates and saves uploads under `web/static/uploads/avatars/`, served by the built-in HTTP static file handler.
+     - When bucket environment variables are not configured (local dev, tests), `storage.LocalStorage` automatically activates and saves uploads under `web/static/uploads/avatars/`, served via `/storage/avatars/...` (with `X-Content-Type-Options: nosniff`).
   2. **Domain Model & Persistence**:
      - `models.User` struct persists `ProfilePictureURL string`.
      - Dual database schemas (SQLite & PostgreSQL) include `profile_picture_url` column with non-destructive migrations (`ALTER TABLE users ADD COLUMN profile_picture_url`).
-     - In-memory mock store and SQL repository provide `GetUserByStudentID` and `GetUserByCoachID` lookup helpers to link student and coach rosters to their user avatar.
+     - Operational rosters should batch-load avatars via `GetAllUsers()` into O(1) maps (avoid per-row `GetUserByStudentID` / `GetUserByCoachID` N+1 queries).
   3. **Profile Upload & Removal Management (`/profile`)**:
      - Profile form supports `enctype="multipart/form-data"` with a 5MB payload limit.
      - Accepts `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` with validation against invalid file extensions.

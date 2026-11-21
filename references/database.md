@@ -8,8 +8,8 @@
 - **SQL Compatibility Rules**:
   - Use `$1, $2, ...` positional parameters (supported by both `pgx/v5/stdlib` and `modernc.org/sqlite`).
   - **Strict Boolean `COALESCE`**: Always write `COALESCE(bool_col, FALSE)` (never `0`, which fails in PostgreSQL with `SQLSTATE 42804`).
-  - **Runtime Migrations**: Add new columns to base DDL and append safe `ALTER TABLE ... ADD COLUMN ...` statements inside `SQLStore.runMigrations()` (`ADD COLUMN IF NOT EXISTS` for PostgreSQL). Use `COALESCE(text_col, '')` or `sql.Null*` when scanning nullable columns.
-- **SQLite WAL & Pool Tuning**: `PRAGMA journal_mode=WAL;`, `PRAGMA synchronous=NORMAL;`, `PRAGMA busy_timeout=5000;`, `PRAGMA cache_size=-20000;` (20MB), `MaxOpenConns(10)`, `MaxIdleConns(5)`.
+  - **Runtime Migrations**: `SQLStore.runMigrations()` in `internal/repository/sql_store.go` is the authoritative DDL & migration source (the legacy `internal/database/migrations/001_init.sql` file is unused). Add new columns to base DDL and append safe `ALTER TABLE ... ADD COLUMN ...` statements inside `runMigrations()`. Use `COALESCE(text_col, '')` or `sql.Null*` when scanning nullable columns.
+- **SQLite WAL & Pool Tuning**: DSN pragmas (`_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)`) ensure every pooled connection (`MaxOpenConns(10)`, `MaxIdleConns(5)`) inherits WAL, foreign key enforcement, and busy timeouts.
 
 ---
 
