@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -1035,7 +1037,7 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 	}
 
 	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
-	if redirectURL == "" {
+	if !isSafeLocalRedirect(redirectURL) {
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
 	}
 
@@ -1161,7 +1163,7 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 	a.LogAction(r, "SESSION_UPDATE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType), fmt.Sprintf("Updated %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
 
 	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
-	if redirectURL == "" || redirectURL == "/sessions" {
+	if !isSafeLocalRedirect(redirectURL) || redirectURL == "/sessions" {
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
 	}
 	if r.Header.Get("HX-Request") == "true" {
@@ -1273,7 +1275,7 @@ func (a *AppHandler) HandleRescheduleSession(w http.ResponseWriter, r *http.Requ
 			sess.SessionDate.Format("2006-01-02"), sess.StartTime, sess.EndTime))
 
 	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
-	if redirectURL == "" || redirectURL == "/sessions" {
+	if !isSafeLocalRedirect(redirectURL) || redirectURL == "/sessions" {
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
 	}
 	if r.Header.Get("HX-Request") == "true" {
@@ -1627,10 +1629,11 @@ func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	referer := r.Header.Get("Referer")
-	if referer != "" {
-		http.Redirect(w, r, referer, http.StatusSeeOther)
-		return
+	if referer := r.Header.Get("Referer"); referer != "" {
+		if u, parseErr := url.Parse(referer); parseErr == nil && (u.Host == "" || strings.EqualFold(u.Host, r.Host)) && isSafeLocalRedirect(u.RequestURI()) {
+			http.Redirect(w, r, u.RequestURI(), http.StatusSeeOther)
+			return
+		}
 	}
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
@@ -1694,46 +1697,52 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
 		if err == nil && usedPkg != nil {
 			pkgID = &usedPkg.ID
-			_ = a.store.UpdateStudentPackage(usedPkg)
 		} else if !override {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusPaymentRequired)
 			w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-rose-950 border border-rose-800 text-rose-300 rounded-lg text-sm">
-				❌ Check-in rejected: %v. <button hx-post="/sessions/%s/checkin/%s?override=true" hx-target="#attendance-roster" hx-swap="afterbegin" class="underline font-bold ml-2">Manual Override</button>
-			</div>`, err, sessionID, studentID)))
+				❌ Check-in rejected: %s. <button hx-post="/sessions/%s/checkin/%s?override=true" hx-target="#attendance-roster" hx-swap="afterbegin" class="underline font-bold ml-2">Manual Override</button>
+			</div>`, html.EscapeString(err.Error()), sessionID, studentID)))
 			return
 		} else if override {
 			for _, p := range pkgs {
 				if p.IsValidAt(time.Now()) {
-					_ = p.DeductSession(time.Now())
 					pkgID = &p.ID
-					_ = a.store.UpdateStudentPackage(p)
 					break
 				}
 			}
 		}
 	}
 
-	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID, sessionRate)
+	var att *models.Attendance
+	if pkgID != nil {
+		att, err = a.store.CheckInStudentWithPackageDeduction(sessionID, studentID, *pkgID, sessionRate)
+	} else {
+		att, err = a.store.CheckInStudent(sessionID, studentID, nil, sessionRate)
+	}
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %v</div>`, err)))
+		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %s</div>`, html.EscapeString(err.Error()))))
 		return
 	}
 
 	st, _ := a.store.GetStudentByID(studentID)
-	allSessions, _ := a.store.GetAllSessions()
-	allSessionsMap := make(map[string]*models.TrainingSession)
-	for _, s := range allSessions {
-		allSessionsMap[s.ID.String()] = s
+	studentName := studentID.String()
+	var readiness services.PromotionReadiness
+	if st != nil {
+		studentName = st.FullName
+		allSessions, _ := a.store.GetAllSessions()
+		allSessionsMap := make(map[string]*models.TrainingSession)
+		for _, s := range allSessions {
+			allSessionsMap[s.ID.String()] = s
+		}
+		atts, _ := a.store.GetStudentAttendances(studentID)
+		latestEval, _ := a.store.GetLatestEvaluation(studentID)
+		readiness = a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 	}
 
-	atts, _ := a.store.GetStudentAttendances(studentID)
-	latestEval, _ := a.store.GetLatestEvaluation(studentID)
-	readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
-
-	a.LogAction(r, "ATTENDANCE_CHECKIN", models.AuditCategoryAttendance, "Student", studentID.String(), st.FullName, fmt.Sprintf("Checked in student %s to session", st.FullName))
+	a.LogAction(r, "ATTENDANCE_CHECKIN", models.AuditCategoryAttendance, "Student", studentID.String(), studentName, fmt.Sprintf("Checked in student %s to session", studentName))
 
 	if a.notifSvc != nil && st != nil {
 		actorName := "Staff"
@@ -1827,10 +1836,11 @@ func (a *AppHandler) HandleRemoveAttendance(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	referer := r.Header.Get("Referer")
-	if referer != "" {
-		http.Redirect(w, r, referer, http.StatusSeeOther)
-		return
+	if referer := r.Header.Get("Referer"); referer != "" {
+		if u, parseErr := url.Parse(referer); parseErr == nil && (u.Host == "" || strings.EqualFold(u.Host, r.Host)) && isSafeLocalRedirect(u.RequestURI()) {
+			http.Redirect(w, r, u.RequestURI(), http.StatusSeeOther)
+			return
+		}
 	}
 	http.Redirect(w, r, fmt.Sprintf("/sessions/%s/live", sessionID), http.StatusSeeOther)
 }
@@ -1904,7 +1914,7 @@ func (a *AppHandler) HandleCheckInAttendee(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %v</div>`, err)))
+		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %s</div>`, html.EscapeString(err.Error()))))
 		return
 	}
 

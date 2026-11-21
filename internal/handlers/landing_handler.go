@@ -314,6 +314,16 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 	user := GetUserFromContext(r.Context())
 	isStudent := user != nil && user.IsStudent()
 
+	if sess.IsCancelled || sess.IsDone() {
+		errMsg := "This training session is no longer open for reservations."
+		if isStudent {
+			a.renderStudentReserveError(w, sess, user, errMsg)
+		} else {
+			a.renderGuestReserveError(w, sess, r.FormValue("guest_name"), r.FormValue("contact_number"), errMsg)
+		}
+		return
+	}
+
 	// Check capacity
 	if sess.LocationID != nil {
 		if loc, err := a.store.GetLocationByID(*sess.LocationID); err == nil && loc != nil && loc.HasMaxTrainees() {
@@ -334,8 +344,7 @@ func (a *AppHandler) HandleGuestReservation(w http.ResponseWriter, r *http.Reque
 	if isStudent {
 		if user.StudentID != nil {
 			var st *models.Student
-			st, _ = a.store.GetStudentByID(*user.StudentID)
-			att, err = a.store.CheckInStudent(sessionID, *user.StudentID, nil, nil)
+			att, st, err = a.reserveStudentSession(sess, *user.StudentID)
 			if err != nil {
 				errMsg := err.Error()
 				if errors.Is(err, repository.ErrAlreadyInRoster) {

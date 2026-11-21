@@ -415,7 +415,7 @@
                                             titleEl.style.fontSize = '8.5px';
                                             titleEl.style.fontWeight = '800';
                                             titleEl.style.whiteSpace = 'nowrap';
-                                            titleEl.innerHTML = `<span style="display:block;line-height:1.15;font-size:8.5px;font-weight:800;white-space:nowrap;">${t1}</span><span style="display:block;line-height:1.15;font-size:8px;color:${subtextColor};font-weight:700;white-space:nowrap;">${t2}</span>`;
+                                            titleEl.innerHTML = `<span style="display:block;line-height:1.15;font-size:8.5px;font-weight:800;white-space:nowrap;">${escapeHtml(t1)}</span><span style="display:block;line-height:1.15;font-size:8px;color:${subtextColor};font-weight:700;white-space:nowrap;">${escapeHtml(t2)}</span>`;
                                         } else {
                                             titleEl.style.fontSize = '10.5px';
                                             titleEl.style.fontWeight = '800';
@@ -441,7 +441,7 @@
                                         p.style.fontSize = '8.5px';
                                         p.style.fontWeight = '700';
                                         p.style.color = subtextColor;
-                                        p.innerHTML = `<span style="display:block;line-height:1.2;">${t1}</span><span style="display:block;line-height:1.2;font-size:8px;">${t2}</span>`;
+                                        p.innerHTML = `<span style="display:block;line-height:1.2;">${escapeHtml(t1)}</span><span style="display:block;line-height:1.2;font-size:8px;">${escapeHtml(t2)}</span>`;
                                     } else {
                                         p.style.fontSize = '9.5px';
                                         p.style.fontWeight = '700';
@@ -607,12 +607,12 @@
             btn.disabled = true;
             btn.setAttribute('aria-busy', 'true');
             btn.innerHTML = `
-                            < svg class="w-3.5 h-3.5 animate-spin text-rose-500 inline-block mr-1" fill = "none" viewBox = "0 0 24 24" >
+                <svg class="w-3.5 h-3.5 animate-spin text-rose-500 inline-block mr-1" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                </svg >
-                            <span class="btn-text">⏳ Generating...</span>
-                        `;
+                </svg>
+                <span class="btn-text">Generating...</span>
+            `;
         }
 
         try {

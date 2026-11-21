@@ -53,6 +53,7 @@ type RepositoryStore interface {
 	SearchStudents(query string) ([]*models.Student, error)
 	CreateStudent(s *models.Student) error
 	UpdateStudent(s *models.Student) error
+	ToggleStudentActive(studentID uuid.UUID, isActive bool) error
 	DeleteStudent(studentID uuid.UUID) error
 	GetStudentStatusPresets() ([]string, error)
 	AddStudentStatusPreset(name string) ([]string, error)
@@ -89,6 +90,7 @@ type RepositoryStore interface {
 	GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error)
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
 	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
+	CheckInStudentWithPackageDeduction(sessionID, studentID, packageID uuid.UUID, sessionRate *float64) (*models.Attendance, error)
 	CheckInAttendee(sessionID uuid.UUID, attendeeType string, attendeeID *uuid.UUID, attendeeName, attendeeRole string, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
 	ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error)
 	RemoveAttendance(sessionID, studentID uuid.UUID) error
@@ -121,6 +123,7 @@ type RepositoryStore interface {
 	CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error
 	GetUserBySessionToken(token string) (*models.User, error)
 	DeleteSessionToken(token string) error
+	DeleteUserSessions(userID uuid.UUID) error
 
 	// Staff Roles & Permissions
 	GetRoles() ([]*models.StaffRole, error)
@@ -155,6 +158,8 @@ type RepositoryStore interface {
 	// Notification Settings & User Preferences
 	GetNotificationSettings() (*models.NotificationSettings, error)
 	UpdateNotificationSettings(settings *models.NotificationSettings) error
+	GetWaiverSettings() (*models.WaiverSettings, error)
+	UpdateWaiverSettings(waiver *models.WaiverSettings) error
 	GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error)
 	UpdateUserNotificationPreferences(prefs *models.UserNotificationPreferences) error
 
@@ -192,6 +197,7 @@ type MemoryStore struct {
 	trainingCategories  map[uuid.UUID]*models.TrainingCategory
 	auditLogs           []*models.AuditLog
 	notificationSettings *models.NotificationSettings
+	waiverSettings      *models.WaiverSettings
 	userPreferences     map[uuid.UUID]*models.UserNotificationPreferences
 	notifications       []*models.Notification
 	roles               map[uuid.UUID]*models.StaffRole
@@ -217,6 +223,7 @@ func NewMemoryStore() *MemoryStore {
 		trainingCategories:  make(map[uuid.UUID]*models.TrainingCategory),
 		auditLogs:           make([]*models.AuditLog, 0),
 		notificationSettings: models.DefaultNotificationSettings(),
+		waiverSettings:      models.DefaultWaiverSettings(),
 		userPreferences:     make(map[uuid.UUID]*models.UserNotificationPreferences),
 		notifications:       make([]*models.Notification, 0),
 		roles:               make(map[uuid.UUID]*models.StaffRole),
@@ -299,6 +306,32 @@ func (m *MemoryStore) UpdateStudent(s *models.Student) error {
 	}
 	s.StatusTags = models.ParseStatusTags(models.FormatStatusTags(s.StatusTags))
 	m.students[s.ID] = s
+	return nil
+}
+
+func (m *MemoryStore) ToggleStudentActive(studentID uuid.UUID, isActive bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	student, exists := m.students[studentID]
+	if !exists {
+		return ErrNotFound
+	}
+	student.IsActive = isActive
+
+	for _, u := range m.users {
+		if u.StudentID != nil && *u.StudentID == studentID {
+			u.IsActive = isActive
+			u.UpdatedAt = time.Now()
+			if !isActive {
+				for tok, rec := range m.sessionTokens {
+					if rec.UserID == u.ID {
+						delete(m.sessionTokens, tok)
+					}
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -1119,6 +1152,10 @@ func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *
 	return m.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
 }
 
+func (m *MemoryStore) CheckInStudentWithPackageDeduction(sessionID, studentID, packageID uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+	return m.CheckInAttendee(sessionID, "student", &studentID, "", "", &packageID, sessionRate)
+}
+
 func (m *MemoryStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1785,6 +1822,18 @@ func (m *MemoryStore) DeleteSessionToken(token string) error {
 	return nil
 }
 
+func (m *MemoryStore) DeleteUserSessions(userID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for token, rec := range m.sessionTokens {
+		if rec.UserID == userID {
+			delete(m.sessionTokens, token)
+		}
+	}
+	return nil
+}
+
 func (m *MemoryStore) CreatePasswordResetToken(t *models.PasswordResetToken) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -2291,6 +2340,30 @@ func (m *MemoryStore) UpdateNotificationSettings(settings *models.NotificationSe
 	settings.UpdatedAt = time.Now()
 	cp := *settings
 	m.notificationSettings = &cp
+	return nil
+}
+
+func (m *MemoryStore) GetWaiverSettings() (*models.WaiverSettings, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.waiverSettings == nil {
+		m.waiverSettings = models.DefaultWaiverSettings()
+	}
+	cp := *m.waiverSettings
+	return &cp, nil
+}
+
+func (m *MemoryStore) UpdateWaiverSettings(waiver *models.WaiverSettings) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if waiver == nil {
+		return errors.New("waiver settings cannot be nil")
+	}
+	waiver.UpdatedAt = time.Now()
+	cp := *waiver
+	m.waiverSettings = &cp
 	return nil
 }
 

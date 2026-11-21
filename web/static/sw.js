@@ -72,34 +72,30 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 2. HTMX Partial Requests -> Network with Offline Alert Fallback
+    // 2. HTMX Partial Requests -> Network with non-200 offline signal (prevents corrupting tables/spans)
     if (request.headers.get('HX-Request') === 'true') {
         event.respondWith(
-            fetch(request).catch(async () => {
-                return new Response(
-                    `<div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs sm:text-sm font-semibold flex items-center gap-2">
-                        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>Connection lost. Operating in offline mode. Please reconnect floor device.</span>
-                    </div>`,
-                    { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-                );
+            fetch(request).catch(() => {
+                return new Response('Connection lost. Operating in offline mode.', {
+                    status: 503,
+                    statusText: 'Service Unavailable',
+                    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                });
             })
         );
         return;
     }
 
-    // 3. Static Assets (Icons, Fonts, Scripts, Styles) -> Stale-While-Revalidate
+    // 3. Static Assets (Icons, Fonts, Scripts, Styles; exclude user-uploaded avatars) -> Stale-While-Revalidate
     const isStaticAsset =
-        url.pathname.startsWith('/static/') ||
-        url.hostname.includes('fonts.googleapis.com') ||
-        url.hostname.includes('fonts.gstatic.com') ||
-        url.hostname.includes('unpkg.com');
+        (url.pathname.startsWith('/static/') && !url.pathname.startsWith('/static/uploads/')) ||
+        url.hostname === 'fonts.googleapis.com' ||
+        url.hostname === 'fonts.gstatic.com' ||
+        url.hostname === 'unpkg.com';
 
     if (isStaticAsset) {
         event.respondWith(
-            caches.match(request).then((cachedResponse) => {
+            caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
                 const fetchPromise = fetch(request)
                     .then((networkResponse) => {
                         if (networkResponse && networkResponse.status === 200) {
@@ -108,7 +104,7 @@ self.addEventListener('fetch', (event) => {
                         }
                         return networkResponse;
                     })
-                    .catch(() => cachedResponse);
+                    .catch(() => cachedResponse || Response.error());
 
                 return cachedResponse || fetchPromise;
             })
@@ -116,9 +112,9 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Default: Standard fetch
+    // Default: Standard fetch with safe offline fallback
     event.respondWith(
-        fetch(request).catch(() => caches.match(request))
+        fetch(request).catch(() => caches.match(request, { ignoreSearch: true }).then((r) => r || Response.error()))
     );
 });
 

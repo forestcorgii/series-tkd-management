@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"math"
 	"net/http"
 	"strconv"
@@ -51,6 +52,7 @@ type AdminPortalData struct {
 	OpenIncidentsCount    int
 	PendingCoachesCount   int
 	PendingAdminsCount    int
+	PendingStudentsCount  int
 	StudentsWithReadiness []StudentReadinessSummary
 	SafetyIncidents       []*models.SafetyIncident
 	Coaches               []*models.Coach
@@ -313,6 +315,13 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	pendingStudents := 0
+	for _, st := range students {
+		if !st.IsActive {
+			pendingStudents++
+		}
+	}
+
 	locations, _ := a.store.GetAllLocations()
 	categories, _ := a.store.GetAllTrainingCategories()
 
@@ -324,6 +333,7 @@ func (a *AppHandler) HandleAdminPortal(w http.ResponseWriter, r *http.Request) {
 		OpenIncidentsCount:    openCount,
 		PendingCoachesCount:   pendingCoaches,
 		PendingAdminsCount:    pendingAdmins,
+		PendingStudentsCount:  pendingStudents,
 		StudentsWithReadiness: readinessList,
 		SafetyIncidents:       incidents,
 		Coaches:               coaches,
@@ -463,8 +473,9 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// For student role, strictly enforce self check-in
+	// For student role, strictly enforce self check-in and ignore client-supplied session_rate
 	if user.Role == models.RoleStudent {
+		sessionRate = nil
 		if user.StudentID == nil || *user.StudentID == uuid.Nil {
 			if isHTMXRequest(r) {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -605,11 +616,15 @@ func (a *AppHandler) HandleAPIStudentCheckIn(w http.ResponseWriter, r *http.Requ
 
 		if usedPkg != nil {
 			pkgID = &usedPkg.ID
-			_ = a.store.UpdateStudentPackage(usedPkg)
 		}
 	}
 
-	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID, sessionRate)
+	var att *models.Attendance
+	if pkgID != nil {
+		att, err = a.store.CheckInStudentWithPackageDeduction(sessionID, studentID, *pkgID, sessionRate)
+	} else {
+		att, err = a.store.CheckInStudent(sessionID, studentID, nil, sessionRate)
+	}
 	if err != nil {
 		itemData.FeedbackMessage = fmt.Sprintf("Check-in failed: %v", err)
 		itemData.IsSuccess = false
@@ -708,11 +723,16 @@ func (a *AppHandler) HandleAPICoachCheckIn(w http.ResponseWriter, r *http.Reques
 
 		if usedPkg != nil {
 			pkgID = &usedPkg.ID
-			_ = a.store.UpdateStudentPackage(usedPkg)
 		}
 	}
 
-	att, err := a.store.CheckInStudent(req.SessionID, req.StudentID, pkgID, req.SessionRate)
+	var att *models.Attendance
+	var err error
+	if pkgID != nil {
+		att, err = a.store.CheckInStudentWithPackageDeduction(req.SessionID, req.StudentID, *pkgID, req.SessionRate)
+	} else {
+		att, err = a.store.CheckInStudent(req.SessionID, req.StudentID, nil, req.SessionRate)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -783,7 +803,7 @@ func (a *AppHandler) HandleAPICoachEvaluate(w http.ResponseWriter, r *http.Reque
 	}
 
 	parseInt := func(val string) int {
-		n, _ := strconv.Atoi(val)
+		n, _ := strconv.Atoi(strings.TrimSpace(val))
 		if n < 1 {
 			n = 1
 		}
@@ -793,13 +813,17 @@ func (a *AppHandler) HandleAPICoachEvaluate(w http.ResponseWriter, r *http.Reque
 		return n
 	}
 
-	sparr := parseInt(r.FormValue("sparring"))
-	if sparr == 0 {
-		sparr = parseInt(r.FormValue("sparring_iq"))
+	sparrRaw := strings.TrimSpace(r.FormValue("sparring"))
+	if sparrRaw == "" {
+		sparrRaw = strings.TrimSpace(r.FormValue("sparring_iq"))
 	}
-	poom := parseInt(r.FormValue("poomsae"))
-	if poom == 0 {
-		poom = parseInt(r.FormValue("technique"))
+	poomRaw := strings.TrimSpace(r.FormValue("poomsae"))
+	if poomRaw == "" {
+		poomRaw = strings.TrimSpace(r.FormValue("technique"))
+	}
+	remarks := strings.TrimSpace(r.FormValue("coach_remarks"))
+	if remarks == "" {
+		remarks = strings.TrimSpace(r.FormValue("remarks"))
 	}
 
 	eval := &models.StudentEvaluation{
@@ -807,10 +831,10 @@ func (a *AppHandler) HandleAPICoachEvaluate(w http.ResponseWriter, r *http.Reque
 		StudentID:      studentID,
 		CoachID:        coachID,
 		EvaluationDate: time.Now(),
-		Sparring:       sparr,
+		Sparring:       parseInt(sparrRaw),
 		Flexibility:    parseInt(r.FormValue("flexibility")),
-		Poomsae:        poom,
-		CoachRemarks:   strings.TrimSpace(r.FormValue("coach_remarks")),
+		Poomsae:        parseInt(poomRaw),
+		CoachRemarks:   remarks,
 		CreatedAt:      time.Now(),
 	}
 	eval.SyncLegacyFields()
@@ -986,12 +1010,24 @@ func (a *AppHandler) HandleAPIAdminPromote(w http.ResponseWriter, r *http.Reques
 	}
 
 	newBelt := student.NextBelt()
-	if customBelt := r.FormValue("new_belt"); customBelt != "" {
-		newBelt = models.BeltRank(customBelt)
+	if customBelt := strings.TrimSpace(r.FormValue("new_belt")); customBelt != "" {
+		candidate := models.BeltRank(customBelt)
+		valid := false
+		for _, b := range models.AllBeltRanks() {
+			if b == candidate {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			http.Error(w, "Invalid belt rank", http.StatusBadRequest)
+			return
+		}
+		newBelt = candidate
 	}
 
 	if err := a.store.PromoteStudent(studentID, newBelt); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to promote student", http.StatusInternalServerError)
 		return
 	}
 
@@ -999,7 +1035,7 @@ func (a *AppHandler) HandleAPIAdminPromote(w http.ResponseWriter, r *http.Reques
 
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Promoted to %s</span>`, string(newBelt))
+		fmt.Fprintf(w, `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Promoted to %s</span>`, html.EscapeString(string(newBelt)))
 		return
 	}
 

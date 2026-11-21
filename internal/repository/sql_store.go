@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -48,6 +49,11 @@ func InitDatabase(databaseURL string) (RepositoryStore, string, error) {
 		} else {
 			connStr = "series_tkd.db"
 		}
+		sep := "?"
+		if strings.Contains(connStr, "?") {
+			sep = "&"
+		}
+		connStr += sep + "_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
 	}
 
 	db, err := sql.Open(driver, connStr)
@@ -82,13 +88,15 @@ func InitDatabase(databaseURL string) (RepositoryStore, string, error) {
 		return nil, driver, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	// Auto-seed if empty
-	var count int
-	_ = db.QueryRow("SELECT COUNT(*) FROM students").Scan(&count)
-	if count == 0 {
-		if err := store.SeedDefaultData(); err != nil {
-			// Non-fatal if seeding fails
-			fmt.Printf("Warning: failed to seed default data: %v\n", err)
+	// Auto-seed demo data only for SQLite local dev/tests or when explicitly enabled on PostgreSQL
+	if driver == "sqlite" || os.Getenv("SEED_DEMO_DATA") == "true" {
+		var count int
+		_ = db.QueryRow("SELECT COUNT(*) FROM students").Scan(&count)
+		if count == 0 {
+			if err := store.SeedDefaultData(); err != nil {
+				// Non-fatal if seeding fails
+				fmt.Printf("Warning: failed to seed default data: %v\n", err)
+			}
 		}
 	}
 
@@ -127,6 +135,9 @@ func (s *SQLStore) runMigrations() error {
 			medical_notes TEXT,
 			is_active INTEGER NOT NULL DEFAULT 1,
 			status_tags TEXT NOT NULL DEFAULT '',
+			waiver_accepted INTEGER NOT NULL DEFAULT 0,
+			waiver_signed_name TEXT NOT NULL DEFAULT '',
+			waiver_signed_at TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL
 		);
 
@@ -387,6 +398,9 @@ func (s *SQLStore) runMigrations() error {
 			medical_notes TEXT,
 			is_active BOOLEAN NOT NULL DEFAULT TRUE,
 			status_tags TEXT NOT NULL DEFAULT '',
+			waiver_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+			waiver_signed_name TEXT NOT NULL DEFAULT '',
+			waiver_signed_at TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -444,7 +458,7 @@ func (s *SQLStore) runMigrations() error {
 			end_time VARCHAR(20) NOT NULL,
 			coach_id UUID REFERENCES coaches(id),
 			admin_id UUID,
-			location_id UUID REFERENCES locations(id),
+			location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
 			session_rate NUMERIC(10, 2),
 			training_type VARCHAR(50) NOT NULL,
 			notes TEXT,
@@ -462,7 +476,7 @@ func (s *SQLStore) runMigrations() error {
 			session_id UUID NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
 			student_id UUID REFERENCES students(id) ON DELETE CASCADE,
 			student_package_id UUID REFERENCES student_packages(id),
-			location_id UUID REFERENCES locations(id),
+			location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
 			session_rate NUMERIC(10, 2),
 			checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			attendee_type VARCHAR(20) NOT NULL DEFAULT 'student',
@@ -799,6 +813,23 @@ func (s *SQLStore) runMigrations() error {
 				def.ID.String(), formatTimeForDB(time.Now()))
 		}
 
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN waiver_accepted INTEGER NOT NULL DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN waiver_signed_name TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN waiver_signed_at TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS waiver_settings (
+			id TEXT PRIMARY KEY,
+			title TEXT NOT NULL,
+			content TEXT NOT NULL,
+			updated_by TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		)`)
+		var waiverCountSQLite int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM waiver_settings`).Scan(&waiverCountSQLite); err == nil && waiverCountSQLite == 0 {
+			defW := models.DefaultWaiverSettings()
+			_, _ = s.db.Exec(`INSERT INTO waiver_settings (id, title, content, updated_by, updated_at) VALUES ($1, $2, $3, $4, $5)`,
+				defW.ID.String(), defW.Title, defW.Content, defW.UpdatedBy, formatTimeForDB(time.Now()))
+		}
+
 		// Seed default categories if none exist in SQLite
 		var catCountSQLite int
 		if err := s.db.QueryRow(`SELECT COUNT(*) FROM training_categories`).Scan(&catCountSQLite); err == nil && catCountSQLite == 0 {
@@ -842,7 +873,8 @@ func (s *SQLStore) runMigrations() error {
 						end_time TEXT NOT NULL,
 						coach_id TEXT REFERENCES coaches(id),
 						admin_id TEXT,
-						location_id TEXT REFERENCES locations(id),
+						location_id TEXT REFERENCES locations(id) ON DELETE SET NULL,
+						session_rate REAL,
 						training_type TEXT NOT NULL,
 						notes TEXT,
 						is_cancelled INTEGER NOT NULL DEFAULT 0,
@@ -853,7 +885,7 @@ func (s *SQLStore) runMigrations() error {
 						assigned_staff TEXT DEFAULT '[]',
 						created_at TEXT NOT NULL
 					);
-					INSERT INTO training_sessions_dg_tmp SELECT id, session_date, start_time, end_time, coach_id, admin_id, location_id, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, entry_type, title, assigned_staff, created_at FROM training_sessions;
+					INSERT INTO training_sessions_dg_tmp SELECT id, session_date, start_time, end_time, coach_id, admin_id, location_id, session_rate, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, entry_type, title, assigned_staff, created_at FROM training_sessions;
 					DROP TABLE training_sessions;
 					ALTER TABLE training_sessions_dg_tmp RENAME TO training_sessions;
 					PRAGMA foreign_keys=ON;
@@ -1078,6 +1110,23 @@ func (s *SQLStore) runMigrations() error {
 				def.ID.String())
 		}
 
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS waiver_accepted BOOLEAN NOT NULL DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS waiver_signed_name TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS waiver_signed_at TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS waiver_settings (
+			id TEXT PRIMARY KEY,
+			title TEXT NOT NULL,
+			content TEXT NOT NULL,
+			updated_by TEXT NOT NULL DEFAULT '',
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+		var waiverCountPG int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM waiver_settings`).Scan(&waiverCountPG); err == nil && waiverCountPG == 0 {
+			defW := models.DefaultWaiverSettings()
+			_, _ = s.db.Exec(`INSERT INTO waiver_settings (id, title, content, updated_by, updated_at) VALUES ($1, $2, $3, $4, NOW())`,
+				defW.ID.String(), defW.Title, defW.Content, defW.UpdatedBy)
+		}
+
 		// Seed default categories if none exist in Postgres
 		var catCountPG int
 		if err := s.db.QueryRow(`SELECT COUNT(*) FROM training_categories`).Scan(&catCountPG); err == nil && catCountPG == 0 {
@@ -1119,6 +1168,14 @@ func (s *SQLStore) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_category ON audit_logs(category)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_session_student_unique ON attendance(session_id, student_id) WHERE student_id IS NOT NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_role_unread ON notifications(recipient_role, is_read)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_safety_incidents_student_resolved ON safety_incidents(student_id, resolved)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_lower_email ON users(LOWER(email))`,
+		`CREATE INDEX IF NOT EXISTS idx_users_lower_username ON users(LOWER(username))`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`,
 	}
@@ -1256,9 +1313,7 @@ func (s *SQLStore) migrateRolesAndPermissions() error {
 		nowStr := formatTimeForDB(time.Now())
 		for _, sa := range unassigned {
 			targetRole := adminRoleID
-			if strings.Contains(strings.ToLower(sa.email), "manager") {
-				targetRole = managerRoleID
-			} else if sa.coachID.Valid && sa.coachID.String != "" {
+			if sa.coachID.Valid && sa.coachID.String != "" {
 				targetRole = coachRoleID
 			}
 
@@ -1376,7 +1431,7 @@ func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
 }
 
 func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations WHERE is_default = TRUE or is_default = 1 ORDER BY created_at ASC LIMIT 1`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations WHERE is_default = TRUE ORDER BY created_at ASC LIMIT 1`
 	var idStr, createdStr string
 	var nullRate sql.NullFloat64
 	var nullMaxTrainees sql.NullInt64
@@ -1657,7 +1712,8 @@ func (s *SQLStore) DeleteTrainingCategory(id uuid.UUID) error {
 func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, '')
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, ''),
+		COALESCE(waiver_accepted, FALSE), COALESCE(waiver_signed_name, ''), COALESCE(waiver_signed_at, '')
 		FROM students ORDER BY full_name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -1667,7 +1723,7 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 
 	var students []*models.Student
 	for rows.Next() {
-		var idStr, dobStr, promoStr, createdStr, statusTagsRaw string
+		var idStr, dobStr, promoStr, createdStr, statusTagsRaw, waiverSignedAtRaw string
 		st := &models.Student{}
 		var gender, phone, medNotes sql.NullString
 		err := rows.Scan(
@@ -1675,6 +1731,7 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 			&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 			&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
 			&st.HasSafetyFlag, &statusTagsRaw,
+			&st.WaiverAccepted, &st.WaiverSignedName, &waiverSignedAtRaw,
 		)
 		if err != nil {
 			return nil, err
@@ -1683,6 +1740,11 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 		st.DOB, _ = parseTimeFlex(dobStr)
 		st.LastPromotionDate, _ = parseTimeFlex(promoStr)
 		st.CreatedAt, _ = parseTimeFlex(createdStr)
+		if waiverSignedAtRaw != "" {
+			if wt, err := parseTimeFlex(waiverSignedAtRaw); err == nil && !wt.IsZero() {
+				st.WaiverSignedAt = &wt
+			}
+		}
 		if gender.Valid {
 			st.Gender = gender.String
 		}
@@ -1701,9 +1763,10 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, '')
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, ''),
+		COALESCE(waiver_accepted, FALSE), COALESCE(waiver_signed_name, ''), COALESCE(waiver_signed_at, '')
 		FROM students WHERE id = $1`
-	var idStr, dobStr, promoStr, createdStr, statusTagsRaw string
+	var idStr, dobStr, promoStr, createdStr, statusTagsRaw, waiverSignedAtRaw string
 	st := &models.Student{}
 	var gender, phone, medNotes sql.NullString
 	err := s.db.QueryRow(query, id.String()).Scan(
@@ -1711,6 +1774,7 @@ func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 		&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 		&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
 		&st.HasSafetyFlag, &statusTagsRaw,
+		&st.WaiverAccepted, &st.WaiverSignedName, &waiverSignedAtRaw,
 	)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
@@ -1722,6 +1786,11 @@ func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	st.DOB, _ = parseTimeFlex(dobStr)
 	st.LastPromotionDate, _ = parseTimeFlex(promoStr)
 	st.CreatedAt, _ = parseTimeFlex(createdStr)
+	if waiverSignedAtRaw != "" {
+		if wt, err := parseTimeFlex(waiverSignedAtRaw); err == nil && !wt.IsZero() {
+			st.WaiverSignedAt = &wt
+		}
+	}
 	if gender.Valid {
 		st.Gender = gender.String
 	}
@@ -1743,7 +1812,8 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 	likePattern := "%" + strings.ToLower(q) + "%"
 	sqlQuery := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, '')
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, ''),
+		COALESCE(waiver_accepted, FALSE), COALESCE(waiver_signed_name, ''), COALESCE(waiver_signed_at, '')
 		FROM students
 		WHERE LOWER(full_name) LIKE $1 OR phone LIKE $1 OR LOWER(current_belt) LIKE $1 OR LOWER(COALESCE(status_tags, '')) LIKE $1
 		ORDER BY full_name ASC`
@@ -1755,7 +1825,7 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 
 	var students []*models.Student
 	for rows.Next() {
-		var idStr, dobStr, promoStr, createdStr, statusTagsRaw string
+		var idStr, dobStr, promoStr, createdStr, statusTagsRaw, waiverSignedAtRaw string
 		st := &models.Student{}
 		var gender, phone, medNotes sql.NullString
 		err := rows.Scan(
@@ -1763,6 +1833,7 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 			&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 			&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
 			&st.HasSafetyFlag, &statusTagsRaw,
+			&st.WaiverAccepted, &st.WaiverSignedName, &waiverSignedAtRaw,
 		)
 		if err != nil {
 			return nil, err
@@ -1771,6 +1842,11 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 		st.DOB, _ = parseTimeFlex(dobStr)
 		st.LastPromotionDate, _ = parseTimeFlex(promoStr)
 		st.CreatedAt, _ = parseTimeFlex(createdStr)
+		if waiverSignedAtRaw != "" {
+			if wt, err := parseTimeFlex(waiverSignedAtRaw); err == nil && !wt.IsZero() {
+				st.WaiverSignedAt = &wt
+			}
+		}
 		if gender.Valid {
 			st.Gender = gender.String
 		}
@@ -1794,28 +1870,40 @@ func (s *SQLStore) CreateStudent(st *models.Student) error {
 		st.CreatedAt = time.Now()
 	}
 	st.StatusTags = models.ParseStatusTags(models.FormatStatusTags(st.StatusTags))
+	waiverAtStr := ""
+	if st.WaiverSignedAt != nil && !st.WaiverSignedAt.IsZero() {
+		waiverAtStr = formatTimeForDB(*st.WaiverSignedAt)
+	}
 	query := `INSERT INTO students (id, full_name, dob, gender, phone, current_belt, last_promotion_date,
-		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at, has_safety_flag, status_tags)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at, has_safety_flag, status_tags,
+		waiver_accepted, waiver_signed_name, waiver_signed_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`
 	_, err := s.db.Exec(query,
 		st.ID.String(), st.FullName, formatDateForDB(st.DOB), st.Gender, st.Phone,
 		string(st.CurrentBelt), formatDateForDB(st.LastPromotionDate), st.EmergencyName,
 		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, formatTimeForDB(st.CreatedAt),
 		st.HasSafetyFlag, models.FormatStatusTags(st.StatusTags),
+		st.WaiverAccepted, st.WaiverSignedName, waiverAtStr,
 	)
 	return err
 }
 
 func (s *SQLStore) UpdateStudent(st *models.Student) error {
 	st.StatusTags = models.ParseStatusTags(models.FormatStatusTags(st.StatusTags))
+	waiverAtStr := ""
+	if st.WaiverSignedAt != nil && !st.WaiverSignedAt.IsZero() {
+		waiverAtStr = formatTimeForDB(*st.WaiverSignedAt)
+	}
 	query := `UPDATE students SET full_name = $1, dob = $2, gender = $3, phone = $4,
 		current_belt = $5, last_promotion_date = $6, emergency_name = $7, emergency_phone = $8,
-		emergency_relation = $9, medical_notes = $10, is_active = $11, has_safety_flag = $12, status_tags = $13
-		WHERE id = $14`
+		emergency_relation = $9, medical_notes = $10, is_active = $11, has_safety_flag = $12, status_tags = $13,
+		waiver_accepted = $14, waiver_signed_name = $15, waiver_signed_at = $16
+		WHERE id = $17`
 	res, err := s.db.Exec(query,
 		st.FullName, formatDateForDB(st.DOB), st.Gender, st.Phone,
 		string(st.CurrentBelt), formatDateForDB(st.LastPromotionDate), st.EmergencyName,
-		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, st.HasSafetyFlag, models.FormatStatusTags(st.StatusTags), st.ID.String(),
+		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, st.HasSafetyFlag, models.FormatStatusTags(st.StatusTags),
+		st.WaiverAccepted, st.WaiverSignedName, waiverAtStr, st.ID.String(),
 	)
 	if err != nil {
 		return err
@@ -1824,6 +1912,30 @@ func (s *SQLStore) UpdateStudent(st *models.Student) error {
 	if rows == 0 {
 		return ErrNotFound
 	}
+	return nil
+}
+
+func (s *SQLStore) ToggleStudentActive(studentID uuid.UUID, isActive bool) error {
+	res, err := s.db.Exec(`UPDATE students SET is_active = $1 WHERE id = $2`, isActive, studentID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	nowStr := formatTimeForDB(time.Now())
+	_, err = s.db.Exec(`UPDATE users SET is_active = $1, updated_at = $2 WHERE student_id = $3`,
+		isActive, nowStr, studentID.String())
+	if err != nil {
+		return err
+	}
+
+	if !isActive {
+		_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM users WHERE student_id = $1)`, studentID.String())
+	}
+
 	return nil
 }
 
@@ -2863,24 +2975,34 @@ func (s *SQLStore) DeleteSession(sessionID uuid.UUID) error {
 }
 
 func (s *SQLStore) CancelSession(sessionID uuid.UUID, reason string, refundCredits bool) error {
-	// 1. Verify session exists and is not already cancelled
-	var isCancelled bool
-	err := s.db.QueryRow(`SELECT COALESCE(is_cancelled, FALSE) FROM training_sessions WHERE id = $1`, sessionID.String()).Scan(&isCancelled)
-	if err == sql.ErrNoRows {
-		return ErrNotFound
-	}
-	if err != nil {
-		return err
-	}
-	if isCancelled {
-		return errors.New("class is already cancelled")
-	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	// 1. Atomically claim cancellation inside the transaction to prevent double-refund races
+	now := time.Now()
+	nowDB := formatTimeForDB(now)
+	var res sql.Result
+	if s.driver == "sqlite" {
+		res, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = 1, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3 AND COALESCE(is_cancelled, 0) = 0`,
+			reason, nowDB, sessionID.String())
+	} else {
+		res, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = TRUE, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3 AND COALESCE(is_cancelled, FALSE) = FALSE`,
+			reason, nowDB, sessionID.String())
+	}
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		var exists int
+		if qErr := tx.QueryRow(`SELECT 1 FROM training_sessions WHERE id = $1`, sessionID.String()).Scan(&exists); qErr == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		return errors.New("class is already cancelled")
+	}
 
 	if refundCredits {
 		// Find attendances that used student package
@@ -2910,20 +3032,6 @@ func (s *SQLStore) CancelSession(sessionID uuid.UUID, reason string, refundCredi
 		if err != nil {
 			return err
 		}
-	}
-
-	// Update session cancellation status
-	now := time.Now()
-	nowDB := formatTimeForDB(now)
-	if s.driver == "sqlite" {
-		_, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = 1, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3`,
-			reason, nowDB, sessionID.String())
-	} else {
-		_, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = TRUE, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3`,
-			reason, nowDB, sessionID.String())
-	}
-	if err != nil {
-		return err
 	}
 
 	return tx.Commit()
@@ -3137,24 +3245,30 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 		attendeeType = "student"
 	}
 
-	// 1. Check duplicate attendance
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// 1. Check duplicate attendance inside transaction
 	if attendeeType == "student" && attendeeID != nil {
 		var existingID string
-		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2",
+		err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2",
 			sessionID.String(), attendeeID.String()).Scan(&existingID)
 		if err == nil {
 			return nil, ErrAlreadyInRoster
 		}
 	} else if attendeeID != nil {
 		var existingID string
-		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND (student_id = $2 OR (attendee_name != '' AND attendee_name = $3))",
+		err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND (student_id = $2 OR (attendee_name != '' AND attendee_name = $3))",
 			sessionID.String(), attendeeID.String(), attendeeName).Scan(&existingID)
 		if err == nil {
 			return nil, ErrAlreadyInRoster
 		}
 	} else if attendeeName != "" {
 		var existingID string
-		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND attendee_name = $2",
+		err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND attendee_name = $2",
 			sessionID.String(), attendeeName).Scan(&existingID)
 		if err == nil {
 			return nil, ErrAlreadyInRoster
@@ -3190,7 +3304,7 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 
 	// Look up session's location
 	var locIDStr sql.NullString
-	_ = s.db.QueryRow("SELECT location_id FROM training_sessions WHERE id = $1", sessionID.String()).Scan(&locIDStr)
+	_ = tx.QueryRow("SELECT location_id FROM training_sessions WHERE id = $1", sessionID.String()).Scan(&locIDStr)
 	var locationID *uuid.UUID
 	var locIDVal interface{}
 	if locIDStr.Valid && locIDStr.String != "" {
@@ -3201,13 +3315,18 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 	}
 	att.LocationID = locationID
 
+	// 2. Insert attendance row
 	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
-	_, err := s.db.Exec(query,
+	_, err = tx.Exec(query,
 		att.ID.String(), att.SessionID.String(), studentIDVal, pkgIDVal, locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt),
 		att.AttendeeType, att.AttendeeName, att.AttendeeRole,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -3270,6 +3389,74 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 
 func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	return s.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
+}
+
+// CheckInStudentWithPackageDeduction atomically inserts the attendance record and decrements a finite package credit in one transaction.
+func (s *SQLStore) CheckInStudentWithPackageDeduction(sessionID, studentID, packageID uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var existingID string
+	if err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2", sessionID.String(), studentID.String()).Scan(&existingID); err == nil {
+		return nil, ErrAlreadyInRoster
+	}
+
+	var rem sql.NullInt64
+	if err := tx.QueryRow(`SELECT remaining_sessions FROM student_packages WHERE id = $1`, packageID.String()).Scan(&rem); err == nil && rem.Valid {
+		res, uErr := tx.Exec(`UPDATE student_packages SET remaining_sessions = remaining_sessions - 1 WHERE id = $1 AND remaining_sessions > 0`, packageID.String())
+		if uErr != nil {
+			return nil, uErr
+		}
+		if rowsAffected, _ := res.RowsAffected(); rowsAffected == 0 {
+			return nil, errors.New("no remaining sessions on membership package")
+		}
+	}
+
+	att := &models.Attendance{
+		ID:               uuid.New(),
+		SessionID:        sessionID,
+		StudentID:        studentID,
+		StudentPackageID: &packageID,
+		SessionRate:      sessionRate,
+		CheckedInAt:      time.Now(),
+		AttendeeType:     "student",
+	}
+
+	var sessionRateVal interface{}
+	if sessionRate != nil {
+		sessionRateVal = *sessionRate
+	}
+
+	var locIDStr sql.NullString
+	_ = tx.QueryRow("SELECT location_id FROM training_sessions WHERE id = $1", sessionID.String()).Scan(&locIDStr)
+	var locIDVal interface{}
+	if locIDStr.Valid && locIDStr.String != "" {
+		if lID, pErr := uuid.Parse(locIDStr.String); pErr == nil && lID != uuid.Nil {
+			att.LocationID = &lID
+			locIDVal = lID.String()
+		}
+	}
+
+	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '', '')`
+	if _, err := tx.Exec(query, att.ID.String(), att.SessionID.String(), studentID.String(), packageID.String(), locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt), att.AttendeeType); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	var fullName, currentBelt string
+	_ = s.db.QueryRow("SELECT full_name, current_belt FROM students WHERE id = $1", studentID.String()).Scan(&fullName, &currentBelt)
+	att.StudentName = fullName
+	att.StudentBelt = models.BeltRank(currentBelt)
+	att.AttendeeName = fullName
+	att.AttendeeRole = currentBelt
+	return att, nil
 }
 
 func (s *SQLStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error) {
@@ -3563,11 +3750,11 @@ func (s *SQLStore) SeedDefaultData() error {
 	spw2 := 2
 
 	_, _ = s.db.Exec(`INSERT INTO package_templates (id, title, description, plan_type, session_count, sessions_per_week, validity_days, price, is_active) VALUES
-		($1, '12-Session Sparring & Technical Pass', 'Structured sparring drills, footwork, and tactical timing combinations.', 'standard', $2, NULL, 90, 180.00, 1),
-		($3, '24-Session Promotion Prep Pass', 'Comprehensive syllabus coverage, Kup forms, and board breaking preparation.', 'standard', $4, NULL, 180, 320.00, 1),
-		($5, 'Monthly Unlimited Athlete Membership', 'Full floor access to all regular classes, poomsae sessions, and open sparring mats.', 'unlimited', NULL, NULL, 30, 220.00, 1),
-		($6, '4-Week Fundamental Pass (1x/week)', 'Weekly foundational drills and discipline. Strictly consumable over 4 weeks.', 'four_week', $7, $8, 28, 80.00, 1),
-		($9, '4-Week Cadet & Athlete Pass (2x/week)', 'Twice-weekly high performance training. Strictly consumable over 4 weeks.', 'four_week', $10, $11, 28, 140.00, 1)`,
+		($1, '12-Session Sparring & Technical Pass', 'Structured sparring drills, footwork, and tactical timing combinations.', 'standard', $2, NULL, 90, 180.00, TRUE),
+		($3, '24-Session Promotion Prep Pass', 'Comprehensive syllabus coverage, Kup forms, and board breaking preparation.', 'standard', $4, NULL, 180, 320.00, TRUE),
+		($5, 'Monthly Unlimited Athlete Membership', 'Full floor access to all regular classes, poomsae sessions, and open sparring mats.', 'unlimited', NULL, NULL, 30, 220.00, TRUE),
+		($6, '4-Week Fundamental Pass (1x/week)', 'Weekly foundational drills and discipline. Strictly consumable over 4 weeks.', 'four_week', $7, $8, 28, 80.00, TRUE),
+		($9, '4-Week Cadet & Athlete Pass (2x/week)', 'Twice-weekly high performance training. Strictly consumable over 4 weeks.', 'four_week', $10, $11, 28, 140.00, TRUE)`,
 		t1ID.String(), c12, t2ID.String(), c24, t3ID.String(),
 		t4ID.String(), c4, spw1, t5ID.String(), c8, spw2,
 	)
@@ -4447,6 +4634,12 @@ func (s *SQLStore) DeleteSessionToken(token string) error {
 	return err
 }
 
+func (s *SQLStore) DeleteUserSessions(userID uuid.UUID) error {
+	query := `DELETE FROM user_sessions WHERE user_id = $1`
+	_, err := s.db.Exec(query, userID.String())
+	return err
+}
+
 func (s *SQLStore) CreateSafetyIncident(inc *models.SafetyIncident) error {
 	if inc.ID == uuid.Nil {
 		inc.ID = uuid.New()
@@ -4640,8 +4833,13 @@ func (s *SQLStore) GetAuditLogs(filter models.AuditLogFilter) ([]*models.AuditLo
 	}
 
 	if filter.EndDate != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("created_at <= $%d", argIdx))
-		args = append(args, filter.EndDate+" 23:59:59")
+		if t, parseErr := time.Parse("2006-01-02", filter.EndDate); parseErr == nil {
+			whereClauses = append(whereClauses, fmt.Sprintf("created_at < $%d", argIdx))
+			args = append(args, t.AddDate(0, 0, 1).Format("2006-01-02"))
+		} else {
+			whereClauses = append(whereClauses, fmt.Sprintf("created_at <= $%d", argIdx))
+			args = append(args, filter.EndDate+" 23:59:59")
+		}
 		argIdx++
 	}
 
@@ -4938,6 +5136,50 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert notification settings: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *SQLStore) GetWaiverSettings() (*models.WaiverSettings, error) {
+	query := `SELECT id, title, content, COALESCE(updated_by, ''), updated_at FROM waiver_settings LIMIT 1`
+	var idStr, updatedAtRaw string
+	w := &models.WaiverSettings{}
+	err := s.db.QueryRow(query).Scan(&idStr, &w.Title, &w.Content, &w.UpdatedBy, &updatedAtRaw)
+	if err == sql.ErrNoRows {
+		return models.DefaultWaiverSettings(), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if parsedID, err := uuid.Parse(idStr); err == nil {
+		w.ID = parsedID
+	}
+	w.UpdatedAt, _ = parseTimeFlex(updatedAtRaw)
+	return w, nil
+}
+
+func (s *SQLStore) UpdateWaiverSettings(w *models.WaiverSettings) error {
+	if w == nil {
+		return errors.New("waiver settings cannot be nil")
+	}
+	if w.ID == uuid.Nil {
+		w.ID = models.DefaultWaiverSettings().ID
+	}
+	w.UpdatedAt = time.Now()
+	updatedVal := formatTimeForDB(w.UpdatedAt)
+
+	res, err := s.db.Exec(`UPDATE waiver_settings SET title = $1, content = $2, updated_by = $3, updated_at = $4 WHERE id = $5`,
+		w.Title, w.Content, w.UpdatedBy, updatedVal, w.ID.String())
+	if err != nil {
+		return fmt.Errorf("failed to update waiver settings: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		_, err = s.db.Exec(`INSERT INTO waiver_settings (id, title, content, updated_by, updated_at) VALUES ($1, $2, $3, $4, $5)`,
+			w.ID.String(), w.Title, w.Content, w.UpdatedBy, updatedVal)
+		if err != nil {
+			return fmt.Errorf("failed to insert waiver settings: %w", err)
 		}
 	}
 	return nil

@@ -116,6 +116,7 @@
         {{end}}
     </div>
 
+    {{if and (not .IsCancelled) (not .IsDone) (not (and .MaxTrainees (ge .AttendanceCount .MaxTrainees)))}}
     {{if .IsStudent}}
         <!-- Authenticated Student View: No redundant name/contact input fields -->
         <!-- Authenticated Student View: No redundant name/contact input fields -->
@@ -231,6 +232,7 @@
                 </button>
             </div>
         </form>
+    {{end}}
     {{end}}
 </div>
 {{end}}

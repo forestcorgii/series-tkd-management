@@ -118,8 +118,7 @@ func (a *AppHandler) HandleSessionReserveSubmit(w http.ResponseWriter, r *http.R
 	if isStudent {
 		if user.StudentID != nil {
 			var st *models.Student
-			st, _ = a.store.GetStudentByID(*user.StudentID)
-			att, err = a.store.CheckInStudent(sessionID, *user.StudentID, nil, nil)
+			att, st, err = a.reserveStudentSession(sess, *user.StudentID)
 			if err != nil {
 				errMsg := err.Error()
 				if errors.Is(err, repository.ErrAlreadyInRoster) {
@@ -294,4 +293,45 @@ func (a *AppHandler) renderReserveResponse(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	a.RenderPage(w, "session_reserve.html", data)
+}
+
+// reserveStudentSession enforces safety holds and package credit deductions before reserving a student's slot.
+func (a *AppHandler) reserveStudentSession(sess *models.TrainingSession, studentID uuid.UUID) (*models.Attendance, *models.Student, error) {
+	st, err := a.store.GetStudentByID(studentID)
+	if err != nil || st == nil {
+		return nil, nil, errors.New("student profile not found")
+	}
+	if !st.IsActive {
+		return nil, st, errors.New("your student account is inactive; please contact the front desk")
+	}
+	if st.HasSafetyFlag {
+		return nil, st, errors.New("Mat Safety Hold Active: First aid clearance is required before reserving a mat slot")
+	}
+
+	var pkgID *uuid.UUID
+	var sessionRate *float64
+	if sess.HasFixedRate() {
+		sessionRate = sess.SessionRate
+	} else {
+		pkgs, _ := a.store.GetStudentPackages(studentID)
+		atts, _ := a.store.GetStudentAttendances(studentID)
+		usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
+		if err != nil {
+			return nil, st, fmt.Errorf("membership pass required: %v", err)
+		}
+		if usedPkg != nil {
+			pkgID = &usedPkg.ID
+		}
+	}
+
+	var att *models.Attendance
+	if pkgID != nil {
+		att, err = a.store.CheckInStudentWithPackageDeduction(sess.ID, studentID, *pkgID, sessionRate)
+	} else {
+		att, err = a.store.CheckInStudent(sess.ID, studentID, nil, sessionRate)
+	}
+	if err != nil {
+		return nil, st, err
+	}
+	return att, st, nil
 }

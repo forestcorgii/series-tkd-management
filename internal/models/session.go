@@ -202,10 +202,18 @@ func (s *TrainingSession) IsPastEndTime() bool {
 	return s.IsPastEndTimeAt(time.Now())
 }
 
+var manilaLoc = func() *time.Location {
+	if loc, err := time.LoadLocation("Asia/Manila"); err == nil {
+		return loc
+	}
+	return time.FixedZone("Asia/Manila", 8*3600)
+}()
+
 // IsPastEndTimeAt evaluates whether a given reference time is at or after the session's end time.
 func (s *TrainingSession) IsPastEndTimeAt(ref time.Time) bool {
+	refLocal := ref.In(manilaLoc)
 	sessDateStr := s.SessionDate.Format("2006-01-02")
-	refDateStr := ref.Format("2006-01-02")
+	refDateStr := refLocal.Format("2006-01-02")
 	if sessDateStr < refDateStr {
 		return true
 	}
@@ -220,8 +228,9 @@ func (s *TrainingSession) IsPastEndTimeAt(ref time.Time) bool {
 
 	var endHour, endMin int
 	parsed := false
+	upperEnd := strings.ToUpper(endTimeStr)
 	for _, layout := range []string{"15:04", "15:04:05", "3:04 PM", "3:04PM", "03:04 PM", "03:04PM"} {
-		if t, err := time.Parse(layout, endTimeStr); err == nil {
+		if t, err := time.Parse(layout, upperEnd); err == nil {
 			endHour, endMin = t.Hour(), t.Minute()
 			parsed = true
 			break
@@ -247,7 +256,7 @@ func (s *TrainingSession) IsPastEndTimeAt(ref time.Time) bool {
 		return false
 	}
 
-	refMinutes := ref.Hour()*60 + ref.Minute()
+	refMinutes := refLocal.Hour()*60 + refLocal.Minute()
 	endMinutes := endHour*60 + endMin
 	return refMinutes >= endMinutes
 }

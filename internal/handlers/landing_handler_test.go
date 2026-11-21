@@ -221,12 +221,24 @@ func TestLandingHandler_HandleLandingSchedule_Partial(t *testing.T) {
 func TestLandingHandler_HandleGuestReserveForm(t *testing.T) {
 	app, store := setupTestApp(t)
 
-	// Seed or fetch a session
+	// Seed or fetch an open session
 	sessions, err := store.GetAllSessions()
 	if err != nil || len(sessions) == 0 {
 		t.Fatalf("expected seeded sessions: %v", err)
 	}
-	sess := sessions[0]
+	var sess *models.TrainingSession
+	for _, s := range sessions {
+		if !s.IsCancelled && !s.IsDone() {
+			sess = s
+			break
+		}
+	}
+	if sess == nil {
+		sess = sessions[0]
+		sess.SessionDate = time.Now().AddDate(0, 0, 1)
+		sess.IsCancelled = false
+		_ = store.UpdateSession(sess)
+	}
 
 	// 1. Valid session_id
 	req := httptest.NewRequest("GET", "/landing/reserve-form?session_id="+sess.ID.String(), nil)

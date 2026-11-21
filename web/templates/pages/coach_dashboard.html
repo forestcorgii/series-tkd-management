@@ -45,7 +45,7 @@
                 {{if .AllSessions}}
                 <div class="flex items-center gap-1.5">
                     <label for="session-quick-select" class="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Class:</label>
-                    <select id="session-quick-select" onchange="window.location.href='/?session_id=' + this.value"
+                    <select id="session-quick-select" onchange="window.location.href='/dashboard?session_id=' + this.value"
                             class="form-select text-xs py-1 px-2.5 min-w-[180px]">
                         {{range .AllSessions}}
                         <option value="{{.ID}}" {{if and $.LiveSession (eq $.LiveSession.ID.String .ID.String)}}selected{{end}}>
