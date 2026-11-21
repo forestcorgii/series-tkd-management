@@ -35,7 +35,7 @@ func (ps *PackageService) CheckWeeklyQuota(pkg *models.StudentPackage, attendanc
 	}
 	limit := pkg.WeeklyCadence()
 	if count >= limit {
-		return fmt.Errorf("weekly limit of %d class(es) reached for Week %d (resets on %s)", limit, weekNum, cycleEnd.Format("Jan 02"))
+		return fmt.Errorf("weekly limit of %d class(es) reached for Week %d (resets on %s) (%w)", limit, weekNum, cycleEnd.Format("Jan 02"), models.ErrWeeklyLimitExceeded)
 	}
 	return nil
 }
@@ -63,8 +63,11 @@ func (ps *PackageService) FindOldestValidPackage(packages []*models.StudentPacka
 		return nil, ErrNoValidPackageForStudent
 	}
 
-	// Sort by purchase date ascending (oldest first)
+	// Sort by expiry date ascending (soonest-expiring first), then purchase date ascending
 	sort.Slice(validPackages, func(i, j int) bool {
+		if !validPackages[i].ExpiryDate.Equal(validPackages[j].ExpiryDate) {
+			return validPackages[i].ExpiryDate.Before(validPackages[j].ExpiryDate)
+		}
 		return validPackages[i].PurchaseDate.Before(validPackages[j].PurchaseDate)
 	})
 

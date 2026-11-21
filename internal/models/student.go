@@ -24,6 +24,24 @@ const (
 	BeltBlack3rdDan BeltRank = "3rd Dan Black"
 )
 
+// AllBeltRanks returns the ordered list of valid belt ranks.
+func AllBeltRanks() []BeltRank {
+	return []BeltRank{
+		BeltWhite,
+		BeltLowYellow,
+		BeltHighYellow,
+		BeltLowBlue,
+		BeltHighBlue,
+		BeltLowRed,
+		BeltHighRed,
+		BeltLowBrown,
+		BeltHighBrown,
+		BeltBlack1stDan,
+		BeltBlack2ndDan,
+		BeltBlack3rdDan,
+	}
+}
+
 type Student struct {
 	ID                uuid.UUID `json:"id"`
 	FullName          string    `json:"full_name"`
@@ -37,9 +55,12 @@ type Student struct {
 	EmergencyRelation string    `json:"emergency_relation"`
 	MedicalNotes      string    `json:"medical_notes"`
 	HasSafetyFlag     bool      `json:"has_safety_flag"`
-	IsActive          bool      `json:"is_active"`
-	StatusTags        []string  `json:"status_tags"`
-	CreatedAt         time.Time `json:"created_at"`
+	IsActive          bool       `json:"is_active"`
+	StatusTags        []string   `json:"status_tags"`
+	WaiverAccepted    bool       `json:"waiver_accepted"`
+	WaiverSignedName  string     `json:"waiver_signed_name"`
+	WaiverSignedAt    *time.Time `json:"waiver_signed_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 // ParseStatusTags splits a comma-separated string into a deduplicated slice of trimmed tags.
