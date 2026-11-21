@@ -323,7 +323,7 @@
 
                     <div>
                         <label class="form-label">Base Compensation</label>
-                        <input type="text" value="${{printf "%.2f" .Coach.RatePerSession}} / floor session" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
+                        <input type="text" value="₱{{printf "%.2f" .Coach.RatePerSession}} / floor session" disabled class="form-input opacity-70 cursor-not-allowed bg-slate-100 dark:bg-neutral-900" />
                     </div>
 
                     <div>
@@ -473,7 +473,12 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="form-label">Current Password</label>
+                    <input type="password" name="current_password" placeholder="Required to change password" class="form-input" autocomplete="current-password" />
+                </div>
+
                 <div>
                     <label class="form-label">New Password</label>
                     <input type="password" name="new_password" placeholder="Minimum 6 characters" class="form-input" autocomplete="new-password" />

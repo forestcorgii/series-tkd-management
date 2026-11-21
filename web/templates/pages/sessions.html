@@ -1627,8 +1627,8 @@ function clearFilters() {
     htmx.ajax('GET', '/sessions', {target: '#classes-container', swap: 'innerHTML'});
 }
 
-let currentMobileViewMode = 'day';
-let currentMobileDate = null;
+var currentMobileViewMode = 'day';
+var currentMobileDate = null;
 
 function setMobileCalendarViewMode(mode) {
     if (window.innerWidth >= 768) {
@@ -1810,33 +1810,41 @@ function scrollToCurrentDayOnMobile() {
     });
 }
 
-// Automatically scroll and initialize filter collapse on initial page load
-document.addEventListener('DOMContentLoaded', () => {
+// Automatically scroll and initialize filter collapse on initial page load and hx-boost visits
+function initSessionsPage() {
     initFilterCollapse();
     var filterForm = document.getElementById('session-filter-form');
-    if (filterForm) {
+    if (filterForm && !filterForm.dataset.badgeBound) {
+        filterForm.dataset.badgeBound = '1';
         filterForm.addEventListener('change', updateActiveFilterBadge);
     }
     setTimeout(scrollToCurrentDayOnMobile, 150);
-});
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSessionsPage);
+} else {
+    initSessionsPage();
+}
 
 // Also trigger after HTMX swap for classes container (e.g. week navigation, filter, or drag-and-drop reschedule)
-document.body.addEventListener('htmx:afterSwap', (evt) => {
-    if (evt.detail && (evt.detail.target.id === 'classes-container' || evt.detail.target.closest('#classes-container'))) {
-        const wrapper = document.getElementById('session-cards-wrapper');
-        if (wrapper) {
-            if (wrapper.getAttribute('data-selected-date')) {
-                currentSelectedDate = wrapper.getAttribute('data-selected-date');
+if (!window.__stmsSessionsSwapBound) {
+    window.__stmsSessionsSwapBound = true;
+    document.body.addEventListener('htmx:afterSwap', (evt) => {
+        if (evt.detail && (evt.detail.target.id === 'classes-container' || evt.detail.target.closest('#classes-container'))) {
+            const wrapper = document.getElementById('session-cards-wrapper');
+            if (wrapper) {
+                if (wrapper.getAttribute('data-selected-date')) {
+                    currentSelectedDate = wrapper.getAttribute('data-selected-date');
+                }
+                if (wrapper.getAttribute('data-anchor-date')) {
+                    currentCalendarAnchor = wrapper.getAttribute('data-anchor-date');
+                }
             }
-            if (wrapper.getAttribute('data-anchor-date')) {
-                currentCalendarAnchor = wrapper.getAttribute('data-anchor-date');
-            }
+            setTimeout(scrollToCurrentDayOnMobile, 100);
         }
-        setTimeout(scrollToCurrentDayOnMobile, 100);
-    }
-});
+    });
+}
 </script>
 <!-- html2canvas CDN for client-side schedule image snapshot export -->
 <script src="/static/js/html2canvas.min.js"></script>
-<script src="/static/js/schedule-export.js?v=2.7.0"></script>
 {{end}}

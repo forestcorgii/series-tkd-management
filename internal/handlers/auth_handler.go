@@ -45,11 +45,22 @@ func (a *AppHandler) AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func isAPIMachineRequest(r *http.Request) bool {
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		return true
+	}
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
+		return true
+	}
+	return strings.Contains(r.Header.Get("Accept"), "application/json") ||
+		strings.Contains(r.Header.Get("Content-Type"), "application/json")
+}
+
 func (a *AppHandler) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := GetUserFromContext(r.Context())
 		if user == nil {
-			if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+			if isAPIMachineRequest(r) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -74,7 +85,7 @@ func (a *AppHandler) RequireRole(roles ...models.UserRole) func(http.HandlerFunc
 		return a.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 			user := GetUserFromContext(r.Context())
 			if user == nil || !user.HasRole(roles...) {
-				if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+				if isAPIMachineRequest(r) {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden)
 					_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -102,7 +113,7 @@ func (a *AppHandler) RequirePermission(perms ...string) func(http.HandlerFunc) h
 		return a.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 			user := GetUserFromContext(r.Context())
 			if user == nil || !user.HasAnyPermission(perms...) {
-				if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+				if isAPIMachineRequest(r) {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden)
 					_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -128,7 +139,7 @@ func (a *AppHandler) RequireStaff(next http.HandlerFunc) http.HandlerFunc {
 	return a.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 		user := GetUserFromContext(r.Context())
 		if user == nil || !user.IsStaff() {
-			if strings.HasPrefix(r.URL.Path, "/api/") || r.Header.Get("HX-Request") == "true" || strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+			if isAPIMachineRequest(r) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
 				_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -264,7 +275,7 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 
 	a.LogAction(r, "AUTH_LOGIN", models.AuditCategoryAuth, "User", user.ID.String(), user.DisplayName, "User "+user.Email+" signed in successfully")
 
-	if redirectTarget != "" && strings.HasPrefix(redirectTarget, "/") {
+	if isSafeLocalRedirect(redirectTarget) {
 		http.Redirect(w, r, redirectTarget, http.StatusSeeOther)
 		return
 	}
@@ -614,6 +625,174 @@ func (a *AppHandler) HandleRegisterSubmit(w http.ResponseWriter, r *http.Request
 			"status":  "pending_approval",
 			"message": successMsg,
 			"role":    role,
+		})
+		return
+	}
+
+	http.Redirect(w, r, "/login?success="+url.QueryEscape(successMsg), http.StatusSeeOther)
+}
+
+type StudentRegisterPageData struct {
+	CurrentUser *models.User
+	Waiver      *models.WaiverSettings
+	Error       string
+	Success     string
+}
+
+func (a *AppHandler) HandleStudentRegisterPage(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	if user != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	waiver, err := a.store.GetWaiverSettings()
+	if err != nil || waiver == nil {
+		waiver = models.DefaultWaiverSettings()
+	}
+
+	data := StudentRegisterPageData{
+		CurrentUser: nil,
+		Waiver:      waiver,
+		Error:       r.URL.Query().Get("error"),
+		Success:     r.URL.Query().Get("success"),
+	}
+
+	a.RenderPage(w, "student_register.html", data)
+}
+
+func (a *AppHandler) HandleStudentRegisterSubmit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	isJSON := strings.Contains(r.Header.Get("Accept"), "application/json") ||
+		strings.Contains(r.Header.Get("Content-Type"), "application/json") ||
+		strings.HasPrefix(r.URL.Path, "/api/")
+
+	var fullName, dobStr, gender, phone, currentBelt, email, username, password, confirmPassword string
+	var emergencyName, emergencyPhone, emergencyRelation, medicalNotes, waiverSignedName string
+	var waiverAccepted bool
+
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			FullName          string `json:"full_name"`
+			DOB               string `json:"dob"`
+			Gender            string `json:"gender"`
+			Phone             string `json:"phone"`
+			CurrentBelt       string `json:"current_belt"`
+			Email             string `json:"email"`
+			Username          string `json:"username"`
+			Password          string `json:"password"`
+			ConfirmPassword   string `json:"confirm_password"`
+			EmergencyName     string `json:"emergency_name"`
+			EmergencyPhone    string `json:"emergency_phone"`
+			EmergencyRelation string `json:"emergency_relation"`
+			MedicalNotes      string `json:"medical_notes"`
+			WaiverAccepted    bool   `json:"waiver_accepted"`
+			WaiverSignedName  string `json:"waiver_signed_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if isJSON {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body: " + err.Error()})
+				return
+			}
+			http.Redirect(w, r, "/register/student?error="+url.QueryEscape("Invalid request payload"), http.StatusSeeOther)
+			return
+		}
+		fullName = req.FullName
+		dobStr = req.DOB
+		gender = req.Gender
+		phone = req.Phone
+		currentBelt = req.CurrentBelt
+		email = req.Email
+		username = req.Username
+		password = req.Password
+		confirmPassword = req.ConfirmPassword
+		emergencyName = req.EmergencyName
+		emergencyPhone = req.EmergencyPhone
+		emergencyRelation = req.EmergencyRelation
+		medicalNotes = req.MedicalNotes
+		waiverAccepted = req.WaiverAccepted
+		waiverSignedName = req.WaiverSignedName
+	} else {
+		if err := r.ParseForm(); err != nil {
+			http.Redirect(w, r, "/register/student?error="+url.QueryEscape("Invalid form submission"), http.StatusSeeOther)
+			return
+		}
+		fullName = r.FormValue("full_name")
+		dobStr = r.FormValue("dob")
+		gender = r.FormValue("gender")
+		phone = r.FormValue("phone")
+		currentBelt = r.FormValue("current_belt")
+		email = r.FormValue("email")
+		username = r.FormValue("username")
+		password = r.FormValue("password")
+		confirmPassword = r.FormValue("confirm_password")
+		emergencyName = r.FormValue("emergency_name")
+		emergencyPhone = r.FormValue("emergency_phone")
+		emergencyRelation = r.FormValue("emergency_relation")
+		medicalNotes = r.FormValue("medical_notes")
+		waiverVal := strings.TrimSpace(r.FormValue("waiver_accepted"))
+		waiverAccepted = waiverVal == "on" || waiverVal == "true" || waiverVal == "1"
+		waiverSignedName = r.FormValue("waiver_signed_name")
+	}
+
+	fail := func(msg string) {
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+			return
+		}
+		http.Redirect(w, r, "/register/student?error="+url.QueryEscape(msg), http.StatusSeeOther)
+	}
+
+	if confirmPassword != "" && password != confirmPassword {
+		fail("Passwords do not match.")
+		return
+	}
+
+	dob, _ := time.Parse("2006-01-02", strings.TrimSpace(dobStr))
+
+	student, _, err := a.authSvc.RegisterPendingStudent(services.StudentRegistrationInput{
+		FullName:          fullName,
+		DOB:               dob,
+		Gender:            gender,
+		Phone:             phone,
+		CurrentBelt:       models.BeltRank(strings.TrimSpace(currentBelt)),
+		Email:             email,
+		Username:          username,
+		Password:          password,
+		EmergencyName:     emergencyName,
+		EmergencyPhone:    emergencyPhone,
+		EmergencyRelation: emergencyRelation,
+		MedicalNotes:      medicalNotes,
+		WaiverAccepted:    waiverAccepted,
+		WaiverSignedName:  waiverSignedName,
+	})
+	if err != nil {
+		fail(err.Error())
+		return
+	}
+
+	a.LogAction(r, "AUTH_STUDENT_REGISTER", models.AuditCategoryAuth, "Student", student.ID.String(), student.FullName, "New student registered with signed waiver (pending approval): "+email)
+
+	if a.notifSvc != nil {
+		a.notifSvc.NotifyStudentRegistered(student, "Self-Registration", "")
+	}
+
+	successMsg := "Student registration and waiver submitted! Your account is pending manager approval. You can log in once approved."
+	if isJSON {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":     "pending_approval",
+			"message":    successMsg,
+			"student_id": student.ID.String(),
 		})
 		return
 	}

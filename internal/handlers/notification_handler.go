@@ -185,6 +185,31 @@ func (a *AppHandler) HandleMarkNotificationRead(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !user.IsOperationManager() {
+		notifs, _, _ := a.notifSvc.GetNotifications(models.NotificationFilter{
+			UserID: &user.ID,
+			Role:   &user.Role,
+			Limit:  200,
+		})
+		owned := false
+		for _, n := range notifs {
+			if n.ID == notifID {
+				owned = true
+				break
+			}
+		}
+		if !owned {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	_ = a.notifSvc.MarkAsRead(notifID)
 
 	w.Header().Set("HX-Trigger", "notificationUpdated")

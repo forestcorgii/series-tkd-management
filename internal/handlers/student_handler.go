@@ -25,14 +25,15 @@ type StudentListItem struct {
 }
 
 type StudentsPageData struct {
-	CurrentUser   *models.User
-	Students      []StudentListItem
-	Templates     []*models.PackageTemplate
-	StatusPresets []string
-	Search        string
-	StatusFilter  string
-	SuccessNotice string
-	ErrorNotice   string
+	CurrentUser          *models.User
+	Students             []StudentListItem
+	Templates            []*models.PackageTemplate
+	StatusPresets        []string
+	PendingStudentsCount int
+	Search               string
+	StatusFilter         string
+	SuccessNotice        string
+	ErrorNotice          string
 }
 
 func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +48,12 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	if statusFilter != "" {
 		filtered := make([]*models.Student, 0, len(students))
 		for _, st := range students {
+			if statusFilter == "__pending__" {
+				if !st.IsActive {
+					filtered = append(filtered, st)
+				}
+				continue
+			}
 			if statusFilter == "__none__" {
 				if len(st.StatusTags) == 0 {
 					filtered = append(filtered, st)
@@ -122,16 +129,25 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	templates, _ := a.store.GetPackageTemplates()
 	presets, _ := a.store.GetStudentStatusPresets()
 
+	allStudents, _ := a.store.GetAllStudents()
+	pendingStudents := 0
+	for _, st := range allStudents {
+		if !st.IsActive {
+			pendingStudents++
+		}
+	}
+
 	user := GetUserFromContext(r.Context())
 	data := StudentsPageData{
-		CurrentUser:   user,
-		Students:      items,
-		Templates:     templates,
-		StatusPresets: presets,
-		Search:        query,
-		StatusFilter:  statusFilter,
-		SuccessNotice: r.URL.Query().Get("success"),
-		ErrorNotice:   r.URL.Query().Get("error"),
+		CurrentUser:          user,
+		Students:             items,
+		Templates:            templates,
+		StatusPresets:        presets,
+		PendingStudentsCount: pendingStudents,
+		Search:               query,
+		StatusFilter:         statusFilter,
+		SuccessNotice:        r.URL.Query().Get("success"),
+		ErrorNotice:          r.URL.Query().Get("error"),
 	}
 
 	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
@@ -849,4 +865,49 @@ func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 	}
 
 	http.Redirect(w, r, "/students?success="+url.QueryEscape(msg), http.StatusSeeOther)
+}
+
+func (a *AppHandler) HandleToggleStudentActive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	targetID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Invalid student ID."), http.StatusSeeOther)
+		return
+	}
+
+	student, err := a.store.GetStudentByID(targetID)
+	if err != nil || student == nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Student record not found."), http.StatusSeeOther)
+		return
+	}
+
+	newStatus := !student.IsActive
+	if err := a.store.ToggleStudentActive(targetID, newStatus); err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Failed to update student status: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	a.LogAction(r, "STUDENT_TOGGLE_ACTIVE", models.AuditCategoryStudents, "Student", targetID.String(), student.FullName, fmt.Sprintf("Student %s status toggled to %v", student.FullName, newStatus))
+
+	statusMsg := "approved and activated. They can now log in"
+	if !newStatus {
+		statusMsg = "deactivated. Their active sessions have been terminated and login access is blocked"
+	} else if u, _ := a.store.GetUserByStudentID(targetID); u != nil && u.LastLoginAt != nil {
+		statusMsg = "reactivated and can now log in"
+	}
+
+	redirectTo := strings.TrimSpace(r.FormValue("redirect_url"))
+	if !isSafeLocalRedirect(redirectTo) {
+		redirectTo = "/students"
+	}
+	sep := "?"
+	if strings.Contains(redirectTo, "?") {
+		sep = "&"
+	}
+	http.Redirect(w, r, redirectTo+sep+"success="+url.QueryEscape(fmt.Sprintf("Student '%s' has been %s.", student.FullName, statusMsg)), http.StatusSeeOther)
 }

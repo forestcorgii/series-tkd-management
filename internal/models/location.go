@@ -22,6 +22,9 @@ type Location struct {
 
 // HasValidPin returns true if the Pin field contains a non-empty web URL.
 func (l *Location) HasValidPin() bool {
+	if l == nil {
+		return false
+	}
 	pin := strings.TrimSpace(l.Pin)
 	if pin == "" {
 		return false
@@ -31,7 +34,7 @@ func (l *Location) HasValidPin() bool {
 
 // DisplayPin returns the Google Maps URL or an empty string if invalid.
 func (l *Location) DisplayPin() string {
-	if l == nil {
+	if !l.HasValidPin() {
 		return ""
 	}
 	return strings.TrimSpace(l.Pin)

@@ -3,6 +3,7 @@ package services_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
@@ -360,6 +361,96 @@ func TestAuthService_AdminRegistrationAndApproval(t *testing.T) {
 	loginUser, token, err := authSvc.Login("sarah.desk", "deskpass2026")
 	if err != nil {
 		t.Fatalf("expected successful login after manager approval, got: %v", err)
+	}
+	if loginUser.ID != user.ID || token == "" {
+		t.Errorf("invalid login response after approval")
+	}
+}
+
+func TestAuthService_StudentRegistrationWithWaiverAndApproval(t *testing.T) {
+	store := repository.NewMemoryStore()
+	authSvc := services.NewAuthService(store)
+
+	// 1. Reject when waiver is not accepted
+	_, _, err := authSvc.RegisterPendingStudent(services.StudentRegistrationInput{
+		FullName:          "Leo Santos",
+		Phone:             "09171234567",
+		Email:             "leo.santos@seriestkd.com",
+		Password:          "kick1234",
+		EmergencyName:     "Maria Santos",
+		EmergencyPhone:    "09179876543",
+		EmergencyRelation: "Mother",
+		WaiverAccepted:    false,
+		WaiverSignedName:  "Maria Santos",
+	})
+	if err == nil {
+		t.Fatalf("expected error when waiver_accepted is false")
+	}
+
+	// 2. Reject when typed signature is missing
+	_, _, err = authSvc.RegisterPendingStudent(services.StudentRegistrationInput{
+		FullName:          "Leo Santos",
+		Phone:             "09171234567",
+		Email:             "leo.santos@seriestkd.com",
+		Password:          "kick1234",
+		EmergencyName:     "Maria Santos",
+		EmergencyPhone:    "09179876543",
+		EmergencyRelation: "Mother",
+		WaiverAccepted:    true,
+		WaiverSignedName:  "   ",
+	})
+	if err == nil {
+		t.Fatalf("expected error when waiver_signed_name is empty")
+	}
+
+	// 3. Valid registration creates inactive student & user with waiver metadata
+	student, user, err := authSvc.RegisterPendingStudent(services.StudentRegistrationInput{
+		FullName:          "Leo Santos",
+		DOB:               time.Date(2012, 5, 14, 0, 0, 0, 0, time.UTC),
+		Gender:            "Male",
+		Phone:             "09171234567",
+		CurrentBelt:       models.BeltWhite,
+		Email:             "leo.santos@seriestkd.com",
+		Username:          "leo.santos",
+		Password:          "kick1234",
+		EmergencyName:     "Maria Santos",
+		EmergencyPhone:    "09179876543",
+		EmergencyRelation: "Mother",
+		MedicalNotes:      "No allergies",
+		WaiverAccepted:    true,
+		WaiverSignedName:  "Maria Santos",
+	})
+	if err != nil {
+		t.Fatalf("expected student registration to succeed, got %v", err)
+	}
+	if student.IsActive || user.IsActive {
+		t.Fatalf("expected newly registered student and user to be inactive pending approval")
+	}
+	if !student.WaiverAccepted || student.WaiverSignedName != "Maria Santos" || student.WaiverSignedAt == nil {
+		t.Fatalf("expected waiver acceptance metadata to be persisted on student")
+	}
+
+	// 4. Student login attempt before approval must be blocked with ErrAccountPendingApproval
+	_, _, err = authSvc.Login("leo.santos", "kick1234")
+	if !errors.Is(err, services.ErrAccountPendingApproval) {
+		t.Fatalf("expected ErrAccountPendingApproval before approval, got: %v", err)
+	}
+
+	// 5. Manager/Admin approves student via ToggleStudentActive
+	if err := store.ToggleStudentActive(student.ID, true); err != nil {
+		t.Fatalf("failed to approve student: %v", err)
+	}
+
+	approvedStudent, _ := store.GetStudentByID(student.ID)
+	approvedUser, _ := store.GetUserByID(user.ID)
+	if !approvedStudent.IsActive || !approvedUser.IsActive {
+		t.Fatalf("expected student and user to be active after approval")
+	}
+
+	// 6. Approved student logs in successfully
+	loginUser, token, err := authSvc.Login("leo.santos@seriestkd.com", "kick1234")
+	if err != nil {
+		t.Fatalf("expected successful login after approval, got: %v", err)
 	}
 	if loginUser.ID != user.ID || token == "" {
 		t.Errorf("invalid login response after approval")

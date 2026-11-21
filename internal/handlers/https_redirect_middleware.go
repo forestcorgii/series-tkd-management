@@ -44,26 +44,32 @@ func IsHTTPS(r *http.Request) bool {
 	return false
 }
 
+func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
+	if !isLocalhostAddress(r.Host) {
+		if IsHTTPS(r) {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+			w.Header().Set("Content-Security-Policy", "upgrade-insecure-requests")
+		}
+	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+}
+
 // HTTPSRedirectMiddleware inspects incoming HTTP requests and redirects them to HTTPS
 // in production environments or when accessed via non-secure reverse proxies.
 // Localhost / loopback requests and explicitly disabled setups are exempted.
 func HTTPSRedirectMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Allow disabling via environment variable if needed
+		setSecurityHeaders(w, r)
+
+		// Allow disabling redirect via environment variable if needed (still keeps security headers)
 		if val := os.Getenv("DISABLE_HTTPS_REDIRECT"); strings.EqualFold(val, "true") || val == "1" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		if IsHTTPS(r) {
-			// Request is already HTTPS; enforce HSTS and security headers if not localhost
-			if !isLocalhostAddress(r.Host) {
-				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-				w.Header().Set("Content-Security-Policy", "upgrade-insecure-requests")
-				w.Header().Set("X-Content-Type-Options", "nosniff")
-				w.Header().Set("X-Frame-Options", "SAMEORIGIN")
-				w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			}
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -74,13 +80,11 @@ func HTTPSRedirectMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Determine target host (prefer X-Forwarded-Host if supplied by reverse proxy)
+		// Use r.Host directly (do not trust spoofable X-Forwarded-Host headers)
 		host := r.Host
-		if xfh := r.Header.Get("X-Forwarded-Host"); xfh != "" {
-			first := strings.TrimSpace(strings.Split(xfh, ",")[0])
-			if first != "" {
-				host = first
-			}
+		if host == "" {
+			next.ServeHTTP(w, r)
+			return
 		}
 
 		// Strip default HTTP/HTTPS ports if present

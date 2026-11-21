@@ -12,6 +12,21 @@
         <div class="flex items-center gap-1.5 flex-wrap">
             {{$user := currentUser .}}
             {{if and $user (or $user.IsAdmin $user.IsOperationManager)}}
+            {{if not .Student.IsActive}}
+            <form action="/students/{{.Student.ID}}/toggle-active" method="POST" class="inline">
+                <input type="hidden" name="redirect_url" value="/students/{{.Student.ID}}">
+                <button type="submit" class="btn btn-primary btn-xs flex items-center gap-1 shadow-xs py-1 px-2.5">
+                    ✅ Approve &amp; Activate
+                </button>
+            </form>
+            {{else}}
+            <form action="/students/{{.Student.ID}}/toggle-active" method="POST" class="inline" onsubmit="return confirm('Deactivate student {{.Student.FullName}}? They will no longer be able to log in.');">
+                <input type="hidden" name="redirect_url" value="/students/{{.Student.ID}}">
+                <button type="submit" class="btn btn-secondary btn-xs flex items-center gap-1 shadow-xs py-1 px-2.5 text-amber-700 dark:text-amber-300">
+                    ⏸️ Deactivate
+                </button>
+            </form>
+            {{end}}
             <button onclick="document.getElementById('edit-student-modal').classList.remove('hidden')" class="btn btn-secondary btn-xs flex items-center gap-1 shadow-xs py-1 px-2.5">
                 ✏️ Edit
             </button>
@@ -118,12 +133,19 @@
                 <div class="p-2 sm:p-2.5 bg-slate-50/80 dark:bg-slate-900/90 rounded-lg border border-slate-200 dark:border-slate-800 space-y-1 shadow-xs text-xs min-w-[200px]">
                     <div class="flex items-center justify-between gap-1">
                         <span class="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">Portal Account</span>
-                        {{if .StudentUser}}
+                        {{if not .Student.IsActive}}
+                        <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">Pending Approval</span>
+                        {{else if .StudentUser}}
                         <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Active</span>
                         {{else}}
                         <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">No Account</span>
                         {{end}}
                     </div>
+                    {{if .Student.WaiverAccepted}}
+                    <div class="text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60">
+                        📜 Waiver signed by <strong>{{.Student.WaiverSignedName}}</strong>{{if .Student.WaiverSignedAt}} ({{.Student.WaiverSignedAt.Format "Jan 02, 2006"}}){{end}}
+                    </div>
+                    {{end}}
                     <div class="text-[11px] text-slate-700 dark:text-slate-300">
                         {{if .StudentUser}}
                             <div class="font-medium truncate max-w-[220px]" title="{{.StudentUser.Email}}">✉️ {{.StudentUser.Email}}</div>

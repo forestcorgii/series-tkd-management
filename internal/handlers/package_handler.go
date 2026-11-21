@@ -460,8 +460,8 @@ func (a *AppHandler) HandleAssignPackage(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	redirectURL := r.FormValue("redirect_url")
-	if redirectURL == "" {
+	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
+	if !isSafeLocalRedirect(redirectURL) {
 		redirectURL = "/packages"
 	}
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
@@ -513,8 +513,8 @@ func (a *AppHandler) HandleRevokeStudentPackage(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	redirectURL := r.FormValue("redirect_url")
-	if redirectURL == "" {
+	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
+	if !isSafeLocalRedirect(redirectURL) {
 		redirectURL = "/packages"
 	}
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)

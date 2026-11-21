@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -57,9 +59,12 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cap total request body to 6MB to prevent disk/memory spill DoS
+	r.Body = http.MaxBytesReader(w, r.Body, 6<<20)
+
 	// Parse multipart form up to 5MB to handle photo uploads
 	if err := r.ParseMultipartForm(5 << 20); err != nil && err != http.ErrNotMultipart {
-		data.ErrorMessage = "Failed to process form or upload exceeded 5MB limit: " + err.Error()
+		data.ErrorMessage = "Failed to process form or upload exceeded 5MB limit."
 		a.RenderPage(w, "profile.html", data)
 		return
 	}
@@ -107,28 +112,56 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Sniff magic bytes to prevent extension spoofing
+		head := make([]byte, 512)
+		n, readErr := io.ReadFull(avatarFile, head)
+		if readErr != nil && readErr != io.ErrUnexpectedEOF {
+			data.ErrorMessage = "Failed to read uploaded image."
+			a.RenderPage(w, "profile.html", data)
+			return
+		}
+		detectedType := http.DetectContentType(head[:n])
+		if detectedType != "image/jpeg" && detectedType != "image/png" && detectedType != "image/webp" && detectedType != "image/gif" {
+			data.ErrorMessage = "Uploaded file content is not a valid JPG, PNG, WEBP, or GIF image."
+			a.RenderPage(w, "profile.html", data)
+			return
+		}
+		contentType = detectedType
+		uploadReader := io.MultiReader(bytes.NewReader(head[:n]), avatarFile)
+
 		if a.storage != nil {
+			oldURL := user.ProfilePictureURL
 			key := fmt.Sprintf("avatars/user-%s-%d%s", user.ID.String(), time.Now().Unix(), ext)
-			uploadURL, err := a.storage.Upload(r.Context(), key, avatarFile, contentType)
+			uploadURL, err := a.storage.Upload(r.Context(), key, uploadReader, contentType)
 			if err != nil {
-				data.ErrorMessage = "Failed to upload profile picture: " + err.Error()
+				data.ErrorMessage = "Failed to upload profile picture."
 				a.RenderPage(w, "profile.html", data)
 				return
 			}
 			user.ProfilePictureURL = uploadURL
 			if err := a.store.UpdateUser(user); err != nil {
-				data.ErrorMessage = "Failed to save profile picture URL: " + err.Error()
+				_ = a.storage.Delete(r.Context(), uploadURL)
+				data.ErrorMessage = "Failed to save profile picture URL."
 				a.RenderPage(w, "profile.html", data)
 				return
+			}
+			if oldURL != "" && oldURL != uploadURL {
+				_ = a.storage.Delete(r.Context(), oldURL)
 			}
 			a.LogAction(r, "PROFILE_AVATAR_UPLOAD", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User uploaded a new profile picture")
 		}
 	}
 
 	// Process updates based on user role
+	currentPassword := r.FormValue("current_password")
 	newPassword := strings.TrimSpace(r.FormValue("new_password"))
 	confirmPassword := strings.TrimSpace(r.FormValue("confirm_password"))
 	if newPassword != "" {
+		if currentPassword == "" || !user.CheckPassword(currentPassword) {
+			data.ErrorMessage = "Current password is incorrect."
+			a.RenderPage(w, "profile.html", data)
+			return
+		}
 		if len(newPassword) < 6 {
 			data.ErrorMessage = "Password must be at least 6 characters long."
 			a.RenderPage(w, "profile.html", data)
@@ -140,14 +173,27 @@ func (a *AppHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := user.SetPassword(newPassword); err != nil {
-			data.ErrorMessage = "Failed to hash new password: " + err.Error()
+			data.ErrorMessage = "Failed to hash new password."
 			a.RenderPage(w, "profile.html", data)
 			return
 		}
 		if err := a.store.UpdateUser(user); err != nil {
-			data.ErrorMessage = "Failed to update account credentials: " + err.Error()
+			data.ErrorMessage = "Failed to update account credentials."
 			a.RenderPage(w, "profile.html", data)
 			return
+		}
+		// Revoke all other sessions and issue a fresh token for the current session
+		_ = a.store.DeleteUserSessions(user.ID)
+		if newToken, tokErr := a.authSvc.CreateSessionForUser(user.ID); tokErr == nil && newToken != "" {
+			http.SetCookie(w, &http.Cookie{
+				Name:     sessionCookieKey,
+				Value:    newToken,
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+				Secure:   IsHTTPS(r),
+				MaxAge:   7 * 24 * 60 * 60,
+			})
 		}
 		a.LogAction(r, "PROFILE_PASSWORD_CHANGE", models.AuditCategorySettings, "User", user.ID.String(), user.DisplayName, "User updated their account password")
 	}

@@ -50,7 +50,7 @@ type NotificationSettings struct {
 
 	// Telegram Bot integration
 	TelegramEnabled               bool   `json:"telegram_enabled"`
-	TelegramBotToken              string `json:"telegram_bot_token"`
+	TelegramBotToken              string `json:"-"`
 	TelegramPublicChatID          string `json:"telegram_public_chat_id"`
 	TelegramStaffChatID           string `json:"telegram_staff_chat_id"`
 	NotifyTelegramNewClass        bool   `json:"notify_telegram_new_class"`
@@ -79,7 +79,7 @@ type NotificationSettings struct {
 	SMTPHost     string    `json:"smtp_host"`
 	SMTPPort     int       `json:"smtp_port"`
 	SMTPUser     string    `json:"smtp_user"`
-	SMTPPassword string    `json:"smtp_password"`
+	SMTPPassword string    `json:"-"`
 	SMTPFrom     string    `json:"smtp_from"`
 	SMTPFromName string    `json:"smtp_from_name"`
 	UpdatedAt    time.Time `json:"updated_at"`

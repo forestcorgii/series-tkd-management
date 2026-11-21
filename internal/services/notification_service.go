@@ -903,7 +903,7 @@ func (s *NotificationService) sendTelegramNotification(event models.Notification
 			"<b>Time:</b> %s\n"+
 			"<b>Instructor:</b> %s\n\n"+
 			"👉 <i>Reserve early on STMS before slots fill up!</i>",
-			progTitle, locName, sessionDate, timeRange, coach)
+			html.EscapeString(progTitle), html.EscapeString(locName), html.EscapeString(sessionDate), html.EscapeString(timeRange), html.EscapeString(coach))
 
 		var buttons [][]TelegramInlineButton
 		if targetSession != nil {
@@ -947,7 +947,7 @@ func (s *NotificationService) sendTelegramNotification(event models.Notification
 			"<b>Class:</b> %s\n"+
 			"<b>Reason:</b> %s\n\n"+
 			"<i>Any pass deductions have been credited back. Please check the timetable for alternative training slots.</i>",
-			locName, progTitle, reason)
+			html.EscapeString(locName), html.EscapeString(progTitle), html.EscapeString(reason))
 
 		buttons := [][]TelegramInlineButton{
 			{{Text: "📅 Check Alternative Classes", URL: baseURL + "/sessions"}},
@@ -1008,7 +1008,7 @@ func (s *NotificationService) sendTelegramNotification(event models.Notification
 			"<b>Contact:</b> %s\n"+
 			"<b>Class:</b> %s%s\n"+
 			"<b>Schedule:</b> %s",
-			attendeeName, attendeeType, contactInfo, progTitle, locName, timeStr)
+			html.EscapeString(attendeeName), html.EscapeString(attendeeType), html.EscapeString(contactInfo), html.EscapeString(progTitle), html.EscapeString(locName), html.EscapeString(timeStr))
 
 		var buttons [][]TelegramInlineButton
 		if targetSession != nil {
@@ -1076,7 +1076,7 @@ func (s *NotificationService) sendTelegramNotification(event models.Notification
 			"<b>Name:</b> %s%s\n"+
 			"<b>Belt:</b> %s\n"+
 			"<b>Pass / Package:</b> %s%s",
-			name, ageStr, belt, pkg, emergStr)
+			html.EscapeString(name), ageStr, html.EscapeString(belt), html.EscapeString(pkg), html.EscapeString(emergStr))
 
 		var buttons [][]TelegramInlineButton
 		if studentID != "" {
@@ -1103,7 +1103,7 @@ func (s *NotificationService) sendTelegramNotification(event models.Notification
 		htmlText := fmt.Sprintf("👤 <b>NEW STAFF REGISTRATION</b> 🥋\n\n"+
 			"%s\n\n"+
 			"👉 <i>Please review credentials and access rights in the Staff Directory.</i>",
-			message)
+			html.EscapeString(message))
 
 		buttons := [][]TelegramInlineButton{
 			{{Text: "👥 Open Staff Directory", URL: baseURL + "/admins"}},
@@ -1117,7 +1117,7 @@ func (s *NotificationService) sendTelegramNotification(event models.Notification
 		if targetChat == "" {
 			return
 		}
-		htmlText := fmt.Sprintf("🎉 <b>BELT ADVANCEMENT MILESTONE!</b> 🥋🏅\n\n%s", message)
+		htmlText := fmt.Sprintf("🎉 <b>BELT ADVANCEMENT MILESTONE!</b> 🥋🏅\n\n%s", html.EscapeString(message))
 		if err := SendTelegramMessage(botToken, targetChat, htmlText, nil); err != nil {
 			log.Printf("⚠️ Telegram delivery error to %s: %v", targetChat, err)
 		}
@@ -1439,9 +1439,15 @@ Series Taekwondo Team
     </div>
   </div>
 </body>
-</html>`, host, port, from, recipient, timestamp)
+</html>`, html.EscapeString(host), port, html.EscapeString(from), html.EscapeString(recipient), html.EscapeString(timestamp))
 
 	return sendSMTPMail(host, port, user, password, from, fromName, recipient, subject, bodyHTML, bodyText)
+}
+
+func sanitizeSMTPHeader(val string) string {
+	val = strings.ReplaceAll(val, "\r", " ")
+	val = strings.ReplaceAll(val, "\n", " ")
+	return strings.TrimSpace(val)
 }
 
 func sendSMTPMail(host string, port int, user, password, from, fromName, to, subject, bodyHTML, bodyText string) error {
@@ -1451,12 +1457,12 @@ func sendSMTPMail(host string, port int, user, password, from, fromName, to, sub
 
 	header := make(map[string]string)
 	if strings.TrimSpace(fromName) != "" {
-		header["From"] = (&mail.Address{Name: strings.TrimSpace(fromName), Address: from}).String()
+		header["From"] = sanitizeSMTPHeader((&mail.Address{Name: sanitizeSMTPHeader(fromName), Address: sanitizeSMTPHeader(from)}).String())
 	} else {
-		header["From"] = from
+		header["From"] = sanitizeSMTPHeader(from)
 	}
-	header["To"] = to
-	header["Subject"] = subject
+	header["To"] = sanitizeSMTPHeader(to)
+	header["Subject"] = sanitizeSMTPHeader(subject)
 	header["MIME-Version"] = "1.0"
 	header["Content-Type"] = fmt.Sprintf("multipart/alternative; boundary=\"%s\"", boundary)
 	header["Date"] = time.Now().Format(time.RFC1123Z)
@@ -1470,14 +1476,14 @@ func sendSMTPMail(host string, port int, user, password, from, fromName, to, sub
 	// Plain text part
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	msg.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n")
-	msg.WriteString("Content-Transfer-Encoding: 7bit\r\n\r\n")
+	msg.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
 	msg.WriteString(bodyText)
 	msg.WriteString("\r\n\r\n")
 
 	// HTML part
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	msg.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
-	msg.WriteString("Content-Transfer-Encoding: 7bit\r\n\r\n")
+	msg.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
 	msg.WriteString(bodyHTML)
 	msg.WriteString("\r\n\r\n")
 
@@ -1495,6 +1501,7 @@ func sendSMTPMail(host string, port int, user, password, from, fromName, to, sub
 		if err != nil {
 			return fmt.Errorf("failed to connect to SMTP server via TLS (%s): %w", addr, err)
 		}
+		_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
 		c, err := smtp.NewClient(conn, host)
 		if err != nil {
 			_ = conn.Close()
@@ -1506,6 +1513,7 @@ func sendSMTPMail(host string, port int, user, password, from, fromName, to, sub
 		if err != nil {
 			return fmt.Errorf("failed to connect to SMTP server (%s): %w", addr, err)
 		}
+		_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
 		c, err := smtp.NewClient(conn, host)
 		if err != nil {
 			_ = conn.Close()

@@ -35,8 +35,8 @@
         </div>
     </div>
 
-    <!-- Pending Staff Approvals Alert Banner -->
-    {{if or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}}
+    <!-- Pending Approvals Alert Banner -->
+    {{if or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0) (gt .PendingStudentsCount 0)}}
     <div class="p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
         <div class="flex items-center gap-2.5">
             <div class="h-8 w-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-xs">
@@ -44,9 +44,11 @@
             </div>
             <div>
                 <h3 class="font-display font-bold text-xs uppercase tracking-wide text-amber-900 dark:text-amber-300">
-                    Pending Staff Registrations Awaiting Approval
+                    Pending Registrations Awaiting Approval
                 </h3>
                 <p class="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
+                    {{if gt .PendingStudentsCount 0}}<strong>{{.PendingStudentsCount}}</strong> Student{{if gt .PendingStudentsCount 1}}s{{end}}{{end}}
+                    {{if and (gt .PendingStudentsCount 0) (or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0))}} &bull; {{end}}
                     {{if gt .PendingCoachesCount 0}}<strong>{{.PendingCoachesCount}}</strong> Coach{{if gt .PendingCoachesCount 1}}es{{end}}{{end}}
                     {{if and (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}} &bull; {{end}}
                     {{if gt .PendingAdminsCount 0}}<strong>{{.PendingAdminsCount}}</strong> Admin{{if gt .PendingAdminsCount 1}}s{{end}}{{end}}
@@ -54,7 +56,12 @@
                 </p>
             </div>
         </div>
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+            {{if gt .PendingStudentsCount 0}}
+            <a href="/students?status=__pending__" class="btn btn-primary btn-xs flex items-center gap-1 shadow-2xs">
+                <span>🎓 Review Students ({{.PendingStudentsCount}})</span>
+            </a>
+            {{end}}
             {{if gt .PendingCoachesCount 0}}
             <a href="/coaches" class="btn btn-warning btn-xs flex items-center gap-1 shadow-2xs">
                 <span>🥋 Review Coaches ({{.PendingCoachesCount}})</span>

@@ -23,6 +23,9 @@ type SettingsViewData struct {
 	TotalCategories      int
 	TotalSessions        int
 	NotificationSettings *models.NotificationSettings
+	HasSMTPPassword      bool
+	HasTelegramBotToken  bool
+	WaiverSettings       *models.WaiverSettings
 	ActiveTab            string
 	CurrentUser          *models.User
 	SuccessNotice        string
@@ -36,6 +39,15 @@ func sanitizeColorHex(c string) string {
 	}
 	if !strings.HasPrefix(c, "#") {
 		c = "#" + c
+	}
+	if len(c) != 4 && len(c) != 7 {
+		return "#990303"
+	}
+	for i := 1; i < len(c); i++ {
+		ch := c[i]
+		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')) {
+			return "#990303"
+		}
 	}
 	return c
 }
@@ -61,9 +73,28 @@ func (a *AppHandler) HandleSettings(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	notifSettings, _ := a.notifSvc.GetSettings()
-	if notifSettings == nil {
+	user := GetUserFromContext(r.Context())
+	var notifSettings *models.NotificationSettings
+	var hasSMTPPassword, hasTelegramBotToken bool
+	if user != nil && (user.IsOperationManager() || user.IsAdmin()) {
+		loadedNotif, _ := a.notifSvc.GetSettings()
+		if loadedNotif == nil {
+			loadedNotif = models.DefaultNotificationSettings()
+		}
+		// Clone without raw secret fields so credentials never leak into HTML DOM
+		sanitized := *loadedNotif
+		hasSMTPPassword = sanitized.SMTPPassword != ""
+		hasTelegramBotToken = sanitized.TelegramBotToken != ""
+		sanitized.SMTPPassword = ""
+		sanitized.TelegramBotToken = ""
+		notifSettings = &sanitized
+	} else {
 		notifSettings = models.DefaultNotificationSettings()
+	}
+
+	waiverSettings, _ := a.store.GetWaiverSettings()
+	if waiverSettings == nil {
+		waiverSettings = models.DefaultWaiverSettings()
 	}
 
 	activeTab := r.URL.Query().Get("tab")
@@ -71,12 +102,14 @@ func (a *AppHandler) HandleSettings(w http.ResponseWriter, r *http.Request) {
 		activeTab = "categories"
 	}
 
-	user := GetUserFromContext(r.Context())
 	data := SettingsViewData{
 		Categories:           items,
 		TotalCategories:      len(categories),
 		TotalSessions:        len(sessions),
 		NotificationSettings: notifSettings,
+		HasSMTPPassword:      hasSMTPPassword,
+		HasTelegramBotToken:  hasTelegramBotToken,
+		WaiverSettings:       waiverSettings,
 		ActiveTab:            activeTab,
 		CurrentUser:          user,
 		SuccessNotice:        r.URL.Query().Get("success"),
@@ -267,5 +300,51 @@ func (a *AppHandler) HandleUpdateNotificationSettings(w http.ResponseWriter, r *
 	a.LogAction(r, "NOTIFICATIONS_SETTINGS_UPDATE", models.AuditCategorySettings, "Settings", settings.ID.String(), "Notification Settings", "Updated Telegram and email notification channel settings")
 
 	http.Redirect(w, r, "/settings?tab=notifications&success="+url.QueryEscape("Notification settings updated successfully"), http.StatusSeeOther)
+}
+
+func (a *AppHandler) HandleUpdateWaiverSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	title := strings.TrimSpace(r.FormValue("waiver_title"))
+	content := strings.TrimSpace(r.FormValue("waiver_content"))
+
+	if title == "" {
+		http.Redirect(w, r, "/settings?tab=waiver&error="+url.QueryEscape("Waiver title is required"), http.StatusSeeOther)
+		return
+	}
+	if content == "" {
+		http.Redirect(w, r, "/settings?tab=waiver&error="+url.QueryEscape("Waiver content cannot be empty"), http.StatusSeeOther)
+		return
+	}
+
+	waiver, err := a.store.GetWaiverSettings()
+	if err != nil || waiver == nil {
+		waiver = models.DefaultWaiverSettings()
+	}
+
+	updatedBy := "Operations Manager"
+	if user := GetUserFromContext(r.Context()); user != nil {
+		if strings.TrimSpace(user.DisplayName) != "" {
+			updatedBy = user.DisplayName
+		} else if strings.TrimSpace(user.Email) != "" {
+			updatedBy = user.Email
+		}
+	}
+
+	waiver.Title = title
+	waiver.Content = content
+	waiver.UpdatedBy = updatedBy
+
+	if err := a.store.UpdateWaiverSettings(waiver); err != nil {
+		http.Redirect(w, r, "/settings?tab=waiver&error="+url.QueryEscape("Failed to save waiver settings: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	a.LogAction(r, "WAIVER_SETTINGS_UPDATE", models.AuditCategorySettings, "Settings", waiver.ID.String(), waiver.Title, "Updated student registration waiver content")
+
+	http.Redirect(w, r, "/settings?tab=waiver&success="+url.QueryEscape("Student registration waiver updated successfully"), http.StatusSeeOther)
 }
 

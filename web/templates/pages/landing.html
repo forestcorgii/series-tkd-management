@@ -4,8 +4,11 @@
 
 {{define "navAuthAction"}}
 <div class="flex items-center gap-1.5 sm:gap-2">
-    <a href="/register" class="btn btn-secondary btn-xs sm:btn-sm shadow-xs">
-        Register
+    <a href="/register/student" class="btn btn-secondary btn-xs sm:btn-sm shadow-xs">
+        Student Register
+    </a>
+    <a href="/register" class="btn btn-secondary btn-xs sm:btn-sm shadow-xs hidden sm:inline-flex">
+        Staff Register
     </a>
     <a href="/login" class="btn btn-primary btn-xs sm:btn-sm shadow-xs">
         Sign In
@@ -61,7 +64,8 @@
         </div>
         {{if not .CurrentUser}}
         <div class="flex items-center space-x-4 font-semibold text-[11px]">
-            <a href="/register" class="hover:text-black dark:hover:text-white transition">Register</a>
+            <a href="/register/student" class="hover:text-black dark:hover:text-white transition">Student Registration</a>
+            <a href="/register" class="hover:text-black dark:hover:text-white transition">Staff Registration</a>
             <a href="/login" class="hover:text-black dark:hover:text-white transition">Portal Sign In</a>
         </div>
         {{end}}
@@ -120,8 +124,8 @@
     });
 
     // Mobile Calendar Controls for Landing Schedule
-    let currentLandingMobileViewMode = 'day';
-    let currentLandingMobileDate = null;
+    var currentLandingMobileViewMode = 'day';
+    var currentLandingMobileDate = null;
 
     function setLandingCalendarViewMode(mode) {
         if (window.innerWidth >= 768) {
@@ -302,14 +306,21 @@
         setLandingCalendarViewMode(currentLandingMobileViewMode);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(initLandingMobileCalendarView, 100);
-    });
-
-    document.body.addEventListener('htmx:afterSwap', (evt) => {
-        if (evt.detail && (evt.detail.target.id === 'landing-calendar-container' || evt.detail.target.closest('#landing-calendar-container'))) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
             setTimeout(initLandingMobileCalendarView, 100);
-        }
-    });
+        });
+    } else {
+        setTimeout(initLandingMobileCalendarView, 100);
+    }
+
+    if (!window.__stmsLandingSwapBound) {
+        window.__stmsLandingSwapBound = true;
+        document.body.addEventListener('htmx:afterSwap', (evt) => {
+            if (evt.detail && (evt.detail.target.id === 'landing-calendar-container' || evt.detail.target.closest('#landing-calendar-container'))) {
+                setTimeout(initLandingMobileCalendarView, 100);
+            }
+        });
+    }
 </script>
 {{end}}

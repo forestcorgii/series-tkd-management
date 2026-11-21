@@ -14,6 +14,7 @@ import (
 	"series-tkd-management/internal/handlers"
 	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
+	"series-tkd-management/internal/services"
 
 	"github.com/google/uuid"
 )
@@ -1328,5 +1329,149 @@ func TestAuthHandler_RegistrationRoutesAndAliases(t *testing.T) {
 	user, err := store.GetUserByEmail("aliastest@seriestkd.com")
 	if err != nil || user == nil {
 		t.Fatalf("expected user to be created from POST /registration")
+	}
+}
+
+func TestStudentRegistrationPage_And_ManagerWaiverSettings(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /register/student", app.HandleStudentRegisterPage)
+	mux.HandleFunc("POST /register/student", app.HandleStudentRegisterSubmit)
+	mux.HandleFunc("POST /settings/waiver", app.RequireRole(models.RoleOperationManager)(app.HandleUpdateWaiverSettings))
+	mux.HandleFunc("POST /students/{id}/toggle-active", app.RequireRole(models.RoleAdmin, models.RoleOperationManager)(app.HandleToggleStudentActive))
+	handler := app.AuthMiddleware(mux)
+
+	// Helper to register/login a staff user and get stms_session cookie
+	authSvc := services.NewAuthService(store)
+	makeStaffCookie := func(email, password string, role models.UserRole) *http.Cookie {
+		_, err := authSvc.RegisterUser(email, password, role, nil, nil)
+		if err != nil {
+			t.Fatalf("failed to register test user %s: %v", email, err)
+		}
+		_, tok, err := authSvc.Login(email, password)
+		if err != nil {
+			t.Fatalf("failed to login test user %s: %v", email, err)
+		}
+		return &http.Cookie{Name: "stms_session", Value: tok}
+	}
+
+	// 1. Non-manager (Admin) cannot edit waiver in /settings/waiver -> redirected away and waiver unchanged
+	adminCookie := makeStaffCookie("admin.waiver@seriestkd.com", "admin123", models.RoleAdmin)
+	waiverForm := url.Values{
+		"waiver_title":   {"Updated Dojang Waiver"},
+		"waiver_content": {"Custom waiver terms for 2026."},
+	}
+	req := httptest.NewRequest("POST", "/settings/waiver", strings.NewReader(waiverForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(adminCookie)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther && rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 303/403 rejection for Admin on POST /settings/waiver, got %d", rec.Code)
+	}
+	if wCheck, _ := store.GetWaiverSettings(); wCheck != nil && wCheck.Title == "Updated Dojang Waiver" {
+		t.Fatalf("expected Admin to be blocked from updating waiver settings")
+	}
+
+	// 2. Operations Manager updates waiver in /settings/waiver -> 303 redirect to /settings?tab=waiver
+	mgrCookie := makeStaffCookie("mgr.waiver@seriestkd.com", "mgr123", models.RoleOperationManager)
+	req = httptest.NewRequest("POST", "/settings/waiver", strings.NewReader(waiverForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(mgrCookie)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect on POST /settings/waiver, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Header().Get("Location"), "tab=waiver") {
+		t.Errorf("expected redirect to /settings?tab=waiver, got: %s", rec.Header().Get("Location"))
+	}
+
+	// 3. Public GET /register/student renders the updated waiver content
+	req = httptest.NewRequest("GET", "/register/student", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on GET /register/student, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Updated Dojang Waiver") || !strings.Contains(body, "Custom waiver terms for 2026.") {
+		t.Errorf("expected /register/student to render updated waiver title and content")
+	}
+
+	// 4. POST /register/student without waiver acceptance fails and redirects with error
+	badForm := url.Values{
+		"full_name":          {"Maya Reyes"},
+		"dob":                {"2013-03-10"},
+		"gender":             {"Female"},
+		"phone":              {"09171112222"},
+		"email":              {"maya.reyes@seriestkd.com"},
+		"password":           {"secret123"},
+		"confirm_password":   {"secret123"},
+		"emergency_name":     {"Elena Reyes"},
+		"emergency_phone":    {"09173334444"},
+		"emergency_relation": {"Mother"},
+	}
+	req = httptest.NewRequest("POST", "/register/student", strings.NewReader(badForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "/register/student?error=") {
+		t.Fatalf("expected redirect back to /register/student?error= when waiver is unchecked, got %d (%s)", rec.Code, rec.Header().Get("Location"))
+	}
+
+	// 5. Valid POST /register/student with waiver acceptance & signature creates pending student
+	goodForm := url.Values{
+		"full_name":          {"Maya Reyes"},
+		"dob":                {"2013-03-10"},
+		"gender":             {"Female"},
+		"phone":              {"09171112222"},
+		"current_belt":       {"White"},
+		"email":              {"maya.reyes@seriestkd.com"},
+		"username":           {"maya.reyes"},
+		"password":           {"secret123"},
+		"confirm_password":   {"secret123"},
+		"emergency_name":     {"Elena Reyes"},
+		"emergency_phone":    {"09173334444"},
+		"emergency_relation": {"Mother"},
+		"waiver_accepted":    {"true"},
+		"waiver_signed_name": {"Elena Reyes"},
+	}
+	req = httptest.NewRequest("POST", "/register/student", strings.NewReader(goodForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "/login?success=") {
+		t.Fatalf("expected redirect to /login?success= after student registration, got %d (%s)", rec.Code, rec.Header().Get("Location"))
+	}
+
+	mayaUser, err := store.GetUserByEmail("maya.reyes@seriestkd.com")
+	if err != nil || mayaUser == nil || mayaUser.StudentID == nil {
+		t.Fatalf("expected student user to be created")
+	}
+	mayaStudent, err := store.GetStudentByID(*mayaUser.StudentID)
+	if err != nil || mayaStudent == nil {
+		t.Fatalf("expected student profile to be created")
+	}
+	if mayaStudent.IsActive || mayaUser.IsActive {
+		t.Errorf("expected student and user to start inactive pending approval")
+	}
+	if !mayaStudent.WaiverAccepted || mayaStudent.WaiverSignedName != "Elena Reyes" || mayaStudent.WaiverSignedAt == nil {
+		t.Errorf("expected waiver acceptance and signature to be recorded on student")
+	}
+
+	// 6. Admin approves the pending student via POST /students/{id}/toggle-active
+	req = httptest.NewRequest("POST", "/students/"+mayaStudent.ID.String()+"/toggle-active", nil)
+	req.AddCookie(adminCookie)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after approving student, got %d", rec.Code)
+	}
+	approvedStudent, _ := store.GetStudentByID(mayaStudent.ID)
+	approvedUser, _ := store.GetUserByID(mayaUser.ID)
+	if !approvedStudent.IsActive || !approvedUser.IsActive {
+		t.Errorf("expected student and user to be active after Admin approval")
 	}
 }

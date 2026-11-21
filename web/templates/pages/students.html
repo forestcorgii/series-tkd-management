@@ -24,6 +24,18 @@
     </div>
     {{end}}
 
+    {{if gt .PendingStudentsCount 0}}
+    <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+        <div class="flex items-center gap-2">
+            <span class="text-base">⏳</span>
+            <span><strong>{{.PendingStudentsCount}}</strong> student registration{{if gt .PendingStudentsCount 1}}s{{end}} awaiting manager/admin approval.</span>
+        </div>
+        <a href="/students?status=__pending__" class="btn btn-warning btn-xs self-start sm:self-auto">
+            Review Pending ({{.PendingStudentsCount}})
+        </a>
+    </div>
+    {{end}}
+
     <h1 class="sr-only">Student Directory &amp; Ability Radar</h1>
 
     <!-- Compact Action Bar & Search (Single toolbar line) -->
@@ -51,6 +63,7 @@
                         hx-include="#student-search-input"
                         class="form-select text-xs py-1.5">
                     <option value="">All Statuses</option>
+                    <option value="__pending__" {{if eq .StatusFilter "__pending__"}}selected{{end}}>⏳ Pending Approval</option>
                     {{range .StatusPresets}}
                     <option value="{{.}}" {{if eq $.StatusFilter .}}selected{{end}}>{{.}}</option>
                     {{end}}

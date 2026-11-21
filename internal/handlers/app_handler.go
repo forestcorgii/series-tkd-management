@@ -416,6 +416,20 @@ func (a *AppHandler) LogAction(r *http.Request, action string, category models.A
 	_ = a.auditSvc.Log(entry)
 }
 
+// isSafeLocalRedirect validates that a redirect target is a relative path on the same origin.
+func isSafeLocalRedirect(target string) bool {
+	if target == "" || !strings.HasPrefix(target, "/") {
+		return false
+	}
+	if strings.HasPrefix(target, "//") || strings.HasPrefix(target, "/\\") {
+		return false
+	}
+	if strings.ContainsAny(target, "\r\n") {
+		return false
+	}
+	return true
+}
+
 // HandleServeStorage streams files stored in the configured FileStorage backend (local or Railway S3).
 func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) {
 	if a.storage == nil {
@@ -429,7 +443,8 @@ func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) 
 	}
 	key = strings.TrimLeft(key, "/")
 
-	if key == "" {
+	// Only allow serving avatar assets (avatars/* or flat local filename) and reject any path traversal segments
+	if key == "" || strings.Contains(key, "..") || (strings.Contains(key, "/") && !strings.HasPrefix(key, "avatars/")) {
 		http.NotFound(w, r)
 		return
 	}
@@ -444,6 +459,7 @@ func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) 
 	if contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	_, _ = io.Copy(w, rc)
 }

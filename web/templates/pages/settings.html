@@ -37,6 +37,14 @@
                     class="px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                 <span>🔔</span> Notification Channels
             </button>
+            {{if .CurrentUser.IsOperationManager}}
+            <button type="button"
+                    id="tab-btn-waiver"
+                    onclick="switchSettingsTab('waiver')"
+                    class="px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                <span>📜</span> Student Waiver
+            </button>
+            {{end}}
         </div>
     </div>
 
@@ -468,7 +476,7 @@
                         <div class="sm:col-span-1 lg:col-span-2">
                             <div class="flex items-center justify-between mb-1">
                                 <label class="form-label mb-0">SMTP Password / App Key</label>
-                                {{if and .NotificationSettings .NotificationSettings.SMTPPassword}}
+                                {{if .HasSMTPPassword}}
                                 <span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                                     ✓ Saved in Database
                                 </span>
@@ -480,8 +488,8 @@
                             </div>
                             <div class="relative">
                                 <input type="password" name="smtp_password" id="smtp-password-input"
-                                       value="{{if and .NotificationSettings .NotificationSettings.SMTPPassword}}{{.NotificationSettings.SMTPPassword}}{{end}}"
-                                       placeholder="Enter 16-character Google App Password or SMTP key"
+                                       value=""
+                                       placeholder="{{if .HasSMTPPassword}}•••••••• (configured — leave blank to keep){{else}}Enter 16-character Google App Password or SMTP key{{end}}"
                                        class="form-input text-xs pr-10 no-uppercase font-mono" data-no-uppercase="true" autocomplete="new-password" />
                                 <button type="button" onclick="togglePasswordVisibility('smtp-password-input', this)"
                                         class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition cursor-pointer p-1"
@@ -525,7 +533,7 @@
                         <div class="sm:col-span-1">
                             <div class="flex items-center justify-between mb-1">
                                 <label class="form-label mb-0">Bot API Token</label>
-                                {{if and .NotificationSettings .NotificationSettings.TelegramBotToken}}
+                                {{if .HasTelegramBotToken}}
                                 <span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                                     ✓ Saved
                                 </span>
@@ -537,8 +545,8 @@
                             </div>
                             <div class="relative">
                                 <input type="password" name="telegram_bot_token" id="telegram-token-input"
-                                       value="{{if and .NotificationSettings .NotificationSettings.TelegramBotToken}}{{.NotificationSettings.TelegramBotToken}}{{end}}"
-                                       placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                                       value=""
+                                       placeholder="{{if .HasTelegramBotToken}}•••••••• (configured — leave blank to keep){{else}}123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ{{end}}"
                                        autocomplete="new-password"
                                        class="form-input text-xs pr-10 font-mono no-uppercase" data-no-uppercase="true" />
                                 <button type="button" onclick="togglePasswordVisibility('telegram-token-input', this)"
@@ -636,6 +644,62 @@
         </form>
         {{end}}
     </div>
+
+    <!-- ==================== TAB PANE 3: STUDENT WAIVER (OPERATIONS MANAGER ONLY) ==================== -->
+    {{if .CurrentUser.IsOperationManager}}
+    <div id="pane-waiver" class="space-y-4 hidden">
+        <div class="glass-panel rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-neutral-800 pb-3">
+                <div>
+                    <h2 class="font-display font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>📜</span> Student Registration Liability Waiver
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Customize the waiver displayed on the public student registration page (<code class="font-mono text-[11px] bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">/register/student</code>).
+                    </p>
+                </div>
+                {{if .WaiverSettings}}
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 text-left sm:text-right">
+                    <div>Last updated by <strong>{{if .WaiverSettings.UpdatedBy}}{{.WaiverSettings.UpdatedBy}}{{else}}System{{end}}</strong></div>
+                    {{if not .WaiverSettings.UpdatedAt.IsZero}}
+                    <div>{{.WaiverSettings.UpdatedAt.Format "Jan 02, 2006 15:04"}}</div>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+
+            <form action="/settings/waiver" method="POST" class="space-y-4 no-uppercase" data-no-uppercase="true">
+                <div>
+                    <label for="waiver_title" class="form-label mb-1.5">
+                        Waiver Title <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="waiver_title" name="waiver_title" required
+                           value="{{if .WaiverSettings}}{{.WaiverSettings.Title}}{{end}}"
+                           placeholder="e.g. Series Taekwondo Student Registration & Liability Waiver"
+                           class="form-input text-sm no-uppercase" data-no-uppercase="true">
+                </div>
+
+                <div>
+                    <label for="waiver_content" class="form-label mb-1.5">
+                        Waiver Content <span class="text-rose-500">*</span>
+                    </label>
+                    <textarea id="waiver_content" name="waiver_content" rows="14" required
+                              placeholder="Enter the full terms, risk acknowledgment, medical clearance, and liability release text..."
+                              class="form-textarea text-xs sm:text-sm leading-relaxed font-sans no-uppercase" data-no-uppercase="true">{{if .WaiverSettings}}{{.WaiverSettings.Content}}{{end}}</textarea>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Line breaks and paragraphs are preserved on the student registration page.
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-neutral-800">
+                    <button type="submit" class="btn btn-primary btn-md shadow-md">
+                        💾 Save Waiver Content
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {{end}}
 </div>
 
 <!-- Modal: New Category -->
@@ -796,22 +860,32 @@
     function switchSettingsTab(tab) {
         const paneCategories = document.getElementById('pane-categories');
         const paneNotifications = document.getElementById('pane-notifications');
+        const paneWaiver = document.getElementById('pane-waiver');
         const btnCategories = document.getElementById('tab-btn-categories');
         const btnNotifications = document.getElementById('tab-btn-notifications');
+        const btnWaiver = document.getElementById('tab-btn-waiver');
 
-        if (tab === 'notifications') {
-            paneCategories.classList.add('hidden');
+        const activeCls = 'px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-xs';
+        const inactiveCls = 'px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+
+        if (paneCategories) paneCategories.classList.add('hidden');
+        if (paneNotifications) paneNotifications.classList.add('hidden');
+        if (paneWaiver) paneWaiver.classList.add('hidden');
+        if (btnCategories) btnCategories.className = inactiveCls;
+        if (btnNotifications) btnNotifications.className = inactiveCls;
+        if (btnWaiver) btnWaiver.className = inactiveCls;
+
+        if (tab === 'notifications' && paneNotifications) {
             paneNotifications.classList.remove('hidden');
-
-            btnNotifications.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-sm';
-            btnCategories.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+            if (btnNotifications) btnNotifications.className = activeCls;
             window.location.hash = 'notifications';
-        } else {
-            paneNotifications.classList.add('hidden');
+        } else if (tab === 'waiver' && paneWaiver) {
+            paneWaiver.classList.remove('hidden');
+            if (btnWaiver) btnWaiver.className = activeCls;
+            window.location.hash = 'waiver';
+        } else if (paneCategories) {
             paneCategories.classList.remove('hidden');
-
-            btnCategories.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-sm';
-            btnNotifications.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+            if (btnCategories) btnCategories.className = activeCls;
             window.location.hash = 'categories';
         }
     }
@@ -823,6 +897,8 @@
         const hash = window.location.hash.replace('#', '');
         if (tabParam === 'notifications' || hash === 'notifications' || '{{.ActiveTab}}' === 'notifications') {
             switchSettingsTab('notifications');
+        } else if (tabParam === 'waiver' || hash === 'waiver' || '{{.ActiveTab}}' === 'waiver') {
+            switchSettingsTab('waiver');
         }
     }
     if (document.readyState === 'loading') {

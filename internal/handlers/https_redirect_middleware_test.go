@@ -84,7 +84,8 @@ func TestHTTPSRedirectMiddleware_RespectsForwardedHostAndStripsPort80(t *testing
 		t.Fatalf("expected status 301, got %d", rec.Code)
 	}
 
-	expectedLocation := "https://custom.seriestkd.com/login"
+	// Security: spoofable X-Forwarded-Host must be ignored in favor of r.Host
+	expectedLocation := "https://internal-backend/login"
 	if loc := rec.Header().Get("Location"); loc != expectedLocation {
 		t.Errorf("expected Location %q, got %q", expectedLocation, loc)
 	}
