@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -212,9 +211,6 @@ func (a *AppHandler) parseTemplates() error {
 			}
 			return dict, nil
 		},
-		"safeHTML": func(s string) template.HTML {
-			return template.HTML(s)
-		},
 		"formatCurrency": func(v interface{}) string {
 			if v == nil {
 				return ""
@@ -347,18 +343,7 @@ func getClientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
-		return strings.TrimSpace(xrip)
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
-	}
-	return r.RemoteAddr
+	return clientIP(r)
 }
 
 func (a *AppHandler) LogAction(r *http.Request, action string, category models.AuditCategory, targetType, targetID, targetName, description string, metadata ...map[string]interface{}) {
@@ -444,7 +429,7 @@ func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) 
 	key = strings.TrimLeft(key, "/")
 
 	// Only allow serving avatar assets (avatars/* or flat local filename) and reject any path traversal segments
-	if key == "" || strings.Contains(key, "..") || (strings.Contains(key, "/") && !strings.HasPrefix(key, "avatars/")) {
+	if key == "" || strings.Contains(key, "..") || strings.Contains(key, "\\") || strings.ContainsRune(key, '\x00') || (strings.Contains(key, "/") && !strings.HasPrefix(key, "avatars/")) {
 		http.NotFound(w, r)
 		return
 	}

@@ -1495,6 +1495,7 @@ func sendSMTPMail(host string, port int, user, password, from, fromName, to, sub
 	if port == 465 {
 		tlsConfig := &tls.Config{
 			ServerName: host,
+			MinVersion: tls.VersionTLS12,
 		}
 		dialer := &net.Dialer{Timeout: 10 * time.Second}
 		conn, err := tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
@@ -1524,6 +1525,7 @@ func sendSMTPMail(host string, port int, user, password, from, fromName, to, sub
 		if ok, _ := client.Extension("STARTTLS"); ok {
 			tlsConfig := &tls.Config{
 				ServerName: host,
+				MinVersion: tls.VersionTLS12,
 			}
 			if err := client.StartTLS(tlsConfig); err != nil {
 				_ = client.Close()

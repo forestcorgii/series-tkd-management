@@ -4,10 +4,27 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
 )
+
+const defaultMaxBodyBytes = 1 << 20 // 1 MB
+
+// BodyLimitMiddleware caps non-multipart request bodies to prevent memory-exhaustion DoS.
+// Multipart requests (e.g. /profile avatar uploads) enforce their own tighter limits.
+func BodyLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil && r.Method != http.MethodGet && r.Method != http.MethodHead {
+			ct := strings.ToLower(r.Header.Get("Content-Type"))
+			if !strings.HasPrefix(ct, "multipart/form-data") {
+				r.Body = http.MaxBytesReader(w, r.Body, defaultMaxBodyBytes)
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 // CSRFMiddleware validates Origin/Referer and Sec-Fetch-Site headers on state-changing
 // cookie-authenticated requests to block cross-site request forgery.
@@ -99,11 +116,24 @@ func isRateLimitedPath(path string) bool {
 	return strings.HasPrefix(path, "/reserve/")
 }
 
+func isTrustedProxyEnv() bool {
+	if os.Getenv("RAILWAY_ENVIRONMENT") != "" || os.Getenv("RAILWAY_ENVIRONMENT_NAME") != "" {
+		return true
+	}
+	val := strings.TrimSpace(os.Getenv("TRUST_PROXY"))
+	return strings.EqualFold(val, "true") || val == "1"
+}
+
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		first := strings.TrimSpace(strings.Split(xff, ",")[0])
-		if first != "" {
-			return first
+	if isTrustedProxyEnv() {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			for i := len(parts) - 1; i >= 0; i-- {
+				candidate := strings.TrimSpace(parts[i])
+				if candidate != "" && net.ParseIP(candidate) != nil {
+					return candidate
+				}
+			}
 		}
 	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil && host != "" {

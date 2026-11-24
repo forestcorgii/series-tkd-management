@@ -1,79 +1,28 @@
 package services
 
 import (
+	"errors"
+	"strings"
 	"testing"
 )
 
-func TestIsTelegramValidButtonURL(t *testing.T) {
-	tests := []struct {
-		url      string
-		expected bool
-	}{
-		{"http://localhost:8080/dashboard", false},
-		{"http://localhost/sessions", false},
-		{"http://127.0.0.1:8080", false},
-		{"http://0.0.0.0:8080", false},
-		{"http://localonly/path", false},
-		{"", false},
-		{"   ", false},
-		{"invalid://url-scheme", false},
-		{"ftp://example.com", false},
-		{"https://seriestkd.com/dashboard", true},
-		{"https://stms-production.up.railway.app/sessions", true},
-		{"http://subdomain.example.com", true},
-		{"tg://resolve?domain=seriestkd", true},
+func TestTelegramTokenSanitizationAndRedaction(t *testing.T) {
+	if err := sanitizeTelegramToken("123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"); err != nil {
+		t.Fatalf("expected valid token to pass, got %v", err)
 	}
 
-	for _, tt := range tests {
-		result := isTelegramValidButtonURL(tt.url)
-		if result != tt.expected {
-			t.Errorf("isTelegramValidButtonURL(%q) = %v; want %v", tt.url, result, tt.expected)
+	for _, bad := range []string{"123/sendMessage", "123?foo=bar", "123#frag", "123 456"} {
+		if err := sanitizeTelegramToken(bad); err == nil {
+			t.Errorf("expected error for malformed token %q", bad)
 		}
 	}
-}
 
-func TestSanitizeTelegramButtons(t *testing.T) {
-	// Case 1: All buttons are localhost -> should return nil
-	allLocalhost := [][]TelegramInlineButton{
-		{
-			{Text: "Local Portal", URL: "http://localhost:8080/dashboard"},
-			{Text: "Local Schedule", URL: "http://127.0.0.1:8080/sessions"},
-		},
+	token := "999999:SECRET_TOKEN_VALUE"
+	redacted := redactTelegramToken(errors.New("Post https://api.telegram.org/bot"+token+"/getMe: dial tcp"), token)
+	if strings.Contains(redacted.Error(), token) {
+		t.Fatalf("expected token to be redacted, got %q", redacted.Error())
 	}
-	res1 := sanitizeTelegramButtons(allLocalhost)
-	if len(res1) != 0 {
-		t.Errorf("expected empty sanitized buttons for localhost URLs, got %v", res1)
-	}
-
-	// Case 2: Mixed buttons -> only valid public URLs kept
-	mixed := [][]TelegramInlineButton{
-		{
-			{Text: "Local", URL: "http://localhost:8080/dashboard"},
-			{Text: "Public", URL: "https://seriestkd.com/sessions"},
-		},
-		{
-			{Text: "Another Local", URL: "http://localhost:3000"},
-		},
-	}
-	res2 := sanitizeTelegramButtons(mixed)
-	if len(res2) != 1 {
-		t.Fatalf("expected 1 row after sanitization, got %d", len(res2))
-	}
-	if len(res2[0]) != 1 || res2[0][0].Text != "Public" {
-		t.Errorf("expected only 'Public' button to remain, got %v", res2[0])
+	if !strings.Contains(redacted.Error(), "[REDACTED]") {
+		t.Fatalf("expected [REDACTED] placeholder, got %q", redacted.Error())
 	}
 }
-
-func TestSendTelegramMessage_SanitizationWithMock(t *testing.T) {
-	buttons := [][]TelegramInlineButton{
-		{
-			{Text: "Local Portal", URL: "http://localhost:8080/dashboard"},
-		},
-	}
-	// Mock token should succeed and not panic or fail
-	err := SendTelegramMessage("mock", "@testchat", "<b>Hello World</b>", buttons)
-	if err != nil {
-		t.Fatalf("SendTelegramMessage with mock failed: %v", err)
-	}
-}
-

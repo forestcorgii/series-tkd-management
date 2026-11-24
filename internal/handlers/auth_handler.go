@@ -253,6 +253,11 @@ func (a *AppHandler) HandleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 
 	user, token, err := a.authSvc.Login(identifier, password)
 	if err != nil {
+		safeID := identifier
+		if len(safeID) > 100 {
+			safeID = safeID[:100]
+		}
+		a.LogAction(r, "AUTH_LOGIN_FAILED", models.AuditCategoryAuth, "User", "", safeID, "Failed login attempt for identifier: "+safeID)
 		msg := "Invalid email or password"
 		if errors.Is(err, services.ErrAccountPendingApproval) {
 			msg = "Your account is pending manager approval. Please wait for an Operations Manager to review and approve your registration."
@@ -297,6 +302,7 @@ func (a *AppHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   IsHTTPS(r),
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})
@@ -342,6 +348,11 @@ func (a *AppHandler) HandleAPILogin(w http.ResponseWriter, r *http.Request) {
 
 	user, token, err := a.authSvc.Login(identifier, req.Password)
 	if err != nil {
+		safeID := identifier
+		if len(safeID) > 100 {
+			safeID = safeID[:100]
+		}
+		a.LogAction(r, "AUTH_LOGIN_FAILED", models.AuditCategoryAuth, "User", "", safeID, "Failed API login attempt for identifier: "+safeID)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -393,6 +404,7 @@ func (a *AppHandler) HandleAPILogout(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   IsHTTPS(r),
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})

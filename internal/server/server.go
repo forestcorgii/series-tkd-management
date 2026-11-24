@@ -345,7 +345,7 @@ func NewHandler(store repository.RepositoryStore) (http.Handler, error) {
 	mux.HandleFunc("GET /api/logs", app.RequireRole(models.RoleOperationManager)(app.HandleAuditLogs))
 	mux.HandleFunc("GET /api/logs/telemetry", app.RequireRole(models.RoleOperationManager)(app.HandleAuditTelemetry))
 
-	// Static assets with caching headers
+	// Static assets with caching headers and directory listing disabled
 	staticDir := "web/static"
 	for _, c := range []string{"web/static", "../web/static", "../../web/static"} {
 		if fi, err := os.Stat(c); err == nil && fi.IsDir() {
@@ -353,7 +353,7 @@ func NewHandler(store repository.RepositoryStore) (http.Handler, error) {
 			break
 		}
 	}
-	fs := http.FileServer(http.Dir(staticDir))
+	fs := http.FileServer(noDirListingFileSystem{fs: http.Dir(staticDir)})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		fs.ServeHTTP(w, r)
@@ -362,7 +362,28 @@ func NewHandler(store repository.RepositoryStore) (http.Handler, error) {
 	// Object storage files (Railway S3 proxy or local uploads)
 	mux.HandleFunc("GET /storage/{key...}", app.HandleServeStorage)
 
-	return handlers.HTTPSRedirectMiddleware(handlers.GzipMiddleware(handlers.RateLimitMiddleware(handlers.CSRFMiddleware(app.AuthMiddleware(mux))))), nil
+	return handlers.HTTPSRedirectMiddleware(handlers.GzipMiddleware(handlers.RateLimitMiddleware(handlers.BodyLimitMiddleware(handlers.CSRFMiddleware(app.AuthMiddleware(mux)))))), nil
+}
+
+type noDirListingFileSystem struct {
+	fs http.FileSystem
+}
+
+func (n noDirListingFileSystem) Open(name string) (http.File, error) {
+	f, err := n.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	stat, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if stat.IsDir() {
+		_ = f.Close()
+		return nil, os.ErrNotExist
+	}
+	return f, nil
 }
 
 // ListenAndServe starts the HTTP server with safe timeouts and graceful shutdown.

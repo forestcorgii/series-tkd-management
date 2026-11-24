@@ -105,12 +105,32 @@ func sanitizeTelegramButtons(buttons [][]TelegramInlineButton) [][]TelegramInlin
 	return validRows
 }
 
+// sanitizeTelegramToken rejects tokens containing URL-control characters or whitespace
+// to prevent URL path injection when calling api.telegram.org.
+func sanitizeTelegramToken(token string) error {
+	if strings.ContainsAny(token, "/?#\\ \t\r\n") {
+		return errors.New("telegram bot token contains invalid characters")
+	}
+	return nil
+}
+
+// redactTelegramToken strips the bot token from error strings before returning them.
+func redactTelegramToken(err error, token string) error {
+	if err == nil || token == "" {
+		return err
+	}
+	return errors.New(strings.ReplaceAll(err.Error(), token, "[REDACTED]"))
+}
+
 // SendTelegramMessage sends an HTML-formatted message with optional buttons to the target chat
 func SendTelegramMessage(botToken, chatID, htmlText string, buttons [][]TelegramInlineButton) error {
 	token := strings.TrimSpace(botToken)
 	target := strings.TrimSpace(chatID)
 	if token == "" {
 		return errors.New("telegram bot token is empty")
+	}
+	if err := sanitizeTelegramToken(token); err != nil {
+		return err
 	}
 	if target == "" {
 		return errors.New("telegram chat ID is empty")
@@ -154,7 +174,7 @@ func SendTelegramMessage(botToken, chatID, htmlText string, buttons [][]Telegram
 
 	resp, err := telegramHTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("telegram api network error: %w", err)
+		return fmt.Errorf("telegram api network error: %w", redactTelegramToken(err, token))
 	}
 	defer resp.Body.Close()
 
@@ -177,6 +197,9 @@ func TestTelegramConnection(botToken, chatID string) (string, error) {
 	if token == "" {
 		return "", errors.New("please enter a Telegram Bot Token")
 	}
+	if err := sanitizeTelegramToken(token); err != nil {
+		return "", err
+	}
 
 	if token == "mock" || token == "simulated" || strings.HasPrefix(token, "test-") {
 		return "SimulatedTKDBot", nil
@@ -188,12 +211,12 @@ func TestTelegramConnection(botToken, chatID string) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	if err != nil {
-		return "", err
+		return "", redactTelegramToken(err, token)
 	}
 
 	resp, err := telegramHTTPClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("could not reach Telegram API: %w", err)
+		return "", fmt.Errorf("could not reach Telegram API: %w", redactTelegramToken(err, token))
 	}
 	defer resp.Body.Close()
 
