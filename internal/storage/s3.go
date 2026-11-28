@@ -98,7 +98,14 @@ func (s *S3Storage) Upload(ctx context.Context, key string, data io.Reader, cont
 
 	// Determine public URL
 	if s.cfg.PublicURL != "" {
-		return fmt.Sprintf("%s/%s", strings.TrimRight(s.cfg.PublicURL, "/"), cleanKey), nil
+		pub := s.cfg.PublicURL
+		if strings.HasPrefix(pub, "http://") {
+			trimmed := strings.TrimPrefix(pub, "http://")
+			if !strings.HasPrefix(trimmed, "localhost") && !strings.HasPrefix(trimmed, "127.0.0.1") {
+				pub = "https://" + trimmed
+			}
+		}
+		return fmt.Sprintf("%s/%s", strings.TrimRight(pub, "/"), cleanKey), nil
 	}
 
 	// Railway Buckets are private S3-compatible buckets with no public URL by default.
@@ -214,10 +221,11 @@ func (s *S3Storage) buildTarget(key string) (targetURL, host, canonicalURI strin
 	// Virtual-hosted style (standard for Railway, AWS S3, Cloudflare R2):
 	// Subdomain: {bucket}.{endpoint_host}
 	// Path: /{key}
-	if strings.HasPrefix(strings.ToLower(rawHost), strings.ToLower(s.cfg.Bucket)+".") {
+	cleanBucket := strings.ToLower(strings.TrimSpace(s.cfg.Bucket))
+	if strings.HasPrefix(strings.ToLower(rawHost), cleanBucket+".") {
 		host = rawHost
 	} else {
-		host = fmt.Sprintf("%s.%s", s.cfg.Bucket, rawHost)
+		host = fmt.Sprintf("%s.%s", cleanBucket, rawHost)
 	}
 
 	canonicalURI = "/" + cleanKey
@@ -230,6 +238,7 @@ func (s *S3Storage) signRequest(req *http.Request, method, host, canonicalURI st
 	dateStamp := now.Format("20060102")
 
 	payloadHash := sha256Hex(payload)
+	req.Host = host
 	req.Header.Set("x-amz-date", amzDate)
 	req.Header.Set("x-amz-content-sha256", payloadHash)
 	req.Header.Set("Host", host)
