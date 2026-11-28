@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS locations (
     name VARCHAR(150) NOT NULL,
     pin TEXT NOT NULL,
     fixed_rate NUMERIC(10, 2),
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -94,7 +95,8 @@ CREATE TABLE IF NOT EXISTS attendance (
     checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     attendee_type VARCHAR(20) NOT NULL DEFAULT 'student', -- 'student', 'coach', 'admin', 'guest'
     attendee_name VARCHAR(120) DEFAULT '',
-    attendee_role VARCHAR(50) DEFAULT ''
+    attendee_role VARCHAR(50) DEFAULT '',
+    contact_number VARCHAR(50) DEFAULT ''
 );
 
 -- Student Ability Evaluations (Radar Chart Source)

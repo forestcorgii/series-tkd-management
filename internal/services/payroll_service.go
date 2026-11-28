@@ -36,34 +36,51 @@ func (ps *PayrollService) CalculateCoachPayroll(
 	startDate time.Time,
 	endDate time.Time,
 ) CoachPayrollSummary {
+	if coach == nil {
+		return CoachPayrollSummary{}
+	}
+
 	sessionsLed := 0
+	payout := 0.0
+	coachSessionIDs := make(map[uuid.UUID]bool)
 	studentsCountMap := make(map[string]bool)
 
 	for _, sess := range sessions {
-		if sess.IsCancelled {
+		if sess == nil || sess.IsCancelled {
+			continue
+		}
+		if sess.EntryType == models.EntryTypeDuty || sess.EntryType == models.EntryTypeEvent {
+			continue
+		}
+		if sess.EndTime != "" && !sess.IsDone() {
+			continue
+		}
+		if sess.EndTime == "" && sess.SessionDate.After(time.Now()) {
 			continue
 		}
 		if sess.CoachID != nil && *sess.CoachID == coach.ID {
 			if !sess.SessionDate.Before(startDate) && !sess.SessionDate.After(endDate) {
 				sessionsLed++
-			}
-		}
-	}
-
-	for _, att := range attendances {
-		for _, sess := range sessions {
-			if sess.IsCancelled {
-				continue
-			}
-			if sess.ID == att.SessionID && sess.CoachID != nil && *sess.CoachID == coach.ID {
-				if !sess.SessionDate.Before(startDate) && !sess.SessionDate.After(endDate) {
-					studentsCountMap[att.StudentID.String()] = true
+				coachSessionIDs[sess.ID] = true
+				if sess.SessionRate != nil && *sess.SessionRate > 0 {
+					payout += *sess.SessionRate
+				} else {
+					payout += coach.RatePerSession
 				}
 			}
 		}
 	}
 
-	payout := float64(sessionsLed) * coach.RatePerSession
+	for _, att := range attendances {
+		if att == nil || !coachSessionIDs[att.SessionID] {
+			continue
+		}
+		if att.StudentID != uuid.Nil {
+			studentsCountMap[att.StudentID.String()] = true
+		} else {
+			studentsCountMap["guest:"+att.ID.String()] = true
+		}
+	}
 	firstAidValid := coach.IsFirstAidValid()
 	expiryDays := coach.DaysUntilFirstAidExpiry()
 
