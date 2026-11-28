@@ -85,19 +85,19 @@ func (l *LocalStorage) Delete(ctx context.Context, key string) error {
 // NewStorageFromEnv initializes S3 storage if Railway Bucket or AWS S3 credentials are configured;
 // otherwise it falls back to LocalStorage under web/static/uploads/avatars.
 //
-// Prioritized Environment Variables:
-//   - BUCKET_NAME (alias: BUCKET, AWS_S3_BUCKET_NAME)
-//   - AWS_ACCESS_KEY_ID (alias: ACCESS_KEY_ID)
-//   - AWS_SECRET_ACCESS_KEY (alias: SECRET_ACCESS_KEY)
-//   - AWS_ENDPOINT_URL_S3 (alias: ENDPOINT, AWS_ENDPOINT_URL; defaults to https://storage.railway.app)
-//   - AWS_REGION (alias: REGION, AWS_DEFAULT_REGION; defaults to auto)
-//   - BUCKET_PUBLIC_URL (optional; alias: BUCKET_PUBLIC_UR, S3_PUBLIC_URL, PUBLIC_URL)
+// Prioritized Environment Variables & Aliases:
+//   - BUCKET_NAME (aliases: BUCKET, AWS_S3_BUCKET_NAME, AWS_BUCKET_NAME, S3_BUCKET_NAME, S3_BUCKET, TIGRIS_BUCKET, RAILWAY_BUCKET_NAME, RAILWAY_BUCKET)
+//   - AWS_ACCESS_KEY_ID (aliases: ACCESS_KEY_ID, BUCKET_ACCESS_KEY_ID, AWS_ACCESS_KEY, TIGRIS_ACCESS_KEY_ID)
+//   - AWS_SECRET_ACCESS_KEY (aliases: SECRET_ACCESS_KEY, BUCKET_SECRET_ACCESS_KEY, AWS_SECRET_KEY, TIGRIS_SECRET_ACCESS_KEY)
+//   - AWS_ENDPOINT_URL_S3 (aliases: ENDPOINT, BUCKET_ENDPOINT, AWS_ENDPOINT_URL, AWS_ENDPOINT, S3_ENDPOINT, TIGRIS_ENDPOINT; defaults to https://storage.railway.app)
+//   - AWS_REGION (aliases: REGION, AWS_DEFAULT_REGION, BUCKET_REGION, TIGRIS_REGION; defaults to auto)
+//   - BUCKET_PUBLIC_URL (optional; aliases: BUCKET_PUBLIC_UR, S3_PUBLIC_URL, PUBLIC_URL)
 func NewStorageFromEnv() FileStorage {
-	bucket := getFirstEnv("BUCKET_NAME", "BUCKET", "AWS_S3_BUCKET_NAME", "AWS_BUCKET_NAME", "S3_BUCKET_NAME", "S3_BUCKET")
-	accessKey := getFirstEnv("AWS_ACCESS_KEY_ID", "ACCESS_KEY_ID", "BUCKET_ACCESS_KEY_ID", "AWS_ACCESS_KEY")
-	secretKey := getFirstEnv("AWS_SECRET_ACCESS_KEY", "SECRET_ACCESS_KEY", "BUCKET_SECRET_ACCESS_KEY", "AWS_SECRET_KEY")
-	endpoint := getFirstEnv("AWS_ENDPOINT_URL_S3", "ENDPOINT", "AWS_ENDPOINT_URL", "BUCKET_ENDPOINT", "AWS_ENDPOINT", "S3_ENDPOINT")
-	region := getFirstEnv("AWS_REGION", "REGION", "AWS_DEFAULT_REGION", "BUCKET_REGION")
+	bucket := getFirstEnv("BUCKET", "BUCKET_NAME", "AWS_S3_BUCKET_NAME", "AWS_BUCKET_NAME", "S3_BUCKET_NAME", "S3_BUCKET", "TIGRIS_BUCKET", "RAILWAY_BUCKET_NAME", "RAILWAY_BUCKET")
+	accessKey := getFirstEnv("ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", "BUCKET_ACCESS_KEY_ID", "AWS_ACCESS_KEY", "TIGRIS_ACCESS_KEY_ID")
+	secretKey := getFirstEnv("SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", "BUCKET_SECRET_ACCESS_KEY", "AWS_SECRET_KEY", "TIGRIS_SECRET_ACCESS_KEY")
+	endpoint := getFirstEnv("ENDPOINT", "BUCKET_ENDPOINT", "AWS_ENDPOINT_URL_S3", "AWS_ENDPOINT_URL", "AWS_ENDPOINT", "S3_ENDPOINT", "TIGRIS_ENDPOINT")
+	region := getFirstEnv("REGION", "AWS_REGION", "AWS_DEFAULT_REGION", "BUCKET_REGION", "TIGRIS_REGION")
 	publicURL := getFirstEnv("BUCKET_PUBLIC_URL", "BUCKET_PUBLIC_UR", "S3_PUBLIC_URL", "PUBLIC_URL")
 	forcePathStyle := strings.ToLower(getFirstEnv("FORCE_PATH_STYLE", "S3_FORCE_PATH_STYLE", "AWS_S3_FORCE_PATH_STYLE")) == "true"
 
@@ -127,6 +127,13 @@ func NewStorageFromEnv() FileStorage {
 		})
 	}
 
+	if bucket != "" || accessKey != "" || secretKey != "" {
+		log.Printf("⚠️ WARNING: Incomplete S3/Bucket credentials! (bucket=%q, accessKeySet=%v, secretKeySet=%v). Falling back to ephemeral local storage.",
+			bucket, accessKey != "", secretKey != "")
+	} else if os.Getenv("RAILWAY_ENVIRONMENT") != "" || os.Getenv("RAILWAY_PROJECT_ID") != "" {
+		log.Printf("⚠️ NOTICE [Railway]: No S3 bucket credentials found on this service. Falling back to local storage (ephemeral).")
+	}
+
 	// Local disk fallback
 	uploadDir := "web/static/uploads/avatars"
 	for _, c := range []string{"web/static/uploads/avatars", "../web/static/uploads/avatars", "../../web/static/uploads/avatars"} {
@@ -148,7 +155,17 @@ func NewStorageFromEnv() FileStorage {
 
 func getFirstEnv(keys ...string) string {
 	for _, k := range keys {
-		if val := strings.TrimSpace(os.Getenv(k)); val != "" {
+		val := strings.TrimSpace(os.Getenv(k))
+		if val == "" {
+			continue
+		}
+		val = strings.Trim(val, "\"'")
+		val = strings.TrimSpace(val)
+		if strings.HasPrefix(val, "${{") && strings.HasSuffix(val, "}}") {
+			log.Printf("⚠️ Warning: Environment variable %s contains unresolved Railway reference %q. Check Railway service name and variable key.", k, val)
+			continue
+		}
+		if val != "" {
 			return val
 		}
 	}

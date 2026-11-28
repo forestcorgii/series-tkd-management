@@ -3,14 +3,17 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
 	"series-tkd-management/internal/models"
+	"series-tkd-management/internal/services"
 )
 
 // API endpoint returning JSON notifications list & unread count
@@ -120,12 +123,10 @@ func (a *AppHandler) HandleNotificationDropdown(w http.ResponseWriter, r *http.R
 			var channelBadges []string
 			for _, ch := range n.DispatchedChannels() {
 				switch ch {
-				case models.ChannelSMS:
-					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[9px]">SMS</span>`)
+				case models.ChannelTelegram:
+					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 font-bold text-[9px]">TELEGRAM</span>`)
 				case models.ChannelEmail:
 					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold text-[9px]">EMAIL</span>`)
-				case models.ChannelPush:
-					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold text-[9px]">PUSH</span>`)
 				default:
 					channelBadges = append(channelBadges, `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 font-bold text-[9px]">IN-APP</span>`)
 				}
@@ -157,7 +158,7 @@ func (a *AppHandler) HandleNotificationDropdown(w http.ResponseWriter, r *http.R
 
 	// Footer
 	sb.WriteString(`<div class="p-2 border-t border-[#E5E3D8] dark:border-neutral-800 bg-[#FFFDF4]/40 dark:bg-neutral-900/40 text-center">`)
-	sb.WriteString(`  <span class="text-[10px] text-slate-400">Push, SMS &amp; Email alerts configured</span>`)
+	sb.WriteString(`  <span class="text-[10px] text-slate-400">Telegram &amp; Email alerts configured</span>`)
 	sb.WriteString(`</div>`)
 	sb.WriteString(`</div>`)
 
@@ -184,6 +185,31 @@ func (a *AppHandler) HandleMarkNotificationRead(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !user.IsOperationManager() {
+		notifs, _, _ := a.notifSvc.GetNotifications(models.NotificationFilter{
+			UserID: &user.ID,
+			Role:   &user.Role,
+			Limit:  200,
+		})
+		owned := false
+		for _, n := range notifs {
+			if n.ID == notifID {
+				owned = true
+				break
+			}
+		}
+		if !owned {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	_ = a.notifSvc.MarkAsRead(notifID)
 
 	w.Header().Set("HX-Trigger", "notificationUpdated")
@@ -208,31 +234,54 @@ func (a *AppHandler) HandleMarkAllNotificationsRead(w http.ResponseWriter, r *ht
 	a.HandleNotificationDropdown(w, r)
 }
 
-type PushSubscriptionRequest struct {
-	Endpoint string `json:"endpoint"`
-	Keys     struct {
-		P256dh string `json:"p256dh"`
-		Auth   string `json:"auth"`
-	} `json:"keys"`
-}
-
-// HandleGetVAPIDPublicKey returns the active VAPID public key
-func (a *AppHandler) HandleGetVAPIDPublicKey(w http.ResponseWriter, r *http.Request) {
-	settings, err := a.notifSvc.EnsureVAPIDKeys()
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+// HandleTestTelegram tests Telegram Bot connectivity and sends an immediate test ping
+func (a *AppHandler) HandleTestTelegram(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"public_key": settings.WebPushPublicKey,
-	})
+
+	user := GetUserFromContext(r.Context())
+	if user != nil && !user.IsOperationManager() {
+		http.Error(w, "Forbidden: Only Operation Managers can test telegram settings", http.StatusForbidden)
+		return
+	}
+
+	botToken := strings.TrimSpace(r.FormValue("telegram_bot_token"))
+	targetChat := strings.TrimSpace(r.FormValue("telegram_public_chat_id"))
+	if targetChat == "" {
+		targetChat = strings.TrimSpace(r.FormValue("telegram_staff_chat_id"))
+	}
+
+	if botToken == "" {
+		settings, _ := a.notifSvc.GetSettings()
+		if settings != nil {
+			botToken = settings.TelegramBotToken
+			if targetChat == "" {
+				targetChat = settings.TelegramPublicChatID
+				if targetChat == "" {
+					targetChat = settings.TelegramStaffChatID
+				}
+			}
+		}
+	}
+
+	botUsername, err := a.notifSvc.SendTestTelegram(botToken, targetChat)
+	w.Header().Set("Content-Type", "text/html")
+	if err != nil {
+		w.Write([]byte(fmt.Sprintf(`<div class="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2"><span>✗</span> <span>Connection failed: %s</span></div>`, html.EscapeString(err.Error()))))
+		return
+	}
+
+	targetNotice := ""
+	if targetChat != "" {
+		targetNotice = fmt.Sprintf(" and test message delivered to %s", html.EscapeString(targetChat))
+	}
+	w.Write([]byte(fmt.Sprintf(`<div class="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2"><span>✓</span> <span>Connected to bot <b>@%s</b>%s!</span></div>`, html.EscapeString(botUsername), targetNotice)))
 }
 
-// HandlePushSubscribe stores a Web Push subscription for the authenticated user
-func (a *AppHandler) HandlePushSubscribe(w http.ResponseWriter, r *http.Request) {
+// HandleEmailTest tests SMTP email delivery settings with an immediate test message
+func (a *AppHandler) HandleEmailTest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -246,112 +295,82 @@ func (a *AppHandler) HandlePushSubscribe(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req PushSubscriptionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid subscription payload"})
-		return
+	var req struct {
+		Host        string `json:"smtp_host"`
+		Port        int    `json:"smtp_port"`
+		User        string `json:"smtp_user"`
+		Password    string `json:"smtp_password"`
+		From        string `json:"smtp_from"`
+		FromName    string `json:"smtp_from_name"`
+		DisplayName string `json:"smtp_display_name"`
+		Recipient   string `json:"recipient_email"`
 	}
 
-	if strings.TrimSpace(req.Endpoint) == "" || strings.TrimSpace(req.Keys.P256dh) == "" || strings.TrimSpace(req.Keys.Auth) == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "endpoint, p256dh, and auth keys are required"})
-		return
-	}
-
-	sub := &models.PushSubscription{
-		ID:        uuid.New(),
-		UserID:    &user.ID,
-		Role:      user.Role,
-		Endpoint:  strings.TrimSpace(req.Endpoint),
-		P256dh:    strings.TrimSpace(req.Keys.P256dh),
-		Auth:      strings.TrimSpace(req.Keys.Auth),
-		UserAgent: r.UserAgent(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	if err := a.store.CreateOrUpdatePushSubscription(sub); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	// Update user preferences to ensure PushEnabled is true
-	if prefs, err := a.store.GetUserNotificationPreferences(user.ID); err == nil && prefs != nil {
-		prefs.PushEnabled = true
-		_ = a.store.UpdateUserNotificationPreferences(prefs)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"message": "Push notifications subscribed successfully",
-	})
-}
-
-// HandlePushUnsubscribe removes a Web Push subscription
-func (a *AppHandler) HandlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	endpoint := strings.TrimSpace(r.FormValue("endpoint"))
-	if endpoint == "" {
-		var body struct {
-			Endpoint string `json:"endpoint"`
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON payload: " + err.Error()})
+			return
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
-			endpoint = strings.TrimSpace(body.Endpoint)
+		if req.FromName == "" && req.DisplayName != "" {
+			req.FromName = req.DisplayName
 		}
+	} else {
+		_ = r.ParseForm()
+		req.Host = r.FormValue("smtp_host")
+		if portStr := r.FormValue("smtp_port"); portStr != "" {
+			req.Port, _ = strconv.Atoi(portStr)
+		}
+		req.User = r.FormValue("smtp_user")
+		req.Password = r.FormValue("smtp_password")
+		req.From = r.FormValue("smtp_from")
+		fromName := strings.TrimSpace(r.FormValue("smtp_from_name"))
+		if fromName == "" {
+			fromName = strings.TrimSpace(r.FormValue("smtp_display_name"))
+		}
+		req.FromName = fromName
+		req.Recipient = r.FormValue("recipient_email")
 	}
 
-	if endpoint != "" {
-		_ = a.store.DeletePushSubscription(endpoint)
+	if strings.TrimSpace(req.Recipient) == "" {
+		req.Recipient = user.Email
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"message": "Unsubscribed successfully",
-	})
-}
-
-// HandlePushTest dispatches an immediate test push to the user's active device(s)
-func (a *AppHandler) HandlePushTest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+	params := services.TestEmailParams{
+		Host:      req.Host,
+		Port:      req.Port,
+		User:      req.User,
+		Password:  req.Password,
+		From:      req.From,
+		FromName:  req.FromName,
+		Recipient: req.Recipient,
 	}
 
-	user := GetUserFromContext(r.Context())
-	if user == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
-		return
-	}
-
-	title := "🥋 Series Taekwondo: Test Alert"
-	message := fmt.Sprintf("Live push notification test for %s (%s). Connected and operational!", user.DisplayName, user.Role)
-
-	sentCount, err := a.notifSvc.SendTestPushNotification(user.ID, title, message)
+	err := a.notifSvc.SendTestEmail(params)
 	if err != nil {
+		if strings.Contains(r.Header.Get("Accept"), "text/html") && !strings.Contains(contentType, "application/json") {
+			http.Redirect(w, r, "/settings?tab=notifications&error="+url.QueryEscape("Test email failed: "+err.Error()), http.StatusSeeOther)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
+	a.LogAction(r, "NOTIFICATIONS_TEST_EMAIL", models.AuditCategorySettings, "Settings", "", "Test Email", fmt.Sprintf("Sent test email to %s", req.Recipient))
+
+	if strings.Contains(r.Header.Get("Accept"), "text/html") && !strings.Contains(contentType, "application/json") {
+		http.Redirect(w, r, "/settings?tab=notifications&success="+url.QueryEscape(fmt.Sprintf("Test email dispatched successfully to %s", req.Recipient)), http.StatusSeeOther)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":     "ok",
-		"sent_count": sentCount,
-		"message":    fmt.Sprintf("Dispatched test push to %d connected device(s)", sentCount),
+		"status":    "ok",
+		"message":   fmt.Sprintf("Test email sent successfully to %s", req.Recipient),
+		"recipient": req.Recipient,
 	})
 }
-

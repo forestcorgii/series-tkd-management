@@ -79,7 +79,7 @@ type AdminDashboardViewData struct {
 func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 	user := GetUserFromContext(r.Context())
 	if user == nil {
-		a.renderOperationManagerDashboard(w, r, nil)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -111,7 +111,7 @@ func (a *AppHandler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.renderOperationManagerDashboard(w, r, user)
+	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
 func (a *AppHandler) renderCoachDashboard(w http.ResponseWriter, r *http.Request, user *models.User) {
