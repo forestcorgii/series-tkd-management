@@ -66,7 +66,7 @@
                 <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Due for Renewal</span>
                 <span class="text-xl sm:text-2xl font-display font-black {{if gt .ExpiringPackagesCount 0}}text-amber-600 dark:text-amber-400{{else}}text-black dark:text-white{{end}}">{{.ExpiringPackagesCount}}</span>
             </div>
-            <span class="text-[10px] font-bold {{if gt .ExpiringPackagesCount 0}}text-amber-600 bg-amber-500/15{{else}}text-slate-500 bg-neutral-200 dark:bg-neutral-800{{end}} px-2 py-0.5 rounded-full">
+            <span class="text-[10px] font-bold {{if gt .ExpiringPackagesCount 0}}text-amber-600 bg-amber-500/15{{else}}text-slate-600 dark:text-slate-400 bg-neutral-200 dark:bg-neutral-800{{end}} px-2 py-0.5 rounded-full">
                 {{if gt .ExpiringPackagesCount 0}}Alert{{else}}Clear{{end}}
             </span>
         </div>
@@ -210,7 +210,7 @@
                                             (In {{.DaysUntilExpiry}} days)
                                         </span>
                                         {{else}}
-                                        <span class="block text-[10px] text-slate-500">
+                                        <span class="block text-[10px] text-slate-600 dark:text-slate-400">
                                             (In {{.DaysUntilExpiry}} days)
                                         </span>
                                         {{end}}
@@ -244,7 +244,7 @@
                     <h2 class="font-display font-extrabold text-sm uppercase text-black dark:text-[#FFFDF4]">
                         Quick Student Finder
                     </h2>
-                    <span class="text-[10px] text-slate-500 font-semibold">Instant Action</span>
+                    <span class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Instant Action</span>
                 </div>
                 <p class="text-[11px] text-slate-600 dark:text-slate-400 mb-2">
                     Look up a practitioner to view details or assign passes.
@@ -313,7 +313,7 @@
                             "{{.Notes}}"
                         </p>
                         {{end}}
-                        <div class="flex items-center justify-between pt-1 text-[10px] text-slate-500">
+                        <div class="flex items-center justify-between pt-1 text-[10px] text-slate-600 dark:text-slate-400">
                             <span>Logged: {{formatDate .CreatedAt}}</span>
                             <a href="/students/{{.StudentID}}" class="font-bold text-[#990303] dark:text-red-400 hover:underline">
                                 Student Record &rarr;
@@ -386,7 +386,7 @@
             <!-- Initial Membership Plan Enrollment (Optional) -->
             <div class="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <span class="text-xs uppercase font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <span>💳</span> Initial Membership Plan <span class="text-[10px] text-slate-500 font-normal lowercase">(optional)</span>
+                    <span>💳</span> Initial Membership Plan <span class="text-[10px] text-slate-600 dark:text-slate-400 font-normal lowercase">(optional)</span>
                 </span>
                 <div>
                     <label class="form-label text-[11px]">Select Membership Plan</label>
