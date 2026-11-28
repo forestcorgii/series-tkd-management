@@ -1,0 +1,264 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Student Registration &amp; Waiver &bull; Series Taekwondo Management System{{end}}
+{{define "navAuthAction"}}{{""}}{{end}}
+{{define "navAuthMobile"}}{{""}}{{end}}
+
+{{define "content"}}
+<div class="max-w-2xl mx-auto my-8 sm:my-10 no-uppercase" data-no-uppercase="true">
+    <!-- Brand / Registration Header -->
+    <div class="text-center mb-6">
+        <div class="inline-flex h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] items-center justify-center font-display font-black text-white text-3xl shadow-xl shadow-[#990303]/30 mb-4 border border-red-500/30">
+            ST
+        </div>
+        <h1 class="font-display font-extrabold text-2xl sm:text-3xl tracking-wide uppercase text-black dark:text-[#FFFDF4]">
+            STUDENT <span class="text-[#990303]">REGISTRATION</span>
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
+            Enroll as a Series Taekwondo Practitioner &bull; Subject to Dojang Approval
+        </p>
+    </div>
+
+    <!-- Error/Success Alerts -->
+    {{if .Error}}
+    <div class="mb-5 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs sm:text-sm flex items-center gap-3 animate-fade-in shadow-sm">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span class="font-semibold">{{.Error}}</span>
+    </div>
+    {{end}}
+
+    {{if .Success}}
+    <div class="mb-5 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm flex items-center gap-3 animate-fade-in shadow-sm">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span class="font-semibold">{{.Success}}</span>
+    </div>
+    {{end}}
+
+    <!-- Card Container -->
+    <div class="glass-panel rounded-2xl border border-[#E5E3D8] dark:border-neutral-800 shadow-xl overflow-hidden">
+        <div class="border-b border-[#E5E3D8] dark:border-neutral-800 bg-[#F4F1E4]/60 dark:bg-neutral-900/60 px-6 py-3 flex items-center justify-between gap-2">
+            <span class="text-xs font-display font-bold uppercase tracking-wider text-[#990303] dark:text-red-400">
+                🥋 New Student &amp; Waiver Application
+            </span>
+        </div>
+
+        <div class="p-6 sm:p-8">
+            <form id="form-student-register" action="/register/student" method="POST" class="space-y-5 no-uppercase" data-no-uppercase="true">
+                <!-- Section 1: Practitioner Details -->
+                <div class="space-y-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        1. Practitioner Information
+                    </p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2">
+                            <label for="full_name" class="form-label mb-1.5">
+                                Student Full Name <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" id="full_name" name="full_name" required
+                                   autocapitalize="words"
+                                   placeholder="e.g. Brandon Lee"
+                                   class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
+                        </div>
+
+                        <div>
+                            <label for="dob" class="form-label mb-1.5">
+                                Date of Birth <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="date" id="dob" name="dob" required class="form-input py-2 px-3 text-sm">
+                        </div>
+
+                        <div>
+                            <label for="gender" class="form-label mb-1.5">Gender</label>
+                            <select id="gender" name="gender" class="form-select py-2 px-3 text-sm">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="phone" class="form-label mb-1.5">
+                                Contact Number <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="tel" id="phone" name="phone" required
+                                   placeholder="09626914130"
+                                   pattern="09[0-9]{9}"
+                                   maxlength="11"
+                                   inputmode="numeric"
+                                   oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
+                                   title="11-digit mobile number starting with 09 (e.g. 09626914130)"
+                                   class="form-input py-2 px-3 text-sm">
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">11 digits starting with 09</p>
+                        </div>
+
+                        <div>
+                            <label for="current_belt" class="form-label mb-1.5">Current Belt Rank</label>
+                            <select id="current_belt" name="current_belt" class="form-select py-2 px-3 text-sm">
+                                <option value="White" selected>White (Beginner)</option>
+                                <option value="Low Yellow">Low Yellow</option>
+                                <option value="High Yellow">High Yellow</option>
+                                <option value="Low Blue">Low Blue</option>
+                                <option value="High Blue">High Blue</option>
+                                <option value="Low Red">Low Red</option>
+                                <option value="High Red">High Red</option>
+                                <option value="Low Brown">Low Brown</option>
+                                <option value="High Brown">High Brown</option>
+                                <option value="1st Dan Black">1st Dan Black</option>
+                                <option value="2nd Dan Black">2nd Dan Black</option>
+                                <option value="3rd Dan Black">3rd Dan Black</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Portal Account Credentials -->
+                <div class="space-y-4 pt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        2. Student Portal Account
+                    </p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="email" class="form-label mb-1.5">
+                                Email Address <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="email" id="email" name="email" required autocomplete="email"
+                                   placeholder="e.g. student@seriestkd.com"
+                                   class="form-input py-2 px-3 text-sm">
+                        </div>
+
+                        <div>
+                            <label for="username" class="form-label mb-1.5">
+                                Username <span class="text-slate-400 text-xs font-normal">(Optional)</span>
+                            </label>
+                            <input type="text" id="username" name="username"
+                                   autocapitalize="none" spellcheck="false"
+                                   placeholder="e.g. brandon.lee"
+                                   class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
+                        </div>
+
+                        <div>
+                            <label for="password" class="form-label mb-1.5">
+                                Password <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password"
+                                   placeholder="At least 6 characters"
+                                   class="form-input py-2 px-3 text-sm">
+                        </div>
+
+                        <div>
+                            <label for="confirm_password" class="form-label mb-1.5">
+                                Confirm Password <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="password" id="confirm_password" name="confirm_password" required minlength="6" autocomplete="new-password"
+                                   placeholder="Repeat your password"
+                                   class="form-input py-2 px-3 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Emergency & Medical Safety -->
+                <div class="space-y-4 pt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                        3. Emergency Contact &amp; Medical Clearance
+                    </p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label for="emergency_name" class="form-label mb-1.5">
+                                Contact Name <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" id="emergency_name" name="emergency_name" required
+                                   placeholder="Parent / Guardian"
+                                   class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
+                        </div>
+
+                        <div>
+                            <label for="emergency_phone" class="form-label mb-1.5">
+                                Contact Phone <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="tel" id="emergency_phone" name="emergency_phone" required
+                                   placeholder="09626914130"
+                                   pattern="09[0-9]{9}"
+                                   maxlength="11"
+                                   inputmode="numeric"
+                                   oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"
+                                   title="11-digit mobile number starting with 09 (e.g. 09626914130)"
+                                   class="form-input py-2 px-3 text-sm">
+                        </div>
+
+                        <div>
+                            <label for="emergency_relation" class="form-label mb-1.5">
+                                Relation <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" id="emergency_relation" name="emergency_relation" required
+                                   placeholder="e.g. Mother, Father"
+                                   class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="medical_notes" class="form-label mb-1.5">
+                            Medical Notes / Allergies <span class="text-slate-400 text-xs font-normal">(Optional)</span>
+                        </label>
+                        <textarea id="medical_notes" name="medical_notes" rows="2"
+                                  placeholder="List any allergies, asthma, prior injuries, or medical clearance notes..."
+                                  class="form-textarea py-2 px-3 text-sm no-uppercase" data-no-uppercase="true"></textarea>
+                    </div>
+                </div>
+
+                <!-- Section 4: Waiver & Liability Release -->
+                <div class="space-y-3 pt-4 border-t border-[#E5E3D8] dark:border-neutral-800">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                            4. {{if .Waiver}}{{.Waiver.Title}}{{else}}Waiver &amp; Liability Release{{end}} <span class="text-rose-500">*</span>
+                        </p>
+                    </div>
+
+                    <div id="waiver-content-box"
+                         class="max-h-56 overflow-y-auto p-4 rounded-xl bg-[#FFFDF4] dark:bg-neutral-900 border border-[#E5E3D8] dark:border-neutral-800 text-xs leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap shadow-inner">{{if .Waiver}}{{.Waiver.Content}}{{end}}</div>
+
+                    <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-neutral-900/80 border border-slate-200 dark:border-neutral-800 space-y-3">
+                        <label for="waiver_accepted" class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" id="waiver_accepted" name="waiver_accepted" value="true" required
+                                   class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#990303] focus:ring-[#990303]">
+                            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                I have read, understood, and agree to the {{if .Waiver}}{{.Waiver.Title}}{{else}}Waiver &amp; Liability Release{{end}}.
+                            </span>
+                        </label>
+
+                        <div>
+                            <label for="waiver_signed_name" class="form-label mb-1">
+                                Electronic Signature (Student or Parent/Guardian Full Name) <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" id="waiver_signed_name" name="waiver_signed_name" required
+                                   autocapitalize="words"
+                                   placeholder="Type full legal name to sign"
+                                   class="form-input py-2 px-3 text-sm no-uppercase" data-no-uppercase="true">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="pt-2">
+                    <button type="submit" class="btn btn-primary btn-lg w-full flex items-center justify-center gap-2 shadow-lg">
+                        <span>Submit Student Registration</span>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </button>
+                    <p class="text-[11px] text-center text-slate-500 dark:text-slate-400 mt-3">
+                        Already have an account?
+                        <a href="/login" class="font-bold text-[#990303] dark:text-red-400 hover:underline">Sign In to Portal</a>
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{end}}

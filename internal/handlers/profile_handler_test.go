@@ -271,6 +271,7 @@ func TestProfileHandler_CoachAndAdminFlow(t *testing.T) {
 	// 6. POST /profile as Manager (update display name & password)
 	form = url.Values{}
 	form.Set("display_name", "Head Director")
+	form.Set("current_password", "manager123")
 	form.Set("new_password", "newsecurepass")
 	form.Set("confirm_password", "newsecurepass")
 
@@ -342,7 +343,8 @@ func TestProfileHandler_AvatarUploadAndRemoval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create form file: %v", err)
 	}
-	_, _ = part.Write([]byte("fake png binary data"))
+	// Valid 1x1 PNG header bytes (passes http.DetectContentType magic-byte check)
+	_, _ = part.Write([]byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"))
 	_ = writer.WriteField("display_name", "Avatar Tester Updated")
 	_ = writer.Close()
 

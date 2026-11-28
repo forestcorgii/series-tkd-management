@@ -5,8 +5,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Upgrade any insecure HTTP subresources to HTTPS automatically -->
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>{{block "title" .}}Series Taekwondo Management System{{end}}</title>
     <!-- PWA Manifest, Icons & Meta -->
     <link rel="manifest" href="/manifest.webmanifest">
@@ -39,11 +37,13 @@
         href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@500;600;700;800;900&display=swap"
         rel="stylesheet">
     <!-- Tailwind CSS (Compiled Production Stylesheet) -->
-    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/css/tailwind.css?v=3.0.0">
     <!-- HTMX 1.9.10 (Locally Vendored) -->
     <script src="/static/js/htmx.min.js"></script>
-    <!-- Web Push Engine (STMSPush) -->
-    <script src="/static/js/push-client.js"></script>
+    <!-- Social Media Schedule Export Engine -->
+    <script src="/static/js/schedule-export.js?v=2.7.0"></script>
+    <!-- Multi-Tagging Status Input -->
+    <script src="/static/js/status-tags.js?v=1.0.0"></script>
 </head>
 
 <body hx-boost="true"
@@ -62,7 +62,7 @@
                         class="font-display font-black text-sm sm:text-base tracking-wide text-[#000000] dark:text-[#FFFDF4] uppercase flex items-center gap-2">
                         SERIES TAEKWONDO
                         {{if $user}}
-                        <span class="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full font-bold tracking-wider
+                        <span class="hidden lg:inline-flex text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full font-bold tracking-wider
                             {{if $user.IsOperationManager}}bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30
                             {{else if $user.IsAdmin}}bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30
                             {{else if $user.IsCoach}}bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30
@@ -72,7 +72,7 @@
                         </span>
                         {{else}}
                         <span
-                            class="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-[#990303]/10 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400 font-bold tracking-wider">
+                            class="hidden lg:inline-flex text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5 rounded-full bg-[#990303]/10 text-[#990303] border border-[#990303]/30 dark:bg-[#990303]/25 dark:text-red-400 font-bold tracking-wider">
                             Operations
                         </span>
                         {{end}}
@@ -118,14 +118,15 @@
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Students</a>
                 <a href="/locations"
                     class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Locations</a>
+                {{else if $user.IsStudent}}
+                <a href="/"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Schedule</a>
+                <a href="/portal/student"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Practitioner Portal</a>
                 {{end}}
                 {{else}}
-                <a href="/#programs"
-                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Programs</a>
-                <a href="/#schedule"
-                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Schedule &amp; Locations</a>
-                <a href="/#portals"
-                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Portals</a>
+                <a href="/"
+                    class="px-2.5 py-1 rounded-md transition text-slate-700 hover:text-black hover:bg-[#F4F1E4] dark:text-[#8C8A82] dark:hover:text-[#FFFDF4] dark:hover:bg-neutral-900">Schedule &amp; Reservations</a>
                 {{end}}
             </nav>
 
@@ -133,21 +134,21 @@
                 <!-- Theme Toggle Button -->
                 <button id="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle light and dark mode"
                     title="Toggle light and dark mode"
-                    class="p-1.5 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition flex items-center gap-1 text-xs font-semibold">
+                    class="{{if $user}}hidden lg:flex{{else}}flex{{end}} p-1.5 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition items-center gap-1 text-xs font-semibold">
                     <!-- Sun Icon (shown in dark mode) -->
-                    <svg id="theme-icon-sun" class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24"
+                    <svg id="theme-icon-sun" class="theme-icon-sun w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="4"></circle>
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41" />
                     </svg>
                     <!-- Moon Icon (shown in light mode) -->
-                    <svg id="theme-icon-moon" class="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 hidden" fill="none"
+                    <svg id="theme-icon-moon" class="theme-icon-moon w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 hidden" fill="none"
                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
-                    <span id="theme-mode-text" class="hidden sm:inline text-[11px]">Light</span>
+                    <span id="theme-mode-text" class="theme-mode-text hidden sm:inline text-[11px]">Light</span>
                 </button>
 
                 <!-- Authenticated User Profile Indicator with Submenu -->
@@ -189,7 +190,7 @@
                                 </svg>
                             {{end}}
                         </div>
-                        <span class="font-bold text-black dark:text-white truncate max-w-[90px] sm:max-w-[130px] text-[11px]">
+                        <span class="hidden sm:inline font-bold text-black dark:text-white truncate sm:max-w-[130px] text-[11px]">
                             {{if $user.DisplayName}}{{$user.DisplayName}}{{else}}{{$user.Email}}{{end}}
                         </span>
                         <svg class="w-3 h-3 text-slate-500 transition-transform duration-200" id="profile-menu-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -268,13 +269,15 @@
                             </button>
                         </div>
                         <div class="border-t border-[#E5E3D8] dark:border-neutral-800 pt-0.5">
-                            <a href="/logout" hx-boost="false"
-                                class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
-                                <svg class="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                </svg>
-                                <span>Sign Out</span>
-                            </a>
+                            <form action="/logout" method="POST" hx-boost="false" class="m-0">
+                                <button type="submit"
+                                    class="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer">
+                                    <svg class="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                    <span>Sign Out</span>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -334,12 +337,33 @@
                         </span>
                     </div>
                 </div>
-                <button type="button" onclick="toggleMobileDrawer(false)" aria-label="Close menu"
-                    class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                <div class="flex items-center space-x-1.5 flex-shrink-0">
+                    <!-- Light / Dark Mode Toggle Button in Side Panel Header -->
+                    <button type="button" onclick="toggleTheme()" aria-label="Toggle light and dark mode"
+                        title="Toggle light and dark mode"
+                        class="p-2 rounded-lg border border-[#E5E3D8] bg-[#FFFDF4] hover:bg-[#F4F1E4] text-[#000000] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-[#FFFDF4] shadow-xs transition flex items-center justify-center cursor-pointer">
+                        <!-- Sun Icon (shown in dark mode) -->
+                        <svg class="theme-icon-sun w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="4"></circle>
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41" />
+                        </svg>
+                        <!-- Moon Icon (shown in light mode) -->
+                        <svg class="theme-icon-moon w-4 h-4 text-neutral-800 dark:text-neutral-200 hidden" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    </button>
+                    <!-- Close Drawer Button -->
+                    <button type="button" onclick="toggleMobileDrawer(false)" aria-label="Close menu"
+                        class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <!-- Drawer Nav Links -->
@@ -348,7 +372,7 @@
                 <div>
                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Floor Operations</p>
                     <div class="space-y-1">
-                        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                        <a href="/dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
                             <span class="text-base">📊</span> <span>Dashboard</span>
                         </a>
                         <a href="/sessions" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
@@ -400,6 +424,9 @@
                 <div>
                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-2">Student Practitioner</p>
                     <div class="space-y-1">
+                        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
+                            <span class="text-base">📅</span> <span>Schedule &amp; Calendar</span>
+                        </a>
                         <a href="/portal/student" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition">
                             <span class="text-base">🥋</span> <span>Practitioner Portal</span>
                         </a>
@@ -418,14 +445,26 @@
                             <span class="text-base">⚙️</span> <span>Settings</span>
                         </a>
                         {{end}}
+                        <!-- Theme Toggle in Mobile Drawer List -->
+                        <button type="button" onclick="toggleTheme()"
+                            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-700 hover:text-black dark:text-slate-300 dark:hover:text-white hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition text-left cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <span class="theme-icon-sun text-base">☀️</span>
+                                <span class="theme-icon-moon text-base hidden">🌙</span>
+                                <span>Theme Mode</span>
+                            </div>
+                            <span class="theme-mode-text text-xs font-bold px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400">Light</span>
+                        </button>
                         <!-- PWA Install in Mobile Drawer -->
                         <button type="button" onclick="triggerPWAInstall()"
                             class="pwa-install-trigger hidden w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#990303] dark:text-red-400 font-bold hover:bg-[#F4F1E4] dark:hover:bg-neutral-900 transition text-left cursor-pointer">
                             <span class="text-base">📲</span> <span>Install Series TKD App</span>
                         </button>
-                        <a href="/logout" hx-boost="false" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
-                            <span class="text-base">🚪</span> <span>Sign Out</span>
-                        </a>
+                        <form action="/logout" method="POST" hx-boost="false" class="m-0">
+                            <button type="submit" class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer">
+                                <span class="text-base">🚪</span> <span>Sign Out</span>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -437,7 +476,7 @@
         class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-[#E5E3D8] dark:border-neutral-800 px-2 py-1.5 flex items-center justify-around shadow-lg">
         {{if not $user.IsStudent}}
             {{if $user.IsOperationManager}}
-            <a href="/" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+            <a href="/dashboard" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
                 <span class="text-base leading-none">📊</span>
                 <span class="text-[10px] font-bold tracking-tight mt-1">Dash</span>
             </a>
@@ -466,15 +505,19 @@
                 <span class="text-[10px] font-bold tracking-tight mt-1">More</span>
             </button>
         {{else}}
-            <a href="/portal/student" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[#990303] dark:text-red-400 transition min-w-[64px]">
+            <a href="/" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
+                <span class="text-base leading-none">📅</span>
+                <span class="text-[10px] font-bold tracking-tight mt-1">Calendar</span>
+            </a>
+            <a href="/portal/student" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
                 <span class="text-base leading-none">🥋</span>
                 <span class="text-[10px] font-bold tracking-tight mt-1">Portal</span>
             </a>
-            <a href="/profile" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white transition min-w-[64px]">
+            <a href="/profile" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
                 <span class="text-base leading-none">👤</span>
                 <span class="text-[10px] font-bold tracking-tight mt-1">Profile</span>
             </a>
-            <button type="button" onclick="toggleMobileDrawer(true)" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-slate-600 hover:text-black dark:text-slate-400 dark:hover:text-white transition min-w-[64px]">
+            <button type="button" onclick="toggleMobileDrawer(true)" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-600 hover:text-[#990303] dark:text-slate-400 dark:hover:text-red-400 transition min-w-[56px]">
                 <span class="text-base leading-none">☰</span>
                 <span class="text-[10px] font-bold tracking-tight mt-1">Menu</span>
             </button>
@@ -482,11 +525,6 @@
     </nav>
     {{end}}
 
-    <!-- Footer -->
-    <footer
-        class="w-full max-w-full border-t border-[#E5E3D8] bg-[#FFFFFF]/70 text-slate-600 dark:border-neutral-900 dark:bg-[#000000]/80 dark:text-[#8C8A82] py-2 px-4 text-center text-[11px]">
-        Series Taekwondo Management System (STMS) &bull; Go + HTMX Reactive Architecture
-    </footer>
 
     <script>
         function toggleTheme() {
@@ -505,6 +543,17 @@
 
         function syncThemeUI() {
             const isDark = document.documentElement.classList.contains('dark');
+            document.querySelectorAll('.theme-icon-sun').forEach(el => {
+                if (isDark) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+            document.querySelectorAll('.theme-icon-moon').forEach(el => {
+                if (isDark) el.classList.add('hidden');
+                else el.classList.remove('hidden');
+            });
+            document.querySelectorAll('.theme-mode-text').forEach(el => {
+                el.textContent = isDark ? 'Light' : 'Dark';
+            });
             const sun = document.getElementById('theme-icon-sun');
             const moon = document.getElementById('theme-icon-moon');
             const text = document.getElementById('theme-mode-text');
@@ -523,6 +572,29 @@
         window.addEventListener('DOMContentLoaded', syncThemeUI);
         document.addEventListener('htmx:load', syncThemeUI);
         document.addEventListener('htmx:afterSwap', syncThemeUI);
+
+        function syncMobileBottomBarUI() {
+            const bottomNav = document.getElementById('mobile-bottom-bar');
+            if (!bottomNav) return;
+            const currentPath = window.location.pathname;
+            const links = bottomNav.querySelectorAll('a[href]');
+            links.forEach(link => {
+                const href = link.getAttribute('href');
+                const isExactRoot = href === '/' && (currentPath === '/' || currentPath === '');
+                const isSubPath = href !== '/' && currentPath.startsWith(href);
+                if (isExactRoot || isSubPath) {
+                    link.classList.remove('text-slate-600', 'dark:text-slate-400');
+                    link.classList.add('text-[#990303]', 'dark:text-red-400', 'font-bold');
+                } else {
+                    link.classList.remove('text-[#990303]', 'dark:text-red-400', 'font-bold');
+                    link.classList.add('text-slate-600', 'dark:text-slate-400');
+                }
+            });
+        }
+        window.addEventListener('DOMContentLoaded', syncMobileBottomBarUI);
+        document.addEventListener('htmx:load', syncMobileBottomBarUI);
+        document.addEventListener('htmx:afterSwap', syncMobileBottomBarUI);
+        document.addEventListener('htmx:historyRestore', syncMobileBottomBarUI);
 
         // --- Mobile Navigation Drawer Engine ---
         function toggleMobileDrawer(open) {
@@ -558,17 +630,20 @@
         });
 
         // --- Touch & Click Tooltip Engine ---
-        document.addEventListener('click', (e) => {
-            const trigger = e.target.closest('.has-tooltip');
-            if (trigger) {
-                const isActive = trigger.classList.contains('tooltip-active');
-                document.querySelectorAll('.has-tooltip.tooltip-active').forEach(el => el.classList.remove('tooltip-active'));
-                if (!isActive) trigger.classList.add('tooltip-active');
-                e.stopPropagation();
-            } else {
-                document.querySelectorAll('.has-tooltip.tooltip-active').forEach(el => el.classList.remove('tooltip-active'));
-            }
-        });
+        if (!window.__stmsTooltipBound) {
+            window.__stmsTooltipBound = true;
+            document.addEventListener('click', (e) => {
+                const trigger = e.target.closest('.has-tooltip');
+                if (trigger) {
+                    const isActive = trigger.classList.contains('tooltip-active');
+                    document.querySelectorAll('.has-tooltip.tooltip-active').forEach(el => el.classList.remove('tooltip-active'));
+                    if (!isActive) trigger.classList.add('tooltip-active');
+                    e.stopPropagation();
+                } else {
+                    document.querySelectorAll('.has-tooltip.tooltip-active').forEach(el => el.classList.remove('tooltip-active'));
+                }
+            });
+        }
 
         // --- STMS Searchable Dropdown Engine ---
         function initSearchableSelect(select) {
@@ -1003,7 +1078,7 @@
 
             // Exclude entire pages where text inputs should never auto-uppercase (login, register, settings, recovery)
             const path = (window.location && window.location.pathname) ? window.location.pathname.toLowerCase() : '';
-            if (path === '/login' || path === '/register' || path.startsWith('/settings') || path === '/forgot-password' || path === '/reset-password') {
+            if (path === '/login' || path === '/register' || path === '/register/student' || path.startsWith('/settings') || path === '/forgot-password' || path === '/reset-password') {
                 return false;
             }
 
@@ -1186,18 +1261,64 @@
             }
         }
 
-        window.addEventListener('online', () => {
-            syncOnlineStatus();
-        });
+        // Run initial online check and bind global HTMX/network listeners once
+        syncOnlineStatus();
+        if (!window.__stmsNetworkBound) {
+            window.__stmsNetworkBound = true;
+            window.addEventListener('online', () => syncOnlineStatus());
+            window.addEventListener('offline', () => syncOnlineStatus());
+            document.body.addEventListener('htmx:sendError', () => syncOnlineStatus());
+            document.body.addEventListener('htmx:responseError', (evt) => {
+                const status = evt.detail && evt.detail.xhr ? evt.detail.xhr.status : 0;
+                if (status >= 400) {
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed bottom-20 lg:bottom-6 right-4 z-50 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold shadow-xl';
+                    toast.textContent = 'Request failed (HTTP ' + status + '). Please check your input or permissions.';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 4000);
+                }
+            });
+        }
 
-        window.addEventListener('offline', () => {
-            syncOnlineStatus();
-        });
+        // Global Single Session Reservation Link Copier
+        function copySessionReservationLink(sessionId, btn) {
+            if (!sessionId) return;
+            const url = window.location.origin + '/reserve/' + sessionId;
+            const originalHtml = btn ? btn.innerHTML : '';
 
-        // Trigger connectivity check on failed HTMX requests
-        document.body.addEventListener('htmx:sendError', () => {
-            syncOnlineStatus();
-        });
+            const showSuccessFeedback = () => {
+                if (!btn) return;
+                btn.innerHTML = '<span class="text-emerald-500 font-bold inline-flex items-center gap-1">✓ Copied!</span>';
+                btn.classList.add('border-emerald-500');
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.remove('border-emerald-500');
+                }, 2000);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(showSuccessFeedback).catch(fallback);
+            } else {
+                fallback();
+            }
+
+            function fallback() {
+                const temp = document.createElement('textarea');
+                temp.value = url;
+                temp.style.position = 'fixed';
+                temp.style.left = '-9999px';
+                document.body.appendChild(temp);
+                temp.select();
+                try {
+                    document.execCommand('copy');
+                    showSuccessFeedback();
+                } catch (e) {
+                    prompt('Copy this reservation link:', url);
+                } finally {
+                    document.body.removeChild(temp);
+                }
+            }
+        }
     </script>
 
     <!-- Floating PWA Offline Alert -->
