@@ -21,7 +21,7 @@
                 </span>
                 {{end}}
                 <span class="text-xs text-slate-500 dark:text-slate-400 font-medium {{if .Session.IsCancelled}}line-through{{end}}">
-                    &bull; {{.Session.StartTime}} - {{.Session.EndTime}}
+                    &bull; {{formatTimeRange .Session.StartTime .Session.EndTime}}
                 </span>
                 <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">&bull; {{formatDate .Session.SessionDate}}</span>
                 {{if .Session.LocationName}}
@@ -46,6 +46,12 @@
         </div>
 
         <div class="flex items-center gap-1.5 self-start md:self-auto flex-wrap">
+            <button type="button"
+                    onclick="copySessionReservationLink('{{.Session.ID}}', this)"
+                    class="btn btn-secondary btn-xs py-1 px-2.5 flex items-center gap-1"
+                    title="Copy Public Reservation Link">
+                <span>🔗</span> Copy Link
+            </button>
             {{if not .Session.IsCancelled}}
             <button type="button"
                     onclick="openEditSessionModal()"
@@ -117,7 +123,7 @@
     <!-- Two Column Floor Tablet Layout: Left Search & Check-in | Right Live Roster -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <!-- Left: Quick Search / QR Code Reader & Admit Action -->
-        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
+        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs order-2 lg:order-1 {{if .Session.IsCancelled}}opacity-60 pointer-events-none{{end}}">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
                 <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Floor Attendance Search</h2>
                 {{if .Session.IsCancelled}}
@@ -154,21 +160,32 @@
                 <form hx-post="/sessions/{{.Session.ID}}/checkin-attendee"
                       hx-target="#attendance-roster"
                       hx-swap="afterbegin"
-                      class="flex gap-1.5"
+                      class="flex gap-1.5 flex-wrap sm:flex-nowrap"
                       onsubmit="setTimeout(() => this.reset(), 100);">
                     <input type="text"
                            name="attendee_name"
                            placeholder="Full Name (e.g. Master Jin, Guest Alex)"
                            required
-                           class="form-input text-xs py-1.5 px-2 flex-1 rounded-md">
-                    <select name="attendee_role" class="form-select text-xs py-1.5 px-2 sm:w-24 rounded-md">
+                           class="form-input text-xs py-1.5 px-2 flex-1 min-w-[140px] rounded-md">
+                    <select name="attendee_role" class="form-select text-xs py-1.5 px-2 w-24 sm:w-28 shrink-0 rounded-md">
                         <option value="Guest">Guest</option>
                         <option value="Coach">Coach</option>
                         <option value="Admin">Admin</option>
                         <option value="Visitor">Visitor</option>
                     </select>
+                    <div class="relative w-20 sm:w-24 shrink-0">
+                        <span class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₱</span>
+                        <input type="number"
+                               step="0.01"
+                               min="0"
+                               name="session_rate"
+                               placeholder="Rate"
+                               {{if .Session.SessionRate}}value="{{formatCurrency .Session.SessionRate}}"{{end}}
+                               class="form-input text-xs py-1.5 pl-5 pr-1.5 w-full rounded-md"
+                               title="Admit Rate (₱)">
+                    </div>
                     <input type="hidden" name="attendee_type" value="guest">
-                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2.5 text-xs whitespace-nowrap font-bold">
+                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2.5 text-xs whitespace-nowrap font-bold shrink-0">
                         <span>+</span> Admit
                     </button>
                 </form>
@@ -187,7 +204,7 @@
         </div>
 
         <!-- Right: Verified Floor Roster -->
-        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs">
+        <div class="glass-panel p-3 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 shadow-xs order-1 lg:order-2">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
                 <h2 class="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white">Verified Floor Roster</h2>
                 {{if .Session.IsCancelled}}
@@ -239,15 +256,29 @@
         </div>
         <form action="/sessions/{{.Session.ID}}/cancel" method="POST" class="space-y-4">
             <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1">
-                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
+                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{formatTimeRange .Session.StartTime .Session.EndTime}})</p>
                 <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{if .Session.CoachName}}{{.Session.CoachName}}{{else}}None / Unassigned{{end}}</p>
             </div>
 
-            <div>
+            <div class="space-y-1.5">
                 <label class="form-label">Cancellation Reason</label>
+                <select id="live-cancel-reason-select"
+                        name="reason_preset"
+                        onchange="onLiveCancelReasonSelect(this, 'live-cancel-reason-input')"
+                        class="form-select text-sm">
+                    <option value="">Select cancellation reason...</option>
+                    <option value="Inclement Weather / Typhoon Signal">Inclement Weather / Typhoon Signal</option>
+                    <option value="Coach Illness / Emergency">Coach Illness / Emergency</option>
+                    <option value="Facility / Mat Maintenance">Facility / Mat Maintenance</option>
+                    <option value="Holiday / Dojang Closed">Holiday / Dojang Closed</option>
+                    <option value="Schedule Conflict">Schedule Conflict</option>
+                    <option value="Low Attendance">Low Attendance</option>
+                    <option value="Other">Other (Custom Reason)</option>
+                </select>
                 <input type="text"
+                       id="live-cancel-reason-input"
                        name="reason"
-                       placeholder="e.g. Typhoon signal, Coach emergency, Facility repair..."
+                       placeholder="Or specify custom cancellation reason..."
                        required
                        class="form-input text-sm">
             </div>
@@ -387,6 +418,7 @@
         </form>
     </div>
 </div>
+{{end}}
 
 <!-- Modal: Delete Session Confirmation -->
 <div id="delete-session-modal" class="modal-backdrop hidden">
@@ -399,7 +431,7 @@
         </div>
         <form id="delete-session-form" method="POST" action="/sessions/{{.Session.ID}}/delete" class="space-y-4">
             <div class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-1.5">
-                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{.Session.StartTime}} - {{.Session.EndTime}})</p>
+                <p class="font-bold text-sm text-slate-900 dark:text-white">{{.Session.TrainingType}} Class ({{formatTimeRange .Session.StartTime .Session.EndTime}})</p>
                 <p class="text-xs text-slate-600 dark:text-slate-400">Date: {{formatDate .Session.SessionDate}} &bull; Lead Coach: {{if .Session.CoachName}}{{.Session.CoachName}}{{else}}None / Unassigned{{end}}</p>
                 <p class="text-xs text-rose-700 dark:text-rose-300 font-medium pt-1 border-t border-rose-200/60 dark:border-rose-900/60">
                     ⚠️ Deleting this open class will permanently purge the attendance roster and restore any deducted student membership credits.
@@ -458,6 +490,16 @@ function openDeleteSessionModal() {
 function closeDeleteModal() {
     document.getElementById('delete-session-modal').classList.add('hidden');
 }
+
+function onLiveCancelReasonSelect(sel, inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    if (sel.value === 'Other') {
+        input.value = '';
+        input.focus();
+    } else if (sel.value) {
+        input.value = sel.value;
+    }
+}
 </script>
-{{end}}
 {{end}}

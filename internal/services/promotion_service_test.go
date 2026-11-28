@@ -17,6 +17,7 @@ func TestPromotionService_EvaluateReadiness(t *testing.T) {
 	t.Run("Status READY when all criteria met", func(t *testing.T) {
 		student := &models.Student{
 			ID:                studentID,
+			IsActive:          true,
 			CurrentBelt:       models.BeltWhite,
 			LastPromotionDate: time.Now().AddDate(0, 0, -60), // 60 days ago (req: 45)
 		}
@@ -65,6 +66,7 @@ func TestPromotionService_EvaluateReadiness(t *testing.T) {
 	t.Run("Status PRE-TEST ELIGIBLE when attendance met but missing/low eval", func(t *testing.T) {
 		student := &models.Student{
 			ID:                studentID,
+			IsActive:          true,
 			CurrentBelt:       models.BeltWhite,
 			LastPromotionDate: time.Now().AddDate(0, 0, -60),
 		}
@@ -131,6 +133,7 @@ func TestPromotionService_EvaluateReadiness(t *testing.T) {
 	t.Run("Excludes attendances from cancelled sessions", func(t *testing.T) {
 		student := &models.Student{
 			ID:                studentID,
+			IsActive:          true,
 			CurrentBelt:       models.BeltWhite,
 			LastPromotionDate: time.Now().AddDate(0, 0, -60), // 60 days
 		}

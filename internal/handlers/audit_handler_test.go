@@ -130,8 +130,8 @@ func TestAuditHandler_RBAC(t *testing.T) {
 			t.Errorf("expected 303 See Other, got %d", rec.Code)
 		}
 		loc := rec.Header().Get("Location")
-		if loc != "/portal/student" {
-			t.Errorf("expected redirect to /portal/student, got %s", loc)
+		if loc != "/" {
+			t.Errorf("expected redirect to /, got %s", loc)
 		}
 	})
 

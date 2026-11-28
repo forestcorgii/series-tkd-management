@@ -55,6 +55,7 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	form.Set("name", "Ortigas Training Center")
 	form.Set("pin", "https://maps.google.com/?q=Ortigas+Center")
 	form.Set("fixed_rate", "300.00")
+	form.Set("max_trainees", "24")
 
 	req := httptest.NewRequest("POST", "/locations", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -89,12 +90,16 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	if createdLoc.FixedRate == nil || *createdLoc.FixedRate != 300.00 {
 		t.Errorf("expected fixed_rate to be 300.00, got %v", createdLoc.FixedRate)
 	}
+	if createdLoc.MaxTrainees == nil || *createdLoc.MaxTrainees != 24 {
+		t.Errorf("expected max_trainees to be 24, got %v", createdLoc.MaxTrainees)
+	}
 
 	// 2. Update Location
 	editForm := url.Values{}
 	editForm.Set("name", "Ortigas Grand Dojang")
 	editForm.Set("pin", "https://maps.google.com/?q=Ortigas+Grand")
 	editForm.Set("fixed_rate", "375.50")
+	editForm.Set("max_trainees", "32")
 
 	reqEdit := httptest.NewRequest("POST", "/locations/"+createdLoc.ID.String()+"/edit", strings.NewReader(editForm.Encode()))
 	reqEdit.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -113,6 +118,9 @@ func TestLocationHandler_CreateUpdateDelete(t *testing.T) {
 	}
 	if updated.FixedRate == nil || *updated.FixedRate != 375.50 {
 		t.Errorf("expected updated fixed_rate to be 375.50, got %v", updated.FixedRate)
+	}
+	if updated.MaxTrainees == nil || *updated.MaxTrainees != 32 {
+		t.Errorf("expected updated max_trainees to be 32, got %v", updated.MaxTrainees)
 	}
 
 	// 3. Delete Location
@@ -207,7 +215,7 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 		t.Errorf("coach should NOT be permitted to create/modify locations")
 	}
 
-	// Student Access (Browser request redirects to Student portal /portal/student)
+	// Student Access (Browser request redirects to Student default landing page /)
 	studentUser, _ := store.GetUserByEmail("alex.vance@seriestkd.com")
 	studentToken := uuid.New().String()
 	_ = store.CreateSessionToken(studentToken, studentUser.ID, time.Now().Add(time.Hour))
@@ -215,8 +223,8 @@ func TestLocationHandler_ValidationAndRBAC(t *testing.T) {
 	reqStudent.AddCookie(&http.Cookie{Name: "stms_session", Value: studentToken})
 	recStudent := httptest.NewRecorder()
 	app.AuthMiddleware(app.RequireRole(models.RoleCoach, models.RoleAdmin, models.RoleOperationManager)(app.HandleLocations)).ServeHTTP(recStudent, reqStudent)
-	if recStudent.Code != http.StatusSeeOther || !strings.Contains(recStudent.Header().Get("Location"), "/portal/student") {
-		t.Errorf("expected 303 redirect to /portal/student for Student role on /locations, got code %d to %s", recStudent.Code, recStudent.Header().Get("Location"))
+	if recStudent.Code != http.StatusSeeOther || recStudent.Header().Get("Location") != "/" {
+		t.Errorf("expected 303 redirect to / for Student role on /locations, got code %d to %s", recStudent.Code, recStudent.Header().Get("Location"))
 	}
 
 	// Student Access via HTMX/API (Returns 403 Forbidden)
@@ -301,4 +309,56 @@ func TestLocationHandler_RESTMethodVariations(t *testing.T) {
 		t.Errorf("expected location to be deleted")
 	}
 }
+
+func TestLocationHandler_SetDefaultLocation(t *testing.T) {
+	app, store := setupTestApp(t)
+
+	managerUser, _ := store.GetUserByEmail("manager@seriestkd.com")
+	token := uuid.New().String()
+	_ = store.CreateSessionToken(token, managerUser.ID, time.Now().Add(time.Hour))
+
+	locs, _ := store.GetAllLocations()
+	if len(locs) < 2 {
+		t.Fatalf("expected at least 2 seeded locations")
+	}
+
+	loc1 := locs[0]
+	loc2 := locs[1]
+
+	// 1. Set loc1 as default
+	req1 := httptest.NewRequest("POST", "/locations/"+loc1.ID.String()+"/set-default", nil)
+	req1.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	rec1 := httptest.NewRecorder()
+
+	app.AuthMiddleware(app.RequireRole(models.RoleOperationManager)(app.HandleSetDefaultLocation)).ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after set-default, got %d", rec1.Code)
+	}
+
+	defLoc, err := store.GetDefaultLocation()
+	if err != nil || defLoc == nil || defLoc.ID != loc1.ID {
+		t.Fatalf("expected default location to be loc1 (%s), got %v", loc1.ID, defLoc)
+	}
+
+	// 2. Set loc2 as default, verify loc1 is no longer default
+	req2 := httptest.NewRequest("POST", "/locations/"+loc2.ID.String()+"/set-default", nil)
+	req2.AddCookie(&http.Cookie{Name: "stms_session", Value: token})
+	rec2 := httptest.NewRecorder()
+
+	app.AuthMiddleware(app.RequireRole(models.RoleOperationManager)(app.HandleSetDefaultLocation)).ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after set-default, got %d", rec2.Code)
+	}
+
+	defLoc2, err := store.GetDefaultLocation()
+	if err != nil || defLoc2 == nil || defLoc2.ID != loc2.ID {
+		t.Fatalf("expected default location to be loc2 (%s), got %v", loc2.ID, defLoc2)
+	}
+
+	freshLoc1, _ := store.GetLocationByID(loc1.ID)
+	if freshLoc1.IsDefault {
+		t.Errorf("expected loc1.IsDefault to be false after loc2 was made default")
+	}
+}
+
 

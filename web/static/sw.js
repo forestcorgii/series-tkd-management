@@ -1,5 +1,5 @@
 // Series Taekwondo Management System (STMS) - Progressive Web App Service Worker
-const CACHE_VERSION = 'stms-v5';
+const CACHE_VERSION = 'stms-v14';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 const PRECACHE_ASSETS = [
@@ -7,7 +7,6 @@ const PRECACHE_ASSETS = [
     '/manifest.webmanifest',
     '/static/css/tailwind.css',
     '/static/js/htmx.min.js',
-    '/static/js/push-client.js',
     '/static/icons/icon-192.png',
     '/static/icons/icon-512.png',
     '/static/icons/icon-maskable-192.png',
@@ -73,34 +72,30 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 2. HTMX Partial Requests -> Network with Offline Alert Fallback
+    // 2. HTMX Partial Requests -> Network with non-200 offline signal (prevents corrupting tables/spans)
     if (request.headers.get('HX-Request') === 'true') {
         event.respondWith(
-            fetch(request).catch(async () => {
-                return new Response(
-                    `<div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs sm:text-sm font-semibold flex items-center gap-2">
-                        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>Connection lost. Operating in offline mode. Please reconnect floor device.</span>
-                    </div>`,
-                    { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-                );
+            fetch(request).catch(() => {
+                return new Response('Connection lost. Operating in offline mode.', {
+                    status: 503,
+                    statusText: 'Service Unavailable',
+                    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                });
             })
         );
         return;
     }
 
-    // 3. Static Assets (Icons, Fonts, Scripts, Styles) -> Stale-While-Revalidate
+    // 3. Static Assets (Icons, Fonts, Scripts, Styles; exclude user-uploaded avatars) -> Stale-While-Revalidate
     const isStaticAsset =
-        url.pathname.startsWith('/static/') ||
-        url.hostname.includes('fonts.googleapis.com') ||
-        url.hostname.includes('fonts.gstatic.com') ||
-        url.hostname.includes('unpkg.com');
+        (url.pathname.startsWith('/static/') && !url.pathname.startsWith('/static/uploads/')) ||
+        url.hostname === 'fonts.googleapis.com' ||
+        url.hostname === 'fonts.gstatic.com' ||
+        url.hostname === 'unpkg.com';
 
     if (isStaticAsset) {
         event.respondWith(
-            caches.match(request).then((cachedResponse) => {
+            caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
                 const fetchPromise = fetch(request)
                     .then((networkResponse) => {
                         if (networkResponse && networkResponse.status === 200) {
@@ -109,7 +104,7 @@ self.addEventListener('fetch', (event) => {
                         }
                         return networkResponse;
                     })
-                    .catch(() => cachedResponse);
+                    .catch(() => cachedResponse || Response.error());
 
                 return cachedResponse || fetchPromise;
             })
@@ -117,9 +112,9 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Default: Standard fetch
+    // Default: Standard fetch with safe offline fallback
     event.respondWith(
-        fetch(request).catch(() => caches.match(request))
+        fetch(request).catch(() => caches.match(request, { ignoreSearch: true }).then((r) => r || Response.error()))
     );
 });
 
@@ -128,69 +123,4 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
-});
-
-// ==========================================
-// Web Push Event Notification Handler
-// ==========================================
-self.addEventListener('push', (event) => {
-    let payload = {
-        title: 'Series Taekwondo',
-        body: 'New notification from Series TKD',
-        icon: '/static/icons/icon-192.png',
-        badge: '/static/icons/icon.svg',
-        tag: 'stms-notification',
-        url: '/dashboard'
-    };
-
-    if (event.data) {
-        try {
-            const json = event.data.json();
-            payload = Object.assign(payload, json);
-        } catch (e) {
-            payload.body = event.data.text() || payload.body;
-        }
-    }
-
-    const targetUrl = (payload.data && payload.data.url) || payload.url || '/dashboard';
-    const options = {
-        body: payload.body,
-        icon: payload.icon || '/static/icons/icon-192.png',
-        badge: payload.badge || '/static/icons/icon.svg',
-        tag: payload.tag || 'stms-notification',
-        renotify: true,
-        vibrate: [100, 50, 100],
-        data: {
-            url: targetUrl,
-            timestamp: Date.now()
-        }
-    };
-
-    event.waitUntil(
-        self.registration.showNotification(payload.title || 'Series Taekwondo', options)
-    );
-});
-
-// ==========================================
-// Notification Click Handler (Deep Linking & Window Focus)
-// ==========================================
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-    const targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard';
-
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            for (const client of clientList) {
-                if (client.url.includes(self.location.origin) && 'focus' in client) {
-                    if ('navigate' in client && targetUrl !== '/') {
-                        client.navigate(targetUrl);
-                    }
-                    return client.focus();
-                }
-            }
-            if (clients.openWindow) {
-                return clients.openWindow(targetUrl);
-            }
-        })
-    );
 });

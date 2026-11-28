@@ -1,13 +1,17 @@
 package handlers_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"series-tkd-management/internal/handlers"
+	"series-tkd-management/internal/models"
 	"series-tkd-management/internal/repository"
 )
 
@@ -51,8 +55,17 @@ func TestAppHandler_ParseTemplates(t *testing.T) {
 		},
 	}
 
+	mgrUser := &models.User{
+		ID:          uuid.New(),
+		Email:       "manager@seriestkd.com",
+		Role:        models.RoleOperationManager,
+		IsActive:    true,
+		DisplayName: "Operation Manager",
+	}
+
 	for _, tc := range routes {
 		req := httptest.NewRequest("GET", tc.path, nil)
+		req = req.WithContext(context.WithValue(req.Context(), handlers.UserContextKey, mgrUser))
 		rec := httptest.NewRecorder()
 
 		tc.handlerFunc(rec, req)

@@ -181,9 +181,26 @@ func (a *AppHandler) HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	caller := GetUserFromContext(r.Context())
+	if caller == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	isJSON := strings.Contains(r.Header.Get("Accept"), "application/json") ||
 		strings.Contains(r.Header.Get("Content-Type"), "application/json") ||
 		strings.HasPrefix(r.URL.Path, "/api/")
+
+	if existing.IsSystem && !caller.IsOperationManager() {
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "system roles cannot be modified"})
+			return
+		}
+		http.Redirect(w, r, "/roles?error="+url.QueryEscape("System roles cannot be modified."), http.StatusSeeOther)
+		return
+	}
 
 	var name, slug, description string
 	var permissions []string
@@ -213,6 +230,21 @@ func (a *AppHandler) HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 		slug = r.FormValue("slug")
 		description = r.FormValue("description")
 		permissions = r.Form["permissions"]
+	}
+
+	if !caller.IsOperationManager() {
+		for _, perm := range permissions {
+			if perm == models.PermWildcard || !caller.HasPermission(perm) {
+				if isJSON {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]string{"error": "cannot grant permissions you do not hold"})
+					return
+				}
+				http.Redirect(w, r, "/roles?error="+url.QueryEscape("You cannot grant permissions you do not hold."), http.StatusSeeOther)
+				return
+			}
+		}
 	}
 
 	if name != "" {
@@ -312,9 +344,37 @@ func (a *AppHandler) HandleAssignStaffRole(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	caller := GetUserFromContext(r.Context())
+	if caller == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	isJSON := strings.Contains(r.Header.Get("Accept"), "application/json") ||
 		strings.Contains(r.Header.Get("Content-Type"), "application/json") ||
 		strings.HasPrefix(r.URL.Path, "/api/")
+
+	if !targetUser.IsStaff() {
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "roles can only be assigned to staff accounts"})
+			return
+		}
+		http.Redirect(w, r, "/admins?error="+url.QueryEscape("Roles can only be assigned to staff accounts."), http.StatusSeeOther)
+		return
+	}
+
+	if caller.ID == targetUser.ID && !caller.IsOperationManager() {
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "cannot modify your own roles"})
+			return
+		}
+		http.Redirect(w, r, "/admins?error="+url.QueryEscape("You cannot modify your own roles."), http.StatusSeeOther)
+		return
+	}
 
 	var roleIDs []uuid.UUID
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
@@ -353,6 +413,25 @@ func (a *AppHandler) HandleAssignStaffRole(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if !caller.IsOperationManager() {
+		for _, rid := range roleIDs {
+			rObj, rErr := a.store.GetRoleByID(rid)
+			if rErr != nil {
+				continue
+			}
+			if rObj.Slug == "manager" || rObj.HasPermission(models.PermWildcard) {
+				if isJSON {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]string{"error": "only an Operation Manager can assign the Operation Manager role"})
+					return
+				}
+				http.Redirect(w, r, "/admins?error="+url.QueryEscape("Only an Operation Manager can assign the Operation Manager role."), http.StatusSeeOther)
+				return
+			}
+		}
+	}
+
 	if err := a.store.AssignUserRoles(userID, roleIDs); err != nil {
 		if isJSON {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -372,7 +451,7 @@ func (a *AppHandler) HandleAssignStaffRole(w http.ResponseWriter, r *http.Reques
 	}
 
 	redirectTo := r.FormValue("redirect_to")
-	if redirectTo == "" {
+	if !strings.HasPrefix(redirectTo, "/") || strings.HasPrefix(redirectTo, "//") || strings.Contains(redirectTo, "\\") {
 		redirectTo = "/admins"
 	}
 	http.Redirect(w, r, redirectTo+"?success="+url.QueryEscape("Staff role assignments updated."), http.StatusSeeOther)
