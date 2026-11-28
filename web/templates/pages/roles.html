@@ -197,7 +197,7 @@
                     <div>
                         <label class="form-label" for="create-role-slug">Slug Identifier *</label>
                         <input type="text" id="create-role-slug" name="slug" required placeholder="e.g. receptionist"
-                            class="form-input text-xs w-full lowercase font-mono">
+                            class="form-input text-xs w-full lowercase font-mono no-uppercase" data-no-uppercase="true">
                     </div>
                 </div>
 
@@ -288,7 +288,7 @@
                     <div>
                         <label class="form-label" for="edit-role-slug-{{$role.ID}}">Slug Identifier *</label>
                         <input type="text" id="edit-role-slug-{{$role.ID}}" name="slug" value="{{$role.Slug}}" required
-                            class="form-input text-xs w-full lowercase font-mono">
+                            class="form-input text-xs w-full lowercase font-mono no-uppercase" data-no-uppercase="true">
                     </div>
                 </div>
 

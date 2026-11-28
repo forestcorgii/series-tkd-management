@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -48,6 +49,11 @@ func InitDatabase(databaseURL string) (RepositoryStore, string, error) {
 		} else {
 			connStr = "series_tkd.db"
 		}
+		sep := "?"
+		if strings.Contains(connStr, "?") {
+			sep = "&"
+		}
+		connStr += sep + "_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
 	}
 
 	db, err := sql.Open(driver, connStr)
@@ -82,13 +88,15 @@ func InitDatabase(databaseURL string) (RepositoryStore, string, error) {
 		return nil, driver, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	// Auto-seed if empty
-	var count int
-	_ = db.QueryRow("SELECT COUNT(*) FROM students").Scan(&count)
-	if count == 0 {
-		if err := store.SeedDefaultData(); err != nil {
-			// Non-fatal if seeding fails
-			fmt.Printf("Warning: failed to seed default data: %v\n", err)
+	// Auto-seed demo data only for SQLite local dev/tests or when explicitly enabled on PostgreSQL
+	if driver == "sqlite" || os.Getenv("SEED_DEMO_DATA") == "true" {
+		var count int
+		_ = db.QueryRow("SELECT COUNT(*) FROM students").Scan(&count)
+		if count == 0 {
+			if err := store.SeedDefaultData(); err != nil {
+				// Non-fatal if seeding fails
+				fmt.Printf("Warning: failed to seed default data: %v\n", err)
+			}
 		}
 	}
 
@@ -126,6 +134,10 @@ func (s *SQLStore) runMigrations() error {
 			emergency_relation TEXT NOT NULL,
 			medical_notes TEXT,
 			is_active INTEGER NOT NULL DEFAULT 1,
+			status_tags TEXT NOT NULL DEFAULT '',
+			waiver_accepted INTEGER NOT NULL DEFAULT 0,
+			waiver_signed_name TEXT NOT NULL DEFAULT '',
+			waiver_signed_at TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL
 		);
 
@@ -162,6 +174,10 @@ func (s *SQLStore) runMigrations() error {
 			name TEXT NOT NULL,
 			pin TEXT NOT NULL,
 			fixed_rate REAL,
+			max_trainees INTEGER,
+			is_default INTEGER NOT NULL DEFAULT 0,
+			telegram_channel_id TEXT DEFAULT '',
+			telegram_staff_chat_id TEXT DEFAULT '',
 			created_at TEXT NOT NULL
 		);
 
@@ -202,7 +218,8 @@ func (s *SQLStore) runMigrations() error {
 			checked_in_at TEXT NOT NULL,
 			attendee_type TEXT NOT NULL DEFAULT 'student',
 			attendee_name TEXT DEFAULT '',
-			attendee_role TEXT DEFAULT ''
+			attendee_role TEXT DEFAULT '',
+			contact_number TEXT DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS student_evaluations (
@@ -304,6 +321,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -379,6 +397,10 @@ func (s *SQLStore) runMigrations() error {
 			emergency_relation VARCHAR(50) NOT NULL,
 			medical_notes TEXT,
 			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+			status_tags TEXT NOT NULL DEFAULT '',
+			waiver_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+			waiver_signed_name TEXT NOT NULL DEFAULT '',
+			waiver_signed_at TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -415,6 +437,10 @@ func (s *SQLStore) runMigrations() error {
 			name VARCHAR(150) NOT NULL,
 			pin TEXT NOT NULL,
 			fixed_rate NUMERIC(10, 2),
+			max_trainees INT,
+			is_default BOOLEAN NOT NULL DEFAULT FALSE,
+			telegram_channel_id TEXT DEFAULT '',
+			telegram_staff_chat_id TEXT DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 
@@ -432,7 +458,7 @@ func (s *SQLStore) runMigrations() error {
 			end_time VARCHAR(20) NOT NULL,
 			coach_id UUID REFERENCES coaches(id),
 			admin_id UUID,
-			location_id UUID REFERENCES locations(id),
+			location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
 			session_rate NUMERIC(10, 2),
 			training_type VARCHAR(50) NOT NULL,
 			notes TEXT,
@@ -450,12 +476,13 @@ func (s *SQLStore) runMigrations() error {
 			session_id UUID NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
 			student_id UUID REFERENCES students(id) ON DELETE CASCADE,
 			student_package_id UUID REFERENCES student_packages(id),
-			location_id UUID REFERENCES locations(id),
+			location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
 			session_rate NUMERIC(10, 2),
 			checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			attendee_type VARCHAR(20) NOT NULL DEFAULT 'student',
 			attendee_name VARCHAR(120) DEFAULT '',
-			attendee_role VARCHAR(50) DEFAULT ''
+			attendee_role VARCHAR(50) DEFAULT '',
+			contact_number VARCHAR(50) DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS student_evaluations (
@@ -557,6 +584,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -624,6 +652,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN has_safety_flag INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN status_tags TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN plan_type TEXT DEFAULT 'standard'`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN sessions_per_week INTEGER`)
@@ -642,10 +671,18 @@ func (s *SQLStore) runMigrations() error {
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN fixed_rate REAL`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN max_trainees INTEGER`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN is_default INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN telegram_channel_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN telegram_staff_chat_id TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE,
 			color TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS student_status_presets (
+			name TEXT PRIMARY KEY,
 			created_at TEXT NOT NULL
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN location_id TEXT`)
@@ -658,6 +695,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_type TEXT DEFAULT 'student'`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_name TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN attendee_role TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN contact_number TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 			id TEXT PRIMARY KEY,
 			user_id TEXT,
@@ -698,6 +736,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -706,6 +745,17 @@ func (s *SQLStore) runMigrations() error {
 			web_push_subject TEXT DEFAULT '',
 			updated_at TEXT NOT NULL
 		)`)
+
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_enabled INTEGER DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_bot_token TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_public_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN telegram_staff_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_new_class INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_new_student INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_slot_reserved INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_staff_registered INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN notify_telegram_class_cancel INTEGER DEFAULT 1`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN smtp_from_name TEXT DEFAULT ''`)
 
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
 			user_id TEXT PRIMARY KEY,
@@ -755,12 +805,29 @@ func (s *SQLStore) runMigrations() error {
 				notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 				notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 				notify_student_pass_expiring,
-				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, smtp_from_name,
 				sms_provider, sms_api_key, sms_from_number,
 				web_push_public_key, web_push_private_key, web_push_subject,
 				updated_at
-			) VALUES ($1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, '', 587, '', '', '', 'simulated', '', '', '', '', '', $2)`,
+			) VALUES ($1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, '', 587, '', '', '', 'Series Taekwondo', 'simulated', '', '', '', '', '', $2)`,
 				def.ID.String(), formatTimeForDB(time.Now()))
+		}
+
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN waiver_accepted INTEGER NOT NULL DEFAULT 0`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN waiver_signed_name TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN waiver_signed_at TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS waiver_settings (
+			id TEXT PRIMARY KEY,
+			title TEXT NOT NULL,
+			content TEXT NOT NULL,
+			updated_by TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		)`)
+		var waiverCountSQLite int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM waiver_settings`).Scan(&waiverCountSQLite); err == nil && waiverCountSQLite == 0 {
+			defW := models.DefaultWaiverSettings()
+			_, _ = s.db.Exec(`INSERT INTO waiver_settings (id, title, content, updated_by, updated_at) VALUES ($1, $2, $3, $4, $5)`,
+				defW.ID.String(), defW.Title, defW.Content, defW.UpdatedBy, formatTimeForDB(time.Now()))
 		}
 
 		// Seed default categories if none exist in SQLite
@@ -806,17 +873,61 @@ func (s *SQLStore) runMigrations() error {
 						end_time TEXT NOT NULL,
 						coach_id TEXT REFERENCES coaches(id),
 						admin_id TEXT,
-						location_id TEXT REFERENCES locations(id),
+						location_id TEXT REFERENCES locations(id) ON DELETE SET NULL,
+						session_rate REAL,
 						training_type TEXT NOT NULL,
 						notes TEXT,
 						is_cancelled INTEGER NOT NULL DEFAULT 0,
 						cancellation_reason TEXT DEFAULT '',
 						cancelled_at TEXT,
+						entry_type TEXT NOT NULL DEFAULT 'class',
+						title TEXT DEFAULT '',
+						assigned_staff TEXT DEFAULT '[]',
 						created_at TEXT NOT NULL
 					);
-					INSERT INTO training_sessions_dg_tmp SELECT id, session_date, start_time, end_time, coach_id, admin_id, location_id, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, created_at FROM training_sessions;
+					INSERT INTO training_sessions_dg_tmp SELECT id, session_date, start_time, end_time, coach_id, admin_id, location_id, session_rate, training_type, notes, is_cancelled, cancellation_reason, cancelled_at, entry_type, title, assigned_staff, created_at FROM training_sessions;
 					DROP TABLE training_sessions;
 					ALTER TABLE training_sessions_dg_tmp RENAME TO training_sessions;
+					PRAGMA foreign_keys=ON;
+				`
+				_, _ = s.db.Exec(migrationSQL)
+			}
+		}
+
+		// Drop NOT NULL on student_id in attendance if table was previously created with NOT NULL
+		if rows, err := s.db.Query(`PRAGMA table_info(attendance)`); err == nil {
+			needsStudentNullable := false
+			for rows.Next() {
+				var cid, notnull, pk int
+				var name, colType string
+				var dfltValue sql.NullString
+				if err := rows.Scan(&cid, &name, &colType, &notnull, &dfltValue, &pk); err == nil {
+					if name == "student_id" && notnull == 1 {
+						needsStudentNullable = true
+					}
+				}
+			}
+			rows.Close()
+			if needsStudentNullable {
+				migrationSQL := `
+					PRAGMA foreign_keys=OFF;
+					CREATE TABLE attendance_dg_tmp (
+						id TEXT PRIMARY KEY,
+						session_id TEXT NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
+						student_id TEXT,
+						student_package_id TEXT REFERENCES student_packages(id),
+						location_id TEXT REFERENCES locations(id),
+						session_rate REAL,
+						checked_in_at TEXT NOT NULL,
+						attendee_type TEXT NOT NULL DEFAULT 'student',
+						attendee_name TEXT DEFAULT '',
+						attendee_role TEXT DEFAULT '',
+						contact_number TEXT DEFAULT ''
+					);
+					INSERT INTO attendance_dg_tmp (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role, contact_number)
+					SELECT id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role, contact_number FROM attendance;
+					DROP TABLE attendance;
+					ALTER TABLE attendance_dg_tmp RENAME TO attendance;
 					PRAGMA foreign_keys=ON;
 				`
 				_, _ = s.db.Exec(migrationSQL)
@@ -835,6 +946,7 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS has_safety_flag BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS status_tags TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS plan_type VARCHAR(50) DEFAULT 'standard'`)
 		_, _ = s.db.Exec(`ALTER TABLE package_templates ADD COLUMN IF NOT EXISTS sessions_per_week INT`)
@@ -853,10 +965,18 @@ func (s *SQLStore) runMigrations() error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS fixed_rate NUMERIC(10, 2)`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS max_trainees INT`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS telegram_channel_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS telegram_staff_chat_id TEXT DEFAULT ''`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS training_categories (
 			id UUID PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
 			color VARCHAR(30) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS student_status_presets (
+			name VARCHAR(100) PRIMARY KEY,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id)`)
@@ -870,6 +990,7 @@ func (s *SQLStore) runMigrations() error {
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_type VARCHAR(20) DEFAULT 'student'`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_name VARCHAR(120) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendee_role VARCHAR(50) DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS contact_number VARCHAR(50) DEFAULT ''`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions ALTER COLUMN coach_id DROP NOT NULL`)
 		_, _ = s.db.Exec(`ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_admin_id_fkey`)
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
@@ -912,6 +1033,7 @@ func (s *SQLStore) runMigrations() error {
 			smtp_user TEXT DEFAULT '',
 			smtp_password TEXT DEFAULT '',
 			smtp_from TEXT DEFAULT '',
+			smtp_from_name TEXT DEFAULT '',
 			sms_provider TEXT DEFAULT 'simulated',
 			sms_api_key TEXT DEFAULT '',
 			sms_from_number TEXT DEFAULT '',
@@ -920,6 +1042,17 @@ func (s *SQLStore) runMigrations() error {
 			web_push_subject TEXT DEFAULT '',
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`)
+
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_enabled BOOLEAN DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_bot_token TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_public_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS telegram_staff_chat_id TEXT DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_new_class BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_new_student BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_slot_reserved BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_staff_registered BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS notify_telegram_class_cancel BOOLEAN DEFAULT TRUE`)
+		_, _ = s.db.Exec(`ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS smtp_from_name TEXT DEFAULT ''`)
 
 		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS user_notification_preferences (
 			user_id UUID PRIMARY KEY,
@@ -969,12 +1102,29 @@ func (s *SQLStore) runMigrations() error {
 				notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 				notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 				notify_student_pass_expiring,
-				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
+				smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, smtp_from_name,
 				sms_provider, sms_api_key, sms_from_number,
 				web_push_public_key, web_push_private_key, web_push_subject,
 				updated_at
-			) VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, '', 587, '', '', '', 'simulated', '', '', '', '', '', NOW())`,
+			) VALUES ($1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, '', 587, '', '', '', 'Series Taekwondo', 'simulated', '', '', '', '', '', NOW())`,
 				def.ID.String())
+		}
+
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS waiver_accepted BOOLEAN NOT NULL DEFAULT FALSE`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS waiver_signed_name TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`ALTER TABLE students ADD COLUMN IF NOT EXISTS waiver_signed_at TEXT NOT NULL DEFAULT ''`)
+		_, _ = s.db.Exec(`CREATE TABLE IF NOT EXISTS waiver_settings (
+			id TEXT PRIMARY KEY,
+			title TEXT NOT NULL,
+			content TEXT NOT NULL,
+			updated_by TEXT NOT NULL DEFAULT '',
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`)
+		var waiverCountPG int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM waiver_settings`).Scan(&waiverCountPG); err == nil && waiverCountPG == 0 {
+			defW := models.DefaultWaiverSettings()
+			_, _ = s.db.Exec(`INSERT INTO waiver_settings (id, title, content, updated_by, updated_at) VALUES ($1, $2, $3, $4, NOW())`,
+				defW.ID.String(), defW.Title, defW.Content, defW.UpdatedBy)
 		}
 
 		// Seed default categories if none exist in Postgres
@@ -1018,6 +1168,14 @@ func (s *SQLStore) runMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_category ON audit_logs(category)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_session_student_unique ON attendance(session_id, student_id) WHERE student_id IS NOT NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_role_unread ON notifications(recipient_role, is_read)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_safety_incidents_student_resolved ON safety_incidents(student_id, resolved)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_lower_email ON users(LOWER(email))`,
+		`CREATE INDEX IF NOT EXISTS idx_users_lower_username ON users(LOWER(username))`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`,
 	}
@@ -1155,9 +1313,7 @@ func (s *SQLStore) migrateRolesAndPermissions() error {
 		nowStr := formatTimeForDB(time.Now())
 		for _, sa := range unassigned {
 			targetRole := adminRoleID
-			if strings.Contains(strings.ToLower(sa.email), "manager") {
-				targetRole = managerRoleID
-			} else if sa.coachID.Valid && sa.coachID.String != "" {
+			if sa.coachID.Valid && sa.coachID.String != "" {
 				targetRole = coachRoleID
 			}
 
@@ -1215,7 +1371,7 @@ func formatDateForDB(t time.Time) string {
 
 // Locations
 func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, created_at FROM locations ORDER BY name ASC`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations ORDER BY is_default DESC, name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -1226,14 +1382,21 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 	for rows.Next() {
 		var idStr, createdStr string
 		var nullRate sql.NullFloat64
+		var nullMaxTrainees sql.NullInt64
+		var isDefault bool
 		loc := &models.Location{}
-		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &createdStr); err != nil {
+		if err := rows.Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr); err != nil {
 			return nil, err
 		}
 		loc.ID = uuid.Must(uuid.Parse(idStr))
 		if nullRate.Valid {
 			loc.FixedRate = &nullRate.Float64
 		}
+		if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+			val := int(nullMaxTrainees.Int64)
+			loc.MaxTrainees = &val
+		}
+		loc.IsDefault = isDefault
 		loc.CreatedAt, _ = parseTimeFlex(createdStr)
 		locations = append(locations, loc)
 	}
@@ -1241,11 +1404,13 @@ func (s *SQLStore) GetAllLocations() ([]*models.Location, error) {
 }
 
 func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
-	query := `SELECT id, name, pin, fixed_rate, created_at FROM locations WHERE id = $1`
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations WHERE id = $1`
 	var idStr, createdStr string
 	var nullRate sql.NullFloat64
+	var nullMaxTrainees sql.NullInt64
+	var isDefault bool
 	loc := &models.Location{}
-	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &createdStr)
+	err := s.db.QueryRow(query, id.String()).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -1256,8 +1421,84 @@ func (s *SQLStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
 	if nullRate.Valid {
 		loc.FixedRate = &nullRate.Float64
 	}
+	if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+		val := int(nullMaxTrainees.Int64)
+		loc.MaxTrainees = &val
+	}
+	loc.IsDefault = isDefault
 	loc.CreatedAt, _ = parseTimeFlex(createdStr)
 	return loc, nil
+}
+
+func (s *SQLStore) GetDefaultLocation() (*models.Location, error) {
+	query := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations WHERE is_default = TRUE ORDER BY created_at ASC LIMIT 1`
+	var idStr, createdStr string
+	var nullRate sql.NullFloat64
+	var nullMaxTrainees sql.NullInt64
+	var isDefault bool
+	loc := &models.Location{}
+	err := s.db.QueryRow(query).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr)
+	if err == nil {
+		loc.ID = uuid.Must(uuid.Parse(idStr))
+		if nullRate.Valid {
+			loc.FixedRate = &nullRate.Float64
+		}
+		if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+			val := int(nullMaxTrainees.Int64)
+			loc.MaxTrainees = &val
+		}
+		loc.IsDefault = isDefault
+		loc.CreatedAt, _ = parseTimeFlex(createdStr)
+		return loc, nil
+	}
+	if err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// Fallback to earliest created location
+	queryFallback := `SELECT id, name, pin, fixed_rate, max_trainees, COALESCE(is_default, FALSE), COALESCE(telegram_channel_id, ''), COALESCE(telegram_staff_chat_id, ''), created_at FROM locations ORDER BY created_at ASC LIMIT 1`
+	err = s.db.QueryRow(queryFallback).Scan(&idStr, &loc.Name, &loc.Pin, &nullRate, &nullMaxTrainees, &isDefault, &loc.TelegramChannelID, &loc.TelegramStaffChatID, &createdStr)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	loc.ID = uuid.Must(uuid.Parse(idStr))
+	if nullRate.Valid {
+		loc.FixedRate = &nullRate.Float64
+	}
+	if nullMaxTrainees.Valid && nullMaxTrainees.Int64 > 0 {
+		val := int(nullMaxTrainees.Int64)
+		loc.MaxTrainees = &val
+	}
+	loc.IsDefault = isDefault
+	loc.CreatedAt, _ = parseTimeFlex(createdStr)
+	return loc, nil
+}
+
+func (s *SQLStore) SetDefaultLocation(id uuid.UUID) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("UPDATE locations SET is_default = FALSE"); err != nil {
+		return err
+	}
+	res, err := tx.Exec("UPDATE locations SET is_default = TRUE WHERE id = $1", id.String())
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit()
 }
 
 func (s *SQLStore) CreateLocation(loc *models.Location) error {
@@ -1267,14 +1508,20 @@ func (s *SQLStore) CreateLocation(loc *models.Location) error {
 	if loc.CreatedAt.IsZero() {
 		loc.CreatedAt = time.Now()
 	}
-	query := `INSERT INTO locations (id, name, pin, fixed_rate, created_at) VALUES ($1, $2, $3, $4, $5)`
-	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, formatTimeForDB(loc.CreatedAt))
+	if loc.IsDefault {
+		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE")
+	}
+	query := `INSERT INTO locations (id, name, pin, fixed_rate, max_trainees, is_default, telegram_channel_id, telegram_staff_chat_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err := s.db.Exec(query, loc.ID.String(), loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, loc.TelegramChannelID, loc.TelegramStaffChatID, formatTimeForDB(loc.CreatedAt))
 	return err
 }
 
 func (s *SQLStore) UpdateLocation(loc *models.Location) error {
-	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3 WHERE id = $4`
-	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.ID.String())
+	if loc.IsDefault {
+		_, _ = s.db.Exec("UPDATE locations SET is_default = FALSE WHERE id != $1", loc.ID.String())
+	}
+	query := `UPDATE locations SET name = $1, pin = $2, fixed_rate = $3, max_trainees = $4, is_default = $5, telegram_channel_id = $6, telegram_staff_chat_id = $7 WHERE id = $8`
+	res, err := s.db.Exec(query, loc.Name, loc.Pin, loc.FixedRate, loc.MaxTrainees, loc.IsDefault, loc.TelegramChannelID, loc.TelegramStaffChatID, loc.ID.String())
 	if err != nil {
 		return err
 	}
@@ -1465,7 +1712,8 @@ func (s *SQLStore) DeleteTrainingCategory(id uuid.UUID) error {
 func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE)
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, ''),
+		COALESCE(waiver_accepted, FALSE), COALESCE(waiver_signed_name, ''), COALESCE(waiver_signed_at, '')
 		FROM students ORDER BY full_name ASC`
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -1475,14 +1723,15 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 
 	var students []*models.Student
 	for rows.Next() {
-		var idStr, dobStr, promoStr, createdStr string
+		var idStr, dobStr, promoStr, createdStr, statusTagsRaw, waiverSignedAtRaw string
 		st := &models.Student{}
 		var gender, phone, medNotes sql.NullString
 		err := rows.Scan(
 			&idStr, &st.FullName, &dobStr, &gender, &phone,
 			&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 			&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
-			&st.HasSafetyFlag,
+			&st.HasSafetyFlag, &statusTagsRaw,
+			&st.WaiverAccepted, &st.WaiverSignedName, &waiverSignedAtRaw,
 		)
 		if err != nil {
 			return nil, err
@@ -1491,6 +1740,11 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 		st.DOB, _ = parseTimeFlex(dobStr)
 		st.LastPromotionDate, _ = parseTimeFlex(promoStr)
 		st.CreatedAt, _ = parseTimeFlex(createdStr)
+		if waiverSignedAtRaw != "" {
+			if wt, err := parseTimeFlex(waiverSignedAtRaw); err == nil && !wt.IsZero() {
+				st.WaiverSignedAt = &wt
+			}
+		}
 		if gender.Valid {
 			st.Gender = gender.String
 		}
@@ -1500,6 +1754,7 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 		if medNotes.Valid {
 			st.MedicalNotes = medNotes.String
 		}
+		st.StatusTags = models.ParseStatusTags(statusTagsRaw)
 		students = append(students, st)
 	}
 	return students, nil
@@ -1508,16 +1763,18 @@ func (s *SQLStore) GetAllStudents() ([]*models.Student, error) {
 func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	query := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE)
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, ''),
+		COALESCE(waiver_accepted, FALSE), COALESCE(waiver_signed_name, ''), COALESCE(waiver_signed_at, '')
 		FROM students WHERE id = $1`
-	var idStr, dobStr, promoStr, createdStr string
+	var idStr, dobStr, promoStr, createdStr, statusTagsRaw, waiverSignedAtRaw string
 	st := &models.Student{}
 	var gender, phone, medNotes sql.NullString
 	err := s.db.QueryRow(query, id.String()).Scan(
 		&idStr, &st.FullName, &dobStr, &gender, &phone,
 		&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 		&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
-		&st.HasSafetyFlag,
+		&st.HasSafetyFlag, &statusTagsRaw,
+		&st.WaiverAccepted, &st.WaiverSignedName, &waiverSignedAtRaw,
 	)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
@@ -1529,6 +1786,11 @@ func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	st.DOB, _ = parseTimeFlex(dobStr)
 	st.LastPromotionDate, _ = parseTimeFlex(promoStr)
 	st.CreatedAt, _ = parseTimeFlex(createdStr)
+	if waiverSignedAtRaw != "" {
+		if wt, err := parseTimeFlex(waiverSignedAtRaw); err == nil && !wt.IsZero() {
+			st.WaiverSignedAt = &wt
+		}
+	}
 	if gender.Valid {
 		st.Gender = gender.String
 	}
@@ -1538,6 +1800,7 @@ func (s *SQLStore) GetStudentByID(id uuid.UUID) (*models.Student, error) {
 	if medNotes.Valid {
 		st.MedicalNotes = medNotes.String
 	}
+	st.StatusTags = models.ParseStatusTags(statusTagsRaw)
 	return st, nil
 }
 
@@ -1549,9 +1812,10 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 	likePattern := "%" + strings.ToLower(q) + "%"
 	sqlQuery := `SELECT id, full_name, dob, gender, phone, current_belt, last_promotion_date,
 		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at,
-		COALESCE(has_safety_flag, FALSE)
+		COALESCE(has_safety_flag, FALSE), COALESCE(status_tags, ''),
+		COALESCE(waiver_accepted, FALSE), COALESCE(waiver_signed_name, ''), COALESCE(waiver_signed_at, '')
 		FROM students
-		WHERE LOWER(full_name) LIKE $1 OR phone LIKE $1 OR LOWER(current_belt) LIKE $1
+		WHERE LOWER(full_name) LIKE $1 OR phone LIKE $1 OR LOWER(current_belt) LIKE $1 OR LOWER(COALESCE(status_tags, '')) LIKE $1
 		ORDER BY full_name ASC`
 	rows, err := s.db.Query(sqlQuery, likePattern)
 	if err != nil {
@@ -1561,14 +1825,15 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 
 	var students []*models.Student
 	for rows.Next() {
-		var idStr, dobStr, promoStr, createdStr string
+		var idStr, dobStr, promoStr, createdStr, statusTagsRaw, waiverSignedAtRaw string
 		st := &models.Student{}
 		var gender, phone, medNotes sql.NullString
 		err := rows.Scan(
 			&idStr, &st.FullName, &dobStr, &gender, &phone,
 			&st.CurrentBelt, &promoStr, &st.EmergencyName, &st.EmergencyPhone,
 			&st.EmergencyRelation, &medNotes, &st.IsActive, &createdStr,
-			&st.HasSafetyFlag,
+			&st.HasSafetyFlag, &statusTagsRaw,
+			&st.WaiverAccepted, &st.WaiverSignedName, &waiverSignedAtRaw,
 		)
 		if err != nil {
 			return nil, err
@@ -1577,6 +1842,11 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 		st.DOB, _ = parseTimeFlex(dobStr)
 		st.LastPromotionDate, _ = parseTimeFlex(promoStr)
 		st.CreatedAt, _ = parseTimeFlex(createdStr)
+		if waiverSignedAtRaw != "" {
+			if wt, err := parseTimeFlex(waiverSignedAtRaw); err == nil && !wt.IsZero() {
+				st.WaiverSignedAt = &wt
+			}
+		}
 		if gender.Valid {
 			st.Gender = gender.String
 		}
@@ -1586,6 +1856,7 @@ func (s *SQLStore) SearchStudents(query string) ([]*models.Student, error) {
 		if medNotes.Valid {
 			st.MedicalNotes = medNotes.String
 		}
+		st.StatusTags = models.ParseStatusTags(statusTagsRaw)
 		students = append(students, st)
 	}
 	return students, nil
@@ -1598,27 +1869,41 @@ func (s *SQLStore) CreateStudent(st *models.Student) error {
 	if st.CreatedAt.IsZero() {
 		st.CreatedAt = time.Now()
 	}
+	st.StatusTags = models.ParseStatusTags(models.FormatStatusTags(st.StatusTags))
+	waiverAtStr := ""
+	if st.WaiverSignedAt != nil && !st.WaiverSignedAt.IsZero() {
+		waiverAtStr = formatTimeForDB(*st.WaiverSignedAt)
+	}
 	query := `INSERT INTO students (id, full_name, dob, gender, phone, current_belt, last_promotion_date,
-		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at, has_safety_flag)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+		emergency_name, emergency_phone, emergency_relation, medical_notes, is_active, created_at, has_safety_flag, status_tags,
+		waiver_accepted, waiver_signed_name, waiver_signed_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`
 	_, err := s.db.Exec(query,
 		st.ID.String(), st.FullName, formatDateForDB(st.DOB), st.Gender, st.Phone,
 		string(st.CurrentBelt), formatDateForDB(st.LastPromotionDate), st.EmergencyName,
 		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, formatTimeForDB(st.CreatedAt),
-		st.HasSafetyFlag,
+		st.HasSafetyFlag, models.FormatStatusTags(st.StatusTags),
+		st.WaiverAccepted, st.WaiverSignedName, waiverAtStr,
 	)
 	return err
 }
 
 func (s *SQLStore) UpdateStudent(st *models.Student) error {
+	st.StatusTags = models.ParseStatusTags(models.FormatStatusTags(st.StatusTags))
+	waiverAtStr := ""
+	if st.WaiverSignedAt != nil && !st.WaiverSignedAt.IsZero() {
+		waiverAtStr = formatTimeForDB(*st.WaiverSignedAt)
+	}
 	query := `UPDATE students SET full_name = $1, dob = $2, gender = $3, phone = $4,
 		current_belt = $5, last_promotion_date = $6, emergency_name = $7, emergency_phone = $8,
-		emergency_relation = $9, medical_notes = $10, is_active = $11, has_safety_flag = $12
-		WHERE id = $13`
+		emergency_relation = $9, medical_notes = $10, is_active = $11, has_safety_flag = $12, status_tags = $13,
+		waiver_accepted = $14, waiver_signed_name = $15, waiver_signed_at = $16
+		WHERE id = $17`
 	res, err := s.db.Exec(query,
 		st.FullName, formatDateForDB(st.DOB), st.Gender, st.Phone,
 		string(st.CurrentBelt), formatDateForDB(st.LastPromotionDate), st.EmergencyName,
-		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, st.HasSafetyFlag, st.ID.String(),
+		st.EmergencyPhone, st.EmergencyRelation, st.MedicalNotes, st.IsActive, st.HasSafetyFlag, models.FormatStatusTags(st.StatusTags),
+		st.WaiverAccepted, st.WaiverSignedName, waiverAtStr, st.ID.String(),
 	)
 	if err != nil {
 		return err
@@ -1628,6 +1913,75 @@ func (s *SQLStore) UpdateStudent(st *models.Student) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *SQLStore) ToggleStudentActive(studentID uuid.UUID, isActive bool) error {
+	res, err := s.db.Exec(`UPDATE students SET is_active = $1 WHERE id = $2`, isActive, studentID.String())
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	nowStr := formatTimeForDB(time.Now())
+	_, err = s.db.Exec(`UPDATE users SET is_active = $1, updated_at = $2 WHERE student_id = $3`,
+		isActive, nowStr, studentID.String())
+	if err != nil {
+		return err
+	}
+
+	if !isActive {
+		_, _ = s.db.Exec(`DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM users WHERE student_id = $1)`, studentID.String())
+	}
+
+	return nil
+}
+
+func (s *SQLStore) GetStudentStatusPresets() ([]string, error) {
+	rows, err := s.db.Query(`SELECT name FROM student_status_presets ORDER BY created_at ASC, name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var presets []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		presets = append(presets, name)
+	}
+	return presets, nil
+}
+
+func (s *SQLStore) AddStudentStatusPreset(name string) ([]string, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed != "" {
+		var existing string
+		err := s.db.QueryRow(`SELECT name FROM student_status_presets WHERE LOWER(name) = LOWER($1)`, trimmed).Scan(&existing)
+		if err == sql.ErrNoRows {
+			_, err = s.db.Exec(`INSERT INTO student_status_presets (name, created_at) VALUES ($1, $2)`, trimmed, formatTimeForDB(time.Now()))
+			if err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	return s.GetStudentStatusPresets()
+}
+
+func (s *SQLStore) DeleteStudentStatusPreset(name string) ([]string, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed != "" {
+		if _, err := s.db.Exec(`DELETE FROM student_status_presets WHERE LOWER(name) = LOWER($1)`, trimmed); err != nil {
+			return nil, err
+		}
+	}
+	return s.GetStudentStatusPresets()
 }
 
 func (s *SQLStore) DeleteStudent(studentID uuid.UUID) error {
@@ -1899,7 +2253,6 @@ func (s *SQLStore) DeleteCoach(coachID uuid.UUID) error {
 
 	return tx.Commit()
 }
-
 
 // Packages
 func (s *SQLStore) GetPackageTemplates() ([]*models.PackageTemplate, error) {
@@ -2622,24 +2975,34 @@ func (s *SQLStore) DeleteSession(sessionID uuid.UUID) error {
 }
 
 func (s *SQLStore) CancelSession(sessionID uuid.UUID, reason string, refundCredits bool) error {
-	// 1. Verify session exists and is not already cancelled
-	var isCancelled bool
-	err := s.db.QueryRow(`SELECT COALESCE(is_cancelled, FALSE) FROM training_sessions WHERE id = $1`, sessionID.String()).Scan(&isCancelled)
-	if err == sql.ErrNoRows {
-		return ErrNotFound
-	}
-	if err != nil {
-		return err
-	}
-	if isCancelled {
-		return errors.New("class is already cancelled")
-	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	// 1. Atomically claim cancellation inside the transaction to prevent double-refund races
+	now := time.Now()
+	nowDB := formatTimeForDB(now)
+	var res sql.Result
+	if s.driver == "sqlite" {
+		res, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = 1, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3 AND COALESCE(is_cancelled, 0) = 0`,
+			reason, nowDB, sessionID.String())
+	} else {
+		res, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = TRUE, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3 AND COALESCE(is_cancelled, FALSE) = FALSE`,
+			reason, nowDB, sessionID.String())
+	}
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		var exists int
+		if qErr := tx.QueryRow(`SELECT 1 FROM training_sessions WHERE id = $1`, sessionID.String()).Scan(&exists); qErr == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		return errors.New("class is already cancelled")
+	}
 
 	if refundCredits {
 		// Find attendances that used student package
@@ -2671,20 +3034,6 @@ func (s *SQLStore) CancelSession(sessionID uuid.UUID, reason string, refundCredi
 		}
 	}
 
-	// Update session cancellation status
-	now := time.Now()
-	nowDB := formatTimeForDB(now)
-	if s.driver == "sqlite" {
-		_, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = 1, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3`,
-			reason, nowDB, sessionID.String())
-	} else {
-		_, err = tx.Exec(`UPDATE training_sessions SET is_cancelled = TRUE, cancellation_reason = $1, cancelled_at = $2 WHERE id = $3`,
-			reason, nowDB, sessionID.String())
-	}
-	if err != nil {
-		return err
-	}
-
 	return tx.Commit()
 }
 
@@ -2695,14 +3044,14 @@ func (s *SQLStore) scanAttendanceRow(rows *sql.Rows) (*models.Attendance, error)
 	var pkgIDStr, stName, belt, pkgTitle sql.NullString
 	var locIDStr, locName, locPin sql.NullString
 	var sessionRateVal sql.NullFloat64
-	var attendeeType, attendeeName, attendeeRole sql.NullString
+	var attendeeType, attendeeName, attendeeRole, contactNum sql.NullString
 	att := &models.Attendance{}
 	err := rows.Scan(
 		&idStr, &sessStr, &stStr, &pkgIDStr, &checkedStr,
 		&stName, &belt, &pkgTitle,
 		&locIDStr, &locName, &locPin,
 		&sessionRateVal,
-		&attendeeType, &attendeeName, &attendeeRole,
+		&attendeeType, &attendeeName, &attendeeRole, &contactNum,
 	)
 	if err != nil {
 		return nil, err
@@ -2753,6 +3102,9 @@ func (s *SQLStore) scanAttendanceRow(rows *sql.Rows) (*models.Attendance, error)
 	if attendeeRole.Valid {
 		att.AttendeeRole = attendeeRole.String
 	}
+	if contactNum.Valid {
+		att.ContactNumber = contactNum.String
+	}
 	return att, nil
 }
 
@@ -2765,7 +3117,8 @@ func (s *SQLStore) GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attenda
 		a.session_rate,
 		COALESCE(a.attendee_type, 'student'),
 		COALESCE(a.attendee_name, ''),
-		COALESCE(a.attendee_role, '')
+		COALESCE(a.attendee_role, ''),
+		COALESCE(a.contact_number, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2801,7 +3154,8 @@ func (s *SQLStore) GetAllAttendances() ([]*models.Attendance, error) {
 		a.session_rate,
 		COALESCE(a.attendee_type, 'student'),
 		COALESCE(a.attendee_name, ''),
-		COALESCE(a.attendee_role, '')
+		COALESCE(a.attendee_role, ''),
+		COALESCE(a.contact_number, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2858,7 +3212,8 @@ func (s *SQLStore) GetStudentAttendances(studentID uuid.UUID) ([]*models.Attenda
 		a.session_rate,
 		COALESCE(a.attendee_type, 'student'),
 		COALESCE(a.attendee_name, ''),
-		COALESCE(a.attendee_role, '')
+		COALESCE(a.attendee_role, ''),
+		COALESCE(a.contact_number, '')
 		FROM attendance a
 		LEFT JOIN students st ON a.student_id = st.id
 		LEFT JOIN student_packages sp ON a.student_package_id = sp.id
@@ -2890,24 +3245,30 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 		attendeeType = "student"
 	}
 
-	// 1. Check duplicate attendance
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// 1. Check duplicate attendance inside transaction
 	if attendeeType == "student" && attendeeID != nil {
 		var existingID string
-		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2",
+		err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2",
 			sessionID.String(), attendeeID.String()).Scan(&existingID)
 		if err == nil {
 			return nil, ErrAlreadyInRoster
 		}
 	} else if attendeeID != nil {
 		var existingID string
-		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND (student_id = $2 OR (attendee_name != '' AND attendee_name = $3))",
+		err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND (student_id = $2 OR (attendee_name != '' AND attendee_name = $3))",
 			sessionID.String(), attendeeID.String(), attendeeName).Scan(&existingID)
 		if err == nil {
 			return nil, ErrAlreadyInRoster
 		}
 	} else if attendeeName != "" {
 		var existingID string
-		err := s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND attendee_name = $2",
+		err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND attendee_name = $2",
 			sessionID.String(), attendeeName).Scan(&existingID)
 		if err == nil {
 			return nil, ErrAlreadyInRoster
@@ -2943,7 +3304,7 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 
 	// Look up session's location
 	var locIDStr sql.NullString
-	_ = s.db.QueryRow("SELECT location_id FROM training_sessions WHERE id = $1", sessionID.String()).Scan(&locIDStr)
+	_ = tx.QueryRow("SELECT location_id FROM training_sessions WHERE id = $1", sessionID.String()).Scan(&locIDStr)
 	var locationID *uuid.UUID
 	var locIDVal interface{}
 	if locIDStr.Valid && locIDStr.String != "" {
@@ -2954,13 +3315,18 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 	}
 	att.LocationID = locationID
 
+	// 2. Insert attendance row
 	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
-	_, err := s.db.Exec(query,
+	_, err = tx.Exec(query,
 		att.ID.String(), att.SessionID.String(), studentIDVal, pkgIDVal, locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt),
 		att.AttendeeType, att.AttendeeName, att.AttendeeRole,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -3023,6 +3389,135 @@ func (s *SQLStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, att
 
 func (s *SQLStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	return s.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
+}
+
+// CheckInStudentWithPackageDeduction atomically inserts the attendance record and decrements a finite package credit in one transaction.
+func (s *SQLStore) CheckInStudentWithPackageDeduction(sessionID, studentID, packageID uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var existingID string
+	if err := tx.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND student_id = $2", sessionID.String(), studentID.String()).Scan(&existingID); err == nil {
+		return nil, ErrAlreadyInRoster
+	}
+
+	var rem sql.NullInt64
+	if err := tx.QueryRow(`SELECT remaining_sessions FROM student_packages WHERE id = $1`, packageID.String()).Scan(&rem); err == nil && rem.Valid {
+		res, uErr := tx.Exec(`UPDATE student_packages SET remaining_sessions = remaining_sessions - 1 WHERE id = $1 AND remaining_sessions > 0`, packageID.String())
+		if uErr != nil {
+			return nil, uErr
+		}
+		if rowsAffected, _ := res.RowsAffected(); rowsAffected == 0 {
+			return nil, errors.New("no remaining sessions on membership package")
+		}
+	}
+
+	att := &models.Attendance{
+		ID:               uuid.New(),
+		SessionID:        sessionID,
+		StudentID:        studentID,
+		StudentPackageID: &packageID,
+		SessionRate:      sessionRate,
+		CheckedInAt:      time.Now(),
+		AttendeeType:     "student",
+	}
+
+	var sessionRateVal interface{}
+	if sessionRate != nil {
+		sessionRateVal = *sessionRate
+	}
+
+	var locIDStr sql.NullString
+	_ = tx.QueryRow("SELECT location_id FROM training_sessions WHERE id = $1", sessionID.String()).Scan(&locIDStr)
+	var locIDVal interface{}
+	if locIDStr.Valid && locIDStr.String != "" {
+		if lID, pErr := uuid.Parse(locIDStr.String); pErr == nil && lID != uuid.Nil {
+			att.LocationID = &lID
+			locIDVal = lID.String()
+		}
+	}
+
+	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '', '')`
+	if _, err := tx.Exec(query, att.ID.String(), att.SessionID.String(), studentID.String(), packageID.String(), locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt), att.AttendeeType); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	var fullName, currentBelt string
+	_ = s.db.QueryRow("SELECT full_name, current_belt FROM students WHERE id = $1", studentID.String()).Scan(&fullName, &currentBelt)
+	att.StudentName = fullName
+	att.StudentBelt = models.BeltRank(currentBelt)
+	att.AttendeeName = fullName
+	att.AttendeeRole = currentBelt
+	return att, nil
+}
+
+func (s *SQLStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error) {
+	sess, err := s.GetSessionByID(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if sess.IsCancelled {
+		return nil, errors.New("cannot reserve slot: class has been cancelled")
+	}
+
+	trimmedName := strings.TrimSpace(guestName)
+	trimmedPhone := strings.TrimSpace(contactNumber)
+	if trimmedName == "" {
+		return nil, errors.New("guest name is required")
+	}
+	if trimmedPhone == "" {
+		return nil, errors.New("contact number is required")
+	}
+
+	// Check if already in roster
+	var existingID string
+	err = s.db.QueryRow("SELECT id FROM attendance WHERE session_id = $1 AND attendee_name = $2", sessionID.String(), trimmedName).Scan(&existingID)
+	if err == nil {
+		return nil, ErrAlreadyInRoster
+	}
+
+	att := &models.Attendance{
+		ID:            uuid.New(),
+		SessionID:     sessionID,
+		SessionRate:   sess.SessionRate,
+		CheckedInAt:   time.Now(),
+		AttendeeType:  "guest",
+		AttendeeName:  trimmedName,
+		AttendeeRole:  "Reserved Guest",
+		ContactNumber: trimmedPhone,
+		LocationID:    sess.LocationID,
+		LocationName:  sess.LocationName,
+		LocationPin:   sess.LocationPin,
+	}
+
+	var locIDVal interface{}
+	if sess.LocationID != nil {
+		locIDVal = sess.LocationID.String()
+	}
+
+	var sessionRateVal interface{}
+	if sess.SessionRate != nil {
+		sessionRateVal = *sess.SessionRate
+	}
+
+	query := `INSERT INTO attendance (id, session_id, student_id, student_package_id, location_id, session_rate, checked_in_at, attendee_type, attendee_name, attendee_role, contact_number)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	_, err = s.db.Exec(query,
+		att.ID.String(), att.SessionID.String(), nil, nil, locIDVal, sessionRateVal, formatTimeForDB(att.CheckedInAt),
+		att.AttendeeType, att.AttendeeName, att.AttendeeRole, att.ContactNumber,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return att, nil
 }
 
 func (s *SQLStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
@@ -3255,11 +3750,11 @@ func (s *SQLStore) SeedDefaultData() error {
 	spw2 := 2
 
 	_, _ = s.db.Exec(`INSERT INTO package_templates (id, title, description, plan_type, session_count, sessions_per_week, validity_days, price, is_active) VALUES
-		($1, '12-Session Sparring & Technical Pass', 'Structured sparring drills, footwork, and tactical timing combinations.', 'standard', $2, NULL, 90, 180.00, 1),
-		($3, '24-Session Promotion Prep Pass', 'Comprehensive syllabus coverage, Kup forms, and board breaking preparation.', 'standard', $4, NULL, 180, 320.00, 1),
-		($5, 'Monthly Unlimited Athlete Membership', 'Full floor access to all regular classes, poomsae sessions, and open sparring mats.', 'unlimited', NULL, NULL, 30, 220.00, 1),
-		($6, '4-Week Fundamental Pass (1x/week)', 'Weekly foundational drills and discipline. Strictly consumable over 4 weeks.', 'four_week', $7, $8, 28, 80.00, 1),
-		($9, '4-Week Cadet & Athlete Pass (2x/week)', 'Twice-weekly high performance training. Strictly consumable over 4 weeks.', 'four_week', $10, $11, 28, 140.00, 1)`,
+		($1, '12-Session Sparring & Technical Pass', 'Structured sparring drills, footwork, and tactical timing combinations.', 'standard', $2, NULL, 90, 180.00, TRUE),
+		($3, '24-Session Promotion Prep Pass', 'Comprehensive syllabus coverage, Kup forms, and board breaking preparation.', 'standard', $4, NULL, 180, 320.00, TRUE),
+		($5, 'Monthly Unlimited Athlete Membership', 'Full floor access to all regular classes, poomsae sessions, and open sparring mats.', 'unlimited', NULL, NULL, 30, 220.00, TRUE),
+		($6, '4-Week Fundamental Pass (1x/week)', 'Weekly foundational drills and discipline. Strictly consumable over 4 weeks.', 'four_week', $7, $8, 28, 80.00, TRUE),
+		($9, '4-Week Cadet & Athlete Pass (2x/week)', 'Twice-weekly high performance training. Strictly consumable over 4 weeks.', 'four_week', $10, $11, 28, 140.00, TRUE)`,
 		t1ID.String(), c12, t2ID.String(), c24, t3ID.String(),
 		t4ID.String(), c4, spw1, t5ID.String(), c8, spw2,
 	)
@@ -3654,14 +4149,18 @@ func (s *SQLStore) CreateUser(u *models.User) error {
 
 func (s *SQLStore) UpdateUser(u *models.User) error {
 	now := time.Now()
+	normEmail := strings.ToLower(strings.TrimSpace(u.Email))
+	if normEmail != "" {
+		u.Email = normEmail
+	}
 	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
 	u.Username = normUsername
 	var usernameCol sql.NullString
 	if normUsername != "" {
 		usernameCol = sql.NullString{String: normUsername, Valid: true}
 	}
-	query := `UPDATE users SET username = $1, password_hash = $2, is_active = $3, display_name = $4, profile_picture_url = $5, updated_at = $6 WHERE id = $7`
-	res, err := s.db.Exec(query, usernameCol, u.PasswordHash, u.IsActive, u.DisplayName, u.ProfilePictureURL, formatTimeForDB(now), u.ID.String())
+	query := `UPDATE users SET email = $1, username = $2, password_hash = $3, is_active = $4, display_name = $5, profile_picture_url = $6, updated_at = $7 WHERE id = $8`
+	res, err := s.db.Exec(query, u.Email, usernameCol, u.PasswordHash, u.IsActive, u.DisplayName, u.ProfilePictureURL, formatTimeForDB(now), u.ID.String())
 	if err != nil {
 		return err
 	}
@@ -4135,6 +4634,12 @@ func (s *SQLStore) DeleteSessionToken(token string) error {
 	return err
 }
 
+func (s *SQLStore) DeleteUserSessions(userID uuid.UUID) error {
+	query := `DELETE FROM user_sessions WHERE user_id = $1`
+	_, err := s.db.Exec(query, userID.String())
+	return err
+}
+
 func (s *SQLStore) CreateSafetyIncident(inc *models.SafetyIncident) error {
 	if inc.ID == uuid.Nil {
 		inc.ID = uuid.New()
@@ -4328,8 +4833,13 @@ func (s *SQLStore) GetAuditLogs(filter models.AuditLogFilter) ([]*models.AuditLo
 	}
 
 	if filter.EndDate != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("created_at <= $%d", argIdx))
-		args = append(args, filter.EndDate+" 23:59:59")
+		if t, parseErr := time.Parse("2006-01-02", filter.EndDate); parseErr == nil {
+			whereClauses = append(whereClauses, fmt.Sprintf("created_at < $%d", argIdx))
+			args = append(args, t.AddDate(0, 0, 1).Format("2006-01-02"))
+		} else {
+			whereClauses = append(whereClauses, fmt.Sprintf("created_at <= $%d", argIdx))
+			args = append(args, filter.EndDate+" 23:59:59")
+		}
 		argIdx++
 	}
 
@@ -4466,15 +4976,23 @@ func (s *SQLStore) GetAuditTelemetry() (*models.AuditTelemetry, error) {
 }
 
 func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, error) {
-	query := `SELECT id, push_enabled, sms_enabled, email_enabled,
+	query := `SELECT id, email_enabled,
+		COALESCE(telegram_enabled, FALSE),
+		COALESCE(telegram_bot_token, ''),
+		COALESCE(telegram_public_chat_id, ''),
+		COALESCE(telegram_staff_chat_id, ''),
+		COALESCE(notify_telegram_new_class, TRUE),
+		COALESCE(notify_telegram_new_student, TRUE),
+		COALESCE(notify_telegram_slot_reserved, TRUE),
+		COALESCE(notify_telegram_staff_registered, TRUE),
+		COALESCE(notify_telegram_class_cancel, TRUE),
 		notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
 		notify_admin_student_injured, notify_admin_class_cancelled,
 		notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 		notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 		notify_student_pass_expiring,
 		COALESCE(smtp_host, ''), COALESCE(smtp_port, 587), COALESCE(smtp_user, ''), COALESCE(smtp_password, ''), COALESCE(smtp_from, ''),
-		COALESCE(sms_provider, 'simulated'), COALESCE(sms_api_key, ''), COALESCE(sms_from_number, ''),
-		COALESCE(web_push_public_key, ''), COALESCE(web_push_private_key, ''), COALESCE(web_push_subject, ''),
+		COALESCE(smtp_from_name, ''),
 		updated_at
 		FROM notification_settings LIMIT 1`
 
@@ -4485,9 +5003,16 @@ func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, erro
 
 	err := row.Scan(
 		&idStr,
-		&settings.PushEnabled,
-		&settings.SMSEnabled,
 		&settings.EmailEnabled,
+		&settings.TelegramEnabled,
+		&settings.TelegramBotToken,
+		&settings.TelegramPublicChatID,
+		&settings.TelegramStaffChatID,
+		&settings.NotifyTelegramNewClass,
+		&settings.NotifyTelegramNewStudent,
+		&settings.NotifyTelegramSlotReserved,
+		&settings.NotifyTelegramStaffRegistered,
+		&settings.NotifyTelegramClassCancel,
 		&settings.NotifyAdminStudentAdmitted,
 		&settings.NotifyAdminNewClassOpened,
 		&settings.NotifyAdminStaffRegistered,
@@ -4505,12 +5030,7 @@ func (s *SQLStore) GetNotificationSettings() (*models.NotificationSettings, erro
 		&settings.SMTPUser,
 		&settings.SMTPPassword,
 		&settings.SMTPFrom,
-		&settings.SMSProvider,
-		&settings.SMSApiKey,
-		&settings.SMSFromNumber,
-		&settings.WebPushPublicKey,
-		&settings.WebPushPrivateKey,
-		&settings.WebPushSubject,
+		&settings.SMTPFromName,
 		&updatedVal,
 	)
 	if err == sql.ErrNoRows {
@@ -4543,28 +5063,30 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 	}
 
 	query := `UPDATE notification_settings SET
-		push_enabled = $1, sms_enabled = $2, email_enabled = $3,
-		notify_admin_student_admitted = $4, notify_admin_new_class_opened = $5, notify_admin_staff_registered = $6,
-		notify_admin_student_injured = $7, notify_admin_class_cancelled = $8,
-		notify_student_promotion_eligible = $9, notify_student_injured = $10, notify_student_evaluation_logged = $11,
-		notify_student_membership_changed = $12, notify_student_safety_resolved = $13, notify_student_class_cancelled = $14,
-		notify_student_pass_expiring = $15,
-		smtp_host = $16, smtp_port = $17, smtp_user = $18, smtp_password = $19, smtp_from = $20,
-		sms_provider = $21, sms_api_key = $22, sms_from_number = $23,
-		web_push_public_key = $24, web_push_private_key = $25, web_push_subject = $26,
-		updated_at = $27
-		WHERE id = $28`
+		email_enabled = $1,
+		telegram_enabled = $2, telegram_bot_token = $3, telegram_public_chat_id = $4, telegram_staff_chat_id = $5,
+		notify_telegram_new_class = $6, notify_telegram_new_student = $7, notify_telegram_slot_reserved = $8,
+		notify_telegram_staff_registered = $9, notify_telegram_class_cancel = $10,
+		notify_admin_student_admitted = $11, notify_admin_new_class_opened = $12, notify_admin_staff_registered = $13,
+		notify_admin_student_injured = $14, notify_admin_class_cancelled = $15,
+		notify_student_promotion_eligible = $16, notify_student_injured = $17, notify_student_evaluation_logged = $18,
+		notify_student_membership_changed = $19, notify_student_safety_resolved = $20, notify_student_class_cancelled = $21,
+		notify_student_pass_expiring = $22,
+		smtp_host = $23, smtp_port = $24, smtp_user = $25, smtp_password = $26, smtp_from = $27, smtp_from_name = $28,
+		updated_at = $29
+		WHERE id = $30`
 
 	res, err := s.db.Exec(query,
-		settings.PushEnabled, settings.SMSEnabled, settings.EmailEnabled,
+		settings.EmailEnabled,
+		settings.TelegramEnabled, settings.TelegramBotToken, settings.TelegramPublicChatID, settings.TelegramStaffChatID,
+		settings.NotifyTelegramNewClass, settings.NotifyTelegramNewStudent, settings.NotifyTelegramSlotReserved,
+		settings.NotifyTelegramStaffRegistered, settings.NotifyTelegramClassCancel,
 		settings.NotifyAdminStudentAdmitted, settings.NotifyAdminNewClassOpened, settings.NotifyAdminStaffRegistered,
 		settings.NotifyAdminStudentInjured, settings.NotifyAdminClassCancelled,
 		settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
 		settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
 		settings.NotifyStudentPassExpiring,
-		settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
-		settings.SMSProvider, settings.SMSApiKey, settings.SMSFromNumber,
-		settings.WebPushPublicKey, settings.WebPushPrivateKey, settings.WebPushSubject,
+		settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom, settings.SMTPFromName,
 		updatedVal, settings.ID.String(),
 	)
 	if err != nil {
@@ -4574,31 +5096,42 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
 		insertQuery := `INSERT INTO notification_settings (
-			id, push_enabled, sms_enabled, email_enabled,
+			id, email_enabled,
+			telegram_enabled, telegram_bot_token, telegram_public_chat_id, telegram_staff_chat_id,
+			notify_telegram_new_class, notify_telegram_new_student, notify_telegram_slot_reserved,
+			notify_telegram_staff_registered, notify_telegram_class_cancel,
 			notify_admin_student_admitted, notify_admin_new_class_opened, notify_admin_staff_registered,
 			notify_admin_student_injured, notify_admin_class_cancelled,
 			notify_student_promotion_eligible, notify_student_injured, notify_student_evaluation_logged,
 			notify_student_membership_changed, notify_student_safety_resolved, notify_student_class_cancelled,
 			notify_student_pass_expiring,
-			smtp_host, smtp_port, smtp_user, smtp_password, smtp_from,
-			sms_provider, sms_api_key, sms_from_number,
-			web_push_public_key, web_push_private_key, web_push_subject,
+			smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, smtp_from_name,
 			updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-			$17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+			$1, $2,
+			$3, $4, $5, $6,
+			$7, $8, $9,
+			$10, $11,
+			$12, $13, $14,
+			$15, $16,
+			$17, $18, $19,
+			$20, $21, $22,
+			$23,
+			$24, $25, $26, $27, $28, $29,
+			$30
 		)`
 		_, err = s.db.Exec(insertQuery,
 			settings.ID.String(),
-			settings.PushEnabled, settings.SMSEnabled, settings.EmailEnabled,
+			settings.EmailEnabled,
+			settings.TelegramEnabled, settings.TelegramBotToken, settings.TelegramPublicChatID, settings.TelegramStaffChatID,
+			settings.NotifyTelegramNewClass, settings.NotifyTelegramNewStudent, settings.NotifyTelegramSlotReserved,
+			settings.NotifyTelegramStaffRegistered, settings.NotifyTelegramClassCancel,
 			settings.NotifyAdminStudentAdmitted, settings.NotifyAdminNewClassOpened, settings.NotifyAdminStaffRegistered,
 			settings.NotifyAdminStudentInjured, settings.NotifyAdminClassCancelled,
 			settings.NotifyStudentPromotionEligible, settings.NotifyStudentInjured, settings.NotifyStudentEvaluationLogged,
 			settings.NotifyStudentMembershipChanged, settings.NotifyStudentSafetyResolved, settings.NotifyStudentClassCancelled,
 			settings.NotifyStudentPassExpiring,
-			settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom,
-			settings.SMSProvider, settings.SMSApiKey, settings.SMSFromNumber,
-			settings.WebPushPublicKey, settings.WebPushPrivateKey, settings.WebPushSubject,
+			settings.SMTPHost, settings.SMTPPort, settings.SMTPUser, settings.SMTPPassword, settings.SMTPFrom, settings.SMTPFromName,
 			updatedVal,
 		)
 		if err != nil {
@@ -4608,8 +5141,52 @@ func (s *SQLStore) UpdateNotificationSettings(settings *models.NotificationSetti
 	return nil
 }
 
+func (s *SQLStore) GetWaiverSettings() (*models.WaiverSettings, error) {
+	query := `SELECT id, title, content, COALESCE(updated_by, ''), updated_at FROM waiver_settings LIMIT 1`
+	var idStr, updatedAtRaw string
+	w := &models.WaiverSettings{}
+	err := s.db.QueryRow(query).Scan(&idStr, &w.Title, &w.Content, &w.UpdatedBy, &updatedAtRaw)
+	if err == sql.ErrNoRows {
+		return models.DefaultWaiverSettings(), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if parsedID, err := uuid.Parse(idStr); err == nil {
+		w.ID = parsedID
+	}
+	w.UpdatedAt, _ = parseTimeFlex(updatedAtRaw)
+	return w, nil
+}
+
+func (s *SQLStore) UpdateWaiverSettings(w *models.WaiverSettings) error {
+	if w == nil {
+		return errors.New("waiver settings cannot be nil")
+	}
+	if w.ID == uuid.Nil {
+		w.ID = models.DefaultWaiverSettings().ID
+	}
+	w.UpdatedAt = time.Now()
+	updatedVal := formatTimeForDB(w.UpdatedAt)
+
+	res, err := s.db.Exec(`UPDATE waiver_settings SET title = $1, content = $2, updated_by = $3, updated_at = $4 WHERE id = $5`,
+		w.Title, w.Content, w.UpdatedBy, updatedVal, w.ID.String())
+	if err != nil {
+		return fmt.Errorf("failed to update waiver settings: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		_, err = s.db.Exec(`INSERT INTO waiver_settings (id, title, content, updated_by, updated_at) VALUES ($1, $2, $3, $4, $5)`,
+			w.ID.String(), w.Title, w.Content, w.UpdatedBy, updatedVal)
+		if err != nil {
+			return fmt.Errorf("failed to insert waiver settings: %w", err)
+		}
+	}
+	return nil
+}
+
 func (s *SQLStore) GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error) {
-	query := `SELECT user_id, email_enabled, sms_enabled, push_enabled, updated_at
+	query := `SELECT user_id, email_enabled, updated_at
 		FROM user_notification_preferences WHERE user_id = $1`
 
 	row := s.db.QueryRow(query, userID.String())
@@ -4617,7 +5194,7 @@ func (s *SQLStore) GetUserNotificationPreferences(userID uuid.UUID) (*models.Use
 	var updatedVal interface{}
 	prefs := &models.UserNotificationPreferences{}
 
-	err := row.Scan(&idStr, &prefs.EmailEnabled, &prefs.SMSEnabled, &prefs.PushEnabled, &updatedVal)
+	err := row.Scan(&idStr, &prefs.EmailEnabled, &updatedVal)
 	if err == sql.ErrNoRows {
 		return models.DefaultUserPreferences(userID), nil
 	} else if err != nil {
@@ -4642,15 +5219,13 @@ func (s *SQLStore) UpdateUserNotificationPreferences(prefs *models.UserNotificat
 		updatedVal = prefs.UpdatedAt
 	}
 
-	query := `INSERT INTO user_notification_preferences (user_id, email_enabled, sms_enabled, push_enabled, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
+	query := `INSERT INTO user_notification_preferences (user_id, email_enabled, updated_at)
+		VALUES ($1, $2, $3)
 		ON CONFLICT(user_id) DO UPDATE SET
 		email_enabled = EXCLUDED.email_enabled,
-		sms_enabled = EXCLUDED.sms_enabled,
-		push_enabled = EXCLUDED.push_enabled,
 		updated_at = EXCLUDED.updated_at`
 
-	_, err := s.db.Exec(query, prefs.UserID.String(), prefs.EmailEnabled, prefs.SMSEnabled, prefs.PushEnabled, updatedVal)
+	_, err := s.db.Exec(query, prefs.UserID.String(), prefs.EmailEnabled, updatedVal)
 	if err != nil {
 		return fmt.Errorf("failed to upsert user notification preferences: %w", err)
 	}
@@ -4917,145 +5492,3 @@ func (s *SQLStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.User
 	}
 	return nil
 }
-
-func (s *SQLStore) CreateOrUpdatePushSubscription(sub *models.PushSubscription) error {
-	if sub == nil {
-		return errors.New("subscription cannot be nil")
-	}
-	if strings.TrimSpace(sub.Endpoint) == "" {
-		return errors.New("subscription endpoint is required")
-	}
-
-	if sub.ID == uuid.Nil {
-		sub.ID = uuid.New()
-	}
-	now := time.Now()
-	if sub.CreatedAt.IsZero() {
-		sub.CreatedAt = now
-	}
-	sub.UpdatedAt = now
-
-	var userIDVal sql.NullString
-	if sub.UserID != nil && *sub.UserID != uuid.Nil {
-		userIDVal = sql.NullString{String: sub.UserID.String(), Valid: true}
-	}
-
-	var createdAtVal, updatedAtVal interface{}
-	if s.driver == "sqlite" {
-		createdAtVal = formatTimeForDB(sub.CreatedAt)
-		updatedAtVal = formatTimeForDB(sub.UpdatedAt)
-	} else {
-		createdAtVal = sub.CreatedAt
-		updatedAtVal = sub.UpdatedAt
-	}
-
-	query := `INSERT INTO push_subscriptions (
-		id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	ON CONFLICT(endpoint) DO UPDATE SET
-		user_id = excluded.user_id,
-		role = excluded.role,
-		p256dh = excluded.p256dh,
-		auth = excluded.auth,
-		user_agent = excluded.user_agent,
-		updated_at = excluded.updated_at`
-
-	_, err := s.db.Exec(query,
-		sub.ID.String(),
-		userIDVal,
-		string(sub.Role),
-		sub.Endpoint,
-		sub.P256dh,
-		sub.Auth,
-		sub.UserAgent,
-		createdAtVal,
-		updatedAtVal,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to upsert push subscription: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLStore) DeletePushSubscription(endpoint string) error {
-	_, err := s.db.Exec("DELETE FROM push_subscriptions WHERE endpoint = $1", strings.TrimSpace(endpoint))
-	if err != nil {
-		return fmt.Errorf("failed to delete push subscription: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLStore) DeletePushSubscriptionsByUserID(userID uuid.UUID) error {
-	_, err := s.db.Exec("DELETE FROM push_subscriptions WHERE user_id = $1", userID.String())
-	if err != nil {
-		return fmt.Errorf("failed to delete push subscriptions by user: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLStore) scanPushSubscriptions(rows *sql.Rows) ([]*models.PushSubscription, error) {
-	defer rows.Close()
-	var subs []*models.PushSubscription
-
-	for rows.Next() {
-		var sub models.PushSubscription
-		var idStr string
-		var nullUserID sql.NullString
-		var roleStr string
-		var createdVal, updatedVal interface{}
-
-		if err := rows.Scan(
-			&idStr,
-			&nullUserID,
-			&roleStr,
-			&sub.Endpoint,
-			&sub.P256dh,
-			&sub.Auth,
-			&sub.UserAgent,
-			&createdVal,
-			&updatedVal,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan push subscription: %w", err)
-		}
-
-		sub.ID = uuid.Must(uuid.Parse(idStr))
-		if nullUserID.Valid && nullUserID.String != "" {
-			uid, _ := uuid.Parse(nullUserID.String)
-			sub.UserID = &uid
-		}
-		sub.Role = models.UserRole(roleStr)
-		sub.CreatedAt, _ = parseTimeFlex(createdVal)
-		sub.UpdatedAt, _ = parseTimeFlex(updatedVal)
-
-		subs = append(subs, &sub)
-	}
-	return subs, nil
-}
-
-func (s *SQLStore) GetPushSubscriptionsByUserID(userID uuid.UUID) ([]*models.PushSubscription, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-		FROM push_subscriptions WHERE user_id = $1`, userID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to query push subscriptions by user: %w", err)
-	}
-	return s.scanPushSubscriptions(rows)
-}
-
-func (s *SQLStore) GetPushSubscriptionsByRole(role models.UserRole) ([]*models.PushSubscription, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-		FROM push_subscriptions WHERE role = $1`, string(role))
-	if err != nil {
-		return nil, fmt.Errorf("failed to query push subscriptions by role: %w", err)
-	}
-	return s.scanPushSubscriptions(rows)
-}
-
-func (s *SQLStore) GetAllPushSubscriptions() ([]*models.PushSubscription, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, role, endpoint, p256dh, auth, user_agent, created_at, updated_at
-		FROM push_subscriptions`)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query all push subscriptions: %w", err)
-	}
-	return s.scanPushSubscriptions(rows)
-}
-

@@ -16,7 +16,29 @@
                 <a href="/students/{{.Student.ID}}" class="hover:underline text-emerald-600 dark:text-emerald-400 text-xs font-bold leading-tight block">
                     {{.Student.FullName}}
                 </a>
+                {{if not .Student.IsActive}}
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 mt-0.5">
+                    ⏳ Pending Approval
+                </span>
+                {{end}}
                 <div class="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Age: {{.Student.Age}} &bull; {{.Student.Phone}}</div>
+                {{$user := currentUser $}}
+                <div class="flex flex-wrap items-center gap-1 mt-1">
+                    {{range .Student.StatusTags}}
+                    <span class="badge-status-tag">{{.}}</span>
+                    {{end}}
+                    {{if or (not $user) $user.IsOperationManager $user.IsAdmin}}
+                    <button type="button"
+                            data-student-id="{{.Student.ID}}"
+                            data-student-name="{{.Student.FullName}}"
+                            data-student-tags="{{.Student.StatusTagsCSV}}"
+                            onclick="openEditTagsModal(this)"
+                            class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold border border-dashed border-slate-300 dark:border-neutral-700 text-slate-500 dark:text-slate-400 hover:border-[#990303] hover:text-[#990303] dark:hover:text-red-300 transition cursor-pointer"
+                            title="Edit status tags for {{.Student.FullName}}">
+                        {{if .Student.StatusTags}}✏️ Tags{{else}}+ Tag{{end}}
+                    </button>
+                    {{end}}
+                </div>
             </div>
         </div>
     </td>
@@ -89,10 +111,18 @@
     </td>
     <td class="py-2 px-3 text-right">
         <div class="flex items-center justify-end gap-1">
+            {{$user := currentUser $}}
+            {{if and (not .Student.IsActive) (or (not $user) $user.IsOperationManager $user.IsAdmin)}}
+            <form action="/students/{{.Student.ID}}/toggle-active" method="POST" class="inline">
+                <input type="hidden" name="redirect_url" value="/students">
+                <button type="submit" class="btn btn-primary btn-xs py-0.5 px-2 text-xs" title="Approve &amp; Activate Student">
+                    ✅ Approve
+                </button>
+            </form>
+            {{end}}
             <a href="/students/{{.Student.ID}}" class="btn btn-secondary btn-xs py-0.5 px-2 text-xs">
                 Profile &rarr;
             </a>
-            {{$user := currentUser $}}
             {{if and $user $user.IsOperationManager}}
             <form action="/students/{{.Student.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete student {{.Student.FullName}}? All associated records will be deleted.');">
                 <button type="submit" class="btn btn-secondary btn-xs py-0.5 px-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/40" title="Delete Student">
