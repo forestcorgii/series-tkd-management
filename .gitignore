@@ -1,6 +1,7 @@
 /.vscode
-/cmd
 /server.exe
+*.exe
+__debug_bin*
 out
 out.exe
 *.db*
@@ -8,3 +9,6 @@ web/static/uploads/*
 !web/static/uploads/.gitkeep
 node_modules/
 *.log
+playwright-report/
+test-results/
+blob-report/

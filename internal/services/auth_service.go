@@ -88,6 +88,15 @@ func (s *AuthService) Login(identifier, password string) (*models.User, string, 
 		}
 	}
 
+	if user.IsStudent() && user.StudentID != nil {
+		if student, err := s.store.GetStudentByID(*user.StudentID); err == nil && student != nil && !student.IsActive {
+			if user.LastLoginAt == nil {
+				return nil, "", ErrAccountPendingApproval
+			}
+			return nil, "", ErrUserInactive
+		}
+	}
+
 	token, err := s.GenerateSecureToken()
 	if err != nil {
 		return nil, "", err
@@ -101,6 +110,19 @@ func (s *AuthService) Login(identifier, password string) (*models.User, string, 
 	_ = s.store.UpdateUserLastLogin(user.ID)
 
 	return user, token, nil
+}
+
+// CreateSessionForUser generates and persists a new 7-day session token for the given user.
+func (s *AuthService) CreateSessionForUser(userID uuid.UUID) (string, error) {
+	token, err := s.GenerateSecureToken()
+	if err != nil {
+		return "", err
+	}
+	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+	if err := s.store.CreateSessionToken(token, userID, expiresAt); err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 func (s *AuthService) ValidateSession(token string) (*models.User, error) {
@@ -117,9 +139,16 @@ func (s *AuthService) ValidateSession(token string) (*models.User, error) {
 	if user.IsCoach() {
 		var coach *models.Coach
 		if user.CoachID != nil {
-			coach, _ = s.store.GetCoachByID(*user.CoachID)
+			var coachErr error
+			coach, coachErr = s.store.GetCoachByID(*user.CoachID)
+			if coachErr != nil && !errors.Is(coachErr, repository.ErrNotFound) {
+				return nil, coachErr
+			}
 		} else {
-			coaches, _ := s.store.GetAllCoaches()
+			coaches, coachErr := s.store.GetAllCoaches()
+			if coachErr != nil {
+				return nil, coachErr
+			}
 			for _, c := range coaches {
 				if strings.EqualFold(c.Email, user.Email) {
 					coach = c
@@ -128,6 +157,15 @@ func (s *AuthService) ValidateSession(token string) (*models.User, error) {
 			}
 		}
 		if coach != nil && !coach.IsActive {
+			return nil, ErrUserInactive
+		}
+	}
+	if user.IsStudent() && user.StudentID != nil {
+		student, stErr := s.store.GetStudentByID(*user.StudentID)
+		if stErr != nil && !errors.Is(stErr, repository.ErrNotFound) {
+			return nil, stErr
+		}
+		if student != nil && !student.IsActive {
 			return nil, ErrUserInactive
 		}
 	}
@@ -363,7 +401,7 @@ func (s *AuthService) RequestPasswordReset(identifier string) (*models.PasswordR
 		return nil, fmt.Errorf("failed to save password reset token: %w", err)
 	}
 
-	log.Printf("🔑 [PASSWORD RESET] Token generated for user %s (%s): /reset-password?token=%s", user.Email, user.Username, rawToken)
+	log.Printf("🔑 [PASSWORD RESET] Reset token generated for user %s (%s)", user.Email, user.Username)
 
 	return token, nil
 }
@@ -389,13 +427,24 @@ func (s *AuthService) ValidatePasswordResetToken(rawToken string) (*models.Passw
 
 func (s *AuthService) ResetPassword(rawToken, newPassword string) (*models.User, error) {
 	tokenStr := strings.TrimSpace(rawToken)
-	if tokenStr == "" || len(newPassword) < 6 {
+	if tokenStr == "" {
+		return nil, ErrInvalidResetToken
+	}
+	if len(newPassword) < 6 {
 		return nil, errors.New("password must be at least 6 characters")
 	}
 
 	resetToken, user, err := s.ValidatePasswordResetToken(tokenStr)
 	if err != nil {
 		return nil, err
+	}
+	if !user.IsActive {
+		return nil, ErrUserInactive
+	}
+
+	// Mark token used first to prevent concurrent reuse
+	if err := s.store.MarkPasswordResetTokenUsed(resetToken.Token); err != nil {
+		return nil, fmt.Errorf("failed to mark token as used: %w", err)
 	}
 
 	if err := user.SetPassword(newPassword); err != nil {
@@ -406,10 +455,128 @@ func (s *AuthService) ResetPassword(rawToken, newPassword string) (*models.User,
 		return nil, fmt.Errorf("failed to update user password: %w", err)
 	}
 
-	if err := s.store.MarkPasswordResetTokenUsed(resetToken.Token); err != nil {
-		return nil, fmt.Errorf("failed to mark token as used: %w", err)
-	}
+	_ = s.store.DeleteUserSessions(user.ID)
 
 	log.Printf("✅ [PASSWORD RESET] Password successfully reset for user %s (%s)", user.Email, user.Username)
 	return user, nil
+}
+
+// StudentRegistrationInput holds the fields submitted on the public student registration page.
+type StudentRegistrationInput struct {
+	FullName          string
+	DOB               time.Time
+	Gender            string
+	Phone             string
+	CurrentBelt       models.BeltRank
+	Email             string
+	Username          string
+	Password          string
+	EmergencyName     string
+	EmergencyPhone    string
+	EmergencyRelation string
+	MedicalNotes      string
+	WaiverAccepted    bool
+	WaiverSignedName  string
+}
+
+// RegisterPendingStudent registers a new student applicant with IsActive = false pending manager/admin approval.
+func (s *AuthService) RegisterPendingStudent(in StudentRegistrationInput) (*models.Student, *models.User, error) {
+	normEmail := strings.ToLower(strings.TrimSpace(in.Email))
+	trimmedName := strings.TrimSpace(in.FullName)
+	trimmedPhone := strings.TrimSpace(in.Phone)
+	trimmedEmName := strings.TrimSpace(in.EmergencyName)
+	trimmedEmPhone := strings.TrimSpace(in.EmergencyPhone)
+	trimmedEmRel := strings.TrimSpace(in.EmergencyRelation)
+	trimmedSig := strings.TrimSpace(in.WaiverSignedName)
+
+	if trimmedName == "" {
+		return nil, nil, errors.New("full name is required")
+	}
+	if normEmail == "" || !strings.Contains(normEmail, "@") {
+		return nil, nil, errors.New("a valid email address is required")
+	}
+	if len(in.Password) < 6 {
+		return nil, nil, errors.New("password must be at least 6 characters long")
+	}
+	if trimmedPhone == "" {
+		return nil, nil, errors.New("contact number is required")
+	}
+	if trimmedEmName == "" || trimmedEmPhone == "" || trimmedEmRel == "" {
+		return nil, nil, errors.New("emergency contact name, phone, and relation are required")
+	}
+	if !in.WaiverAccepted {
+		return nil, nil, errors.New("you must read and agree to the liability waiver")
+	}
+	if trimmedSig == "" {
+		return nil, nil, errors.New("typed waiver signature (student or parent/guardian name) is required")
+	}
+
+	if existing, _ := s.store.GetUserByEmail(normEmail); existing != nil {
+		return nil, nil, ErrEmailAlreadyExists
+	}
+
+	var normUsername string
+	if in.Username != "" {
+		normUsername = strings.ToLower(strings.TrimSpace(in.Username))
+		if existing, _ := s.store.GetUserByUsername(normUsername); existing != nil {
+			return nil, nil, ErrUsernameAlreadyExists
+		}
+	}
+
+	dob := in.DOB
+	if dob.IsZero() {
+		dob = time.Now().AddDate(-10, 0, 0)
+	}
+	belt := in.CurrentBelt
+	if strings.TrimSpace(string(belt)) == "" {
+		belt = models.BeltWhite
+	}
+
+	now := time.Now()
+	student := &models.Student{
+		ID:                uuid.New(),
+		FullName:          trimmedName,
+		DOB:               dob,
+		Gender:            strings.TrimSpace(in.Gender),
+		Phone:             trimmedPhone,
+		CurrentBelt:       belt,
+		LastPromotionDate: now,
+		EmergencyName:     trimmedEmName,
+		EmergencyPhone:    trimmedEmPhone,
+		EmergencyRelation: trimmedEmRel,
+		MedicalNotes:      strings.TrimSpace(in.MedicalNotes),
+		IsActive:          false, // Pending manager/admin approval
+		WaiverAccepted:    true,
+		WaiverSignedName:  trimmedSig,
+		WaiverSignedAt:    &now,
+		CreatedAt:         now,
+	}
+
+	if err := s.store.CreateStudent(student); err != nil {
+		return nil, nil, fmt.Errorf("failed to create student profile: %w", err)
+	}
+
+	user := &models.User{
+		ID:          uuid.New(),
+		Email:       normEmail,
+		Username:    normUsername,
+		Role:        models.RoleStudent,
+		StudentID:   &student.ID,
+		DisplayName: trimmedName,
+		IsActive:    false, // Pending manager/admin approval
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := user.SetPassword(in.Password); err != nil {
+		_ = s.store.DeleteStudent(student.ID)
+		return nil, nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.store.CreateUser(user); err != nil {
+		_ = s.store.DeleteStudent(student.ID)
+		return nil, nil, fmt.Errorf("failed to create user record: %w", err)
+	}
+
+	return student, user, nil
 }

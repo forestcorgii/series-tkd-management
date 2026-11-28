@@ -16,29 +16,58 @@ import (
 )
 
 type StudentListItem struct {
-	Student          *models.Student
-	Readiness        services.PromotionReadiness
-	ActivePackage    *models.StudentPackage
-	LatestEvaluation *models.StudentEvaluation
-	SVGRadarPolygon  string
+	Student           *models.Student
+	Readiness         services.PromotionReadiness
+	ActivePackage     *models.StudentPackage
+	LatestEvaluation  *models.StudentEvaluation
+	SVGRadarPolygon   string
 	ProfilePictureURL string
 }
 
 type StudentsPageData struct {
-	CurrentUser   *models.User
-	Students      []StudentListItem
-	Templates     []*models.PackageTemplate
-	Search        string
-	SuccessNotice string
-	ErrorNotice   string
+	CurrentUser          *models.User
+	Students             []StudentListItem
+	Templates            []*models.PackageTemplate
+	StatusPresets        []string
+	PendingStudentsCount int
+	Search               string
+	StatusFilter         string
+	SuccessNotice        string
+	ErrorNotice          string
 }
 
 func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("query")
+	statusFilter := strings.TrimSpace(r.URL.Query().Get("status"))
 	students, err := a.store.SearchStudents(query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if statusFilter != "" {
+		filtered := make([]*models.Student, 0, len(students))
+		for _, st := range students {
+			if statusFilter == "__pending__" {
+				if !st.IsActive {
+					filtered = append(filtered, st)
+				}
+				continue
+			}
+			if statusFilter == "__none__" {
+				if len(st.StatusTags) == 0 {
+					filtered = append(filtered, st)
+				}
+				continue
+			}
+			for _, tag := range st.StatusTags {
+				if strings.EqualFold(tag, statusFilter) {
+					filtered = append(filtered, st)
+					break
+				}
+			}
+		}
+		students = filtered
 	}
 
 	sessions, _ := a.store.GetAllSessions()
@@ -98,15 +127,27 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templates, _ := a.store.GetPackageTemplates()
+	presets, _ := a.store.GetStudentStatusPresets()
+
+	allStudents, _ := a.store.GetAllStudents()
+	pendingStudents := 0
+	for _, st := range allStudents {
+		if !st.IsActive {
+			pendingStudents++
+		}
+	}
 
 	user := GetUserFromContext(r.Context())
 	data := StudentsPageData{
-		CurrentUser:   user,
-		Students:      items,
-		Templates:     templates,
-		Search:        query,
-		SuccessNotice: r.URL.Query().Get("success"),
-		ErrorNotice:   r.URL.Query().Get("error"),
+		CurrentUser:          user,
+		Students:             items,
+		Templates:            templates,
+		StatusPresets:        presets,
+		PendingStudentsCount: pendingStudents,
+		Search:               query,
+		StatusFilter:         statusFilter,
+		SuccessNotice:        r.URL.Query().Get("success"),
+		ErrorNotice:          r.URL.Query().Get("error"),
 	}
 
 	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
@@ -118,10 +159,18 @@ func (a *AppHandler) HandleStudents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/students/")
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimPrefix(r.URL.Path, "/students/")
+		idStr = strings.TrimSuffix(idStr, "/reset-password")
+		idStr = strings.TrimSuffix(idStr, "/reset-password/")
+		idStr = strings.TrimSuffix(idStr, "/edit")
+		idStr = strings.TrimSuffix(idStr, "/edit/")
+		idStr = strings.Trim(idStr, "/")
+	}
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, "Invalid student ID", http.StatusBadRequest)
+		http.Redirect(w, r, "/students", http.StatusSeeOther)
 		return
 	}
 
@@ -129,7 +178,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 	if user != nil {
 		if user.Role == models.RoleStudent {
 			if user.StudentID == nil || *user.StudentID != id {
-				http.Redirect(w, r, "/portal/student", http.StatusSeeOther)
+				http.Redirect(w, r, user.RoleDashboardURL(), http.StatusSeeOther)
 				return
 			}
 		}
@@ -153,6 +202,7 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 	pkgs, _ := a.store.GetStudentPackages(student.ID)
 	evals, _ := a.store.GetStudentEvaluations(student.ID)
 	coaches, _ := a.store.GetAllCoaches()
+	presets, _ := a.store.GetStudentStatusPresets()
 
 	polygon := ""
 	if latestEval != nil {
@@ -160,30 +210,39 @@ func (a *AppHandler) HandleStudentDetail(w http.ResponseWriter, r *http.Request)
 	}
 
 	var studentPicURL string
-	if u, _ := a.store.GetUserByStudentID(student.ID); u != nil && u.ProfilePictureURL != "" {
-		studentPicURL = u.ProfilePictureURL
+	studentUser, _ := a.store.GetUserByStudentID(student.ID)
+	if studentUser != nil && studentUser.ProfilePictureURL != "" {
+		studentPicURL = studentUser.ProfilePictureURL
 	}
 
 	data := struct {
 		CurrentUser       *models.User
 		Student           *models.Student
+		StudentUser       *models.User
 		Readiness         services.PromotionReadiness
 		Packages          []*models.StudentPackage
 		LatestEvaluation  *models.StudentEvaluation
 		Evaluations       []*models.StudentEvaluation
 		Coaches           []*models.Coach
+		StatusPresets     []string
 		SVGRadarPolygon   string
 		ProfilePictureURL string
+		SuccessNotice     string
+		ErrorNotice       string
 	}{
 		CurrentUser:       user,
 		Student:           student,
+		StudentUser:       studentUser,
 		Readiness:         readiness,
 		Packages:          pkgs,
 		LatestEvaluation:  latestEval,
 		Evaluations:       evals,
 		Coaches:           coaches,
+		StatusPresets:     presets,
 		SVGRadarPolygon:   polygon,
 		ProfilePictureURL: studentPicURL,
+		SuccessNotice:     r.URL.Query().Get("success"),
+		ErrorNotice:       r.URL.Query().Get("error"),
 	}
 
 	a.RenderPage(w, "student_detail.html", data)
@@ -213,11 +272,15 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 		EmergencyRelation: r.FormValue("emergency_relation"),
 		MedicalNotes:      r.FormValue("medical_notes"),
 		IsActive:          true,
+		StatusTags:        models.ParseStatusTags(r.FormValue("status_tags")),
 	}
 
 	if err := a.store.CreateStudent(s); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	for _, tag := range s.StatusTags {
+		_, _ = a.store.AddStudentStatusPreset(tag)
 	}
 
 	a.LogAction(r, "STUDENT_CREATE", models.AuditCategoryStudents, "Student", s.ID.String(), s.FullName, "Registered new student: "+s.FullName)
@@ -232,8 +295,24 @@ func (a *AppHandler) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 		_, _ = a.authSvc.RegisterUser(email, password, models.RoleStudent, &s.ID, nil, username)
 	}
 
+	var pkgTitle string
 	if templateIDStr := strings.TrimSpace(r.FormValue("template_id")); templateIDStr != "" {
-		_, _ = a.AssignPackageFromForm(r, s.ID)
+		if sp, err := a.AssignPackageFromForm(r, s.ID); err == nil && sp != nil {
+			pkgTitle = sp.TemplateTitle
+		}
+	}
+
+	actorName := "Admin Desk"
+	if u := GetUserFromContext(r.Context()); u != nil {
+		if u.DisplayName != "" {
+			actorName = u.DisplayName
+		} else {
+			actorName = u.Email
+		}
+	}
+
+	if a.notifSvc != nil {
+		a.notifSvc.NotifyStudentRegistered(s, actorName, pkgTitle)
 	}
 
 	http.Redirect(w, r, "/students", http.StatusSeeOther)
@@ -317,10 +396,12 @@ func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 	if idStr == "" {
 		idStr = strings.TrimPrefix(r.URL.Path, "/students/")
 		idStr = strings.TrimSuffix(idStr, "/edit")
+		idStr = strings.TrimSuffix(idStr, "/edit/")
 	}
+	idStr = strings.Trim(idStr, "/")
 	studentID, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, "Invalid student ID", http.StatusBadRequest)
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Invalid student ID."), http.StatusSeeOther)
 		return
 	}
 
@@ -363,13 +444,79 @@ func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 		student.EmergencyRelation = emRel
 	}
 	student.MedicalNotes = strings.TrimSpace(r.FormValue("medical_notes"))
+	student.StatusTags = models.ParseStatusTags(r.FormValue("status_tags"))
 
-	// Non-admin roles like Operation Manager could update current_belt if provided,
-	// but Admin is strictly barred from modifying belt rank or promotion dates.
+	// Non-admin roles like Operation Manager could update current_belt, email, and username
+	// Admins are strictly barred from modifying belt rank, promotion dates, or portal credentials.
 	user := GetUserFromContext(r.Context())
 	if user != nil && user.IsOperationManager() {
 		if belt := strings.TrimSpace(r.FormValue("current_belt")); belt != "" {
 			student.CurrentBelt = models.BeltRank(belt)
+		}
+
+		email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+		username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+
+		studentUser, _ := a.store.GetUserByStudentID(student.ID)
+		if studentUser != nil {
+			var credsUpdated bool
+			if email != "" && email != studentUser.Email {
+				if !strings.Contains(email, "@") {
+					http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("A valid email address is required."), http.StatusSeeOther)
+					return
+				}
+				if existing, _ := a.store.GetUserByEmail(email); existing != nil && existing.ID != studentUser.ID {
+					http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("A user with this email already exists."), http.StatusSeeOther)
+					return
+				}
+				studentUser.Email = email
+				credsUpdated = true
+			}
+
+			if username != studentUser.Username {
+				if username != "" {
+					if existing, _ := a.store.GetUserByUsername(username); existing != nil && existing.ID != studentUser.ID {
+						http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("A user with this username already exists."), http.StatusSeeOther)
+						return
+					}
+				}
+				studentUser.Username = username
+				credsUpdated = true
+			}
+
+			if credsUpdated {
+				if err := a.store.UpdateUser(studentUser); err != nil {
+					http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("Failed to update student login credentials: "+err.Error()), http.StatusSeeOther)
+					return
+				}
+				a.LogAction(r, "STUDENT_CREDENTIALS_UPDATE", models.AuditCategoryStudents, "User", studentUser.ID.String(), student.FullName, "Updated student portal login credentials for: "+student.FullName)
+			}
+		} else if email != "" {
+			// Student does not have a user account yet, manager can provision one
+			if !strings.Contains(email, "@") {
+				http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("A valid email address is required."), http.StatusSeeOther)
+				return
+			}
+			if existing, _ := a.store.GetUserByEmail(email); existing != nil {
+				http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("A user with this email already exists."), http.StatusSeeOther)
+				return
+			}
+			if username != "" {
+				if existing, _ := a.store.GetUserByUsername(username); existing != nil {
+					http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("A user with this username already exists."), http.StatusSeeOther)
+					return
+				}
+			}
+			initPassword := strings.TrimSpace(r.FormValue("new_password"))
+			if initPassword == "" {
+				initPassword = "student123"
+			}
+			createdUser, err := a.authSvc.RegisterUser(email, initPassword, models.RoleStudent, &student.ID, nil, username)
+			if err != nil {
+				http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("Failed to provision student portal account: "+err.Error()), http.StatusSeeOther)
+				return
+			}
+			a.LogAction(r, "STUDENT_CREDENTIALS_CREATE", models.AuditCategoryStudents, "User", createdUser.ID.String(), student.FullName, "Provisioned student portal account for: "+student.FullName)
 		}
 	}
 
@@ -377,13 +524,270 @@ func (a *AppHandler) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	for _, tag := range student.StatusTags {
+		_, _ = a.store.AddStudentStatusPreset(tag)
+	}
 
 	a.LogAction(r, "STUDENT_UPDATE", models.AuditCategoryStudents, "Student", student.ID.String(), student.FullName, "Updated student profile details for: "+student.FullName)
 
 	http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)
 }
 
+// HandleResetStudentPassword allows an Operation Manager to reset a student's login password or provision their portal account
+func (a *AppHandler) HandleResetStudentPassword(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimPrefix(r.URL.Path, "/api/students/")
+		idStr = strings.TrimPrefix(idStr, "/students/")
+		idStr = strings.TrimSuffix(idStr, "/reset-password")
+		idStr = strings.TrimSuffix(idStr, "/reset-password/")
+	}
+	idStr = strings.Trim(idStr, "/")
+	studentID, err := uuid.Parse(idStr)
+	if err != nil {
+		if isJSONRequest(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid student ID."})
+			return
+		}
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Invalid student ID."), http.StatusSeeOther)
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		http.Redirect(w, r, "/students/"+studentID.String(), http.StatusSeeOther)
+		return
+	}
+
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user != nil && !user.IsOperationManager() {
+		if isJSONRequest(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Forbidden: only Operation Managers can reset student credentials."})
+			return
+		}
+		http.Error(w, "Forbidden: only Operation Managers can reset student credentials", http.StatusForbidden)
+		return
+	}
+
+	student, err := a.store.GetStudentByID(studentID)
+	if err != nil || student == nil {
+		if isJSONRequest(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Student record not found."})
+			return
+		}
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Student record not found."), http.StatusSeeOther)
+		return
+	}
+
+	var newPassword, confirmPassword, email, username string
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			NewPassword     string `json:"new_password"`
+			ConfirmPassword string `json:"confirm_password"`
+			Email           string `json:"email"`
+			Username        string `json:"username"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if isJSONRequest(r) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON payload: " + err.Error()})
+				return
+			}
+			http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape("Invalid JSON payload."), http.StatusSeeOther)
+			return
+		}
+		newPassword = strings.TrimSpace(req.NewPassword)
+		confirmPassword = strings.TrimSpace(req.ConfirmPassword)
+		email = strings.ToLower(strings.TrimSpace(req.Email))
+		username = strings.ToLower(strings.TrimSpace(req.Username))
+	} else {
+		newPassword = strings.TrimSpace(r.FormValue("new_password"))
+		confirmPassword = strings.TrimSpace(r.FormValue("confirm_password"))
+		email = strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+		username = strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+	}
+
+	respondError := func(statusCode int, msg string) {
+		if isJSONRequest(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(statusCode)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+			return
+		}
+		if isHTMXRequest(r) {
+			renderHTMXBanner(w, http.StatusOK, false, msg)
+			return
+		}
+		http.Redirect(w, r, "/students/"+studentID.String()+"?error="+url.QueryEscape(msg), http.StatusSeeOther)
+	}
+
+	if len(newPassword) < 6 {
+		respondError(http.StatusBadRequest, "New password must be at least 6 characters long.")
+		return
+	}
+
+	if confirmPassword != "" && newPassword != confirmPassword {
+		respondError(http.StatusBadRequest, "Password confirmation does not match.")
+		return
+	}
+
+	studentUser, err := a.store.GetUserByStudentID(studentID)
+	if err != nil || studentUser == nil {
+		// Student does not have a user account yet
+		if email == "" {
+			respondError(http.StatusBadRequest, "Student does not have a linked portal account. Please provide an email address.")
+			return
+		}
+		if !strings.Contains(email, "@") {
+			respondError(http.StatusBadRequest, "A valid email address is required.")
+			return
+		}
+		if existing, _ := a.store.GetUserByEmail(email); existing != nil {
+			respondError(http.StatusConflict, "A user with this email already exists.")
+			return
+		}
+		if username != "" {
+			if existing, _ := a.store.GetUserByUsername(username); existing != nil {
+				respondError(http.StatusConflict, "A user with this username already exists.")
+				return
+			}
+		}
+		createdUser, err := a.authSvc.RegisterUser(email, newPassword, models.RoleStudent, &studentID, nil, username)
+		if err != nil {
+			respondError(http.StatusInternalServerError, "Failed to provision student portal account: "+err.Error())
+			return
+		}
+		a.LogAction(r, "STUDENT_RESET_PASSWORD", models.AuditCategoryStudents, "User", createdUser.ID.String(), student.FullName, "Provisioned student login credentials and set password for: "+student.FullName)
+	} else {
+		// Update password on existing user account
+		if err := studentUser.SetPassword(newPassword); err != nil {
+			respondError(http.StatusInternalServerError, "Failed to hash new password: "+err.Error())
+			return
+		}
+		if email != "" && email != studentUser.Email {
+			if !strings.Contains(email, "@") {
+				respondError(http.StatusBadRequest, "A valid email address is required.")
+				return
+			}
+			if existing, _ := a.store.GetUserByEmail(email); existing != nil && existing.ID != studentUser.ID {
+				respondError(http.StatusConflict, "A user with this email already exists.")
+				return
+			}
+			studentUser.Email = email
+		}
+		if username != "" && username != studentUser.Username {
+			if existing, _ := a.store.GetUserByUsername(username); existing != nil && existing.ID != studentUser.ID {
+				respondError(http.StatusConflict, "A user with this username already exists.")
+				return
+			}
+			studentUser.Username = username
+		}
+		if err := a.store.UpdateUser(studentUser); err != nil {
+			respondError(http.StatusInternalServerError, "Failed to update password: "+err.Error())
+			return
+		}
+		a.LogAction(r, "STUDENT_RESET_PASSWORD", models.AuditCategoryStudents, "User", studentUser.ID.String(), student.FullName, "Reset student portal password for: "+student.FullName)
+	}
+
+	msg := fmt.Sprintf("Password for student '%s' reset successfully.", student.FullName)
+	if isJSONRequest(r) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "success",
+			"id":      studentID,
+			"message": msg,
+		})
+		return
+	}
+	if isHTMXRequest(r) {
+		renderHTMXBanner(w, http.StatusOK, true, msg)
+		return
+	}
+
+	http.Redirect(w, r, "/students/"+studentID.String()+"?success="+url.QueryEscape(msg), http.StatusSeeOther)
+}
+
 // HandleDeleteStudent permanently removes a student profile, attendance, evaluations, packages, and linked user account
+func (a *AppHandler) HandleUpdateStudentStatusTags(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		idStr = strings.TrimSpace(r.FormValue("student_id"))
+	}
+	idStr = strings.Trim(idStr, "/")
+	studentID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Invalid student ID."), http.StatusSeeOther)
+		return
+	}
+
+	student, err := a.store.GetStudentByID(studentID)
+	if err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Student not found."), http.StatusSeeOther)
+		return
+	}
+
+	student.StatusTags = models.ParseStatusTags(r.FormValue("status_tags"))
+	if err := a.store.UpdateStudent(student); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, tag := range student.StatusTags {
+		_, _ = a.store.AddStudentStatusPreset(tag)
+	}
+
+	a.LogAction(r, "STUDENT_TAGS_UPDATE", models.AuditCategoryStudents, "Student", student.ID.String(), student.FullName, "Updated status tags for: "+student.FullName)
+
+	http.Redirect(w, r, "/students?success="+url.QueryEscape("Status tags updated for "+student.FullName+"."), http.StatusSeeOther)
+}
+
+func parsePresetName(r *http.Request) string {
+	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+		var payload struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err == nil {
+			return strings.TrimSpace(payload.Name)
+		}
+	}
+	return strings.TrimSpace(r.FormValue("name"))
+}
+
+func (a *AppHandler) HandleDeleteStudentStatusTag(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	name := parsePresetName(r)
+	if name == "" {
+		http.Error(w, "Tag name is required", http.StatusBadRequest)
+		return
+	}
+	tags, err := a.store.DeleteStudentStatusPreset(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"tags": tags})
+}
+
 func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -463,4 +867,47 @@ func (a *AppHandler) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/students?success="+url.QueryEscape(msg), http.StatusSeeOther)
 }
 
+func (a *AppHandler) HandleToggleStudentActive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
+	idStr := r.PathValue("id")
+	targetID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Invalid student ID."), http.StatusSeeOther)
+		return
+	}
+
+	student, err := a.store.GetStudentByID(targetID)
+	if err != nil || student == nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Student record not found."), http.StatusSeeOther)
+		return
+	}
+
+	newStatus := !student.IsActive
+	if err := a.store.ToggleStudentActive(targetID, newStatus); err != nil {
+		http.Redirect(w, r, "/students?error="+url.QueryEscape("Failed to update student status: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	a.LogAction(r, "STUDENT_TOGGLE_ACTIVE", models.AuditCategoryStudents, "Student", targetID.String(), student.FullName, fmt.Sprintf("Student %s status toggled to %v", student.FullName, newStatus))
+
+	statusMsg := "approved and activated. They can now log in"
+	if !newStatus {
+		statusMsg = "deactivated. Their active sessions have been terminated and login access is blocked"
+	} else if u, _ := a.store.GetUserByStudentID(targetID); u != nil && u.LastLoginAt != nil {
+		statusMsg = "reactivated and can now log in"
+	}
+
+	redirectTo := strings.TrimSpace(r.FormValue("redirect_url"))
+	if !isSafeLocalRedirect(redirectTo) {
+		redirectTo = "/students"
+	}
+	sep := "?"
+	if strings.Contains(redirectTo, "?") {
+		sep = "&"
+	}
+	http.Redirect(w, r, redirectTo+sep+"success="+url.QueryEscape(fmt.Sprintf("Student '%s' has been %s.", student.FullName, statusMsg)), http.StatusSeeOther)
+}

@@ -5,9 +5,15 @@
   "description": "Series Taekwondo Management System",
   "scripts": {
     "build:css": "tailwindcss -i ./web/static/css/input.css -o ./web/static/css/tailwind.css --minify",
-    "watch:css": "tailwindcss -i ./web/static/css/input.css -o ./web/static/css/tailwind.css --watch"
+    "watch:css": "tailwindcss -i ./web/static/css/input.css -o ./web/static/css/tailwind.css --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
     "tailwindcss": "^3.4.19"
   }
 }
