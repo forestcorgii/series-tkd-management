@@ -58,7 +58,7 @@
 
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <span class="text-[10px] uppercase font-bold tracking-wider {{if .IsActive}}text-[#990303] dark:text-red-400{{else}}text-slate-500{{end}}">
+                        <span class="text-[10px] uppercase font-bold tracking-wider {{if .IsActive}}text-[#990303] dark:text-red-400{{else}}text-slate-600 dark:text-slate-400{{end}}">
                             {{if .IsFourWeek}}4-Week ({{.WeeklyCadence}}x/wk){{else if .IsUnlimited}}Unlimited Pass{{else}}Class Package{{end}}
                         </span>
                         <span class="font-display font-black text-xl text-slate-900 dark:text-white">
@@ -75,7 +75,7 @@
                             {{.Description}}
                         </p>
                         {{else}}
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500 italic mt-0.5">
+                        <p class="text-[11px] text-slate-600 dark:text-slate-400 italic mt-0.5">
                             Standard training curriculum plan.
                         </p>
                         {{end}}
@@ -386,7 +386,7 @@
                     <span class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
                         ⚙️ Checkout Overrides (Optional)
                     </span>
-                    <span class="text-[10px] text-slate-500">Auto-filled from template</span>
+                    <span class="text-[10px] text-slate-600 dark:text-slate-400">Auto-filled from template</span>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 text-xs">
