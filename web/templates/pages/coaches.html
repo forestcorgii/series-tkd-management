@@ -216,6 +216,7 @@
                                     <button type="submit" class="btn btn-secondary btn-xs py-0.5 px-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50" title="Deactivate Coach">
                                         Deactivate
                                     </button>
+                                </form>
                                 {{else if .IsPendingApproval}}
                                 <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="inline">
                                     <button type="submit" class="btn btn-success btn-xs py-1 px-2 text-xs" title="Approve Coach">
@@ -230,7 +231,7 @@
                                 </form>
                                 {{end}}
                                 <form action="/coaches/{{.Coach.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete coach {{.Coach.FullName}}? This will cascade and delete all associated classes, attendance, evaluations, and login records.');">
-                                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2 text-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50" title="Delete Coach (Cascade)">
+                                    <button type="submit" class="btn btn-secondary btn-xs py-1 px-2 text-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50" title="Delete Coach (Cascade)" aria-label="Delete coach {{.Coach.FullName}}">
                                         🗑️
                                     </button>
                                 </form>

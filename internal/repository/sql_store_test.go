@@ -430,6 +430,8 @@ func TestSQLStore_UpdateCoachAndUser(t *testing.T) {
 		t.Fatalf("GetUserByEmail failed: %v", err)
 	}
 	_ = user.SetPassword("newsecret123")
+	user.Email = "new_manager@seriestkd.com"
+	user.Username = "supermanager"
 	if err := store.UpdateUser(user); err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -439,6 +441,12 @@ func TestSQLStore_UpdateCoachAndUser(t *testing.T) {
 	}
 	if !refetchedUser.CheckPassword("newsecret123") {
 		t.Errorf("expected password to match updated hash")
+	}
+	if refetchedUser.Email != "new_manager@seriestkd.com" {
+		t.Errorf("expected updated email 'new_manager@seriestkd.com', got '%s'", refetchedUser.Email)
+	}
+	if refetchedUser.Username != "supermanager" {
+		t.Errorf("expected updated username 'supermanager', got '%s'", refetchedUser.Username)
 	}
 }
 
@@ -1427,12 +1435,14 @@ func TestSQLStore_Locations(t *testing.T) {
 
 	// 1. Create Location
 	initialRate := 275.50
+	maxCap := 20
 	loc := &models.Location{
-		ID:        uuid.New(),
-		Name:      "BGC Branch",
-		Pin:       "https://maps.google.com/?q=BGC+Branch",
-		FixedRate: &initialRate,
-		CreatedAt: time.Now(),
+		ID:          uuid.New(),
+		Name:        "BGC Branch",
+		Pin:         "https://maps.google.com/?q=BGC+Branch",
+		FixedRate:   &initialRate,
+		MaxTrainees: &maxCap,
+		CreatedAt:   time.Now(),
 	}
 	if err := store.CreateLocation(loc); err != nil {
 		t.Fatalf("CreateLocation failed: %v", err)
@@ -1449,6 +1459,9 @@ func TestSQLStore_Locations(t *testing.T) {
 	if fetched.FixedRate == nil || *fetched.FixedRate != 275.50 {
 		t.Errorf("expected fetched location fixed_rate 275.50, got %v", fetched.FixedRate)
 	}
+	if fetched.MaxTrainees == nil || *fetched.MaxTrainees != 20 {
+		t.Errorf("expected fetched location max_trainees 20, got %v", fetched.MaxTrainees)
+	}
 
 	// 3. GetAllLocations
 	locs, err := store.GetAllLocations()
@@ -1462,6 +1475,9 @@ func TestSQLStore_Locations(t *testing.T) {
 			if l.FixedRate == nil || *l.FixedRate != 275.50 {
 				t.Errorf("expected GetAllLocations item fixed_rate 275.50, got %v", l.FixedRate)
 			}
+			if l.MaxTrainees == nil || *l.MaxTrainees != 20 {
+				t.Errorf("expected GetAllLocations item max_trainees 20, got %v", l.MaxTrainees)
+			}
 			break
 		}
 	}
@@ -1471,9 +1487,11 @@ func TestSQLStore_Locations(t *testing.T) {
 
 	// 4. Update Location
 	updatedRate := 320.00
+	updatedCap := 35
 	loc.Name = "BGC High Street Dojang"
 	loc.Pin = "https://maps.google.com/?q=BGC+High+Street"
 	loc.FixedRate = &updatedRate
+	loc.MaxTrainees = &updatedCap
 	if err := store.UpdateLocation(loc); err != nil {
 		t.Fatalf("UpdateLocation failed: %v", err)
 	}
@@ -1483,6 +1501,9 @@ func TestSQLStore_Locations(t *testing.T) {
 	}
 	if updated.FixedRate == nil || *updated.FixedRate != 320.00 {
 		t.Errorf("expected updated location fixed_rate 320.00, got %v", updated.FixedRate)
+	}
+	if updated.MaxTrainees == nil || *updated.MaxTrainees != 35 {
+		t.Errorf("expected updated location max_trainees 35, got %v", updated.MaxTrainees)
 	}
 
 	// 5. Link Session to Location
@@ -1563,6 +1584,44 @@ func TestSQLStore_Locations(t *testing.T) {
 	if _, err := store.GetLocationByID(otherLoc.ID); err != repository.ErrNotFound {
 		t.Errorf("expected ErrNotFound after DeleteLocation, got: %v", err)
 	}
+
+	// 9. Default Location & ReserveSessionSlot Verification
+	defLoc := &models.Location{
+		ID:        uuid.New(),
+		Name:      "Makati Central (HQ)",
+		Pin:       "https://maps.google.com/?q=makati",
+		IsDefault: true,
+	}
+	if err := store.CreateLocation(defLoc); err != nil {
+		t.Fatalf("CreateLocation with IsDefault failed: %v", err)
+	}
+	activeDefault, err := store.GetDefaultLocation()
+	if err != nil || activeDefault == nil || activeDefault.ID != defLoc.ID {
+		t.Fatalf("expected default location to be %v, got %v (err: %v)", defLoc.ID, activeDefault, err)
+	}
+
+	// Set another location as default
+	if err := store.SetDefaultLocation(loc.ID); err != nil {
+		t.Fatalf("SetDefaultLocation failed: %v", err)
+	}
+	updatedDefault, err := store.GetDefaultLocation()
+	if err != nil || updatedDefault == nil || updatedDefault.ID != loc.ID {
+		t.Fatalf("expected new default location %v, got %v", loc.ID, updatedDefault)
+	}
+
+	// 10. ReserveSessionSlot Verification
+	resAtt, err := store.ReserveSessionSlot(sess.ID, "Grandmaster Park", "09171234567")
+	if err != nil {
+		t.Fatalf("ReserveSessionSlot failed: %v", err)
+	}
+	if resAtt.AttendeeName != "Grandmaster Park" || resAtt.AttendeeType != "guest" || resAtt.ContactNumber != "09171234567" {
+		t.Errorf("unexpected reservation attendance details: %+v", resAtt)
+	}
+	// Duplicate reservation rejection
+	_, err = store.ReserveSessionSlot(sess.ID, "Grandmaster Park", "09171234567")
+	if err != repository.ErrAlreadyInRoster {
+		t.Errorf("expected ErrAlreadyInRoster for duplicate guest reservation, got: %v", err)
+	}
 }
 
 func TestStore_Attendance_SessionRate(t *testing.T) {
@@ -1609,6 +1668,7 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 			}
 			_ = store.CreateCoach(coach)
 
+			sessRate := 200.00
 			sess := &models.TrainingSession{
 				ID:           uuid.New(),
 				SessionDate:  time.Now(),
@@ -1616,6 +1676,7 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 				EndTime:      "17:30",
 				CoachID:      &coach.ID,
 				TrainingType: models.TrainingPoomsae,
+				SessionRate:  &sessRate,
 			}
 			_ = store.CreateSession(sess)
 
@@ -1647,6 +1708,15 @@ func TestStore_Attendance_SessionRate(t *testing.T) {
 			}
 			if stAtts[0].SessionRate == nil || *stAtts[0].SessionRate != 200.00 {
 				t.Errorf("expected GetStudentAttendances to retain SessionRate 200.00, got %v", stAtts[0].SessionRate)
+			}
+
+			// Verify ReserveSessionSlot inherits SessionRate from session
+			resGuest, err := store.ReserveSessionSlot(sess.ID, "VIP Guest Master Lee", "09181234567")
+			if err != nil {
+				t.Fatalf("ReserveSessionSlot failed: %v", err)
+			}
+			if resGuest.SessionRate == nil || *resGuest.SessionRate != 200.00 {
+				t.Errorf("expected ReserveSessionSlot to inherit SessionRate 200.00, got %v", resGuest.SessionRate)
 			}
 		})
 	}
@@ -2115,3 +2185,41 @@ func TestStore_CustomizableRolesAndPermissions(t *testing.T) {
 	}
 }
 
+func TestSQLStore_NotificationSettings_SMTPFromName(t *testing.T) {
+	dbFile := filepath.Join(t.TempDir(), "test_notif_settings.db")
+	store, _, err := repository.InitDatabase(dbFile)
+	if err != nil {
+		t.Fatalf("InitDatabase failed: %v", err)
+	}
+	defer func() {
+		if closer, ok := store.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
+	}()
+
+	settings, err := store.GetNotificationSettings()
+	if err != nil {
+		t.Fatalf("GetNotificationSettings failed: %v", err)
+	}
+	if settings.SMTPFromName != "Series Taekwondo" {
+		t.Errorf("expected default SMTPFromName 'Series Taekwondo', got %q", settings.SMTPFromName)
+	}
+
+	// Update display name
+	settings.SMTPFromName = "Series Taekwondo Bonifacio Global City"
+	settings.SMTPFrom = "bgc@seriestkd.com"
+	if err := store.UpdateNotificationSettings(settings); err != nil {
+		t.Fatalf("UpdateNotificationSettings failed: %v", err)
+	}
+
+	updated, err := store.GetNotificationSettings()
+	if err != nil {
+		t.Fatalf("re-fetching notification settings failed: %v", err)
+	}
+	if updated.SMTPFromName != "Series Taekwondo Bonifacio Global City" {
+		t.Errorf("expected updated SMTPFromName 'Series Taekwondo Bonifacio Global City', got %q", updated.SMTPFromName)
+	}
+	if updated.SMTPFrom != "bgc@seriestkd.com" {
+		t.Errorf("expected updated SMTPFrom 'bgc@seriestkd.com', got %q", updated.SMTPFrom)
+	}
+}
