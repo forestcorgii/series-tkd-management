@@ -76,73 +76,21 @@ To maintain operational clarity for students, parents, coaches, and front-desk s
 
 ---
 
-## 5. Dashboard Operations Standards
-
-### Context: Dashboard Active Classes Floor Filter
-- **Problem**: The dashboard's "Active Classes" floor quick-links panel previously rendered all sessions indiscriminately, including historical/concluded sessions (`🔒 CLOSED`) and cancelled sessions (`🚫 CANCELLED`), cluttering operational quick-check-in.
-- **Enforced Solution**:
-  - **Domain Model**: [TrainingSession.IsOpen()](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) and [TrainingSession.IsOpenAt()](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/session.go) evaluate `!s.IsCancelled && !s.IsPastEndTime()`.
-  - **Handler Filter**: [HandleDashboard](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/dashboard_handler.go) populates `RecentSessions` strictly with sessions satisfying `s.IsOpen()`.
-  - **UI Representation**: [web/templates/pages/dashboard.html](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/templates/pages/dashboard.html) badges each item as `Open`, updates the header telemetry to `N Open`, and provides an empty-state card ("No open classes right now") when the floor has no pending or live classes.
-
----
-
-## 6. Contact Number Format Standards
+## 5. Contact Number Format Standards
 
 ### Context: 11-Digit Mobile Format
-- **Problem**: Forms previously used inconsistent, legacy international placeholder formats (e.g. `+1 (555) 000-0000`, `+1-555-0100`) and allowed free-form text input that complicated quick front-desk and floor safety communications.
-- **Enforced Solution**:
-  - **Standard Format**: 11-digit mobile number starting with `09` (e.g., `09626914130`).
-  - **Input Attributes**:
-    - `type="tel"`
-    - `name="phone"` / `name="emergency_phone"`
-    - `placeholder="09626914130"`
-    - `pattern="09[0-9]{9}"`
-    - `maxlength="11"`
-    - `inputmode="numeric"`
-    - `oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"`
-    - Helper microcopy: `11 digits starting with 09 (e.g. 09626914130)`
-  - **Applied Screens**:
-    - Coach Public Registration (`/register`)
-    - Coach Directory Modal (`/coaches`)
-    - Student Enrollment Modal (`/students`)
----
-
-## 7. Class Scheduling Navigation Flow
-
-### Context: Post-Schedule Calendar View Anchor Retention
-- **Problem**: When staff or coaches scheduled or edited a class on a future or past date within the calendar (e.g. clicking Friday on a Wednesday-anchored week), the modal previously updated `redirect_url` to `/sessions?date=<session_date>`. Consequently, the calendar reloaded with Friday shifted into Column 1, pushing earlier days out of view.
-- **Enforced Solution**:
-  - **Anchor Retention**: The calendar exposes its active first-column date via `data-anchor-date="{{.Calendar.StartDateStr}}"` on `#session-cards-wrapper`.
-  - **Redirect URL Composition**: `getCurrentCalendarRedirectURL()` captures the active calendar anchor date along with any active filter parameters (`coach_id`, `category`, `location_id`, etc.), populating `redirect_url` in both `openNewSessionModal` and `openEditSessionModal`.
-  - **Natural Column Placement**: After creating or updating a session on any future or past day, the calendar returns to the currently viewed week anchor so the session appears in its appropriate weekday column (e.g. Column 3 for Friday) without jumping to Column 1.
-  - **Handler Navigation**: [HandleCreateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) and [HandleUpdateSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) honor explicit `redirect_url` targets, and default to `/sessions?date=YYYY-MM-DD` when omitted.
-  - **HTMX Support**: Evaluates `HX-Request` header and responds with `HX-Redirect` when requested via hypermedia.
+- **Standard Format**: 11-digit mobile number starting with `09` (e.g., `09626914130`).
+- **Input Attributes**: `type="tel"`, `name="phone"` / `name="emergency_phone"`, `placeholder="09626914130"`, `pattern="09[0-9]{9}"`, `maxlength="11"`, `inputmode="numeric"`, `oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)"`.
+- **Helper Microcopy**: `11 digits starting with 09 (e.g. 09626914130)`
+- **Applied Screens**: Coach Public Registration (`/register`), Coach Directory Modal (`/coaches`), Student Enrollment Modal (`/students`).
 
 ---
 
-## 8. Athletic Evaluation Radar Standards
+## 6. Athletic Evaluation Radar Standards
 
 ### Context: 3-Axis Athletic Radar Metrics
-- **Problem:** The athletic ability evaluation radar previously required 6 crowded metrics (Flexibility, Stamina, Power, Technique, Sparring IQ, Discipline) which overburdened floor coaches during quick evaluations and cluttered student profile visualizations.
-- **Enforced Solution:**
-  - **Triad Metrics:** Reduced to exactly 3 core martial arts axes:
-    1. **Sparring** (Apex / Top, angle: $-90^\circ / -\frac{\pi}{2}$)
-    2. **Flexibility** (Bottom-Right, angle: $30^\circ / \frac{\pi}{6}$)
-    3. **Poomsae** (Bottom-Left, angle: $150^\circ / \frac{5\pi}{6}$)
-  - **Domain Model:** [StudentEvaluation](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go) with `Sparring`, `Flexibility`, `Poomsae`.
-  - **Backward Compatibility:** `GetSparring()`, `GetFlexibility()`, `GetPoomsae()`, and `SyncLegacyFields()` ensure existing records, SQL tables, and tests preserve full interoperability.
-  - **Polygon Math:** Equilateral triangle concentric grids at scores 10, 8, 6, 4, 2 with [ToSVGPolygon](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go) generating 3-point SVG polygon coordinates.
-
----
-
-## 9. Interactive Calendar Drag-and-Drop Rescheduling
-
-### Context: Floor Calendar Drag-and-Drop Operations
-- **Problem**: Moving sessions, duty shifts, or events required opening edit dialogs and manually typing new dates and times, slowing down front-desk floor operations.
-- **Enforced Solution**:
-  - **Native Drag & Drop**: Session cards feature `draggable="true"` (except when cancelled), visual grab cursors (`cursor-grab active:cursor-grabbing`), and drag-state opacity highlights.
-  - **Drop Zones**: Both 30-minute time slot buttons (`:00` and `:30`) and day column headers serve as active drop targets with interactive dragover styling (`!bg-rose-100 ring-2 ring-[#990303]`).
-  - **Duration Preservation**: Dropping on a time slot automatically preserves the original duration (`newEnd = newStart + duration`), while dropping onto a day header keeps the existing time window and shifts only the date.
-  - **Instant Reschedule (Zero Confirmation Modal)**: Dropping a session card immediately executes the reschedule without blocking popups or confirmation dialogues, streamlining fast front-desk adjustments.
-  - **In-Place Seamless Refresh**: Dropping triggers `htmx.ajax` targeting `#classes-container`. [HandleRescheduleSession](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/handlers/session_handler.go) detects `HX-Target: classes-container` and immediately re-renders the `session_cards.html` timetable partial with `HX-Push-Url`, eliminating full page reloads while maintaining filter state and date history. Standard `HX-Redirect` and HTTP 303 redirects remain available for non-targeted submissions.
+- **Triad Metrics (1–10 scale)**:
+  1. **Sparring** (Apex / Top, angle: $-90^\circ / -\frac{\pi}{2}$)
+  2. **Flexibility** (Bottom-Right, angle: $30^\circ / \frac{\pi}{6}$)
+  3. **Poomsae** (Bottom-Left, angle: $150^\circ / \frac{5\pi}{6}$)
+- **Domain Model**: [`StudentEvaluation`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go) (`Sparring`, `Flexibility`, `Poomsae`) with `GetSparring()`, `GetFlexibility()`, `GetPoomsae()`, `SyncLegacyFields()`, and [`ToSVGPolygon`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/internal/models/evaluation.go).

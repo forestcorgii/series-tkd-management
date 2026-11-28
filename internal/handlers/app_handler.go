@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -159,6 +158,36 @@ func (a *AppHandler) parseTemplates() error {
 			}
 			return fmt.Sprintf("%v", t)
 		},
+		"formatTime": func(t interface{}) string {
+			if t == nil {
+				return ""
+			}
+			switch v := t.(type) {
+			case time.Time:
+				if v.IsZero() {
+					return ""
+				}
+				return v.In(phLocation).Format("3:04 PM")
+			case *time.Time:
+				if v == nil || v.IsZero() {
+					return ""
+				}
+				return v.In(phLocation).Format("3:04 PM")
+			case string:
+				return models.FormatTime12(v)
+			}
+			return fmt.Sprintf("%v", t)
+		},
+		"formatTimeRange": func(start, end interface{}) string {
+			var sStr, eStr string
+			if start != nil {
+				sStr = fmt.Sprintf("%v", start)
+			}
+			if end != nil {
+				eStr = fmt.Sprintf("%v", end)
+			}
+			return models.FormatTimeRange12(sStr, eStr)
+		},
 		"sub": func(a, b int) int {
 			return a - b
 		},
@@ -181,9 +210,6 @@ func (a *AppHandler) parseTemplates() error {
 				dict[key] = values[i+1]
 			}
 			return dict, nil
-		},
-		"safeHTML": func(s string) template.HTML {
-			return template.HTML(s)
 		},
 		"formatCurrency": func(v interface{}) string {
 			if v == nil {
@@ -317,18 +343,7 @@ func getClientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
-		return strings.TrimSpace(xrip)
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
-	}
-	return r.RemoteAddr
+	return clientIP(r)
 }
 
 func (a *AppHandler) LogAction(r *http.Request, action string, category models.AuditCategory, targetType, targetID, targetName, description string, metadata ...map[string]interface{}) {
@@ -386,6 +401,20 @@ func (a *AppHandler) LogAction(r *http.Request, action string, category models.A
 	_ = a.auditSvc.Log(entry)
 }
 
+// isSafeLocalRedirect validates that a redirect target is a relative path on the same origin.
+func isSafeLocalRedirect(target string) bool {
+	if target == "" || !strings.HasPrefix(target, "/") {
+		return false
+	}
+	if strings.HasPrefix(target, "//") || strings.HasPrefix(target, "/\\") {
+		return false
+	}
+	if strings.ContainsAny(target, "\r\n") {
+		return false
+	}
+	return true
+}
+
 // HandleServeStorage streams files stored in the configured FileStorage backend (local or Railway S3).
 func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) {
 	if a.storage == nil {
@@ -399,7 +428,8 @@ func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) 
 	}
 	key = strings.TrimLeft(key, "/")
 
-	if key == "" {
+	// Only allow serving avatar assets (avatars/* or flat local filename) and reject any path traversal segments
+	if key == "" || strings.Contains(key, "..") || strings.Contains(key, "\\") || strings.ContainsRune(key, '\x00') || (strings.Contains(key, "/") && !strings.HasPrefix(key, "avatars/")) {
 		http.NotFound(w, r)
 		return
 	}
@@ -414,6 +444,7 @@ func (a *AppHandler) HandleServeStorage(w http.ResponseWriter, r *http.Request) 
 	if contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	_, _ = io.Copy(w, rc)
 }

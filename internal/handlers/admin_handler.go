@@ -35,7 +35,7 @@ func isJSONRequest(r *http.Request) bool {
 }
 
 func isHTMXRequest(r *http.Request) bool {
-	return r.Header.Get("HX-Request") == "true"
+	return r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"
 }
 
 func renderHTMXBanner(w http.ResponseWriter, statusCode int, isSuccess bool, message string) {
