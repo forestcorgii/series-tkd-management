@@ -33,6 +33,8 @@ type RepositoryStore interface {
 	// Locations
 	GetAllLocations() ([]*models.Location, error)
 	GetLocationByID(id uuid.UUID) (*models.Location, error)
+	GetDefaultLocation() (*models.Location, error)
+	SetDefaultLocation(id uuid.UUID) error
 	CreateLocation(loc *models.Location) error
 	UpdateLocation(loc *models.Location) error
 	DeleteLocation(id uuid.UUID) error
@@ -51,7 +53,11 @@ type RepositoryStore interface {
 	SearchStudents(query string) ([]*models.Student, error)
 	CreateStudent(s *models.Student) error
 	UpdateStudent(s *models.Student) error
+	ToggleStudentActive(studentID uuid.UUID, isActive bool) error
 	DeleteStudent(studentID uuid.UUID) error
+	GetStudentStatusPresets() ([]string, error)
+	AddStudentStatusPreset(name string) ([]string, error)
+	DeleteStudentStatusPreset(name string) ([]string, error)
 
 	// Coaches
 	GetAllCoaches() ([]*models.Coach, error)
@@ -84,7 +90,9 @@ type RepositoryStore interface {
 	GetSessionAttendances(sessionID uuid.UUID) ([]*models.Attendance, error)
 	GetStudentAttendances(studentID uuid.UUID) ([]*models.Attendance, error)
 	CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
+	CheckInStudentWithPackageDeduction(sessionID, studentID, packageID uuid.UUID, sessionRate *float64) (*models.Attendance, error)
 	CheckInAttendee(sessionID uuid.UUID, attendeeType string, attendeeID *uuid.UUID, attendeeName, attendeeRole string, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error)
+	ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error)
 	RemoveAttendance(sessionID, studentID uuid.UUID) error
 
 	// Batch Optimizations
@@ -115,6 +123,7 @@ type RepositoryStore interface {
 	CreateSessionToken(token string, userID uuid.UUID, expiresAt time.Time) error
 	GetUserBySessionToken(token string) (*models.User, error)
 	DeleteSessionToken(token string) error
+	DeleteUserSessions(userID uuid.UUID) error
 
 	// Staff Roles & Permissions
 	GetRoles() ([]*models.StaffRole, error)
@@ -149,6 +158,8 @@ type RepositoryStore interface {
 	// Notification Settings & User Preferences
 	GetNotificationSettings() (*models.NotificationSettings, error)
 	UpdateNotificationSettings(settings *models.NotificationSettings) error
+	GetWaiverSettings() (*models.WaiverSettings, error)
+	UpdateWaiverSettings(waiver *models.WaiverSettings) error
 	GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error)
 	UpdateUserNotificationPreferences(prefs *models.UserNotificationPreferences) error
 
@@ -158,14 +169,6 @@ type RepositoryStore interface {
 	GetUnreadNotificationCount(userID *uuid.UUID, role *models.UserRole) (int, error)
 	MarkNotificationRead(id uuid.UUID) error
 	MarkAllNotificationsRead(userID *uuid.UUID, role *models.UserRole) error
-
-	// Web Push Subscriptions
-	CreateOrUpdatePushSubscription(sub *models.PushSubscription) error
-	DeletePushSubscription(endpoint string) error
-	DeletePushSubscriptionsByUserID(userID uuid.UUID) error
-	GetPushSubscriptionsByUserID(userID uuid.UUID) ([]*models.PushSubscription, error)
-	GetPushSubscriptionsByRole(role models.UserRole) ([]*models.PushSubscription, error)
-	GetAllPushSubscriptions() ([]*models.PushSubscription, error)
 }
 
 type SessionTokenRecord struct {
@@ -177,6 +180,7 @@ type SessionTokenRecord struct {
 type MemoryStore struct {
 	mu                  sync.RWMutex
 	students            map[uuid.UUID]*models.Student
+	statusPresets       []string
 	coaches             map[uuid.UUID]*models.Coach
 	packageTemplates    map[uuid.UUID]*models.PackageTemplate
 	studentPackages     map[uuid.UUID]*models.StudentPackage
@@ -193,11 +197,11 @@ type MemoryStore struct {
 	trainingCategories  map[uuid.UUID]*models.TrainingCategory
 	auditLogs           []*models.AuditLog
 	notificationSettings *models.NotificationSettings
+	waiverSettings      *models.WaiverSettings
 	userPreferences     map[uuid.UUID]*models.UserNotificationPreferences
 	notifications       []*models.Notification
 	roles               map[uuid.UUID]*models.StaffRole
 	userRoles           map[uuid.UUID][]uuid.UUID
-	pushSubscriptions   map[string]*models.PushSubscription
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -219,11 +223,11 @@ func NewMemoryStore() *MemoryStore {
 		trainingCategories:  make(map[uuid.UUID]*models.TrainingCategory),
 		auditLogs:           make([]*models.AuditLog, 0),
 		notificationSettings: models.DefaultNotificationSettings(),
+		waiverSettings:      models.DefaultWaiverSettings(),
 		userPreferences:     make(map[uuid.UUID]*models.UserNotificationPreferences),
 		notifications:       make([]*models.Notification, 0),
 		roles:               make(map[uuid.UUID]*models.StaffRole),
 		userRoles:           make(map[uuid.UUID][]uuid.UUID),
-		pushSubscriptions:   make(map[string]*models.PushSubscription),
 	}
 	m.seedData()
 	return m
@@ -258,7 +262,19 @@ func (m *MemoryStore) SearchStudents(query string) ([]*models.Student, error) {
 	q := strings.ToLower(strings.TrimSpace(query))
 	result := []*models.Student{}
 	for _, s := range m.students {
-		if q == "" || strings.Contains(strings.ToLower(s.FullName), q) || strings.Contains(strings.ToLower(s.Phone), q) || strings.Contains(strings.ToLower(string(s.CurrentBelt)), q) {
+		matched := q == "" ||
+			strings.Contains(strings.ToLower(s.FullName), q) ||
+			strings.Contains(strings.ToLower(s.Phone), q) ||
+			strings.Contains(strings.ToLower(string(s.CurrentBelt)), q)
+		if !matched {
+			for _, tag := range s.StatusTags {
+				if strings.Contains(strings.ToLower(tag), q) {
+					matched = true
+					break
+				}
+			}
+		}
+		if matched {
 			result = append(result, s)
 		}
 	}
@@ -275,6 +291,7 @@ func (m *MemoryStore) CreateStudent(s *models.Student) error {
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()
 	}
+	s.StatusTags = models.ParseStatusTags(models.FormatStatusTags(s.StatusTags))
 	s.CreatedAt = time.Now()
 	m.students[s.ID] = s
 	return nil
@@ -287,8 +304,83 @@ func (m *MemoryStore) UpdateStudent(s *models.Student) error {
 	if _, ok := m.students[s.ID]; !ok {
 		return ErrNotFound
 	}
+	s.StatusTags = models.ParseStatusTags(models.FormatStatusTags(s.StatusTags))
 	m.students[s.ID] = s
 	return nil
+}
+
+func (m *MemoryStore) ToggleStudentActive(studentID uuid.UUID, isActive bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	student, exists := m.students[studentID]
+	if !exists {
+		return ErrNotFound
+	}
+	student.IsActive = isActive
+
+	for _, u := range m.users {
+		if u.StudentID != nil && *u.StudentID == studentID {
+			u.IsActive = isActive
+			u.UpdatedAt = time.Now()
+			if !isActive {
+				for tok, rec := range m.sessionTokens {
+					if rec.UserID == u.ID {
+						delete(m.sessionTokens, tok)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) GetStudentStatusPresets() ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := make([]string, len(m.statusPresets))
+	copy(out, m.statusPresets)
+	return out, nil
+}
+
+func (m *MemoryStore) AddStudentStatusPreset(name string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	trimmed := strings.TrimSpace(name)
+	if trimmed != "" {
+		exists := false
+		for _, p := range m.statusPresets {
+			if strings.EqualFold(p, trimmed) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			m.statusPresets = append(m.statusPresets, trimmed)
+		}
+	}
+	out := make([]string, len(m.statusPresets))
+	copy(out, m.statusPresets)
+	return out, nil
+}
+
+func (m *MemoryStore) DeleteStudentStatusPreset(name string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	trimmed := strings.TrimSpace(name)
+	filtered := make([]string, 0, len(m.statusPresets))
+	for _, p := range m.statusPresets {
+		if !strings.EqualFold(p, trimmed) {
+			filtered = append(filtered, p)
+		}
+	}
+	m.statusPresets = filtered
+	out := make([]string, len(m.statusPresets))
+	copy(out, m.statusPresets)
+	return out, nil
 }
 
 func (m *MemoryStore) DeleteStudent(studentID uuid.UUID) error {
@@ -1006,8 +1098,62 @@ func (m *MemoryStore) CheckInAttendee(sessionID uuid.UUID, attendeeType string, 
 	return att, nil
 }
 
+func (m *MemoryStore) ReserveSessionSlot(sessionID uuid.UUID, guestName, contactNumber string) (*models.Attendance, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sess, ok := m.sessions[sessionID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if sess.IsCancelled {
+		return nil, errors.New("cannot reserve slot: class has been cancelled")
+	}
+
+	trimmedName := strings.TrimSpace(guestName)
+	trimmedPhone := strings.TrimSpace(contactNumber)
+	if trimmedName == "" {
+		return nil, errors.New("guest name is required")
+	}
+	if trimmedPhone == "" {
+		return nil, errors.New("contact number is required")
+	}
+
+	for _, a := range m.attendances {
+		if a.SessionID == sessionID && strings.EqualFold(strings.TrimSpace(a.AttendeeName), trimmedName) {
+			return nil, ErrAlreadyInRoster
+		}
+	}
+
+	att := &models.Attendance{
+		ID:            uuid.New(),
+		SessionID:     sessionID,
+		SessionRate:   sess.SessionRate,
+		CheckedInAt:   time.Now(),
+		AttendeeType:  "guest",
+		AttendeeName:  trimmedName,
+		AttendeeRole:  "Reserved Guest",
+		ContactNumber: trimmedPhone,
+	}
+
+	if sess.LocationID != nil {
+		att.LocationID = sess.LocationID
+		if loc, okLoc := m.locations[*sess.LocationID]; okLoc {
+			att.LocationName = loc.Name
+			att.LocationPin = loc.Pin
+		}
+	}
+
+	m.attendances[att.ID] = att
+	return att, nil
+}
+
 func (m *MemoryStore) CheckInStudent(sessionID, studentID uuid.UUID, packageID *uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
 	return m.CheckInAttendee(sessionID, "student", &studentID, "", "", packageID, sessionRate)
+}
+
+func (m *MemoryStore) CheckInStudentWithPackageDeduction(sessionID, studentID, packageID uuid.UUID, sessionRate *float64) (*models.Attendance, error) {
+	return m.CheckInAttendee(sessionID, "student", &studentID, "", "", &packageID, sessionRate)
 }
 
 func (m *MemoryStore) RemoveAttendance(sessionID, studentID uuid.UUID) error {
@@ -1544,6 +1690,17 @@ func (m *MemoryStore) UpdateUser(u *models.User) error {
 		return ErrNotFound
 	}
 
+	normEmail := strings.ToLower(strings.TrimSpace(u.Email))
+	if normEmail != "" {
+		for email, uid := range m.usersByEmail {
+			if uid == u.ID && email != normEmail {
+				delete(m.usersByEmail, email)
+			}
+		}
+		m.usersByEmail[normEmail] = u.ID
+		existing.Email = normEmail
+	}
+
 	normUsername := strings.ToLower(strings.TrimSpace(u.Username))
 	for uname, uid := range m.usersByUsername {
 		if uid == u.ID && uname != normUsername {
@@ -1662,6 +1819,18 @@ func (m *MemoryStore) DeleteSessionToken(token string) error {
 	defer m.mu.Unlock()
 
 	delete(m.sessionTokens, token)
+	return nil
+}
+
+func (m *MemoryStore) DeleteUserSessions(userID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for token, rec := range m.sessionTokens {
+		if rec.UserID == userID {
+			delete(m.sessionTokens, token)
+		}
+	}
 	return nil
 }
 
@@ -1811,6 +1980,9 @@ func (m *MemoryStore) GetAllLocations() ([]*models.Location, error) {
 		result = append(result, l)
 	}
 	sort.Slice(result, func(i, j int) bool {
+		if result[i].IsDefault != result[j].IsDefault {
+			return result[i].IsDefault
+		}
 		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
 	})
 	return result, nil
@@ -1827,6 +1999,40 @@ func (m *MemoryStore) GetLocationByID(id uuid.UUID) (*models.Location, error) {
 	return l, nil
 }
 
+func (m *MemoryStore) GetDefaultLocation() (*models.Location, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, l := range m.locations {
+		if l.IsDefault {
+			return l, nil
+		}
+	}
+	// Fallback to earliest created
+	var first *models.Location
+	for _, l := range m.locations {
+		if first == nil || l.CreatedAt.Before(first.CreatedAt) {
+			first = l
+		}
+	}
+	return first, nil
+}
+
+func (m *MemoryStore) SetDefaultLocation(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	target, ok := m.locations[id]
+	if !ok {
+		return ErrNotFound
+	}
+	for _, l := range m.locations {
+		l.IsDefault = false
+	}
+	target.IsDefault = true
+	return nil
+}
+
 func (m *MemoryStore) CreateLocation(loc *models.Location) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1836,6 +2042,11 @@ func (m *MemoryStore) CreateLocation(loc *models.Location) error {
 	}
 	if loc.CreatedAt.IsZero() {
 		loc.CreatedAt = time.Now()
+	}
+	if loc.IsDefault {
+		for _, l := range m.locations {
+			l.IsDefault = false
+		}
 	}
 	m.locations[loc.ID] = loc
 	return nil
@@ -1849,9 +2060,16 @@ func (m *MemoryStore) UpdateLocation(loc *models.Location) error {
 	if !ok {
 		return ErrNotFound
 	}
+	if loc.IsDefault {
+		for _, l := range m.locations {
+			l.IsDefault = false
+		}
+	}
 	existing.Name = loc.Name
 	existing.Pin = loc.Pin
 	existing.FixedRate = loc.FixedRate
+	existing.MaxTrainees = loc.MaxTrainees
+	existing.IsDefault = loc.IsDefault
 	return nil
 }
 
@@ -2125,6 +2343,30 @@ func (m *MemoryStore) UpdateNotificationSettings(settings *models.NotificationSe
 	return nil
 }
 
+func (m *MemoryStore) GetWaiverSettings() (*models.WaiverSettings, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.waiverSettings == nil {
+		m.waiverSettings = models.DefaultWaiverSettings()
+	}
+	cp := *m.waiverSettings
+	return &cp, nil
+}
+
+func (m *MemoryStore) UpdateWaiverSettings(waiver *models.WaiverSettings) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if waiver == nil {
+		return errors.New("waiver settings cannot be nil")
+	}
+	waiver.UpdatedAt = time.Now()
+	cp := *waiver
+	m.waiverSettings = &cp
+	return nil
+}
+
 func (m *MemoryStore) GetUserNotificationPreferences(userID uuid.UUID) (*models.UserNotificationPreferences, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -2262,88 +2504,5 @@ func (m *MemoryStore) MarkAllNotificationsRead(userID *uuid.UUID, role *models.U
 		n.IsRead = true
 	}
 	return nil
-}
-
-func (m *MemoryStore) CreateOrUpdatePushSubscription(sub *models.PushSubscription) error {
-	if sub == nil {
-		return errors.New("subscription cannot be nil")
-	}
-	if strings.TrimSpace(sub.Endpoint) == "" {
-		return errors.New("subscription endpoint is required")
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if sub.ID == uuid.Nil {
-		sub.ID = uuid.New()
-	}
-	now := time.Now()
-	if sub.CreatedAt.IsZero() {
-		sub.CreatedAt = now
-	}
-	sub.UpdatedAt = now
-
-	cp := *sub
-	m.pushSubscriptions[sub.Endpoint] = &cp
-	return nil
-}
-
-func (m *MemoryStore) DeletePushSubscription(endpoint string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.pushSubscriptions, strings.TrimSpace(endpoint))
-	return nil
-}
-
-func (m *MemoryStore) DeletePushSubscriptionsByUserID(userID uuid.UUID) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for ep, sub := range m.pushSubscriptions {
-		if sub.UserID != nil && *sub.UserID == userID {
-			delete(m.pushSubscriptions, ep)
-		}
-	}
-	return nil
-}
-
-func (m *MemoryStore) GetPushSubscriptionsByUserID(userID uuid.UUID) ([]*models.PushSubscription, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var result []*models.PushSubscription
-	for _, sub := range m.pushSubscriptions {
-		if sub.UserID != nil && *sub.UserID == userID {
-			cp := *sub
-			result = append(result, &cp)
-		}
-	}
-	return result, nil
-}
-
-func (m *MemoryStore) GetPushSubscriptionsByRole(role models.UserRole) ([]*models.PushSubscription, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var result []*models.PushSubscription
-	for _, sub := range m.pushSubscriptions {
-		if sub.Role == role {
-			cp := *sub
-			result = append(result, &cp)
-		}
-	}
-	return result, nil
-}
-
-func (m *MemoryStore) GetAllPushSubscriptions() ([]*models.PushSubscription, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var result []*models.PushSubscription
-	for _, sub := range m.pushSubscriptions {
-		cp := *sub
-		result = append(result, &cp)
-	}
-	return result, nil
 }
 

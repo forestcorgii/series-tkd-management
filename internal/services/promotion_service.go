@@ -87,6 +87,23 @@ func (s *PromotionService) EvaluateReadiness(
 	sessions map[string]*models.TrainingSession,
 	latestEval *models.StudentEvaluation,
 ) PromotionReadiness {
+	if student == nil {
+		return PromotionReadiness{
+			Status:     StatusDeveloping,
+			BadgeColor: "rose",
+			BadgeIcon:  "🔴",
+			Reasons:    []string{"Student profile not found"},
+		}
+	}
+	if student.CurrentBelt == models.BeltBlack3rdDan {
+		return PromotionReadiness{
+			Status:     StatusDeveloping,
+			BadgeColor: "emerald",
+			BadgeIcon:  "🥋",
+			Reasons:    []string{"Maximum tracked rank (3rd Dan Black) reached"},
+		}
+	}
+
 	req := getBeltRequirement(student.CurrentBelt)
 	daysInRank := student.DaysInCurrentRank()
 
@@ -95,11 +112,14 @@ func (s *PromotionService) EvaluateReadiness(
 	poomsaeCount := 0
 
 	for _, att := range attendances {
-		if att == nil || sessions == nil {
+		if att == nil || att.StudentID != student.ID || sessions == nil {
 			continue
 		}
 		if sess, ok := sessions[att.SessionID.String()]; ok && sess != nil {
 			if sess.IsCancelled {
+				continue
+			}
+			if !sess.SessionDate.IsZero() && !student.LastPromotionDate.IsZero() && sess.SessionDate.Before(student.LastPromotionDate) {
 				continue
 			}
 			validAttendancesCount++
@@ -109,8 +129,6 @@ func (s *PromotionService) EvaluateReadiness(
 			case models.TrainingPoomsae:
 				poomsaeCount++
 			}
-		} else {
-			validAttendancesCount++
 		}
 	}
 
@@ -150,14 +168,21 @@ func (s *PromotionService) EvaluateReadiness(
 		reasons = append(reasons, "Pending formal coach evaluation")
 	}
 
+	if !student.IsActive {
+		reasons = append(reasons, "Student account is currently inactive")
+	}
+	if student.HasSafetyFlag {
+		reasons = append(reasons, "Active mat safety hold must be resolved before promotion")
+	}
+
 	var status ReadinessStatus
 	var badgeColor, badgeIcon string
 
-	if attendanceMet && tenureMet && evalMet {
+	if attendanceMet && tenureMet && evalMet && student.IsActive && !student.HasSafetyFlag {
 		status = StatusReady
 		badgeColor = "emerald"
 		badgeIcon = "🟢"
-	} else if attendanceMet && tenureMet {
+	} else if attendanceMet && tenureMet && student.IsActive && !student.HasSafetyFlag {
 		status = StatusPreTestEligible
 		badgeColor = "amber"
 		badgeIcon = "🟡"

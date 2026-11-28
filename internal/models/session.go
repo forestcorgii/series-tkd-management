@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -201,10 +202,18 @@ func (s *TrainingSession) IsPastEndTime() bool {
 	return s.IsPastEndTimeAt(time.Now())
 }
 
+var manilaLoc = func() *time.Location {
+	if loc, err := time.LoadLocation("Asia/Manila"); err == nil {
+		return loc
+	}
+	return time.FixedZone("Asia/Manila", 8*3600)
+}()
+
 // IsPastEndTimeAt evaluates whether a given reference time is at or after the session's end time.
 func (s *TrainingSession) IsPastEndTimeAt(ref time.Time) bool {
+	refLocal := ref.In(manilaLoc)
 	sessDateStr := s.SessionDate.Format("2006-01-02")
-	refDateStr := ref.Format("2006-01-02")
+	refDateStr := refLocal.Format("2006-01-02")
 	if sessDateStr < refDateStr {
 		return true
 	}
@@ -219,8 +228,9 @@ func (s *TrainingSession) IsPastEndTimeAt(ref time.Time) bool {
 
 	var endHour, endMin int
 	parsed := false
+	upperEnd := strings.ToUpper(endTimeStr)
 	for _, layout := range []string{"15:04", "15:04:05", "3:04 PM", "3:04PM", "03:04 PM", "03:04PM"} {
-		if t, err := time.Parse(layout, endTimeStr); err == nil {
+		if t, err := time.Parse(layout, upperEnd); err == nil {
 			endHour, endMin = t.Hour(), t.Minute()
 			parsed = true
 			break
@@ -246,9 +256,83 @@ func (s *TrainingSession) IsPastEndTimeAt(ref time.Time) bool {
 		return false
 	}
 
-	refMinutes := ref.Hour()*60 + ref.Minute()
+	refMinutes := refLocal.Hour()*60 + refLocal.Minute()
 	endMinutes := endHour*60 + endMin
 	return refMinutes >= endMinutes
+}
+
+// FormatTime12 converts any 24-hour ("17:00", "09:30", "17:00:00") or 12-hour
+// time string into a clean, human-readable 12-hour format ("5:00 PM", "9:30 AM").
+func FormatTime12(tStr string) string {
+	tStr = strings.TrimSpace(tStr)
+	if tStr == "" {
+		return ""
+	}
+	for _, layout := range []string{
+		"15:04:05", "15:04", "3:04 PM", "3:04PM", "03:04 PM", "03:04PM",
+		"3:04 pm", "3:04pm", "03:04 pm", "03:04pm",
+	} {
+		if t, err := time.Parse(layout, tStr); err == nil {
+			return t.Format("3:04 PM")
+		}
+	}
+	// Fallback for custom or colon-delimited parts
+	parts := strings.Split(tStr, ":")
+	if len(parts) >= 2 {
+		if h, err := strconv.Atoi(parts[0]); err == nil {
+			cleanMin := parts[1]
+			if len(cleanMin) > 2 {
+				cleanMin = cleanMin[:2]
+			}
+			if m, err := strconv.Atoi(cleanMin); err == nil {
+				period := "AM"
+				displayH := h
+				if h >= 12 {
+					period = "PM"
+				}
+				if h > 12 {
+					displayH = h - 12
+				} else if h == 0 {
+					displayH = 12
+				}
+				return fmt.Sprintf("%d:%02d %s", displayH, m, period)
+			}
+		}
+	}
+	return tStr
+}
+
+// FormatTimeRange12 formats start and end time strings into a 12-hour range ("5:00 PM - 6:30 PM").
+func FormatTimeRange12(start, end string) string {
+	start12 := FormatTime12(start)
+	end12 := FormatTime12(end)
+	if start12 != "" && end12 != "" {
+		return fmt.Sprintf("%s - %s", start12, end12)
+	}
+	if start12 != "" {
+		return start12
+	}
+	return end12
+}
+
+// FormattedStartTime returns StartTime in 12-hour format ("5:00 PM").
+func (s *TrainingSession) FormattedStartTime() string {
+	return FormatTime12(s.StartTime)
+}
+
+// FormattedEndTime returns EndTime in 12-hour format ("6:30 PM").
+func (s *TrainingSession) FormattedEndTime() string {
+	return FormatTime12(s.EndTime)
+}
+
+// TimeRange returns a 12-hour formatted time range string ("5:00 PM - 6:30 PM").
+func (s *TrainingSession) TimeRange() string {
+	return FormatTimeRange12(s.StartTime, s.EndTime)
+}
+
+// TimeDisplay returns the 12-hour formatted time range string ("5:00 PM - 6:30 PM").
+func (s *TrainingSession) TimeDisplay() string {
+	return s.TimeRange()
 }
 
 type Attendance struct {
@@ -267,6 +351,7 @@ type Attendance struct {
 	AttendeeType     string     `json:"attendee_type,omitempty"` // "student", "coach", "admin", "guest"
 	AttendeeName     string     `json:"attendee_name,omitempty"`
 	AttendeeRole     string     `json:"attendee_role,omitempty"`
+	ContactNumber    string     `json:"contact_number,omitempty"`
 }
 
 func (a *Attendance) SessionRateVal() float64 {
@@ -323,5 +408,58 @@ func (a *Attendance) IsGuest() bool {
 // IsStaff returns true if this check-in is for a coach or admin staff.
 func (a *Attendance) IsStaff() bool {
 	return a.AttendeeType == "coach" || a.AttendeeType == "admin"
+}
+
+// FormatPublicName formats a full name into "First Name + Last Initial" (e.g. "Alex V.", "Maria S.").
+func FormatPublicName(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "Attendee"
+	}
+	parts := strings.Fields(trimmed)
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	firstName := parts[0]
+	lastName := parts[len(parts)-1]
+	runes := []rune(lastName)
+	if len(runes) > 0 {
+		return fmt.Sprintf("%s %c.", firstName, runes[0])
+	}
+	return firstName
+}
+
+// FormatInitials extracts uppercase initials from a name (e.g. "Alex Vance" -> "AV", "John" -> "J").
+func FormatInitials(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "A"
+	}
+	parts := strings.Fields(trimmed)
+	if len(parts) == 1 {
+		runes := []rune(parts[0])
+		if len(runes) > 0 {
+			return strings.ToUpper(string(runes[0]))
+		}
+		return "A"
+	}
+	r1 := []rune(parts[0])
+	r2 := []rune(parts[len(parts)-1])
+	if len(r1) > 0 && len(r2) > 0 {
+		return strings.ToUpper(fmt.Sprintf("%c%c", r1[0], r2[0]))
+	}
+	return "A"
+}
+
+// PublicDisplayName returns the privacy-preserving attendee display name (e.g. "Alex V.").
+func (a *Attendance) PublicDisplayName() string {
+	raw := a.DisplayName()
+	return FormatPublicName(raw)
+}
+
+// PublicInitials returns the uppercase initials of the attendee (e.g. "AV").
+func (a *Attendance) PublicInitials() string {
+	raw := a.DisplayName()
+	return FormatInitials(raw)
 }
 

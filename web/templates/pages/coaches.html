@@ -216,6 +216,7 @@
                                     <button type="submit" class="btn btn-secondary btn-xs py-0.5 px-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50" title="Deactivate Coach">
                                         Deactivate
                                     </button>
+                                </form>
                                 {{else if .IsPendingApproval}}
                                 <form action="/coaches/{{.Coach.ID}}/toggle" method="POST" class="inline">
                                     <button type="submit" class="btn btn-success btn-xs py-1 px-2 text-xs" title="Approve Coach">

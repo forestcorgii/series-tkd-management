@@ -1,0 +1,26 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Reserve Slot - {{.FormattedTitle}} &bull; Series Taekwondo{{end}}
+
+{{define "content"}}
+<div class="max-w-xl mx-auto my-6 sm:my-10 px-3 sm:px-0">
+    <!-- Header / Brand Banner -->
+    <div class="text-center mb-6">
+        <div class="inline-flex h-14 w-14 rounded-2xl bg-gradient-to-tr from-[#990303] to-[#7D0202] items-center justify-center font-display font-black text-white text-2xl shadow-xl shadow-[#990303]/30 mb-3 border border-red-500/30">
+            ST
+        </div>
+        <h1 class="font-display font-extrabold text-2xl sm:text-3xl tracking-wide uppercase text-black dark:text-[#FFFDF4]">
+            SERIES <span class="text-[#990303] dark:text-[#DC2626]">SLOT RESERVATION</span>
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
+            Self-reserve your spot for this training session
+        </p>
+    </div>
+
+    <!-- Main Reservation Card -->
+    <div class="glass-panel rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-xl p-5 sm:p-7 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md">
+        {{template "session_reserve_card.html" .}}
+    </div>
+</div>
+{{end}}
+

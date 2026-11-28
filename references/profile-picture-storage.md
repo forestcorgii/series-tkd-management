@@ -9,13 +9,13 @@
 
 * **Enforced Solution**:
   1. **Railway Bucket S3 Storage & Local Disk Fallback (`internal/storage`)**:
-     - `storage.FileStorage` abstraction provides `Upload` and `Delete` contracts.
+     - `storage.FileStorage` abstraction provides `Upload`, `Get`, and `Delete` contracts.
      - Pure Go standard library AWS Signature Version 4 (`storage.S3Storage`) integrates with Railway Object Storage / S3-compatible buckets using `BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, and optional `BUCKET_PUBLIC_URL` without heavy third-party dependencies.
-     - When bucket environment variables are not configured (local dev, tests), `storage.LocalStorage` automatically activates and saves uploads under `web/static/uploads/avatars/`, served by the built-in HTTP static file handler.
+     - When bucket environment variables are not configured (local dev, tests), `storage.LocalStorage` automatically activates and saves uploads under `web/static/uploads/avatars/`, served via `/storage/avatars/...` (with `X-Content-Type-Options: nosniff`).
   2. **Domain Model & Persistence**:
      - `models.User` struct persists `ProfilePictureURL string`.
      - Dual database schemas (SQLite & PostgreSQL) include `profile_picture_url` column with non-destructive migrations (`ALTER TABLE users ADD COLUMN profile_picture_url`).
-     - In-memory mock store and SQL repository provide `GetUserByStudentID` and `GetUserByCoachID` lookup helpers to link student and coach rosters to their user avatar.
+     - Operational rosters should batch-load avatars via `GetAllUsers()` into O(1) maps (avoid per-row `GetUserByStudentID` / `GetUserByCoachID` N+1 queries).
   3. **Profile Upload & Removal Management (`/profile`)**:
      - Profile form supports `enctype="multipart/form-data"` with a 5MB payload limit.
      - Accepts `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` with validation against invalid file extensions.
@@ -64,3 +64,23 @@
      - Target URL: `https://{bucket}.{endpoint_host}/{key}`.
   2. Automatic Fallback to Path-Style:
      - Only activated if the host is `localhost`, an IP address (e.g. `127.0.0.1:9000`), or if `FORCE_PATH_STYLE=true` is explicitly set.
+
+### Context: Railway Storage Bucket Variable Reference Mapping & Local Fallback
+
+* **Problem**:
+  1. **Image saves successfully in UI but does not appear in Railway Bucket**:
+     When the web application service lacks S3 credentials (`BUCKET`, `ACCESS_KEY_ID`, or `SECRET_ACCESS_KEY`), `storage.NewStorageFromEnv()` automatically falls back to `storage.LocalStorage`. Uploads succeed without error and save under `web/static/uploads/avatars/` on the ephemeral container disk, leaving the bucket empty.
+  2. **`NoSuchBucket` on Railway variable references**:
+     Railway's Storage Bucket service defines the bucket name variable as **`BUCKET`** (not `BUCKET_NAME`). Referencing `${{ bucket.BUCKET_NAME }}` fails to resolve, and Railway passes the literal string `"${{ bucket.BUCKET_NAME }}"` as the bucket name to Tigris/S3, triggering `NoSuchBucket`.
+
+* **Enforced Solution**:
+  1. Map the bucket's generated variables in your **Web Application Service** (Variables tab) using Railway's reference syntax (replace `bucket` with your actual bucket service name on the Railway canvas):
+     - `BUCKET` = `${{ bucket.BUCKET }}`  *(or `BUCKET_NAME=${{ bucket.BUCKET }}`)*
+     - `ACCESS_KEY_ID` = `${{ bucket.ACCESS_KEY_ID }}`
+     - `SECRET_ACCESS_KEY` = `${{ bucket.SECRET_ACCESS_KEY }}`
+     - `ENDPOINT` = `${{ bucket.ENDPOINT }}`
+     - `REGION` = `${{ bucket.REGION }}`
+  2. In `internal/storage/storage.go`:
+     - `getFirstEnv` strips surrounding quotes and whitespace, and detects unresolved Railway template references (`${{ ... }}`) to prevent invalid bucket queries.
+     - Logs explicit startup warnings when partial credentials are provided or when falling back to local storage in Railway.
+
