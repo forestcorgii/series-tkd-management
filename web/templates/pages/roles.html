@@ -183,7 +183,7 @@
                 </h3>
                 <p class="text-[11px] text-slate-600 dark:text-slate-400">Define a new operational role and check allowed permission capabilities.</p>
             </div>
-            <button type="button" onclick="closeCreateRoleModal()" class="modal-close text-lg leading-none">&times;</button>
+            <button type="button" onclick="closeCreateRoleModal()" aria-label="Close modal" class="modal-close text-lg leading-none">&times;</button>
         </div>
 
         <form action="/roles" method="POST" class="flex flex-col flex-1 overflow-hidden" id="create-role-form">
@@ -274,7 +274,7 @@
                     {{end}}
                 </p>
             </div>
-            <button type="button" onclick="closeEditRoleModal('{{$role.ID}}')" class="modal-close text-lg leading-none">&times;</button>
+            <button type="button" onclick="closeEditRoleModal('{{$role.ID}}')" aria-label="Close modal" class="modal-close text-lg leading-none">&times;</button>
         </div>
 
         <form action="/roles/{{$role.ID}}/edit" method="POST" class="flex flex-col flex-1 overflow-hidden" id="edit-role-form-{{$role.ID}}">
@@ -367,7 +367,7 @@
             <h3 class="font-display font-bold text-sm text-rose-700 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
                 ⚠️ Delete Custom Role
             </h3>
-            <button type="button" onclick="closeDeleteRoleModal()" class="modal-close text-lg leading-none">&times;</button>
+            <button type="button" onclick="closeDeleteRoleModal()" aria-label="Close modal" class="modal-close text-lg leading-none">&times;</button>
         </div>
 
         <form id="delete-role-form" method="POST" class="p-4 sm:p-5 space-y-4">

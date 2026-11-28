@@ -441,7 +441,7 @@
                     Grade student 6-pillar athletic ability matrix (1 - 10)
                 </p>
             </div>
-            <button type="button" onclick="closeEvalModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeEvalModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
 
         <form id="coach-eval-form" hx-post="/api/coach/evaluate" hx-swap="none" onsubmit="handleEvalSubmit(event)" class="space-y-4 text-xs">
@@ -509,7 +509,7 @@
                     Immediately flags a practitioner with a floor safety hold
                 </p>
             </div>
-            <button type="button" onclick="closeSafetyModal()" class="modal-close">&times;</button>
+            <button type="button" onclick="closeSafetyModal()" aria-label="Close modal" class="modal-close">&times;</button>
         </div>
 
         <form hx-post="/api/safety/flag" hx-swap="none" onsubmit="handleSafetySubmit(event)" class="space-y-4 text-xs">
