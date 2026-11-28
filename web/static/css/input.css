@@ -6,7 +6,7 @@
 
     /* Base Button */
     .btn {
-        @apply inline-flex items-center justify-center font-display font-bold uppercase tracking-wider transition-all duration-150 select-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none;
+        @apply inline-flex items-center justify-center font-display font-bold uppercase tracking-wider transition-all duration-150 select-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#990303] dark:focus-visible:ring-[#DC2626] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-black;
     }
 
     /* Button Variants */
@@ -194,7 +194,7 @@
     }
 
     .modal-close {
-        @apply text-slate-400 hover:text-slate-700 dark:hover:text-white text-lg leading-none p-1 rounded-md hover:bg-slate-100 dark:hover:bg-neutral-800 transition;
+        @apply text-slate-400 hover:text-slate-700 dark:hover:text-white text-lg leading-none p-1 rounded-md hover:bg-slate-100 dark:hover:bg-neutral-800 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#990303] dark:focus-visible:ring-[#DC2626] focus-visible:ring-offset-1 dark:focus-visible:ring-offset-neutral-900;
     }
 
     .modal-footer {
@@ -391,6 +391,15 @@ input[name="sms_from_number"] {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+}
+
+/* HTMX Loading Progress Indicator */
+.htmx-indicator {
+    display: none;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: block;
 }
 
 /* Tooltip System */

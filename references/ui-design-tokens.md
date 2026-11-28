@@ -53,3 +53,17 @@
   - **Opt-Out**: Add `.no-uppercase`, `data-no-uppercase="true"`, and `autocapitalize="none"` to case-sensitive fields. Automatically exempted: `/login`, `/register`, `/settings`, `/forgot-password`, `/reset-password`, non-text input types, and `username`, `identifier`, `token`, `key`, `secret`, `smtp_host`, `smtp_user`, `display_name`.
 - **Schedule PNG Export ([`schedule-export.js`](file:///c:/Users/USER/Documents/Coding%20Projects/antigravity/series-tkd-management/web/static/js/schedule-export.js))**:
   - Uses `html2canvas` `onclone` (`windowWidth: 1200`, `scale: 2`) to strip interactive controls, expand all 7 columns, format 12h AM/PM times, omit internal `Coach:`/`Admin:`/notes/attendee counts, and match the active system theme (`#111827` dark / `#FFFFFF` light) to download `SeriesTKD-Schedule-YYYY-MM-DD.png`.
+
+### Context: Active Navigation Highlighting, Global HTMX Progress, & Auto-Dismiss Notices
+
+* **Problem:**
+  1. Top navigation and mobile bottom quick bar links lacked visual active state feedback, making path location ambiguous.
+  2. HTMX requests (searches, pagination, filters) gave no immediate feedback while requests were in flight.
+  3. Success and error notice banners persisted indefinitely unless manually closed.
+  4. Modals required manual click on close buttons and lacked backdrop click or Escape key dismissal.
+* **Enforced Solution:**
+  1. **Active Link Highlighting Engine ([layout.html](file:///C:/Users/seani/Documents/Repo/series-tkd-management/web/templates/layout.html))**: `syncActiveNavLinks()` dynamically updates desktop navbar and mobile bottom bar links matching `window.location.pathname` with crimson text/background accents on `DOMContentLoaded`, `popstate`, and `htmx:afterSwap`.
+  2. **Global Progress Indicator ([layout.html](file:///C:/Users/seani/Documents/Repo/series-tkd-management/web/templates/layout.html), [input.css](file:///C:/Users/seani/Documents/Repo/series-tkd-management/web/static/css/input.css))**: `#htmx-indicator` renders a fixed top gradient bar during HTMX requests via `hx-indicator="#htmx-indicator"`.
+  3. **Auto-Dismiss Notice Banners ([layout.html](file:///C:/Users/seani/Documents/Repo/series-tkd-management/web/templates/layout.html))**: `autoDismissNotices()` automatically fades out and removes `.animate-fade-in` notice banners after 5 seconds with vertical translation.
+  4. **Global Modal Keyboard & Backdrop Dismissal ([layout.html](file:///C:/Users/seani/Documents/Repo/series-tkd-management/web/templates/layout.html))**: Listens to global `Escape` key and backdrop clicks on `.modal-backdrop` to hide open dialogs.
+  5. **Empty Search Directory States ([student_table_rows.html](file:///C:/Users/seani/Documents/Repo/series-tkd-management/web/templates/partials/student_table_rows.html))**: Added an `{{else}}` empty state row with search icon and actionable message when search queries yield zero matching rows.
