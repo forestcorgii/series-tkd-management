@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +25,7 @@ type SessionListItem struct {
 type CalendarSession struct {
 	Session         *models.TrainingSession
 	AttendanceCount int
+	Attendees       []*models.Attendance
 	StartHour       int
 	StartMinute     int
 	EndHour         int
@@ -46,6 +49,9 @@ type CalendarSession struct {
 	TypeIcon        string
 	DisplayTitle    string
 	StaffSummary    string
+	MaxTrainees     int
+	IsFull          bool
+	IsUserReserved  bool
 }
 
 func (cs *CalendarSession) IsEvent() bool {
@@ -135,16 +141,17 @@ func (d *CalendarDay) IsHourCompletelyFree(hour int) bool {
 }
 
 type CalendarHour struct {
-	Hour      int    // 8..21
-	TimeLabel string // "08:00 AM"
-	Time24    string // "08:00"
+	Hour        int    // 8..21
+	TimeLabel   string // "8:00 AM"
+	TimeLabel30 string // "8:30 AM"
+	Time24      string // "08:00"
 }
 
 type CalendarWeek struct {
-	StartDate        time.Time
-	EndDate          time.Time
-	StartDateStr     string // "2026-09-28"
-	EndDateStr       string // "2026-10-04"
+	StartDate           time.Time
+	EndDate             time.Time
+	StartDateStr        string // "2026-09-28"
+	EndDateStr          string // "2026-10-04"
 	PrevWeekStr         string // "2026-09-21"
 	NextWeekStr         string // "2026-10-05"
 	Prev3DaysStr        string // "2026-09-25"
@@ -153,17 +160,17 @@ type CalendarWeek struct {
 	Title               string // "Sep 28 – Oct 04, 2026"
 	MobileTitle         string // "Sep 28 – Sep 30, 2026"
 	MobileTotalSessions int
-	MonthYear        string // "September 2026"
-	Days             []*CalendarDay
-	Hours            []CalendarHour
-	TotalSessions    int
-	MinHour          int
-	MaxHour          int
-	HourHeight       int
-	GridHeight       int
-	NowOffset        int
-	ShowNowLine      bool
-	CurrentTimeLabel string
+	MonthYear           string // "September 2026"
+	Days                []*CalendarDay
+	Hours               []CalendarHour
+	TotalSessions       int
+	MinHour             int
+	MaxHour             int
+	HourHeight          int
+	GridHeight          int
+	NowOffset           int
+	ShowNowLine         bool
+	CurrentTimeLabel    string
 }
 
 type SessionsPageData struct {
@@ -266,39 +273,27 @@ func formatHourLabel(h int) string {
 	} else if h == 0 {
 		displayH = 12
 	}
-	return fmt.Sprintf("%02d:00 %s", displayH, period)
+	return fmt.Sprintf("%d:00 %s", displayH, period)
 }
 
-func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
-	user := GetUserFromContext(r.Context())
-	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
-	if !r.URL.Query().Has("coach_id") && user != nil && user.IsCoach() && user.CoachID != nil {
-		coachIDStr = user.CoachID.String()
+func formatHourLabel30(h int) string {
+	period := "AM"
+	displayH := h
+	if h >= 12 {
+		period = "PM"
 	}
-	studentIDStr := strings.TrimSpace(r.URL.Query().Get("student_id"))
-	locationIDStr := strings.TrimSpace(r.URL.Query().Get("location_id"))
-	category := strings.TrimSpace(r.URL.Query().Get("category"))
-	viewMode := strings.TrimSpace(r.URL.Query().Get("view"))
-	if viewMode == "" {
-		viewMode = "grid"
+	if h > 12 {
+		displayH = h - 12
+	} else if h == 0 {
+		displayH = 12
 	}
+	return fmt.Sprintf("%d:30 %s", displayH, period)
+}
 
-	dateParam := strings.TrimSpace(r.URL.Query().Get("date"))
-	if dateParam == "" {
-		dateParam = strings.TrimSpace(r.URL.Query().Get("day"))
-	}
-	if dateParam == "" {
-		dateParam = strings.TrimSpace(r.URL.Query().Get("week_date"))
-	}
-
+func (a *AppHandler) BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, category, studentIDStr, entryTypeFilter string, excludeInternalShifts bool) (CalendarWeek, []*models.TrainingSession, error) {
 	today := time.Now().In(phLocation)
 	todayStr := today.Format("2006-01-02")
 	refDate := today
-
-	entryTypeFilter := strings.TrimSpace(r.URL.Query().Get("entry_type"))
-	if entryTypeFilter == "" {
-		entryTypeFilter = strings.TrimSpace(r.URL.Query().Get("type"))
-	}
 
 	// Pre-filter by coach, student, location, category, and entry type
 	baseFilter := repository.SessionFilter{
@@ -323,8 +318,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 
 	allMatching, err := a.store.GetSessions(baseFilter)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return CalendarWeek{}, nil, err
 	}
 
 	if dateParam != "" {
@@ -332,10 +326,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			refDate = t
 		}
 	}
-	// Note: When dateParam is empty (e.g. on opening attendance), refDate always remains 'today',
-	// ensuring the calendar always centers on the current week.
 
-	// Anchor calendar directly from refDate (today by default), so today's date is always in Column 1
 	weekStart := time.Date(refDate.Year(), refDate.Month(), refDate.Day(), 0, 0, 0, 0, refDate.Location())
 	weekEnd := weekStart.AddDate(0, 0, 6)
 	startDateStr := weekStart.Format("2006-01-02")
@@ -348,12 +339,14 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	// Filter sessions within the selected week
 	var sessions []*models.TrainingSession
 	for _, s := range allMatching {
+		if excludeInternalShifts && s.IsDuty() {
+			continue
+		}
 		sDate := s.SessionDate.Format("2006-01-02")
 		if sDate >= startDateStr && sDate <= endDateStr {
 			sessions = append(sessions, s)
 		}
 	}
-	coaches, _ := a.store.GetAllCoaches()
 
 	// Initialize 7 days (Monday through Sunday)
 	days := make([]*CalendarDay, 7)
@@ -388,6 +381,26 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	attCounts, _ := a.store.GetSessionAttendanceCounts()
+	allAtts, _ := a.store.GetAllAttendances()
+	attsBySession := make(map[uuid.UUID][]*models.Attendance, len(allAtts))
+	for _, att := range allAtts {
+		if att != nil {
+			attsBySession[att.SessionID] = append(attsBySession[att.SessionID], att)
+		}
+	}
+	for _, attList := range attsBySession {
+		sort.SliceStable(attList, func(i, j int) bool {
+			return attList[i].CheckedInAt.Before(attList[j].CheckedInAt)
+		})
+	}
+
+	locations, _ := a.store.GetAllLocations()
+	locCapMap := make(map[uuid.UUID]int, len(locations))
+	for _, loc := range locations {
+		if loc != nil && loc.HasMaxTrainees() {
+			locCapMap[loc.ID] = loc.MaxTraineesVal()
+		}
+	}
 
 	// Map sessions into days and hours
 	for _, s := range sessions {
@@ -401,7 +414,11 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			maxHour = endH
 		}
 
+		sessAttendees := attsBySession[s.ID]
 		attCount := attCounts[s.ID]
+		if attCount == 0 && len(sessAttendees) > 0 {
+			attCount = len(sessAttendees)
+		}
 
 		catBadge := "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
 		switch s.TrainingType {
@@ -426,10 +443,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			statusBadge = "bg-emerald-500 text-white font-bold animate-pulse shadow-sm"
 		}
 
-		timeDisp := s.StartTime
-		if s.EndTime != "" {
-			timeDisp = fmt.Sprintf("%s - %s", s.StartTime, s.EndTime)
-		}
+		timeDisp := s.TimeRange()
 
 		startTotal := startH*60 + startM
 		endTotal := endH*60 + endM
@@ -476,9 +490,16 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			catColor = "#059669"
 		}
 
+		maxCap := 0
+		if s.LocationID != nil {
+			maxCap = locCapMap[*s.LocationID]
+		}
+		isFull := maxCap > 0 && attCount >= maxCap
+
 		calSess := &CalendarSession{
 			Session:         s,
 			AttendanceCount: attCount,
+			Attendees:       sessAttendees,
 			StartHour:       startH,
 			StartMinute:     startM,
 			EndHour:         endH,
@@ -496,6 +517,8 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 			TypeIcon:        typeIcon,
 			DisplayTitle:    s.DisplayTitle(),
 			StaffSummary:    s.StaffSummary(),
+			MaxTrainees:     maxCap,
+			IsFull:          isFull,
 		}
 
 		sessDateStr := s.SessionDate.Format("2006-01-02")
@@ -596,7 +619,9 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().In(phLocation)
-	nowTotalMin := now.Hour()*60 + now.Minute()
+	nowH := now.Hour()
+	nowM := now.Minute()
+	nowTotalMin := nowH*60 + nowM
 	minTotalMin := minHour * 60
 	maxTotalMin := (maxHour + 1) * 60
 	showNowLine := false
@@ -610,9 +635,10 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 	var hours []CalendarHour
 	for h := minHour; h <= maxHour; h++ {
 		hours = append(hours, CalendarHour{
-			Hour:      h,
-			TimeLabel: formatHourLabel(h),
-			Time24:    fmt.Sprintf("%02d:00", h),
+			Hour:        h,
+			TimeLabel:   formatHourLabel(h),
+			TimeLabel30: formatHourLabel30(h),
+			Time24:      fmt.Sprintf("%02d:00", h),
 		})
 	}
 
@@ -629,7 +655,7 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	calWeek := CalendarWeek{
+	return CalendarWeek{
 		StartDate:           weekStart,
 		EndDate:             weekEnd,
 		StartDateStr:        startDateStr,
@@ -642,19 +668,55 @@ func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
 		Title:               weekTitle,
 		MobileTitle:         mobileTitle,
 		MobileTotalSessions: mobileTotalSessions,
-		MonthYear:        weekStart.Format("January 2006"),
-		Days:             days,
-		Hours:            hours,
-		TotalSessions:    len(sessions),
-		MinHour:          minHour,
-		MaxHour:          maxHour,
-		HourHeight:       hourHeight,
-		GridHeight:       gridHeight,
-		NowOffset:        nowOffset,
-		ShowNowLine:      showNowLine,
-		CurrentTimeLabel: currentTimeLabel,
+		MonthYear:           weekStart.Format("January 2006"),
+		Days:                days,
+		Hours:               hours,
+		TotalSessions:       len(sessions),
+		MinHour:             minHour,
+		MaxHour:             maxHour,
+		HourHeight:          hourHeight,
+		GridHeight:          gridHeight,
+		NowOffset:           nowOffset,
+		ShowNowLine:         showNowLine,
+		CurrentTimeLabel:    currentTimeLabel,
+	}, allMatching, nil
+}
+
+func (a *AppHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	coachIDStr := strings.TrimSpace(r.URL.Query().Get("coach_id"))
+	if !r.URL.Query().Has("coach_id") && user != nil && user.IsCoach() && user.CoachID != nil {
+		coachIDStr = user.CoachID.String()
+	}
+	studentIDStr := strings.TrimSpace(r.URL.Query().Get("student_id"))
+	locationIDStr := strings.TrimSpace(r.URL.Query().Get("location_id"))
+	category := strings.TrimSpace(r.URL.Query().Get("category"))
+	viewMode := strings.TrimSpace(r.URL.Query().Get("view"))
+	if viewMode == "" {
+		viewMode = "grid"
 	}
 
+	dateParam := strings.TrimSpace(r.URL.Query().Get("date"))
+	if dateParam == "" {
+		dateParam = strings.TrimSpace(r.URL.Query().Get("day"))
+	}
+	if dateParam == "" {
+		dateParam = strings.TrimSpace(r.URL.Query().Get("week_date"))
+	}
+
+	entryTypeFilter := strings.TrimSpace(r.URL.Query().Get("entry_type"))
+	if entryTypeFilter == "" {
+		entryTypeFilter = strings.TrimSpace(r.URL.Query().Get("type"))
+	}
+
+	calWeek, allMatching, err := a.BuildCalendarWeek(dateParam, locationIDStr, coachIDStr, category, studentIDStr, entryTypeFilter, false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	categories, _ := a.store.GetAllTrainingCategories()
+	coaches, _ := a.store.GetAllCoaches()
 	students, _ := a.store.GetAllStudents()
 
 	// Fetch active Administrators and Operation Managers for Supervising Admin field
@@ -953,6 +1015,20 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 	a.LogAction(r, "SESSION_CREATE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType), fmt.Sprintf("Created %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
 
 	if a.notifSvc != nil {
+		if sess.CoachID != nil && sess.CoachName == "" {
+			if coach, err := a.store.GetCoachByID(*sess.CoachID); err == nil && coach != nil {
+				sess.CoachName = coach.FullName
+			}
+		}
+		if sess.AdminID != nil && sess.AdminName == "" {
+			if adminUser, err := a.store.GetUserByID(*sess.AdminID); err == nil && adminUser != nil {
+				if adminUser.DisplayName != "" {
+					sess.AdminName = adminUser.DisplayName
+				} else {
+					sess.AdminName = adminUser.Email
+				}
+			}
+		}
 		creatorName := "Staff"
 		if u := GetUserFromContext(r.Context()); u != nil && u.DisplayName != "" {
 			creatorName = u.DisplayName
@@ -961,7 +1037,7 @@ func (a *AppHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request)
 	}
 
 	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
-	if redirectURL == "" {
+	if !isSafeLocalRedirect(redirectURL) {
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
 	}
 
@@ -1087,7 +1163,7 @@ func (a *AppHandler) HandleUpdateSession(w http.ResponseWriter, r *http.Request)
 	a.LogAction(r, "SESSION_UPDATE", models.AuditCategorySessions, "Session", sess.ID.String(), string(sess.TrainingType), fmt.Sprintf("Updated %s session on %s", sess.TrainingType, sess.SessionDate.Format("2006-01-02")))
 
 	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
-	if redirectURL == "" || redirectURL == "/sessions" {
+	if !isSafeLocalRedirect(redirectURL) || redirectURL == "/sessions" {
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
 	}
 	if r.Header.Get("HX-Request") == "true" {
@@ -1199,7 +1275,7 @@ func (a *AppHandler) HandleRescheduleSession(w http.ResponseWriter, r *http.Requ
 			sess.SessionDate.Format("2006-01-02"), sess.StartTime, sess.EndTime))
 
 	redirectURL := strings.TrimSpace(r.FormValue("redirect_url"))
-	if redirectURL == "" || redirectURL == "/sessions" {
+	if !isSafeLocalRedirect(redirectURL) || redirectURL == "/sessions" {
 		redirectURL = "/sessions?date=" + sess.SessionDate.Format("2006-01-02")
 	}
 	if r.Header.Get("HX-Request") == "true" {
@@ -1524,7 +1600,10 @@ func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request)
 
 	_ = r.ParseForm()
 	reason := strings.TrimSpace(r.FormValue("reason"))
-	if reason == "" {
+	if reason == "" || reason == "Other" {
+		reason = strings.TrimSpace(r.FormValue("reason_preset"))
+	}
+	if reason == "" || reason == "Other" {
 		reason = "Cancelled by staff"
 	}
 
@@ -1550,10 +1629,11 @@ func (a *AppHandler) HandleCancelSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	referer := r.Header.Get("Referer")
-	if referer != "" {
-		http.Redirect(w, r, referer, http.StatusSeeOther)
-		return
+	if referer := r.Header.Get("Referer"); referer != "" {
+		if u, parseErr := url.Parse(referer); parseErr == nil && (u.Host == "" || strings.EqualFold(u.Host, r.Host)) && isSafeLocalRedirect(u.RequestURI()) {
+			http.Redirect(w, r, u.RequestURI(), http.StatusSeeOther)
+			return
+		}
 	}
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
@@ -1617,46 +1697,52 @@ func (a *AppHandler) HandleCheckIn(w http.ResponseWriter, r *http.Request) {
 		usedPkg, err := a.packageSvc.ProcessCheckInDeduction(pkgs, atts, time.Now())
 		if err == nil && usedPkg != nil {
 			pkgID = &usedPkg.ID
-			_ = a.store.UpdateStudentPackage(usedPkg)
 		} else if !override {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusPaymentRequired)
 			w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-rose-950 border border-rose-800 text-rose-300 rounded-lg text-sm">
-				❌ Check-in rejected: %v. <button hx-post="/sessions/%s/checkin/%s?override=true" hx-target="#attendance-roster" hx-swap="afterbegin" class="underline font-bold ml-2">Manual Override</button>
-			</div>`, err, sessionID, studentID)))
+				❌ Check-in rejected: %s. <button hx-post="/sessions/%s/checkin/%s?override=true" hx-target="#attendance-roster" hx-swap="afterbegin" class="underline font-bold ml-2">Manual Override</button>
+			</div>`, html.EscapeString(err.Error()), sessionID, studentID)))
 			return
 		} else if override {
 			for _, p := range pkgs {
 				if p.IsValidAt(time.Now()) {
-					_ = p.DeductSession(time.Now())
 					pkgID = &p.ID
-					_ = a.store.UpdateStudentPackage(p)
 					break
 				}
 			}
 		}
 	}
 
-	att, err := a.store.CheckInStudent(sessionID, studentID, pkgID, sessionRate)
+	var att *models.Attendance
+	if pkgID != nil {
+		att, err = a.store.CheckInStudentWithPackageDeduction(sessionID, studentID, *pkgID, sessionRate)
+	} else {
+		att, err = a.store.CheckInStudent(sessionID, studentID, nil, sessionRate)
+	}
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %v</div>`, err)))
+		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %s</div>`, html.EscapeString(err.Error()))))
 		return
 	}
 
 	st, _ := a.store.GetStudentByID(studentID)
-	allSessions, _ := a.store.GetAllSessions()
-	allSessionsMap := make(map[string]*models.TrainingSession)
-	for _, s := range allSessions {
-		allSessionsMap[s.ID.String()] = s
+	studentName := studentID.String()
+	var readiness services.PromotionReadiness
+	if st != nil {
+		studentName = st.FullName
+		allSessions, _ := a.store.GetAllSessions()
+		allSessionsMap := make(map[string]*models.TrainingSession)
+		for _, s := range allSessions {
+			allSessionsMap[s.ID.String()] = s
+		}
+		atts, _ := a.store.GetStudentAttendances(studentID)
+		latestEval, _ := a.store.GetLatestEvaluation(studentID)
+		readiness = a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
 	}
 
-	atts, _ := a.store.GetStudentAttendances(studentID)
-	latestEval, _ := a.store.GetLatestEvaluation(studentID)
-	readiness := a.promotionSvc.EvaluateReadiness(st, atts, allSessionsMap, latestEval)
-
-	a.LogAction(r, "ATTENDANCE_CHECKIN", models.AuditCategoryAttendance, "Student", studentID.String(), st.FullName, fmt.Sprintf("Checked in student %s to session", st.FullName))
+	a.LogAction(r, "ATTENDANCE_CHECKIN", models.AuditCategoryAttendance, "Student", studentID.String(), studentName, fmt.Sprintf("Checked in student %s to session", studentName))
 
 	if a.notifSvc != nil && st != nil {
 		actorName := "Staff"
@@ -1750,10 +1836,11 @@ func (a *AppHandler) HandleRemoveAttendance(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	referer := r.Header.Get("Referer")
-	if referer != "" {
-		http.Redirect(w, r, referer, http.StatusSeeOther)
-		return
+	if referer := r.Header.Get("Referer"); referer != "" {
+		if u, parseErr := url.Parse(referer); parseErr == nil && (u.Host == "" || strings.EqualFold(u.Host, r.Host)) && isSafeLocalRedirect(u.RequestURI()) {
+			http.Redirect(w, r, u.RequestURI(), http.StatusSeeOther)
+			return
+		}
 	}
 	http.Redirect(w, r, fmt.Sprintf("/sessions/%s/live", sessionID), http.StatusSeeOther)
 }
@@ -1810,11 +1897,24 @@ func (a *AppHandler) HandleCheckInAttendee(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	att, err := a.store.CheckInAttendee(sessionID, attendeeType, studentIDPtr, attendeeName, attendeeRole, nil, nil)
+	var sessionRate *float64
+	if rateStr := strings.TrimSpace(r.FormValue("session_rate")); rateStr != "" {
+		if val, err := strconv.ParseFloat(rateStr, 64); err == nil && val >= 0 {
+			sessionRate = &val
+		}
+	} else if session != nil && session.SessionRate != nil {
+		sessionRate = session.SessionRate
+	} else if session != nil && session.LocationID != nil {
+		if loc, err := a.store.GetLocationByID(*session.LocationID); err == nil && loc != nil && loc.FixedRate != nil {
+			sessionRate = loc.FixedRate
+		}
+	}
+
+	att, err := a.store.CheckInAttendee(sessionID, attendeeType, studentIDPtr, attendeeName, attendeeRole, nil, sessionRate)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %v</div>`, err)))
+		w.Write([]byte(fmt.Sprintf(`<div class="p-3 bg-amber-950 border border-amber-800 text-amber-300 rounded-lg text-sm">⚠️ %s</div>`, html.EscapeString(err.Error()))))
 		return
 	}
 
@@ -1833,4 +1933,3 @@ func (a *AppHandler) HandleCheckInAttendee(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("HX-Trigger", "attendanceUpdated")
 	a.RenderPartial(w, "checkin_row.html", data)
 }
-

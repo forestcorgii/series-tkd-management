@@ -31,7 +31,7 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 	}
 	_ = store.CreateCoach(coach)
 
-	sessDate, _ := time.Parse("2006-01-02", "2026-10-15")
+	sessDate := time.Now().Truncate(24 * time.Hour)
 	sess := &models.TrainingSession{
 		ID:           uuid.New(),
 		SessionDate:  sessDate,
@@ -241,6 +241,43 @@ func TestSessionHandler_FiltersAndCancellation(t *testing.T) {
 		}
 		if updatedSess.CancellationReason != "Inclement weather alert" {
 			t.Errorf("expected reason 'Inclement weather alert', got '%s'", updatedSess.CancellationReason)
+		}
+	})
+
+	t.Run("HandleCancelSession cancels with reason_preset dropdown option", func(t *testing.T) {
+		sessPreset := &models.TrainingSession{
+			ID:           uuid.New(),
+			SessionDate:  time.Now(),
+			StartTime:    "18:00",
+			EndTime:      "19:00",
+			TrainingType: models.TrainingSparring,
+			EntryType:    models.EntryTypeClass,
+		}
+		_ = store.CreateSession(sessPreset)
+
+		form := url.Values{}
+		form.Set("reason_preset", "Coach Illness / Emergency")
+		form.Set("refund_credits", "true")
+
+		req := httptest.NewRequest(http.MethodPost, "/sessions/"+sessPreset.ID.String()+"/cancel", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		app.HandleCancelSession(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect, got %d", rec.Code)
+		}
+
+		updated, err := store.GetSessionByID(sessPreset.ID)
+		if err != nil {
+			t.Fatalf("GetSessionByID failed: %v", err)
+		}
+		if !updated.IsCancelled {
+			t.Errorf("expected session to be marked as cancelled")
+		}
+		if updated.CancellationReason != "Coach Illness / Emergency" {
+			t.Errorf("expected reason 'Coach Illness / Emergency', got '%s'", updated.CancellationReason)
 		}
 	})
 
@@ -576,7 +613,6 @@ func TestSessionHandler_CalendarMultiHourAndHalfHour(t *testing.T) {
 		t.Errorf("expected horizontal flex alignment for day name and date number")
 	}
 }
-
 
 func TestSessionHandler_FilterByStudentAndRecentSorting(t *testing.T) {
 	store := repository.NewMemoryStore()
@@ -1010,7 +1046,7 @@ func TestSessionHandler_AdminDropdownEditAndDelete(t *testing.T) {
 		allSess, _ := store.GetAllSessions()
 		var sess *models.TrainingSession
 		for _, s := range allSess {
-			if s.SessionDate.Format("2006-01-02") == "2026-10-22" && s.StartTime == "17:00" {
+			if s.Notes == "Coach unassigned class" {
 				sess = s
 				break
 			}
@@ -1565,7 +1601,7 @@ func TestHandleCreateSession_LocationFixedRatePreFill(t *testing.T) {
 	sessions, _ := store.GetAllSessions()
 	var adminSess *models.TrainingSession
 	for _, s := range sessions {
-		if s.SessionDate.Format("2006-01-02") == "2026-10-27" {
+		if s.SessionDate.Format("2006-01-02") == "2026-10-27" && s.LocationID != nil && *s.LocationID == loc.ID {
 			adminSess = s
 			break
 		}
@@ -2055,6 +2091,100 @@ func TestDynamicCalendar_EventsDutyAndOpenSessions(t *testing.T) {
 	})
 }
 
+func TestHandleCheckInAttendee_GuestRateNotDefaultedToFree(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	fixedRate := 350.0
+	classSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "10:00",
+		EndTime:      "11:00",
+		TrainingType: models.TrainingSparring,
+		EntryType:    models.EntryTypeClass,
+		SessionRate:  &fixedRate,
+	}
+	_ = store.CreateSession(classSess)
+
+	// 1. Admit a Guest without specifying rate -> inherits class fixed rate 350.00, does not default to Free
+	formAutoRate := url.Values{
+		"attendee_type": {"guest"},
+		"attendee_name": {"Guest Alex"},
+		"attendee_role": {"Guest"},
+	}
+	reqAuto := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin-attendee", classSess.ID), strings.NewReader(formAutoRate.Encode()))
+	reqAuto.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recAuto := httptest.NewRecorder()
+	app.HandleCheckInAttendee(recAuto, reqAuto)
+
+	if recAuto.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", recAuto.Code, recAuto.Body.String())
+	}
+	bodyAuto := recAuto.Body.String()
+	if !strings.Contains(bodyAuto, "350.00") {
+		t.Errorf("expected attendance row to contain inherited class rate 350.00, got:\n%s", bodyAuto)
+	}
+	if strings.Contains(bodyAuto, "🔓 Free") {
+		t.Errorf("guest in fixed-rate session should not display Free")
+	}
+
+	// 2. Admit a Guest with custom rate 450.00
+	formCustomRate := url.Values{
+		"attendee_type": {"guest"},
+		"attendee_name": {"Guest Taylor"},
+		"attendee_role": {"Visitor"},
+		"session_rate":  {"450.00"},
+	}
+	reqCustom := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin-attendee", classSess.ID), strings.NewReader(formCustomRate.Encode()))
+	reqCustom.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recCustom := httptest.NewRecorder()
+	app.HandleCheckInAttendee(recCustom, reqCustom)
+
+	if recCustom.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", recCustom.Code, recCustom.Body.String())
+	}
+	bodyCustom := recCustom.Body.String()
+	if !strings.Contains(bodyCustom, "450.00") {
+		t.Errorf("expected attendance row to contain custom rate 450.00, got:\n%s", bodyCustom)
+	}
+
+	// 3. Normal class without fixed rate or custom rate: should render Guest Drop-in, NOT Free
+	standardSess := &models.TrainingSession{
+		ID:           uuid.New(),
+		SessionDate:  time.Now(),
+		StartTime:    "14:00",
+		EndTime:      "15:00",
+		TrainingType: models.TrainingPoomsae,
+		EntryType:    models.EntryTypeClass,
+	}
+	_ = store.CreateSession(standardSess)
+
+	formNoRate := url.Values{
+		"attendee_type": {"guest"},
+		"attendee_name": {"Guest Jordan"},
+		"attendee_role": {"Guest"},
+	}
+	reqNoRate := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/sessions/%s/checkin-attendee", standardSess.ID), strings.NewReader(formNoRate.Encode()))
+	reqNoRate.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recNoRate := httptest.NewRecorder()
+	app.HandleCheckInAttendee(recNoRate, reqNoRate)
+
+	if recNoRate.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", recNoRate.Code, recNoRate.Body.String())
+	}
+	bodyNoRate := recNoRate.Body.String()
+	if strings.Contains(bodyNoRate, "🔓 Free") {
+		t.Errorf("guest in standard class with no rate set should NOT default to Free, got:\n%s", bodyNoRate)
+	}
+	if !strings.Contains(bodyNoRate, "Guest Drop-in") {
+		t.Errorf("expected Guest Drop-in label, got:\n%s", bodyNoRate)
+	}
+}
+
 func TestSessionHandler_RescheduleSession(t *testing.T) {
 	store := repository.NewMemoryStore()
 	app, err := handlers.NewAppHandler(store)
@@ -2306,7 +2436,7 @@ func TestHandleLiveSession_DutyAndEventRedirect(t *testing.T) {
 		t.Fatalf("failed to initialize AppHandler: %v", err)
 	}
 
-	sessDate, _ := time.Parse("2006-01-02", "2026-10-15")
+	sessDate := time.Now().Truncate(24 * time.Hour)
 
 	// 1. Duty Session
 	dutySess := &models.TrainingSession{
@@ -2379,6 +2509,13 @@ func TestHandleLiveSession_DutyAndEventRedirect(t *testing.T) {
 
 		if rec.Code != http.StatusOK {
 			t.Errorf("expected 200 OK for class session live attendance, got %d", rec.Code)
+		}
+		liveBody := rec.Body.String()
+		if !strings.Contains(liveBody, "live-cancel-reason-select") {
+			t.Errorf("expected live attendance page to contain cancellation reason dropdown select")
+		}
+		if !strings.Contains(liveBody, "Inclement Weather / Typhoon Signal") {
+			t.Errorf("expected live attendance page to contain preset reason option")
 		}
 	})
 }
@@ -2454,5 +2591,67 @@ func TestCalendar_RetainAnchorDateOnScheduleAddOrEdit(t *testing.T) {
 	}
 	if loc := recEdit.Header().Get("Location"); loc != "/sessions?date="+calendarAnchor {
 		t.Fatalf("expected update redirect to calendar anchor %s, got %s", "/sessions?date="+calendarAnchor, loc)
+	}
+}
+
+func TestSessionHandler_ScheduleSocialExportElements(t *testing.T) {
+	store := repository.NewMemoryStore()
+	app, err := handlers.NewAppHandler(store)
+	if err != nil {
+		t.Fatalf("failed to initialize AppHandler: %v", err)
+	}
+
+	// 1. Full Page GET /sessions
+	req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+	rec := httptest.NewRecorder()
+	app.HandleSessions(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+
+	// Verify #schedule container ID exists
+	if !strings.Contains(body, `id="schedule"`) {
+		t.Errorf("expected id=\"schedule\" container in sessions page")
+	}
+
+	// Verify export button exists in calendar header toolbar
+	if !strings.Contains(body, `id="export-schedule-btn"`) {
+		t.Errorf("expected id=\"export-schedule-btn\" in rendered sessions page")
+	}
+	if !strings.Contains(body, `onclick="exportScheduleSnapshot(this)"`) {
+		t.Errorf("expected onclick=\"exportScheduleSnapshot(this)\" on export button")
+	}
+
+	// Verify html2canvas CDN integration script exists
+	if !strings.Contains(body, "html2canvas.min.js") {
+		t.Errorf("expected html2canvas CDN script in rendered sessions page")
+	}
+
+	// Verify schedule-export.js script is included
+	if !strings.Contains(body, "/static/js/schedule-export.js") {
+		t.Errorf("expected /static/js/schedule-export.js script in rendered layout")
+	}
+
+	// 2. Partial HTMX GET /sessions (HX-Request: true)
+	reqPartial := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+	reqPartial.Header.Set("HX-Request", "true")
+	recPartial := httptest.NewRecorder()
+	app.HandleSessions(recPartial, reqPartial)
+
+	if recPartial.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for partial, got %d", recPartial.Code)
+	}
+	partialBody := recPartial.Body.String()
+
+	// Verify data-calendar-title attribute exists on session cards wrapper
+	if !strings.Contains(partialBody, "data-calendar-title=") {
+		t.Errorf("expected data-calendar-title attribute in session cards wrapper partial")
+	}
+
+	// Verify quick export button in session cards toolbar
+	if !strings.Contains(partialBody, `onclick="exportScheduleSnapshot(this)"`) {
+		t.Errorf("expected export button in session cards toolbar partial")
 	}
 }

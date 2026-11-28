@@ -1,5 +1,5 @@
 [phases.build]
-cmds = ["go build -ldflags=\"-w -s\" -o out ./cmd/server"]
+cmds = ["go build -ldflags=\"-w -s\" -o out ."]
 
 [start]
 cmd = "./out"

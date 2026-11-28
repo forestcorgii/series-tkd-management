@@ -45,7 +45,7 @@
                         class="px-2.5 py-1 rounded-lg border border-[#E5E3D8] dark:border-neutral-800 bg-white dark:bg-neutral-900 text-black dark:text-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#990303]">
                     {{range .AllSessions}}
                     <option value="{{.ID}}" {{if and $.LiveSession (eq $.LiveSession.ID.String .ID.String)}}selected{{end}}>
-                        {{.StartTime}} - {{.EndTime}} ({{if .IsOpenSession}}🔓 Free/Open{{else}}{{.TrainingType}}{{end}})
+                        {{formatTimeRange .StartTime .EndTime}} ({{if .IsOpenSession}}🔓 Free/Open{{else}}{{.TrainingType}}{{end}})
                     </option>
                     {{end}}
                 </select>
@@ -62,7 +62,7 @@
                 <div class="flex items-center justify-between gap-2.5 mb-3">
                     <div class="flex items-center gap-1.5">
                         <h2 class="font-display font-extrabold text-sm sm:text-base uppercase text-black dark:text-[#FFFDF4]">
-                            Live Mat Roster ({{if .LiveSession}}{{if .LiveSession.IsOpenSession}}Free/Open{{else}}{{.LiveSession.TrainingType}}{{end}} @ {{.LiveSession.StartTime}}{{else}}Floor Standby{{end}})
+                            Live Mat Roster ({{if .LiveSession}}{{if .LiveSession.IsOpenSession}}Free/Open{{else}}{{.LiveSession.TrainingType}}{{end}} @ {{formatTime .LiveSession.StartTime}}{{else}}Floor Standby{{end}})
                         </h2>
                         <div class="has-tooltip inline-flex items-center">
                             <button type="button" class="tooltip-icon" aria-label="Live mat roster note">ⓘ</button>
@@ -123,11 +123,11 @@
                                 <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-xs">
                                     {{if .PackageTitle}}{{.PackageTitle}}{{else}}Membership Verified{{end}}
                                 </td>
-                                <td class="py-1.5 px-2.5 text-slate-500 text-[11px]">{{formatDate .CheckedInAt}}</td>
+                                <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-[11px]">{{formatDate .CheckedInAt}}</td>
                             </tr>
                             {{else}}
                             <tr>
-                                <td colspan="4" class="py-5 text-center text-slate-500">No students checked into this class yet.</td>
+                                <td colspan="4" class="py-5 text-center text-slate-600 dark:text-slate-400">No students checked into this class yet.</td>
                             </tr>
                             {{end}}
                         </tbody>
@@ -166,7 +166,7 @@
                                     {{.Readiness.Status}}
                                 </span>
                             </div>
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                            <span class="text-[10px] text-slate-600 dark:text-slate-400 block mt-0.5">
                                 Current: {{.Student.CurrentBelt}} &bull; Target: {{.Student.NextBelt}}
                             </span>
                         </div>
@@ -177,7 +177,7 @@
                         </button>
                     </div>
                     {{else}}
-                    <p class="text-xs text-slate-500 col-span-2 text-center py-3">No candidates currently eligible in queue.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 col-span-2 text-center py-3">No candidates currently eligible in queue.</p>
                     {{end}}
                 </div>
             </div>

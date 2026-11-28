@@ -41,4 +41,36 @@ func TestLocation(t *testing.T) {
 	if emptyLoc.HasValidPin() {
 		t.Errorf("expected invalid pin for whitespace string")
 	}
+
+	max25 := 25
+	locWithCap := &models.Location{
+		Name:        "Ortigas Dojang",
+		MaxTrainees: &max25,
+	}
+	if !locWithCap.HasMaxTrainees() {
+		t.Errorf("expected HasMaxTrainees to be true")
+	}
+	if locWithCap.MaxTraineesVal() != 25 {
+		t.Errorf("expected MaxTraineesVal to be 25, got %d", locWithCap.MaxTraineesVal())
+	}
+
+	zeroCap := 0
+	locWithZero := &models.Location{
+		Name:        "Pasig Dojang",
+		MaxTrainees: &zeroCap,
+	}
+	if locWithZero.HasMaxTrainees() {
+		t.Errorf("expected HasMaxTrainees to be false for 0")
+	}
+	if locWithZero.MaxTraineesVal() != 0 {
+		t.Errorf("expected MaxTraineesVal to be 0, got %d", locWithZero.MaxTraineesVal())
+	}
+
+	var nilLoc *models.Location
+	if nilLoc.HasMaxTrainees() {
+		t.Errorf("expected nil Location HasMaxTrainees to be false")
+	}
+	if nilLoc.MaxTraineesVal() != 0 {
+		t.Errorf("expected nil Location MaxTraineesVal to be 0")
+	}
 }

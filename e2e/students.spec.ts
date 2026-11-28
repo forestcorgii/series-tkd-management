@@ -21,6 +21,7 @@ test.describe('Student Directory & Belt Progression Suite', () => {
 
     // Wait for filtered results
     await expect(page.locator('#student-rows')).toContainText('Alex Vance');
+    await expect(page.locator('#student-rows')).not.toContainText('Chloe Ramirez');
   });
 
   test('should navigate to student profile and display belt progression details', async ({ page }) => {

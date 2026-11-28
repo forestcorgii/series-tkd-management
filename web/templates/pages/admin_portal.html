@@ -29,14 +29,14 @@
             <div class="kpi-val {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400{{else}}text-black dark:text-white{{end}}">
                 {{.OpenIncidentsCount}}
             </div>
-            <p class="kpi-sub {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400 font-bold{{else}}text-slate-500{{end}}">
+            <p class="kpi-sub {{if gt .OpenIncidentsCount 0}}text-rose-600 dark:text-rose-400 font-bold{{else}}text-slate-600 dark:text-slate-400{{end}}">
                 {{if gt .OpenIncidentsCount 0}}Action Due{{else}}All Clear{{end}}
             </p>
         </div>
     </div>
 
-    <!-- Pending Staff Approvals Alert Banner -->
-    {{if or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}}
+    <!-- Pending Approvals Alert Banner -->
+    {{if or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0) (gt .PendingStudentsCount 0)}}
     <div class="p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
         <div class="flex items-center gap-2.5">
             <div class="h-8 w-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-xs">
@@ -44,9 +44,11 @@
             </div>
             <div>
                 <h3 class="font-display font-bold text-xs uppercase tracking-wide text-amber-900 dark:text-amber-300">
-                    Pending Staff Registrations Awaiting Approval
+                    Pending Registrations Awaiting Approval
                 </h3>
                 <p class="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
+                    {{if gt .PendingStudentsCount 0}}<strong>{{.PendingStudentsCount}}</strong> Student{{if gt .PendingStudentsCount 1}}s{{end}}{{end}}
+                    {{if and (gt .PendingStudentsCount 0) (or (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0))}} &bull; {{end}}
                     {{if gt .PendingCoachesCount 0}}<strong>{{.PendingCoachesCount}}</strong> Coach{{if gt .PendingCoachesCount 1}}es{{end}}{{end}}
                     {{if and (gt .PendingCoachesCount 0) (gt .PendingAdminsCount 0)}} &bull; {{end}}
                     {{if gt .PendingAdminsCount 0}}<strong>{{.PendingAdminsCount}}</strong> Admin{{if gt .PendingAdminsCount 1}}s{{end}}{{end}}
@@ -54,7 +56,12 @@
                 </p>
             </div>
         </div>
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+            {{if gt .PendingStudentsCount 0}}
+            <a href="/students?status=__pending__" class="btn btn-primary btn-xs flex items-center gap-1 shadow-2xs">
+                <span>🎓 Review Students ({{.PendingStudentsCount}})</span>
+            </a>
+            {{end}}
             {{if gt .PendingCoachesCount 0}}
             <a href="/coaches" class="btn btn-warning btn-xs flex items-center gap-1 shadow-2xs">
                 <span>🥋 Review Coaches ({{.PendingCoachesCount}})</span>
@@ -173,7 +180,7 @@
                     </tr>
                     {{else}}
                     <tr>
-                        <td colspan="7" class="py-6 text-center text-slate-500">No student records found.</td>
+                        <td colspan="7" class="py-6 text-center text-slate-600 dark:text-slate-400">No student records found.</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -197,7 +204,7 @@
                         </div>
                     </div>
                 </div>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-500{{end}} flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold {{if gt .OpenIncidentsCount 0}}bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30{{else}}bg-neutral-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400{{end}} flex-shrink-0">
                     {{.OpenIncidentsCount}} Open
                 </span>
             </div>
@@ -217,7 +224,7 @@
                                 Incident: <strong class="text-black dark:text-white">{{.IncidentType}}</strong>
                             </span>
                         </div>
-                        <span class="text-[10px] text-slate-500">{{formatDate .CreatedAt}}</span>
+                        <span class="text-[10px] text-slate-600 dark:text-slate-400">{{formatDate .CreatedAt}}</span>
                     </div>
 
                     <p class="p-1.5 rounded bg-neutral-100 dark:bg-neutral-800/80 text-[11px] text-slate-700 dark:text-slate-300 mb-2 italic">
@@ -225,7 +232,7 @@
                     </p>
 
                     <div class="flex items-center justify-between pt-0.5">
-                        <span class="text-[10px] text-slate-500">
+                        <span class="text-[10px] text-slate-600 dark:text-slate-400">
                             {{if .Resolved}}Resolved: {{.ResolvedBy}}{{else}}By: {{.CoachName}}{{end}}
                         </span>
 
@@ -240,7 +247,7 @@
                     </div>
                 </div>
                 {{else}}
-                <p class="text-xs text-slate-500 py-4 text-center">No safety incidents on record.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 py-4 text-center">No safety incidents on record.</p>
                 {{end}}
             </div>
         </div>
@@ -295,18 +302,18 @@
                     <div>
                         <label class="form-label text-[10px]">Start Time</label>
                         <select name="start_time" required class="form-select text-xs py-1">
-                            <option value="17:00">17:00</option>
-                            <option value="18:30">18:30</option>
-                            <option value="19:45">19:45</option>
+                            <option value="17:00">5:00 PM</option>
+                            <option value="18:30">6:30 PM</option>
+                            <option value="19:45">7:45 PM</option>
                         </select>
                     </div>
                     <div>
                         <label class="form-label text-[10px]">End Time</label>
                         <select name="end_time" required class="form-select text-xs py-1">
-                            <option value="18:15">18:15</option>
-                            <option value="18:30">18:30 (Ext)</option>
-                            <option value="19:45">19:45</option>
-                            <option value="20:00">20:00 (Ext)</option>
+                            <option value="18:15">6:15 PM</option>
+                            <option value="18:30">6:30 PM (Ext)</option>
+                            <option value="19:45">7:45 PM</option>
+                            <option value="20:00">8:00 PM (Ext)</option>
                         </select>
                     </div>
                 </div>
